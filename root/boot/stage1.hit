@@ -1,0 +1,243 @@
+// this stage sets up module system and pattern matcher
+
+let (process_scope shaded collect_funs search_method chain_funs
+     inline_list generate_closure
+     simple_arglist? variable_name? function_name?
+     add_macro xs? list_locate list_locate2
+     list_fold list_join list_keep
+     run_file process_module compile_file)
+  (_set add_macro (_fn (Name Macro) (_set Macs [[Name (_fn (X) (_tag macro) Macro)] @Macs])))
+  (_set xs?
+    (_fn (O)
+      (if tag_of.O is list then
+         if O.size > 0 then Yes
+         else No
+      else No)))
+  (_set list_locate2
+    (_fn (Xs F I)
+      (if Xs end then No
+       else if F Xs.head then I
+       else list_locate2 Xs.tail F (I `+` 1))))
+  (_set list_locate (_fn (Xs F) (list_locate2 Xs F 0)))
+  (_set variable_name?
+    (_fn (X)
+      (if tag_of.X is text then if X.size > 0 then X.0 upcase?
+                           else No
+       else No)))
+  (_set function_name?
+    (_fn (X)
+      (if tag_of.X is text then if variable_name? X then No
+                                else Yes
+       else No)))
+  (_set simple_arglist?
+    (_fn (Xs)
+      (if Xs end then Yes
+       else let ((X Xs.head)
+                 (Xs Xs.tail))
+              if variable_name? X then simple_arglist? Xs
+              else if headed? '@' X then
+                if X.size is 2 then
+                  if variable_name? X.1 then Xs end
+                  else No
+                else No
+              else No)))
+  (_set chain_funs
+    (_fn (Fs)
+      (if Fs end then error 'cant chain_funs empty list' else)
+      (let ((Args Fs.0.0) (Body Fs.0.1) (Fs Fs.tail))
+        (if simple_arglist? Args
+         then [_fn Args Body]
+         else error 'pattern matching not implemented yet'))))
+  (_set collect_funs
+    (_fn (Xs Ms Name)
+      (let (R Y Ys Args Label Rest)
+        (if Xs end then progn (_set R [Xs Ms Name])
+                              (_goto return)
+         else if headed? '=>' Xs.head then
+         else progn (_set R [Xs Ms Name])
+                    (_goto return))
+        (_set Y Xs.head)
+        (_set Ys Xs.tail)
+        (_set Args Y.1)
+        (_set Label Args.head)
+        (_set Rest Args.tail)
+        (if function_name? Label then _set Args Rest //strip name
+                                 else _set Label No) //nameless
+        (if (if Name then Label is Name else Yes) then
+         else progn (_set R [Xs Ms Name])
+                    (_goto return))
+        (_set R (process_scope Y.tail.tail))
+        (if Label then _set R [block Label R] else)
+        (_set R (collect_funs Ys [[Args R] @Ms] Label))
+        return R)))
+  (_set shaded
+    (_fn (Xs wild newVar newFun end)
+      (let (R X Ms Name Ys Place Value)
+        (if Xs end then progn (_set R (end))
+                              (_goto return)
+                   else)
+        (_set Ys (collect_funs Xs [] No))
+        (_set Xs pop.Ys) //Xs = [Args Body]
+        (_set Ms pop.Ys) //Ms are multimethods
+        (_set Name pop.Ys)
+        (if Ms end
+         then
+         else progn
+           (_set Ms Ms.reverse)
+           (if Name //got function?
+            then progn (newFun Name)
+                       (_set Xs (Xs headed [_set Name chain_funs.Ms]))
+            else progn (wild Ms)
+                       (_set R (shaded Xs &wild &newVar &newFun &end))
+                       (_goto return)))
+        (_set X pop.Xs)
+        //assign dummy name to unnamed result
+        (_set X (if headed? '=' X then X tail else [['D'.gensym] X]))
+        (_set Place pop.X)
+        (_set Value pop.X)
+        (_set Name No)
+        (if Place.size is 1 then _set Name Place.0
+         else if Place.size is 2 then
+           let ((P (Place locate (_fn (X) (headed? '!!' X)))))
+            (if P
+             then progn (_set Value [_set Place.P.1 Value])
+                        (_set Name 'D'.gensym)
+             else)
+         else error Place '=' Value ': destructuring not implemented yet')
+        (if tag_of.Name is text then
+         else error Place '=' Value ': destructuring not implemented yet')
+        (newVar Name)
+        (_set R [[_fn [Name] (shaded Xs &wild &newVar &newFun &end)] Value])
+        return R)))
+  (_set search_method
+    (_fn (H Ms Fail)
+      (if Ms end then Fail
+       else let ((Label Ms.0.0) (Body Ms.0.1) (Ms Ms.tail))
+              [_if [H is Label] Body (search_method H Ms Fail)])))
+  (_set generate_closure
+    (_fn (Self Wild Funs)
+      (let (R H W Fail Ms Args)
+        (_set Args 'SinkArgs'.gensym)
+        (_set Wild [@Wild [[['@' Args]] [generic_ [_quote Self] Args]]])
+        (_set Wild (chain_funs Wild))
+        (if Funs then else progn (_set R Wild)
+                                 (_goto return))
+        (_set Args 'Args'.gensym)
+        (_set H 'Head'.gensym)
+        (_set W 'Nameless'.gensym) //wildcard
+        (_set Fail [W ['@' Args]])
+        (_set Ms (Funs map (_fn (F) [F [F ['@' [Args tail]]]])))
+        (_set R [_fn [['@' Args]]
+                   [[_fn [W H]
+                     [_if [[tag_of H] is text]
+                          (search_method H Ms Fail)
+                          Fail]]
+                    Wild [Args head]]])
+        return R)))
+  (_set process_scope
+    (_fn (Xs)
+      (let ((R Void)
+            (C No)
+            (Self No)
+            (Wild [])
+            (Funs [])
+            (LastResult No))
+        (if Xs end then _goto return else)
+        (_set Self (if headed? '=>' Xs.last then \Me else No))
+        (_set R (shaded Xs
+                  (_fn (W) (_set Wild W))
+                  (_fn (N) (_set LastResult N))
+                  (_fn (N) (_set Funs (Funs headed N)))
+                  (_fn () (if Self then Self else LastResult))
+                  ))
+        (if Self then let ((C (generate_closure Self Wild Funs)))
+          (_set R [[_fn [Self]
+                     [[_fn ['A'.gensym] ['&' Self]]
+                      R]]
+                   C])
+         else)
+        (if Funs end then
+         else _set R [[_fn Funs R] @(Funs map (_fn (F) Void))])
+        return R)))
+  (_set inline_list (_fn () [_fn [['@' 'Xs']] 'Xs']))
+  (add_macro `|` (_fn (@Xs) (process_scope Xs)))
+  (add_macro block
+    (_fn (Label Expr)
+      (let ((L [_break_ Label].join_text)
+            (R [_break_ Label _r].join_text))
+        [[_fn [R] [_set R Expr] L [`&` R]] Void])))
+  (add_macro break
+    (_fn (Label @Value)
+      (let ((L [_break_ Label].join_text)
+            (V 'V'.gensym)
+            (Value (if Value end then Void else Value.0)))
+        [[_fn [V] [_set [L _r].join_text V] [_goto L]] Value])))
+
+  (_set list_fold
+    (_fn (Xs Base F)
+       if Xs end then Base
+       else list_fold Xs.tail (F Base Xs.head) F))
+  (_set list_join (_fn (Xs) (Xs fold [] (_fn (A B) [@A @B]))))
+
+  (_set list_keep (_fn (Xs F) (Xs fold [] (_fn (Ys X) if F X then [X@Ys] else Ys)).reverse))
+
+  (add_macro export
+    (_fn (@Xs)
+      [(inline_list)
+       @(Xs map
+          (_fn (X)
+            if headed? '\\' X
+              then [(inline_list) X.1 [_fn ['X']
+                                        [_tag macro]
+                                        [_fn [['@' 'As']] [['&' X.1] ['@' 'As']]]]]
+            else if function_name? X then [(inline_list) X ['&' X]]
+            else if headed? '@' X then ['@' X.1]
+            else error invalid export))]))
+
+  (_set process_module
+    (_fn (Name Root Lib Xs)
+      (let ((Uses [])
+            (Exports No))
+        (_set Xs (if headed? '|' Xs then Xs.tail else [Xs]))
+        (if Xs.size > 0 then let ((X Xs.head))
+           (if xs? X then
+              if X.head is use then let ()
+                (_set Uses X.tail)
+                (_set Xs Xs.tail)
+              else
+            else)
+         else)
+        (_set Uses [core @Uses]) //core module is auto-provided
+        (macroexpand (Uses fold ['|' @Xs] (_fn (Xs U) [[_fn (Lib U names) Xs] ['@' [Root U values]]]))
+                     (Uses map (_fn (U) ((Lib U bonds) keep (_fn (B) ((tag_of B.1) is macro))))).join))))
+
+  // FIXME: cache loaded modules somewhere (hashtable?)
+  (_set run_file
+    (_fn (Name Load)
+      (let ((Lib (_fn (Module What)
+                   (let ((Xs (Load Module)))
+                      if What is bonds then Xs
+                      else if What is names then Xs map (_fn (X) X.0)
+                      else if What is values then Xs map (_fn (X) X.1)
+                      else error invalid request for What in Module module)))
+            (Xs (load_text_file.Name parse Name))
+            (Root 'Lib'))
+        ((process_module Name Root Lib Xs) eval [[Root Lib]]))))
+
+  (_set Env
+    [[ //[`|` (_fn (@Xs) (process_scope Xs))]
+      [list_locate &list_locate]
+      [list_fold &list_fold]
+      [list_join &list_join]
+      [list_keep &list_keep]
+      [variable_name? &variable_name?]
+      [function_name? &function_name?]
+      [process_module &process_module]
+      [run_file &run_file]
+      ]
+     Env Macs].join)
+
+  (run_file `boot/stage2.hit`
+     (_fn (Module)
+       (if Module is core then Env
+        else error default loader cant resolve Module)))

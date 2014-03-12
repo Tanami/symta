@@ -1,0 +1,16 @@
+This is the prototype of the new version of the Symta programming language. The design was changed in favour of flexibility, minimalism and readability, while preserving the macro-processing capabilities of Lisp family of languages. So the pattern matcher, and the module system are now implemented using Symta itself.
+
+New design makes passible to write Symta code looking like a simple english text:
+   if Collection has: Element => Element > 0
+   then say collection has nonzero element
+   else say collection has no positive numbers
+
+There are only 6 builtin keywords, which are:
+(_fn Args @Body) makes a anonymous lambda function
+(_fn Args (_tag Tag) @Body) like above, but with Tag, retrievable by tag_of
+(_if Test Then Else) if/then/else conditional
+(_quote Expression) escapes expression from evaluation
+(_set Argument Value) assigns Value to Argument, previously introduced by _fn
+(_goto Label) transfers control to a label inside of _fn Body
+
+everything else can be redefined, includng operators like ":", "=>" and if/then/else.

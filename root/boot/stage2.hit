@@ -1,0 +1,171 @@
+// this stage sets up standard library and starts REPL
+//use yoba
+
+Macs = []
+//add_macro Name Macro => _set Macs [[Name (_fn (X) (_tag macro) Macro)] @Macs]
+//text_out 'hello'
+
+//dbg | Lib core bonds
+
+//FIXME: add '*' module, which would return every module with its curried loader
+load Module => if Module is core then Lib core bonds
+               else run_file ['lib/' Module '.hit'].join_text &load
+
+run_file `repl/init.hit` &load
+
+
+
+//add_macro `+` | A B => A `+` B
+
+//dbg ((| f X => X `+` 1) f 123)
+
+//text_out 'hello world'
+//yoba X => X `+` 1
+//dbg ([1 2 3 4 5] map | X => yoba X)
+//A = 123
+//B = 456
+//dbg (A `+` B)
+//text_out '\n'
+
+
+//car => Args.0
+//cdr => Args.1
+
+//X = 'Hello, World!\n'
+//text_out X
+//f X => X `+` 1
+
+//text_out ([1 2 3 4 5] map (_fn (X) (X `*` X))) //| X => X `+` 1
+//text_out ([1 2 3 4 5] map | X => X `+` 1)
+
+
+/*
+f = | gold => 123
+    | silver => 456
+    | X => [X X]
+
+dbg f.silver
+*/
+//123
+//456
+//X => X `+` 1
+
+/*
+text_out
+  | block b | 'hello\n'.out
+            | break b abc
+            | \world
+*/
+
+
+/*`=>` A B => [`|` [`=>` A B]]
+`=` A B => [`|` [`=` A B]]
+`;` @Xs => [`|` @Xs]
+`:` A B => if macroexpands? A.head then [A.head A.tail B] else [@A B]
+
+with Args Fn => [Fn @Args]*/
+
+//export halt address_of exports_of tag_of text_out
+//       list `[]` not 'if' 'and' 'or' 'with' '.' '~' '=>' '=' '|' ';' ':' '\\'
+
+
+/*
+`and` @Xs => | if Xs end then break `and` Yes else Void
+             | V = 'V' gensym
+             | X = Xs head
+             | Xs = Xs tail
+             | Xs = if Xs end then V else `and` @Xs
+             | [`|` [`=` [V] [X]]
+                    [_if V Xs No]]
+*/
+
+/*
+`or` @Xs => _ prog (_ `if` (Xs end) (_ break `or` No) Void)
+                   (V = (_ q V) gensym)
+                   (X = Xs head)
+                   (Xs = `or` @(Xs tail))
+                   [`|` [`=` [V] [X]]
+                        [_ `if` V V Xs]]
+*/
+
+
+
+
+/*
+Core = list
+       address_of
+       tag_of
+       halt
+       dbg
+       set_error_handler
+       load_file
+       utf8_to_text
+       text_to_utf8
+       fn_
+       fn_is
+       integer_
+       integer_is
+       integer_isnt
+       `integer_<`
+       `integer_>`
+       `integer_<<`
+       `integer_>>`
+       integer_neg
+       `integer_+`
+       `integer_-`
+       `integer_*`
+       `integer_/`
+       `integer_%`
+       text_
+       text_is
+       `text_<`
+       `text_>`
+       `text_<<`
+       `text_>>`
+       text_size
+       text_get
+       text_upcase
+       text_downcase
+       text_capitalize
+       text_upcase?
+       text_downcase?
+       text_alpha?
+       text_digit?
+       text_parse
+       text_source
+       text_out 
+       generic_
+       list_
+       list_end
+       list_head
+       list_tail
+       list_headed
+       list_join_text
+       list_eval
+
+       `[]`
+       list
+       not
+       error
+       list_is
+       list_map
+       list_size
+       list_last
+       list_reverse
+       integer_digits
+       integer_asText
+       text_gensym
+       load_text_file
+       headed?
+       list_get
+       list_locate
+       list_fold
+       list_join
+       list_keep
+       variable_name?
+       function_name?
+       macroexpand
+       macroexpands?
+       process_module
+       run_file
+*/

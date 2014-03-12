@@ -1,0 +1,27 @@
+`+` A B => list A `+` B
+`-` A @B => if B.size is 0 then list A neg else list A `-` B.0
+`*` A B => list A `*` B
+`/` A B => list A `/` B
+`%` A B => list A `%` B
+
+`=>` A B => [`|` [`=>` A B]] // reuse `|`-scoped lambda
+`:` A B => if macroexpands? A.head
+           then [A.head A.tail B]
+           else [@A B]
+`;` @Xs => [`|` @Xs]
+
+`and` @Xs => | if Xs end then break `and` Yes else Void
+             | V = 'V' gensym
+             | X = Xs head
+             | Xs = Xs tail
+             | Xs = if Xs end then V else `and` @Xs
+             | [`|` [`=` [V] [X]] [_if V Xs No]]
+
+`or` @Xs => | if Xs end then break `or` No else Void
+            | V = 'V' gensym
+            | X = Xs head
+            | Xs = `or` @(Xs tail)
+            | [`|` [`=` [V] [X]] [_if V V Xs]]
+
+export '+' '-' '*' '/' '%' '=>' ':' ';' 'and' 'or'
+
