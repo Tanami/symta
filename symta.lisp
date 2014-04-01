@@ -22,8 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (declaim #+sbcl(sb-ext:muffle-conditions style-warning))
 
-(defmacro m (x xs body) `(loop as ,x in ,xs collect ,body))
-(defmacro e (x xs body) `(loop as ,x in ,xs do ,body))
+(defmacro m (x xs body) `(loop as ,x in ,xs collect ,body)) ; map
+(defmacro e (x xs body) `(loop as ,x in ,xs do ,body)) ; each
 
 (to headed head o ! match o (('head . _) t))
 
@@ -574,3 +574,206 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 ;;(run-kernel "/Users/nikita/Documents/prj/symta/libs/symta/root")
 
+
+;; FIXME differentiate store and set
+
+(defparameter *ssa-env* nil)
+(defparameter *ssa-out* nil)
+(defparameter *ssa-ns*  nil) ;; unique name of current function
+(defparameter *ssa-closure* nil) ; free symbols of current lambda
+(defparameter *ssa-builtins* nil)
+
+
+(defun ssa-resolved (name) (cons name *ssa-ns*))
+(defun ssa-name (name) (symbol-name (gensym name)))
+
+(to ssa name &rest args ! push `(,name ,@args) *ssa-out*)
+
+(to ssa-get-parent-index parent
+  ! p = position-if (fn e ! equal parent e) (car *ssa-closure*)
+  ! when p (ret p) ; already exist
+  ! setf (car *ssa-closure*) `(,@(car *ssa-closure*) ,parent)
+  ! - (length (car *ssa-closure*)) 1)
+
+(to ssa-path-to-sym x es
+  ! unless es (ret nil)
+  ! p = position-if (fn v ! equal x (car v)) (car es)
+  ! unless p (ret (ssa-path-to-sym x (cdr es)))
+  ! when (eq es *ssa-env*) (ret (list p nil)) ; it is an argument of the current function
+  ! list p (ssa-get-parent-index (cdr (nth p (car es)))))
+
+(to ssa-symbol x ptr
+  ! match (ssa-path-to-sym x *ssa-env*)
+     ((pos parent) (if parent
+                       (! ssa 'load 'r 'p parent
+                        ! ssa (if ptr 'add 'load) 'r 'r pos)
+                       (ssa (if ptr 'add 'load) 'r 'e pos)))
+     (else (error "undefined variable: ~a" x)))
+
+(to ssa-atom x
+  ! cond
+    ((eql x 'run) (ssa 'move 'r "run"))
+    ((integerp x) (ssa 'integer 'r x))
+    ((stringp x) (ssa-symbol x nil))
+    (t (error "unexpected ~a" x)))
+
+(to ssa-quote x
+  ! cond
+     ((stringp x) (ssa 'string 'r x))
+     ((integerp x) (ssa-atom x))
+     ((listp x) (error "FIXME"))
+     (t (error "unsupported quoted value: ~a" x)))
+
+(to ssa-fn args body
+  ! body-end = ssa-name "e"
+  ! ssa 'goto body-end
+  ! f = ssa-name "f"
+  ! cs = nil
+  ! (! *ssa-ns* = f
+     ! *ssa-env* = cons (mapcar #'ssa-resolved args) *ssa-env*
+     ! *ssa-closure* = cons nil *ssa-closure*
+     ! ssa 'label *ssa-ns*
+     ! produce-ssa body
+     ! ssa 'label body-end
+     ! setf cs (car *ssa-closure*))
+  ! ssa 'alloc 'r (length cs)
+  ! i = -1
+  ! e c cs (! if (equal c *ssa-ns*)
+                 (ssa 'store 'r (incf i) 'e)
+                 (ssa 'copy 'r (incf i) 'p (ssa-get-parent-index c)))
+  ! print cs
+  ; check if we really need closure here
+  ! ssa 'closure 'r f 'r)
+
+(to ssa-apply f as
+  ;; FIXME: if it is a lambda call, we don't have to change env or create a closure, just push env
+  ! produce-ssa f
+  ! unless (eql (first (car *ssa-out*)) 'closure)
+     (ssa 'tagcheck 'r 't_closure) ;no need to check local closures
+  ! ssa 'move 'c 'r
+  ! ssa 'alloc 'a (+ (length as) 1)
+  ! i = 0
+  ! e a as (! produce-ssa a
+            ! ssa 'store 'a (incf i) 'r)
+  ! ssa 'move 'e 'a ; replace current frame with new environment
+  ! ssa 'call 'c)
+
+(to ssa-set k place value
+  ! ssa 'store (ssa-symbol place t) value
+  ! produce-ssa `(,k ,value))
+
+(to ssa-form xs
+  ! match xs
+    (("_fn" as body) (ssa-fn as body))
+    (("_quote" x) (ssa-quote x))
+    (("_set" k place value) (ssa-set k place value))
+    (("_goto" x) (ssa-goto x))
+    (("_show" x) (ssa-show x))
+    ((f . as) (ssa-apply f as))
+    (else (error "invalid CPS form: ~a" xs)))
+
+(to produce-ssa x ! if (listp x) (ssa-form x) (ssa-atom x))
+
+(to cps-to-ssa x
+  ! *ssa-out* = nil
+  ! produce-ssa x
+  ! nreverse *ssa-out*)
+
+(to cps-fn k args body
+  ! kk = ssa-name "k"
+  ! `(,k ("_fn" (,kk ,@args) ,(produce-cps kk body))))
+
+(to cps-apply k f as
+  ! fas = `(,f ,@as)
+  ! (g . gs) = m a fas (if (listp a) (ssa-name "a") a)
+  ! r = `(,g ,k ,@gs)
+  ! rgs = reverse `(,g ,@gs)
+  ! ras = reverse fas
+  ! while rgs
+      (when (listp (car ras))
+        (setf r `(("_fn" (,(car rgs)) ,r) ,(car ras))))
+      (pop rgs)
+      (pop ras)
+  ! r)
+
+(to cps-set xs k place value
+  ! unless (stringp place) (bad-sexp xs "_set cant handle `{place}`")
+  ! v = ssa-name "value"
+  ! (produce-cps `("_fn" (,v) ("_set" ,k ,place ,v)) value))
+
+(to cps-form k xs
+  ! match xs
+    (("_fn" as body) (cps-fn k as body))
+    (("_if" cnd then else) (cps-form k `("_fn_if" ,cnd ("_fn" () ,then) ("_fn" () ,else))))
+    (("_quote" x) `(,k ,xs))
+    (("_set" place value) (cps-set xs k place value))
+    ;;(("_goto" x) (cps-goto k x))
+    ;;(("_show" x) (cps-show k x))
+    ((f . as) (cps-apply k f as))
+    (else `(,k :void)))
+
+(to cps-atom k x ! `(,k ,x))
+
+(to produce-cps k x ! if (listp x) (cps-form k x) (cps-atom k x))
+
+(defun print-ssa (xs)
+  (e x xs (format t "~{~s ~}~%" x)))
+
+(defparameter *compiled* nil)
+
+(to to-c-emit &rest args ! (push (apply #'format nil args) *compiled*))
+
+(defun ssa-to-c (xs)
+  (let ((*compiled* nil)
+        (decls nil))
+    (push "#include \"common.h\"" decls)
+    (to-c-emit "static void entry() {")
+    (e x xs
+       (match x
+         ((''label label-name)
+          (push (format nil "static void ~a();" label-name) decls)
+          (to-c-emit "}~%")
+          (to-c-emit "static void ~a() {" label-name)
+          (to-c-emit "  printf(\"entering %s\\n\", \"~a\");" label-name)
+          )
+         ((''call name) (to-c-emit "  CALL(~a);" name))
+         ((''goto name) (to-c-emit "  ~a();" name))
+         ((''alloc place size) (to-c-emit "  ALLOC(~a, ~a);" place size))
+         ((''load dst src off) (to-c-emit "  LOAD(~a, ~a, ~a);" dst src off))
+         ((''store dst off src) (to-c-emit "  STORE(~a, ~a, ~a);" dst off src))
+         ((''copy dst p src q) (to-c-emit "  COPY(~a, ~a, ~a, ~a);" dst p src q))
+         ((''move dst src) (to-c-emit "  MOVE(~a, ~a);" dst src))
+         ((''add dst a b) (to-c-emit "  ADD(~a, ~a, ~a);" dst a b))
+         ((''integer dst str) (to-c-emit "  INTEGER(~a, ~s);" dst str))
+         ((''string dst str) (to-c-emit "  STRING(~a, ~s);" dst str))
+         ((''closure dst code env) (to-c-emit "  CLOSURE(~a, ~a, ~a);" dst code env))
+         ((''tagcheck src tag) (to-c-emit "  TAGCHECK(~a, ~a);" src tag))
+         (else (error "invalid ssa: ~a" x))))
+    (to-c-emit "}")
+    (format nil "~{~a~%~}" (reverse (append *compiled* decls)))))
+
+(to ssa-compile k fn-expr
+  ! cps = produce-cps k fn-expr
+  ! ssa = cps-to-ssa cps
+  ! ssa-to-c ssa)
+
+;;we shold traverse CPS tree and replace all _fn's with refernces to them
+
+;;instead of parent environment, closure should capture only pointers to used variables
+
+(to ssa-compile-entry expr
+  ! builtins = '("*" "+") ;;'("_fn_if" "+" "-" "*" "/" "text_out")
+  ! fn-expr = `("_fn" ("host") (("_fn" ,builtins ,expr) ,@(m b builtins `("host" ("_quote" ,b)))))
+  ! ssa-compile 'run fn-expr)
+
+;;(to ssa-compile-file file src ! save-text-file file (ssa-compile-entry src))
+(to ssa-compile-file file src ! ssa-compile-entry src)
+
+
+;;(cps-to-ssa '("_fn" ("+" "x") ("+" "x" 1)))
+;;(lisp-to-ssa '("_fn" ("a" "b") ("_fn" ("x") ("+" ("*" "a" "x") "b"))))
+;;(print-ssa (cps-to-ssa '("_fn" ("+" "x") ("+" "x" 1))))
+;;(print-ssa (cps-to-ssa (produce-cps '("_fn" ("x") 123) '("_fn" ("+" "*" "x") ("*" ("+" "x" 1) 2)))))
+;;(ssa-compile-fn '("_fn" ("x") "x") '("_fn" ("+" "*" "x") ("*" ("+" "x" 123) 456)))
+;;(ssa-to-c (cps-to-ssa (produce-cps '("_fn" ("x") "x") '("_fn" ("+" "*" "x") ("*" ("+" "x" 123) 456)))))
+;;(ssa-compile-file "/Users/nikita/Documents/prj/symta/libs/symta/c/test.c" '("*" ("+" 123 789) 456))

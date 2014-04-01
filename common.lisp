@@ -248,6 +248,14 @@ pathnames as well."
 	   do (progn (fresh-line out)
 		     (format out "~a" l))))))
 
+(defun save-text-file (file text)
+  (with-open-file (stream file
+                          :direction :output
+                          :if-exists :supersede
+                          :if-does-not-exist :create)
+    (format stream "~a" text)))
+
+
 
 #|
 (defun open-temporary-file ()

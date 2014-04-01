@@ -1,7 +1,7 @@
 // this stage sets up macro expander and a few vital utilities
 
 /* Quick Reference of Builtins:
-(_fn Args @Body) makes a anonymous lambda function
+(_fn Args @Body) makes anonymous lambda function
 (_fn Args (_tag Tag) @Body) like above, but with Tag, retrievable by tag_of
 (_if Test Then Else) if/then/else conditional
 (_quote Expression) escapes expression from evaluation
