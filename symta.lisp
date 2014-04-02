@@ -575,12 +575,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 ;;(run-kernel "/Users/nikita/Documents/prj/symta/libs/symta/root")
 
 
-;; FIXME differentiate store and set
-
 (defparameter *ssa-env* nil)
-(defparameter *ssa-out* nil)
-(defparameter *ssa-ns*  nil) ;; unique name of current function
-(defparameter *ssa-closure* nil) ; free symbols of current lambda
+(defparameter *ssa-out* nil) ; where resulting assembly code is stored
+(defparameter *ssa-ns*  nil) ; unique name of current function
+(defparameter *ssa-closure* nil) ; other lambdas', this lambda references
 (defparameter *ssa-builtins* nil)
 
 
@@ -638,11 +636,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      ! setf cs (car *ssa-closure*))
   ! ssa 'alloc 'r (length cs)
   ! i = -1
-  ! e c cs (! if (equal c *ssa-ns*)
+  ! e c cs (! if (equal c *ssa-ns*) ; self?
                  (ssa 'store 'r (incf i) 'e)
                  (ssa 'copy 'r (incf i) 'p (ssa-get-parent-index c)))
-  ! print cs
-  ; check if we really need closure here
+  ;; check if we really need new closure here, because in some cases we can reuse parent's closure
+  ;; a single argument to a function could be passed in register, while a closure would be created if required
   ! ssa 'closure 'r f 'r)
 
 (to ssa-apply f as
@@ -651,8 +649,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! unless (eql (first (car *ssa-out*)) 'closure)
      (ssa 'tagcheck 'r 't_closure) ;no need to check local closures
   ! ssa 'move 'c 'r
-  ! ssa 'alloc 'a (+ (length as) 1)
-  ! i = 0
+  ! ssa 'alloc 'a (length as)
+  ! i = -1
   ! e a as (! produce-ssa a
             ! ssa 'store 'a (incf i) 'r)
   ! ssa 'move 'e 'a ; replace current frame with new environment
@@ -690,8 +688,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! rgs = reverse `(,g ,@gs)
   ! ras = reverse fas
   ! while rgs
+      ;; treat quoted and _fn values as constants
       (when (listp (car ras))
-        (setf r `(("_fn" (,(car rgs)) ,r) ,(car ras))))
+        (setf r (produce-cps `("_fn" (,(car rgs)) ,r) (car ras))))
       (pop rgs)
       (pop ras)
   ! r)
@@ -724,6 +723,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to to-c-emit &rest args ! (push (apply #'format nil args) *compiled*))
 
 (defun ssa-to-c (xs)
+  ;; before ssa-to-c we can reoder code chunks to eliminate unneeded gotoes
   (let ((*compiled* nil)
         (decls nil))
     (push "#include \"common.h\"" decls)
