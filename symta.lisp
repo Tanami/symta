@@ -578,6 +578,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (defparameter *ssa-env* nil)
 (defparameter *ssa-out* nil) ; where resulting assembly code is stored
 (defparameter *ssa-ns*  nil) ; unique name of current function
+(defparameter *ssa-fns* nil)
+
 (defparameter *ssa-closure* nil) ; other lambdas', this lambda references
 (defparameter *ssa-builtins* nil)
 
@@ -623,25 +625,26 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (t (error "unsupported quoted value: ~a" x)))
 
 (to ssa-fn args body
-  ! body-end = ssa-name "e"
-  ! ssa 'goto body-end
   ! f = ssa-name "f"
   ! cs = nil
-  ! (! *ssa-ns* = f
+  ! (! *ssa-out* = nil
+     ! *ssa-ns* = f
      ! *ssa-env* = cons (mapcar #'ssa-resolved args) *ssa-env*
      ! *ssa-closure* = cons nil *ssa-closure*
      ! ssa 'label *ssa-ns*
      ! produce-ssa body
-     ! ssa 'label body-end
-     ! setf cs (car *ssa-closure*))
-  ! ssa 'alloc 'r (length cs)
+     ! push *ssa-out* *ssa-fns*
+     ! setf cs (car *ssa-closure*)
+     )
+  ! nparents = length cs
+  ! when (plusp nparents) (ssa 'alloc 'r nparents)
   ! i = -1
   ! e c cs (! if (equal c *ssa-ns*) ; self?
                  (ssa 'store 'r (incf i) 'e)
                  (ssa 'copy 'r (incf i) 'p (ssa-get-parent-index c)))
   ;; check if we really need new closure here, because in some cases we can reuse parent's closure
   ;; a single argument to a function could be passed in register, while a closure would be created if required
-  ! ssa 'closure 'r f 'r)
+  ! ssa 'closure 'r f (if (plusp nparents) 'r 0))
 
 (to ssa-apply f as
   ;; FIXME: if it is a lambda call, we don't have to change env or create a closure, just push env
@@ -674,8 +677,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to cps-to-ssa x
   ! *ssa-out* = nil
+  ! *ssa-fns* = nil
   ! produce-ssa x
-  ! nreverse *ssa-out*)
+  ! nreverse (apply #'concatenate 'list  `(,@(reverse *ssa-fns*) ,*ssa-out*)))
 
 (to cps-fn k args body
   ! kk = ssa-name "k"
@@ -723,7 +727,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to to-c-emit &rest args ! (push (apply #'format nil args) *compiled*))
 
 (defun ssa-to-c (xs)
-  ;; before ssa-to-c we can reoder code chunks to eliminate unneeded gotoes
   (let ((*compiled* nil)
         (decls nil))
     (push "#include \"common.h\"" decls)
@@ -757,17 +760,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa = cps-to-ssa cps
   ! ssa-to-c ssa)
 
-;;we shold traverse CPS tree and replace all _fn's with refernces to them
-
-;;instead of parent environment, closure should capture only pointers to used variables
-
 (to ssa-compile-entry expr
   ! builtins = '("*" "+") ;;'("_fn_if" "+" "-" "*" "/" "text_out")
   ! fn-expr = `("_fn" ("host") (("_fn" ,builtins ,expr) ,@(m b builtins `("host" ("_quote" ,b)))))
   ! ssa-compile 'run fn-expr)
 
-;;(to ssa-compile-file file src ! save-text-file file (ssa-compile-entry src))
-(to ssa-compile-file file src ! ssa-compile-entry src)
+(to ssa-compile-file file src ! save-text-file file (ssa-compile-entry src))
+;;(to ssa-compile-file file src ! ssa-compile-entry src)
 
 
 ;;(cps-to-ssa '("_fn" ("+" "x") ("+" "x" 1)))
