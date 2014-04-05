@@ -589,11 +589,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa name &rest args ! push `(,name ,@args) *ssa-out*)
 
-(to ssa-get-parent-index parent
+(to ssa-get-parent-index parent ; auto-add 1 to accomodate for code pointer (self)
   ! p = position-if (fn e ! equal parent e) (car *ssa-closure*)
-  ! when p (ret p) ; already exist
+  ! when p (ret (+ 1 p)) ; already exist
   ! setf (car *ssa-closure*) `(,@(car *ssa-closure*) ,parent)
-  ! - (length (car *ssa-closure*)) 1)
+  ! length (car *ssa-closure*))
 
 (to ssa-path-to-sym x es
   ! unless es (ret nil)
@@ -637,19 +637,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      ! setf cs (car *ssa-closure*)
      )
   ! nparents = length cs
-  ! when (plusp nparents) (ssa 'alloc 'r nparents)
+  ;; check if we really need new closure here, because in some cases we can reuse parent's closure
+  ;; a single argument to a function could be passed in register, while a closure would be created if required
+  ;; a single reference closure could be itself held in a register
+  ! ssa 'alloc 'r (+ nparents 1)
   ! i = -1
+  ! ssa 'store 'r (incf i) f
   ! e c cs (! if (equal c *ssa-ns*) ; self?
                  (ssa 'store 'r (incf i) 'e)
                  (ssa 'copy 'r (incf i) 'p (ssa-get-parent-index c)))
-  ;; check if we really need new closure here, because in some cases we can reuse parent's closure
-  ;; a single argument to a function could be passed in register, while a closure would be created if required
-  ! ssa 'closure 'r f (if (plusp nparents) 'r 0))
+  ! ssa 'ior 'r 'r 'T_CLOSURE)
 
 (to ssa-apply f as
   ;; FIXME: if it is a lambda call, we don't have to change env or create a closure, just push env
   ! produce-ssa f
-  ! unless (eql (first (car *ssa-out*)) 'closure)
+  ! unless (and (eql (first (car *ssa-out*)) 'ior) (eql (fourth (car *ssa-out*)) 'T_CLOSURE))
      (ssa 'tagcheck 'r 't_closure) ;no need to check local closures
   ! ssa 'move 'c 'r
   ! ssa 'alloc 'a (length as)
@@ -747,6 +749,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''copy dst p src q) (to-c-emit "  COPY(~a, ~a, ~a, ~a);" dst p src q))
          ((''move dst src) (to-c-emit "  MOVE(~a, ~a);" dst src))
          ((''add dst a b) (to-c-emit "  ADD(~a, ~a, ~a);" dst a b))
+         ((''ior dst a b) (to-c-emit "  IOR(~a, ~a, ~a);" dst a b))
          ((''integer dst str) (to-c-emit "  INTEGER(~a, ~s);" dst str))
          ((''string dst str) (to-c-emit "  STRING(~a, ~s);" dst str))
          ((''closure dst code env) (to-c-emit "  CLOSURE(~a, ~a, ~a);" dst code env))

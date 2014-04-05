@@ -10,7 +10,7 @@ typedef void (*pfun)();
 
 #define getArg(N) ((void**)(E))[N]
 #define getTag(X) ((uintptr_t)(X)&TAG_MASK)
-#define getValue(X) (void*)((uintptr_t)(X)&~TAG_MASK)
+#define getVal(X) (void*)((uintptr_t)(X)&~TAG_MASK)
 
 
 #define T_INTEGER  0
@@ -27,19 +27,14 @@ typedef void (*pfun)();
   STORE(T, 1, b); \
   dst = (void*)((uintptr_t)T | T_PAIR);
 #define ALLOC(dst, size) dst = malloc(size*sizeof(void*))
-#define CLOSURE(dst,code,env) \
-  ALLOC(T, 2); \
-  STORE(T, 0, code); \
-  STORE(T, 1, env); \
-  dst = (void*)((uintptr_t)T | T_CLOSURE);
 #define CALL(f) \
-  T = (void*)((uintptr_t)f-T_CLOSURE); \
-  LOAD(P,T,1); \
-  (((pfun*)T)[0])();
+  P = (void*)((uintptr_t)f-T_CLOSURE); \
+  (((pfun*)P)[0])();
 #define STORE(dst,off,src) ((void**)(dst))[(int)(off)] = (src)
 #define LOAD(dst,src,off) dst = ((void**)(src))[(int)(off)]
 #define COPY(dst,p,src,q) ((void**)(dst))[(int)(p)] = ((void**)(src))[(int)(q)]
 #define MOVE(dst,src) dst = (void*)(src)
+#define IOR(dst,a,b) dst = (void*)((uintptr_t)(a)|(uintptr_t)(b))
 #define TAGCHECK(src,expected) if (getTag(src) != expected) bad_tag(getTag(src), expected);
 
 static void bad_tag(int tag, int expected) {
@@ -60,6 +55,7 @@ static void
   *C, // code pointer
   *R, // return value
   *T, // temporary, used by CLOSURE, PAIR and other macros
+  *N, // number of arguments to the current function (size of E)
   *v_void,
   *v_yes,
   *v_no,
@@ -67,10 +63,16 @@ static void
   *run, // the closure, which would recieve the resulting program
   *host;
 
+#define CLOSURE(dst,f) \
+  ALLOC(T, 1); \
+  STORE(T, 0, f); \
+  dst = (void*)((uintptr_t)T | T_CLOSURE);
+
+
 int main(int argc, char **argv) {
-  CLOSURE(run, run_f, 0);
-  CLOSURE(fin, fin_f, 0);
-  CLOSURE(host, host_f, 0);
+  CLOSURE(run, run_f);
+  CLOSURE(fin, fin_f);
+  CLOSURE(host, host_f);
   entry();
 }
 
@@ -97,7 +99,7 @@ static void fin_f() {
 static void host_f() {
   //LOAD(R, E, 1);
   //LOAD(C, R, 0);
-  printf("host(\"%s\")\n", (void*)((uintptr_t)getArg(1)-1));
+  printf("host \"%s\"\n", (char*)getVal(getArg(1)));
   printf("host is unimplemented!\n");
   abort();
 }
