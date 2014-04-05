@@ -7,27 +7,40 @@ typedef void (*pfun)();
 
 #define TAG_BITS 2
 #define TAG_MASK ((1<<TAG_BITS)-1)
-#define TAG_OF(src) ((uintptr_t)(src) & TAG_MASK)
+
+#define getArg(N) ((void**)(E))[N]
+#define getTag(X) ((uintptr_t)(X)&TAG_MASK)
+#define getValue(X) (void*)((uintptr_t)(X)&~TAG_MASK)
+
 
 #define T_INTEGER  0
 #define T_STRING   1
 #define T_PAIR     2
 #define T_CLOSURE  3
 
+// make strings and pairs statically allocable
 #define INTEGER(dst,x) dst = (void*)(((uintptr_t)(x)<<TAG_BITS) | T_INTEGER)
 #define STRING(dst,x)  dst = (void*)((uintptr_t)strdup(x) | T_STRING)
 #define PAIR(dst,a,b) \
-  ALLOC(dst, 2); \
-  STORE(dst, 0, a); \
-  STORE(dst, 1, b); \
-  dst = (void*)((uintptr_t)dst | T_PAIR);
-
+  ALLOC(T, 2); \
+  STORE(T, 0, a); \
+  STORE(T, 1, b); \
+  dst = (void*)((uintptr_t)T | T_PAIR);
+#define ALLOC(dst, size) dst = malloc(size*sizeof(void*))
 #define CLOSURE(dst,code,env) \
-  ALLOC(dst, 2); \
-  STORE(dst, 0, code); \
-  STORE(dst, 1, env); \
-  dst = (void*)((uintptr_t)dst | T_CLOSURE);
-
+  ALLOC(T, 2); \
+  STORE(T, 0, code); \
+  STORE(T, 1, env); \
+  dst = (void*)((uintptr_t)T | T_CLOSURE);
+#define CALL(f) \
+  T = (void*)((uintptr_t)f-T_CLOSURE); \
+  LOAD(P,T,1); \
+  (((pfun*)T)[0])();
+#define STORE(dst,off,src) ((void**)(dst))[(int)(off)] = (src)
+#define LOAD(dst,src,off) dst = ((void**)(src))[(int)(off)]
+#define COPY(dst,p,src,q) ((void**)(dst))[(int)(p)] = ((void**)(src))[(int)(q)]
+#define MOVE(dst,src) dst = (void*)(src)
+#define TAGCHECK(src,expected) if (getTag(src) != expected) bad_tag(getTag(src), expected);
 
 static void bad_tag(int tag, int expected) {
   printf("bad tag=%d, expected tag=%d\n", tag, expected);
@@ -35,49 +48,56 @@ static void bad_tag(int tag, int expected) {
 }
 
 
-#define ALLOC(dst, size) dst = malloc(size*sizeof(void*))
-#define CALL(f) \
-  f = (void*)((uintptr_t)f-T_CLOSURE); \
-  LOAD(P,f,1); \
-  (((pfun*)f)[0])();
-#define STORE(dst,off,src) ((void**)(dst))[(int)(off)] = (src)
-#define LOAD(dst,src,off) dst = ((void**)(src))[(int)(off)]
-#define COPY(dst,p,src,q) ((void**)(dst))[(int)(p)] = ((void**)(src))[(int)(q)]
-#define MOVE(dst,src) dst = (void*)(src)
-#define TAGCHECK(src,expected) if (TAG_OF(src) != expected) bad_tag(TAG_OF(src), expected);
-
 static void entry();
 static void run_f();
+static void fin_f();
+static void host_f();
 
 static void
-  *E, // environment/args
+  *E, // current environment
   *P, // parent environment
   *A, // args scratchpad
   *C, // code pointer
   *R, // return value
-  *run;
+  *T, // temporary, used by CLOSURE, PAIR and other macros
+  *v_void,
+  *v_yes,
+  *v_no,
+  *fin, // the closure, which would recieve evaluation result
+  *run, // the closure, which would recieve the resulting program
+  *host;
 
 int main(int argc, char **argv) {
   CLOSURE(run, run_f, 0);
+  CLOSURE(fin, fin_f, 0);
+  CLOSURE(host, host_f, 0);
   entry();
 }
 
+#define GETARG(N) ((void**)(E))[N]
+
 //E[0] = environment, E[1] = continuation, E[2] = function_name
-static void host() {
-  //LOAD(R, E, 1);
-  //LOAD(C, R, 0);
-  printf("host is unimplemented\n");
+
+// run continuation recieves entry point into user specified program
+// it should run it with supplyed host resolver, which should resolve all unknown symbols
+static void run_f() {
+  printf("got into run!\n");
+  LOAD(C, E, 0);
+  ALLOC(E, 2);
+  STORE(E, 0, fin); // continuation
+  STORE(E, 1, host); // resolver
+  CALL(C);
+}
+
+static void fin_f() {
+  printf("got into fin!\n");
   abort();
 }
 
-static void run_f() {
-  printf("got into run!\n");
+static void host_f() {
+  //LOAD(R, E, 1);
+  //LOAD(C, R, 0);
+  printf("host(\"%s\")\n", (void*)((uintptr_t)getArg(1)-1));
+  printf("host is unimplemented!\n");
   abort();
-  LOAD(R, E, 1);
-  LOAD(C, R, 0);
-  ALLOC(A, 2);
-  STORE(A, 0, host);
-  STORE(A, 1, 0);
-  MOVE(E, A);
-  CALL(C);
 }
