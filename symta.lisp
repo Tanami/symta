@@ -632,6 +632,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      ! *ssa-env* = cons (mapcar #'ssa-resolved args) *ssa-env*
      ! *ssa-closure* = cons nil *ssa-closure*
      ! ssa 'label *ssa-ns*
+     ! ssa 'check_nargs (length args)
      ! produce-ssa body
      ! push *ssa-out* *ssa-fns*
      ! setf cs (car *ssa-closure*)
@@ -652,13 +653,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ;; FIXME: if it is a lambda call, we don't have to change env or create a closure, just push env
   ! produce-ssa f
   ! unless (and (eql (first (car *ssa-out*)) 'ior) (eql (fourth (car *ssa-out*)) 'T_CLOSURE))
-     (ssa 'tagcheck 'r 't_closure) ;no need to check local closures
+     (ssa 'check_tag 'r 't_closure) ;no need to check local closures
   ! ssa 'move 'c 'r
   ! ssa 'alloc 'a (length as)
   ! i = -1
   ! e a as (! produce-ssa a
             ! ssa 'store 'a (incf i) 'r)
   ! ssa 'move 'e 'a ; replace current frame with new environment
+  ! ssa 'move 'n (length as)
   ! ssa 'call 'c)
 
 (to ssa-set k place value
@@ -753,7 +755,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''integer dst str) (to-c-emit "  INTEGER(~a, ~s);" dst str))
          ((''string dst str) (to-c-emit "  STRING(~a, ~s);" dst str))
          ((''closure dst code env) (to-c-emit "  CLOSURE(~a, ~a, ~a);" dst code env))
-         ((''tagcheck src tag) (to-c-emit "  TAGCHECK(~a, ~a);" src tag))
+         ((''check_tag tag expected) (to-c-emit "  CHECK_TAG(~a, ~a);" tag expected))
+         ((''check_nargs expected) (to-c-emit "  CHECK_NARGS(~a);" expected))
          (else (error "invalid ssa: ~a" x))))
     (to-c-emit "}")
     (format nil "~{~a~%~}" (reverse (append *compiled* decls)))))

@@ -5,12 +5,12 @@
 
 typedef void (*pfun)();
 
-#define TAG_BITS 2
-#define TAG_MASK ((1<<TAG_BITS)-1)
+#define TAG_BITS ((uintptr_t)2)
+#define TAG_MASK (((uintptr_t)1<<TAG_BITS)-1)
 
 #define getArg(N) ((void**)(E))[N]
 #define getTag(X) ((uintptr_t)(X)&TAG_MASK)
-#define getVal(X) (void*)((uintptr_t)(X)&~TAG_MASK)
+#define getVal(X) ((uintptr_t)(X)&~TAG_MASK)
 
 
 #define T_INTEGER  0
@@ -30,15 +30,28 @@ typedef void (*pfun)();
 #define CALL(f) \
   P = (void*)((uintptr_t)f-T_CLOSURE); \
   (((pfun*)P)[0])();
-#define STORE(dst,off,src) ((void**)(dst))[(int)(off)] = (src)
+#define STORE(dst,off,src) ((void**)(dst))[(int)(off)] = (void*)(src)
 #define LOAD(dst,src,off) dst = ((void**)(src))[(int)(off)]
 #define COPY(dst,p,src,q) ((void**)(dst))[(int)(p)] = ((void**)(src))[(int)(q)]
 #define MOVE(dst,src) dst = (void*)(src)
 #define IOR(dst,a,b) dst = (void*)((uintptr_t)(a)|(uintptr_t)(b))
-#define TAGCHECK(src,expected) if (getTag(src) != expected) bad_tag(getTag(src), expected);
+#define CHECK_TAG(src,expected) if (getTag(src) != expected) bad_tag(getTag(src), expected)
+#define CHECK_NARGS(expected) if ((int)(uintptr_t)N != (int)expected) bad_number_of_arguments((int)(uintptr_t)N, (int)expected)
+
+
+#define CLOSURE(dst,f) \
+  ALLOC(T, 1); \
+  STORE(T, 0, f); \
+  dst = (void*)((uintptr_t)T | T_CLOSURE);
+
 
 static void bad_tag(int tag, int expected) {
   printf("bad tag=%d, expected tag=%d\n", tag, expected);
+  abort();
+}
+
+static void bad_number_of_arguments(int got, int expected) {
+  printf("bad number of arguments: got=%d, expected=%d\n", got, expected);
   abort();
 }
 
@@ -63,10 +76,6 @@ static void
   *run, // the closure, which would recieve the resulting program
   *host;
 
-#define CLOSURE(dst,f) \
-  ALLOC(T, 1); \
-  STORE(T, 0, f); \
-  dst = (void*)((uintptr_t)T | T_CLOSURE);
 
 
 int main(int argc, char **argv) {
@@ -88,18 +97,75 @@ static void run_f() {
   ALLOC(E, 2);
   STORE(E, 0, fin); // continuation
   STORE(E, 1, host); // resolver
+  MOVE(N, 2);
   CALL(C);
 }
 
 static void fin_f() {
-  printf("got into fin!\n");
+  CHECK_NARGS(1);
+  printf("got into fin! result = %d\n", getVal(getArg(0))>>TAG_BITS);
+
   abort();
 }
 
+
+static void b_add() {
+  void *k, *a, *b;
+  CHECK_NARGS(3);
+  k = getArg(0);
+  a = getArg(1);
+  b = getArg(2);
+  CHECK_TAG(a, T_INTEGER);
+  CHECK_TAG(b, T_INTEGER);
+  ALLOC(E, 1);
+  STORE(E, 0, getVal(a) + getVal(b));
+  MOVE(N, 1);
+  CALL(k);
+}
+
+static void b_mul() {
+  void *k, *a, *b;
+  CHECK_NARGS(3);
+  k = getArg(0);
+  a = getArg(1);
+  b = getArg(2);
+  CHECK_TAG(a, T_INTEGER);
+  CHECK_TAG(b, T_INTEGER);
+  ALLOC(E, 1);
+  STORE(E, 0, (getVal(a)>>TAG_BITS) * getVal(b));
+  MOVE(N, 1);
+  CALL(k);
+}
+
+
+static struct {
+  char *name;
+  void (*fun)();
+} builtins[] = {
+  {"+", b_add},
+  {"*", b_mul},
+  {0, 0}
+};
+
 static void host_f() {
-  //LOAD(R, E, 1);
-  //LOAD(C, R, 0);
-  printf("host \"%s\"\n", (char*)getVal(getArg(1)));
-  printf("host is unimplemented!\n");
+  int i;
+  uintptr_t *k, *t_name;
+  CHECK_NARGS(2);
+  k = getArg(0);
+  t_name = getArg(1);
+  CHECK_TAG(t_name, T_STRING);
+
+  char *name = (char*)getVal(t_name);
+  for (i = 0; builtins[i].name; i++) {
+    if (!strcmp(builtins[i].name, name)) {
+      ALLOC(E, 1);
+      CLOSURE(R, builtins[i].fun);
+      STORE(E, 0, R);
+      MOVE(N, 1);
+      CALL(k);
+    }
+  }
+
+  printf("host doesn't provide \"%s\"\n", name);
   abort();
 }
