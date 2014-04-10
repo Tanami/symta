@@ -20,7 +20,7 @@ typedef void (*pfun)();
 
 // make strings and pairs statically allocable
 #define INTEGER(dst,x) dst = (void*)(((uintptr_t)(x)<<TAG_BITS) | T_INTEGER)
-#define STRING(dst,x)  dst = (void*)((uintptr_t)strdup(x) | T_STRING)
+#define STRING(dst,x)  printf("%p\n", x); dst = (void*)((uintptr_t)x | T_STRING)
 #define PAIR(dst,a,b) \
   ALLOC(T, 2); \
   STORE(T, 0, a); \
@@ -77,7 +77,6 @@ static void
   *host;
 
 
-
 int main(int argc, char **argv) {
   CLOSURE(run, run_f);
   CLOSURE(fin, fin_f);
@@ -103,7 +102,7 @@ static void run_f() {
 
 static void fin_f() {
   CHECK_NARGS(1);
-  printf("got into fin! result = %d\n", getVal(getArg(0))>>TAG_BITS);
+  printf("got into fin! result = %d\n", (int)getVal(getArg(0))>>TAG_BITS);
 
   abort();
 }
@@ -169,3 +168,11 @@ static void host_f() {
   printf("host doesn't provide \"%s\"\n", name);
   abort();
 }
+
+static uint8_t data[];
+
+/*
+static uint8_t data[] = {
+  0, 1, 2
+};
+*/

@@ -730,9 +730,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to to-c-emit &rest args ! (push (apply #'format nil args) *compiled*))
 
+(to duplicate n x ! loop as i below n collect x)
+(to determine-pad n a ! if (= (mod n a) 0) 0 (- a (mod n a)))
+
 (defun ssa-to-c (xs)
   (let ((*compiled* nil)
-        (decls nil))
+        (decls nil)
+        (data nil)
+        (data-ptr 0))
     (push "#include \"common.h\"" decls)
     (to-c-emit "static void entry() {")
     (e x xs
@@ -753,12 +758,27 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''add dst a b) (to-c-emit "  ADD(~a, ~a, ~a);" dst a b))
          ((''ior dst a b) (to-c-emit "  IOR(~a, ~a, ~a);" dst a b))
          ((''integer dst str) (to-c-emit "  INTEGER(~a, ~s);" dst str))
-         ((''string dst str) (to-c-emit "  STRING(~a, ~s);" dst str))
+         ((''string dst str)
+          (let* ((xs (m c (coerce str 'list) (char-code c)))
+                 (l (+ (length xs) 1))
+                 (p (determine-pad l 8)))
+           (setf data `(,@(duplicate p 0) 0 ,@(reverse xs) ,@data))
+           (to-c-emit "  STRING(~a, data+~a);" dst data-ptr)
+           (incf data-ptr (+ l p))
+          ))
          ((''closure dst code env) (to-c-emit "  CLOSURE(~a, ~a, ~a);" dst code env))
          ((''check_tag tag expected) (to-c-emit "  CHECK_TAG(~a, ~a);" tag expected))
          ((''check_nargs expected) (to-c-emit "  CHECK_NARGS(~a);" expected))
          (else (error "invalid ssa: ~a" x))))
-    (to-c-emit "}")
+    (to-c-emit "}~%")
+    (to-c-emit "static uint8_t data[] = {")
+    (setf data `(,@(duplicate (determine-pad data-ptr 16) 0) ,@data))
+    (let ((xs (reverse data)))
+      (while xs
+        (to-c-emit "  ~{~a~^, ~}" (subseq xs 0 16))
+        (setf xs (subseq xs 16))))
+    (unless data (to-c-emit "0"))
+    (to-c-emit "};")
     (format nil "~{~a~%~}" (reverse (append *compiled* decls)))))
 
 (to ssa-compile k fn-expr

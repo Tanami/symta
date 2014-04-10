@@ -518,7 +518,7 @@ pathnames as well."
                        (let ((miss (gensym))
                              (hit `(return-from ,b (progn ,@(cdr case)))))
                          `(,(match-hole key (car case) hit `(go ,miss)) ,miss ,@next)))
-                     (cons nil (nreverse cases))))))))
+                     (cons nil (reverse cases))))))))
 
 #|
 ;; example usage:
@@ -542,8 +542,8 @@ pathnames as well."
               as)
         (setf x (subseq x (+ e 1) (length x)))
         (setf s (position #\{ x))))
-    `(format nil ,(apply #'concatenate 'string (nreverse (cons x fmt)))
-             ,@(nreverse as))))
+    `(format nil ,(apply #'concatenate 'string (reverse (cons x fmt)))
+             ,@(reverse as))))
 
 (defun !strings (x)
   (cond ((consp x) (if (or (eql (car x) 'quote) (eql (car x) '!))
