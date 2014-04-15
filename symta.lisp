@@ -581,7 +581,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (defparameter *ssa-fns* nil)
 
 (defparameter *ssa-closure* nil) ; other lambdas', this lambda references
-(defparameter *ssa-builtins* nil)
+(defparameter *ssa-builtins* '("*" "+")) ;;'("_fn_if" "+" "-" "*" "/" "text_out"))
+(defparameter *ssa-inits* nil)
+
+
+(defparameter *compiler-meta-info* (make-hash-table :test 'eq))
+
+(to set-meta meta object
+  ! (setf (gethash object *compiler-meta-info*) meta)
+  ! object)
+
+(to get-meta object ! gethash object *compiler-meta-info*)
 
 
 (defun ssa-resolved (name) (cons name *ssa-ns*))
@@ -613,18 +623,26 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to ssa-atom x
   ! cond
     ((eql x 'run) (ssa 'move 'r "run"))
-    ((integerp x) (ssa 'integer 'r x))
+    ((integerp x) (ssa 'fixnum 'r x))
     ((stringp x) (ssa-symbol x nil))
     (t (error "unexpected ~a" x)))
+
+(to ssa-quote-list-rec xs
+   ! `("list" ,@(m x xs (if (listp x) (ssa-quote-list-rec x) `("_quote" ,x)))))
+
+(to ssa-quote-list xs
+  ! name = ssa-name "list"
+  ! ssa 'move 'r name
+  ! push `(,name ,(ssa-quote-list-rec xs)) *ssa-inits*)
 
 (to ssa-quote x
   ! cond
      ((stringp x) (ssa 'string 'r x))
      ((integerp x) (ssa-atom x))
-     ((listp x) (error "FIXME"))
+     ((listp x) (ssa-quote-list x))
      (t (error "unsupported quoted value: ~a" x)))
 
-(to ssa-fn args body
+(to ssa-fn args body o
   ! f = ssa-name "f"
   ! cs = nil
   ! (! *ssa-out* = nil
@@ -632,7 +650,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      ! *ssa-env* = cons (mapcar #'ssa-resolved args) *ssa-env*
      ! *ssa-closure* = cons nil *ssa-closure*
      ! ssa 'label *ssa-ns*
-     ! ssa 'check_nargs (length args)
+     ! ssa 'check_nargs (length args) (get-meta o)
      ! produce-ssa body
      ! push *ssa-out* *ssa-fns*
      ! setf cs (car *ssa-closure*)
@@ -669,11 +687,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-form xs
   ! match xs
-    (("_fn" as body) (ssa-fn as body))
+    (("_fn" as body) (ssa-fn as body xs))
     (("_quote" x) (ssa-quote x))
     (("_set" k place value) (ssa-set k place value))
     (("_goto" x) (ssa-goto x))
     (("_show" x) (ssa-show x))
+    (("_move" dst src) (ssa 'move dst src))
     ((f . as) (ssa-apply f as))
     (else (error "invalid CPS form: ~a" xs)))
 
@@ -683,13 +702,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! *ssa-out* = nil
   ! *ssa-fns* = nil
   ! produce-ssa x
+  ! setf *ssa-inits*
+     (m x *ssa-inits*
+        (! name = first x
+         ! expr = second x
+         ! list name (ssa-compile-entry "run" "init_{name}" '("list") expr)))
   ! nreverse (apply #'concatenate 'list  `(,@(reverse *ssa-fns*) ,*ssa-out*)))
 
-(to cps-fn k args body
+(to cps-fn k args body o
   ! kk = ssa-name "k"
-  ! `(,k ("_fn" (,kk ,@args) ,(produce-cps kk body))))
+  ! `(,k ,(set-meta (get-meta o) `("_fn" (,kk ,@args) ,(produce-cps kk body)))))
 
-(to cps-apply k f as
+(to cps-apply k f as o
   ! fas = `(,f ,@as)
   ! (g . gs) = m a fas (if (listp a) (ssa-name "a") a)
   ! r = `(,g ,k ,@gs)
@@ -698,25 +722,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! while rgs
       ;; treat quoted and _fn values as constants
       (when (listp (car ras))
-        (setf r (produce-cps `("_fn" (,(car rgs)) ,r) (car ras))))
+        (setf r (produce-cps (set-meta (get-meta o) `("_fn" (,(car rgs)) ,r)) (car ras))))
       (pop rgs)
       (pop ras)
   ! r)
 
-(to cps-set xs k place value
+(to cps-set xs k place value o
   ! unless (stringp place) (bad-sexp xs "_set cant handle `{place}`")
-  ! v = ssa-name "value"
-  ! (produce-cps `("_fn" (,v) ("_set" ,k ,place ,v)) value))
+  ! v = ssa-name "Value"
+  ! (produce-cps (set-meta (get-meta o) `("_fn" (,v) ("_set" ,k ,place ,v))) value))
 
 (to cps-form k xs
   ! match xs
-    (("_fn" as body) (cps-fn k as body))
+    (("_fn" as body) (cps-fn k as body xs))
     (("_if" cnd then else) (cps-form k `("_fn_if" ,cnd ("_fn" () ,then) ("_fn" () ,else))))
     (("_quote" x) `(,k ,xs))
-    (("_set" place value) (cps-set xs k place value))
+    (("_set" place value) (cps-set xs k place value xs))
     ;;(("_goto" x) (cps-goto k x))
     ;;(("_show" x) (cps-show k x))
-    ((f . as) (cps-apply k f as))
+    ((f . as) (cps-apply k f as xs))
     (else `(,k :void)))
 
 (to cps-atom k x ! `(,k ,x))
@@ -730,16 +754,29 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to to-c-emit &rest args ! (push (apply #'format nil args) *compiled*))
 
-(to duplicate n x ! loop as i below n collect x)
-(to determine-pad n a ! if (= (mod n a) 0) 0 (- a (mod n a)))
+(defun emit-c-array (name align bytes)
+  (to-c-emit "static uint8_t ~a[] = {" name)
+  (let ((xs bytes))
+    (while xs
+      (let ((ys (subseq xs 0 align)))
+        (setf xs (subseq xs align))
+        (to-c-emit (if xs "  ~{~a, ~}" "  ~{~a~^, ~}") ys))))
+  (unless bytes (to-c-emit "0"))
+  (to-c-emit "};"))
 
-(defun ssa-to-c (xs)
+(defun ssa-to-c (entry xs)
   (let ((*compiled* nil)
         (decls nil)
-        (data nil)
-        (data-ptr 0))
-    (push "#include \"common.h\"" decls)
-    (to-c-emit "static void entry() {")
+        (data-name (ssa-name "data"))
+        (data nil))
+    (e x *ssa-inits* (to-c-emit "static void *~a;" (first x)))
+    (e x *ssa-inits* (to-c-emit "~a" (second x)))
+    (to-c-emit "static void ~a() {" entry)
+    (e x *ssa-inits*
+       (progn
+         (to-c-emit "  init_~a();" (first x))
+         (to-c-emit "  ~a = getArg(0);" (first x))
+         ))
     (e x xs
        (match x
          ((''label label-name)
@@ -757,41 +794,50 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''move dst src) (to-c-emit "  MOVE(~a, ~a);" dst src))
          ((''add dst a b) (to-c-emit "  ADD(~a, ~a, ~a);" dst a b))
          ((''ior dst a b) (to-c-emit "  IOR(~a, ~a, ~a);" dst a b))
-         ((''integer dst str) (to-c-emit "  INTEGER(~a, ~s);" dst str))
+         ((''fixnum dst str) (to-c-emit "  FIXNUM(~a, ~s);" dst str))
          ((''string dst str)
-          (let* ((xs (m c (coerce str 'list) (char-code c)))
-                 (l (+ (length xs) 1))
-                 (p (determine-pad l 8)))
-           (setf data `(,@(duplicate p 0) 0 ,@(reverse xs) ,@data))
-           (to-c-emit "  STRING(~a, data+~a);" dst data-ptr)
-           (incf data-ptr (+ l p))
-          ))
+          (let ((name (ssa-name "s")))
+            (to-c-emit "  STRING(~a, ~a);" dst name)
+            (push `(,name ,@(m c (coerce str 'list) (char-code c)) 0) data)))
+         ((''list dst xs)
+          (let ((name (ssa-name "s")))
+            (to-c-emit "  MOVE(~a, ~a);" dst name))
+          (abort))
          ((''closure dst code env) (to-c-emit "  CLOSURE(~a, ~a, ~a);" dst code env))
          ((''check_tag tag expected) (to-c-emit "  CHECK_TAG(~a, ~a);" tag expected))
-         ((''check_nargs expected) (to-c-emit "  CHECK_NARGS(~a);" expected))
+         ((''check_nargs expected meta) (to-c-emit "  CHECK_NARGS(~a, ~a);" expected (or meta 0)))
          (else (error "invalid ssa: ~a" x))))
     (to-c-emit "}~%")
-    (to-c-emit "static uint8_t data[] = {")
-    (setf data `(,@(duplicate (determine-pad data-ptr 16) 0) ,@data))
-    (let ((xs (reverse data)))
-      (while xs
-        (to-c-emit "  ~{~a~^, ~}" (subseq xs 0 16))
-        (setf xs (subseq xs 16))))
-    (unless data (to-c-emit "0"))
-    (to-c-emit "};")
+    (let ((defs nil)
+          (data-bytes nil)
+          (data-ptr 0))
+      (e xs data
+         (let ((bytes (cdr xs)))
+           (push (format nil "#define ~a (~a+~a)" (car xs) data-name data-ptr) decls)
+           (setf data-bytes `(,@(reverse bytes) ,@data-bytes))
+           (incf data-ptr (length bytes))
+           (while (/= (mod data-ptr 16) 0)
+             (push 0 data-bytes)
+             (incf data-ptr))))
+      (push (format nil "static uint8_t ~a[];" data-name) decls)
+      ;;(push (format nil "static int ~a_size = ~a;" data-name data-ptr) decls)
+      (emit-c-array data-name 16 (reverse data-bytes)))
     (format nil "~{~a~%~}" (reverse (append *compiled* decls)))))
 
-(to ssa-compile k fn-expr
+(to ssa-compile k entry fn-expr
+  ! *ssa-inits* = nil
   ! cps = produce-cps k fn-expr
   ! ssa = cps-to-ssa cps
-  ! ssa-to-c ssa)
+  ! ssa-to-c entry ssa)
 
-(to ssa-compile-entry expr
-  ! builtins = '("*" "+") ;;'("_fn_if" "+" "-" "*" "/" "text_out")
+(to ssa-compile-entry k entry builtins expr
   ! fn-expr = `("_fn" ("host") (("_fn" ,builtins ,expr) ,@(m b builtins `("host" ("_quote" ,b)))))
-  ! ssa-compile 'run fn-expr)
+  ! ssa-compile `("_move" r ,k) entry fn-expr)
 
-(to ssa-compile-file file src ! save-text-file file (ssa-compile-entry src))
+(to ssa-compile-file file src
+  ! text = ssa-compile-entry "run" "entry" *ssa-builtins* src
+  ! header = "#include \"common.h\""
+  ! save-text-file file (format nil "~a~%~%~a" header text))
 ;;(to ssa-compile-file file src ! ssa-compile-entry src)
 
 
