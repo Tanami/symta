@@ -25,8 +25,8 @@ typedef void (*pfun)();
 // make strings and pairs statically allocable
 #define ALLOC(dst, size) dst = malloc(size*sizeof(void*))
 #define FIXNUM(dst,x) dst = (void*)(((uintptr_t)(x)<<TAG_BITS) | T_FIXNUM)
-#define STRING(dst,x)  printf("%p\n", x); dst = (void*)((uintptr_t)x | T_STRING)
-#define PAIR(dst,a,b) \
+#define STRING(dst,x) printf("%p\n", x); dst = (void*)((uintptr_t)x | T_STRING)
+#define CONS(dst,a,b) \
   ALLOC(T, 2); \
   STORE(T, 0, a); \
   STORE(T, 1, b); \
@@ -35,6 +35,8 @@ typedef void (*pfun)();
   ALLOC(T, 1); \
   STORE(T, 0, f); \
   dst = (void*)((uintptr_t)T | T_CLOSURE);
+#define CAR(x) ((void**)getVal(x))[0]
+#define CDR(x) ((void**)getVal(x))[1]
 #define CALL(f) \
   P = (void*)((uintptr_t)f-T_CLOSURE); \
   (((pfun*)P)[0])();
@@ -67,9 +69,6 @@ typedef void (*pfun)();
   }
 
 
-
-
-
 static void bad_tag(int tag, int expected) {
   printf("bad tag=%d, expected tag=%d\n", tag, expected);
   abort();
@@ -92,12 +91,6 @@ static void builtin_bad_number_of_arguments(int got, int expected, char *name) {
   abort();
 }
 
-
-static void entry();
-static void b_run();
-static void b_fin();
-static void b_host();
-
 static void
   *E, // current environment
   *P, // parent environment
@@ -109,17 +102,11 @@ static void
   *v_void,
   *v_yes,
   *v_no,
+  *v_empty,
   *fin, // the closure, which would recieve evaluation result
   *run, // the closure, which would recieve the resulting program
   *host; // called to resolve builtin functions
 
-
-int main(int argc, char **argv) {
-  CLOSURE(run, b_run);
-  CLOSURE(fin, b_fin);
-  CLOSURE(host, b_host);
-  entry();
-}
 
 
 #define BUILTIN0(name) \
@@ -174,9 +161,62 @@ BUILTIN0(run)
   CALL(k);
 ENDBUILTIN_VOID
 
+static void print_object(void *o) {
+  int tag = getTag(o);
+
+  if (tag == T_FIXNUM) {
+    printf("%d", (intptr_t)getVal(o)>>TAG_BITS);
+  } else if (tag == T_STRING) {
+    printf("\"%s\"", (char*)getVal(o));
+  } else if (tag == T_CLOSURE) {
+    printf("#(closure #%08x)", getVal(o));
+  } else if (tag == T_PAIR) {
+    printf("(");
+    for (;;)  {
+      print_object(CAR(o));
+      o = CDR(o);
+      if (o == v_empty) break;
+      printf(" ");
+    }
+    printf(")");
+  } else if (o == v_void) {
+    printf("Void");
+  } else if (o == v_yes) {
+    printf("Yes");
+  } else if (o == v_no) {
+    printf("No");
+  } else if (o == v_empty) {
+    printf("()");
+  } else {
+    printf("#(ufo %p)", o);
+  }
+}
+
 BUILTIN0(fin)
-  printf("got into fin: result = %d\n", (int)getVal(k)>>TAG_BITS);
+  printf("got into fin; result:\n");
+  print_object(k);
+  printf("\n");
 ENDBUILTIN_VOID
+
+BUILTIN_ANY(void)
+  printf("FIXME: implement `void`\n");
+  abort();
+ENDBUILTIN(0)
+
+BUILTIN_ANY(yes)
+  printf("FIXME: implement `yes`\n");
+  abort();
+ENDBUILTIN(0)
+
+BUILTIN_ANY(no)
+  printf("FIXME: implement `no`\n");
+  abort();
+ENDBUILTIN(0)
+
+BUILTIN_ANY(empty)
+  printf("FIXME: implement `empty`\n");
+  abort();
+ENDBUILTIN(0)
 
 BUILTIN2(add,a,b)
   CHECK_TAG(a, T_FIXNUM);
@@ -199,10 +239,12 @@ BUILTIN1(tag_of,a)
 ENDBUILTIN(0)
 
 BUILTIN_ANY(list)
-  printf("FIXME: implement list\n");
-  abort();
-ENDBUILTIN(0)
-
+  void *r = v_empty;
+  int i = N;
+  while (i-- > 1) {
+    CONS(r, getArg(i), r);
+  }
+ENDBUILTIN(r)
 
 static struct {
   char *name;
@@ -230,6 +272,8 @@ BUILTIN1(host,t_name)
   }
   CLOSURE(R, builtins[i].fun);
 ENDBUILTIN(R)
+
+
 
 // FIXME: the real implementation should encode these strings as a values of a tagged pointers
 static uint8_t string_atoms[] = {
@@ -362,3 +406,19 @@ static uint8_t string_atoms[] = {
   252, 0, 0, 0, 0, 0, 0, 0, 253, 0, 0, 0, 0, 0, 0, 0, 
   254, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0
 };
+
+
+static void entry();
+
+// gcc -O3 test.c && ./a.out
+int main(int argc, char **argv) {
+  CLOSURE(run, b_run);
+  CLOSURE(fin, b_fin);
+  CLOSURE(host, b_host);
+  CLOSURE(v_void, b_void);
+  CLOSURE(v_yes, b_yes);
+  CLOSURE(v_no, b_no);
+  CLOSURE(v_empty, b_empty);
+  entry();
+  printf("main() say goodbay\n");
+}
