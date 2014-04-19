@@ -25,7 +25,7 @@ typedef void (*pfun)();
 // make strings and pairs statically allocable
 #define ALLOC(dst, size) dst = malloc(size*sizeof(void*))
 #define FIXNUM(dst,x) dst = (void*)(((uintptr_t)(x)<<TAG_BITS) | T_FIXNUM)
-#define STRING(dst,x) printf("%p\n", x); dst = (void*)((uintptr_t)x | T_STRING)
+#define STRING(dst,x) /*printf("%p\n", x);*/ dst = (void*)((uintptr_t)x | T_STRING)
 #define CONS(dst,a,b) \
   ALLOC(T, 2); \
   STORE(T, 0, a); \
@@ -153,7 +153,7 @@ static void
 // it should run it with supplyed host resolver, which should resolve all unknown symbols
 
 BUILTIN0(run)
-  printf("got into run!\n");
+  //printf("got into run!\n");
   ALLOC(E, 2);
   STORE(E, 0, fin); // continuation
   STORE(E, 1, host); // resolver
@@ -161,41 +161,41 @@ BUILTIN0(run)
   CALL(k);
 ENDBUILTIN_VOID
 
-static void print_object(void *o) {
+static char *print_object(char *out, void *o) {
   int tag = getTag(o);
 
   if (tag == T_FIXNUM) {
-    printf("%d", (intptr_t)getVal(o)>>TAG_BITS);
+    out += sprintf(out, "%ld", (intptr_t)getVal(o)>>TAG_BITS);
   } else if (tag == T_STRING) {
-    printf("\"%s\"", (char*)getVal(o));
+    out += sprintf(out, "\"%s\"", (char*)getVal(o));
   } else if (tag == T_CLOSURE) {
-    printf("#(closure #%08x)", getVal(o));
+    out += sprintf(out, "#(closure #%08lx)", getVal(o));
   } else if (tag == T_PAIR) {
-    printf("(");
+    out += sprintf(out, "(");
     for (;;)  {
-      print_object(CAR(o));
+      out = print_object(out, CAR(o));
       o = CDR(o);
       if (o == v_empty) break;
-      printf(" ");
+      out += sprintf(out, " ");
     }
-    printf(")");
+    out += sprintf(out, ")");
   } else if (o == v_void) {
-    printf("Void");
+    out += sprintf(out, "Void");
   } else if (o == v_yes) {
-    printf("Yes");
+    out += sprintf(out, "Yes");
   } else if (o == v_no) {
-    printf("No");
+    out += sprintf(out, "No");
   } else if (o == v_empty) {
-    printf("()");
+    out += sprintf(out, "()");
   } else {
-    printf("#(ufo %p)", o);
+    out += sprintf(out, "#(ufo %p)", o);
   }
+  return out;
 }
 
 BUILTIN0(fin)
-  printf("got into fin; result:\n");
-  print_object(k);
-  printf("\n");
+  //printf("got into fin!\n");
+  T = k;
 ENDBUILTIN_VOID
 
 BUILTIN_ANY(void)
@@ -240,7 +240,7 @@ ENDBUILTIN(0)
 
 BUILTIN_ANY(list)
   void *r = v_empty;
-  int i = N;
+  int i = (int)(intptr_t)N;
   while (i-- > 1) {
     CONS(r, getArg(i), r);
   }
@@ -272,7 +272,6 @@ BUILTIN1(host,t_name)
   }
   CLOSURE(R, builtins[i].fun);
 ENDBUILTIN(R)
-
 
 
 // FIXME: the real implementation should encode these strings as a values of a tagged pointers
@@ -420,5 +419,8 @@ int main(int argc, char **argv) {
   CLOSURE(v_no, b_no);
   CLOSURE(v_empty, b_empty);
   entry();
-  printf("main() say goodbay\n");
+  char buf[4096];
+  print_object(buf, T);
+  printf("%s\n", buf);
+  //printf("main() says goodbay\n");
 }

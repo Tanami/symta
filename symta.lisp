@@ -783,7 +783,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (push (format nil "static void ~a();" label-name) decls)
           (to-c-emit "}~%")
           (to-c-emit "static void ~a() {" label-name)
-          (to-c-emit "  printf(\"entering %s\\n\", \"~a\");" label-name)
+          ;;(to-c-emit "  printf(\"entering %s\\n\", \"~a\");" label-name)
           )
          ((''call name) (to-c-emit "  CALL(~a);" name))
          ((''goto name) (to-c-emit "  ~a();" name))
@@ -832,14 +832,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-compile-entry k entry builtins expr
   ! fn-expr = `("_fn" ("host") (("_fn" ,builtins ,expr) ,@(m b builtins `("host" ("_quote" ,b)))))
-  ! ssa-compile `("_move" r ,k) entry fn-expr)
+  ! r = ssa-compile `("_move" r ,k) entry fn-expr)
 
-(to ssa-compile-file file src
+(to ssa-produce-file file src
   ! text = ssa-compile-entry "run" "entry" *ssa-builtins* src
-  ! header = "#include \"common.h\""
+  ! header = "#include \"../c/common.h\""
   ! save-text-file file (format nil "~a~%~%~a" header text))
-;;(to ssa-compile-file file src ! ssa-compile-entry src)
 
+(defparameter *native-files-folder* "/Users/nikita/Documents/prj/symta/libs/symta/native/")
+
+(to shell command &rest args
+  ! s = (make-string-output-stream)
+  ! sb-ext:run-program command args :output s :search t :wait t
+  ! get-output-stream-string s)
+
+(to c-compiler dst src ! shell "gcc" "-O3" "-o" dst src)
+
+(to test-ssa src
+  ! c-file = "{*native-files-folder*}test.c"
+  ! exe-file = "{c-file}.bin"
+  ! ssa-produce-file c-file src
+  ! result = c-compiler exe-file c-file
+  ! e l (split #\Newline result) (format t "~a~%" l)
+  ! result = shell exe-file
+  ! e l (split #\Newline result) (format t "~a~%" l)
+  )
 
 ;;(cps-to-ssa '("_fn" ("+" "x") ("+" "x" 1)))
 ;;(lisp-to-ssa '("_fn" ("a" "b") ("_fn" ("x") ("+" ("*" "a" "x") "b"))))
@@ -847,4 +864,5 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 ;;(print-ssa (cps-to-ssa (produce-cps '("_fn" ("x") 123) '("_fn" ("+" "*" "x") ("*" ("+" "x" 1) 2)))))
 ;;(ssa-compile-fn '("_fn" ("x") "x") '("_fn" ("+" "*" "x") ("*" ("+" "x" 123) 456)))
 ;;(ssa-to-c (cps-to-ssa (produce-cps '("_fn" ("x") "x") '("_fn" ("+" "*" "x") ("*" ("+" "x" 123) 456)))))
-;;(ssa-compile-file "/Users/nikita/Documents/prj/symta/libs/symta/c/test.c" '("*" ("+" 123 789) 456))
+;;(ssa-produce-file "/Users/nikita/Documents/prj/symta/libs/symta/c/test.c" '("*" ("+" 123 789) 456))
+;;(ssa-produce-file "/Users/nikita/Documents/prj/symta/libs/symta/c/test.c" '("_quote" ("+" 123 789)))
