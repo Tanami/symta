@@ -5,93 +5,9 @@
 
 typedef void (*pfun)();
 
-#define TAG_BITS ((uintptr_t)2)
-#define TAG_MASK (((uintptr_t)1<<TAG_BITS)-1)
+static char* print_object(void *object);
 
-#define getArg(N) ((void**)(E))[N]
-#define getTag(X) ((uintptr_t)(X)&TAG_MASK)
-#define getVal(X) ((uintptr_t)(X)&~TAG_MASK)
-
-
-#define T_FIXNUM   0
-#define T_STRING   1
-#define T_PAIR     2
-#define T_CLOSURE  3
-
-//#define T_FLOAT
-//#define T_NEXT_HERE
-//#define T_NEXT_NONE
-
-// make strings and pairs statically allocable
-#define ALLOC(dst, size) dst = malloc(size*sizeof(void*))
-#define FIXNUM(dst,x) dst = (void*)(((uintptr_t)(x)<<TAG_BITS) | T_FIXNUM)
-#define STRING(dst,x) /*printf("%p\n", x);*/ dst = (void*)((uintptr_t)x | T_STRING)
-#define CONS(dst,a,b) \
-  ALLOC(T, 2); \
-  STORE(T, 0, a); \
-  STORE(T, 1, b); \
-  dst = (void*)((uintptr_t)T | T_PAIR);
-#define CLOSURE(dst,f) \
-  ALLOC(T, 1); \
-  STORE(T, 0, f); \
-  dst = (void*)((uintptr_t)T | T_CLOSURE);
-#define CAR(x) ((void**)getVal(x))[0]
-#define CDR(x) ((void**)getVal(x))[1]
-#define CALL(f) \
-  P = (void*)((uintptr_t)f-T_CLOSURE); \
-  (((pfun*)P)[0])();
-#define STORE(dst,off,src) ((void**)(dst))[(int)(off)] = (void*)(src)
-#define LOAD(dst,src,off) dst = ((void**)(src))[(int)(off)]
-#define COPY(dst,p,src,q) ((void**)(dst))[(int)(p)] = ((void**)(src))[(int)(q)]
-#define MOVE(dst,src) dst = (void*)(src)
-#define IOR(dst,a,b) dst = (void*)((uintptr_t)(a)|(uintptr_t)(b))
-#define CHECK_TAG(src,expected) if (getTag(src) != expected) bad_tag(getTag(src), expected)
-#define CHECK_NARGS(expected,meta) \
-  if ((intptr_t)N != (intptr_t)expected) { \
-    bad_number_of_arguments((intptr_t)N, (intptr_t)expected, meta); \
-    return; \
-  }
-#define CHECK_NARGS_ABOVE(expected,meta) \
-  if ((intptr_t)N >= (intptr_t)expected) { \
-    bad_number_of_arguments((intptr_t)N, (intptr_t)expected, meta); \
-    return; \
-  }
-
-#define BUILTIN_CHECK_NARGS(expected,meta) \
-  if ((intptr_t)N != (intptr_t)expected) { \
-    builtin_bad_number_of_arguments((intptr_t)N, (intptr_t)expected, meta); \
-    return; \
-  }
-#define BUILTIN_CHECK_NARGS_ABOVE(expected,meta) \
-  if ((intptr_t)N < (intptr_t)expected) { \
-    builtin_bad_number_of_arguments((intptr_t)N, (intptr_t)expected, meta); \
-    return; \
-  }
-
-
-static void bad_tag(int tag, int expected) {
-  printf("bad tag=%d, expected tag=%d\n", tag, expected);
-  abort();
-}
-
-static void bad_number_of_arguments(int got, int expected, void *meta) {
-  if (got < 0) { //request for metainfo?
-  }
-  printf("bad number of arguments: got=%d, expected=%d\n", got, expected);
-  if (meta) {
-  }
-  abort();
-}
-
-static void builtin_bad_number_of_arguments(int got, int expected, char *name) {
-  if (got < 0) { //request for metainfo?
-  }
-  printf("bad number of arguments: got=%d, expected=%d\n", got, expected);
-  printf("  during invokation of `%s`\n", name);
-  abort();
-}
-
-static void
+static void // registers array
   *E, // current environment
   *P, // parent environment
   *A, // args scratchpad
@@ -108,72 +24,206 @@ static void
   *host; // called to resolve builtin functions
 
 
+#define TAG_BITS ((uintptr_t)2)
+#define TAG_MASK (((uintptr_t)1<<TAG_BITS)-1)
+
+#define getArg(N) ((void**)(E))[N]
+#define getTag(X) ((uintptr_t)(X)&TAG_MASK)
+#define getVal(X) ((uintptr_t)(X)&~TAG_MASK)
+
+#define T_FIXNUM   0
+#define T_STRING   1
+#define T_LIST     2
+#define T_CLOSURE  3
+
+static void *tag_names[8];
+static char *get_tag_name(int tag) {
+  if (tag > TAG_MASK) {
+    printf("get_tag_name: %d > %d", tag, (int)TAG_MASK);
+    abort();
+  }
+  return (char*)getVal(tag_names[tag]);
+}
+
+//#define T_FLOAT
+//#define T_NEXT_HERE
+//#define T_NEXT_NONE
+
+#define T_ANY 123456
+
+// make strings and pairs statically allocable
+#define ALLOC(dst, size) dst = malloc(size*sizeof(void*))
+#define FIXNUM(dst,x) dst = (void*)(((uintptr_t)(x)<<TAG_BITS) | T_FIXNUM)
+#define STRING(dst,x) /*printf("%p\n", x);*/ dst = (void*)((uintptr_t)x | T_STRING)
+#define CONS(dst,a,b) \
+  ALLOC(T, 2); \
+  STORE(T, 0, a); \
+  STORE(T, 1, b); \
+  dst = (void*)((uintptr_t)T | T_LIST);
+#define CLOSURE(dst,f) \
+  ALLOC(T, 1); \
+  STORE(T, 0, f); \
+  dst = (void*)((uintptr_t)T | T_CLOSURE);
+#define CAR(x) ((void**)getVal(x))[0]
+#define CDR(x) ((void**)getVal(x))[1]
+#define CALL(f) \
+  P = (void*)((uintptr_t)f-T_CLOSURE); \
+  (((pfun*)P)[0])();
+#define CALL_NO_ENV(f) (((pfun*)((uintptr_t)f-T_CLOSURE))[0])();
+
+#define STORE(dst,off,src) ((void**)(dst))[(int)(off)] = (void*)(src)
+#define LOAD(dst,src,off) dst = ((void**)(src))[(int)(off)]
+#define COPY(dst,p,src,q) ((void**)(dst))[(int)(p)] = ((void**)(src))[(int)(q)]
+#define MOVE(dst,src) dst = (void*)(src)
+#define IOR(dst,a,b) dst = (void*)((uintptr_t)(a)|(uintptr_t)(b))
+
+#define CALL0(f,k) \
+  ALLOC(E, 1); \
+  STORE(E, 0, k); \
+  MOVE(N, 1); \
+  CALL(f);
+
+#define CALL1(f,k,a) \
+  ALLOC(E, 2); \
+  STORE(E, 0, k); \
+  STORE(E, 1, a); \
+  MOVE(N, 2); \
+  CALL(f);
+
+#define CALL2(f,k,a,b) \
+  ALLOC(E, 3); \
+  STORE(E, 0, k); \
+  STORE(E, 1, a); \
+  STORE(E, 2, b); \
+  MOVE(N, 3); \
+  CALL(f);
+
+
+
+#define CHECK_TAG(src,expected) if (getTag(src) != expected) bad_tag(src, expected)
+#define BUILTIN_CHECK_TAG(src,expected,arg_index,meta) \
+   if (expected != T_ANY && getTag(src) != expected) \
+     builtin_bad_tag(src, expected, arg_index, meta)
+
+
+#define CHECK_NARGS(expected,tag) \
+  if ((intptr_t)N != (intptr_t)expected) { \
+    handle_args((intptr_t)expected, tag, v_empty); \
+    return; \
+  }
+#define CHECK_NARGS_ABOVE(tag) \
+  if ((intptr_t)N < 1) { \
+    handle_args(-1, tag, v_empty); \
+    return; \
+  }
+
+#define BUILTIN_CHECK_NARGS(expected,tag) \
+  if ((intptr_t)N != (intptr_t)expected) { \
+    static void *stag = 0; \
+    if (!stag) STRING(stag, strdup(tag)); \
+    handle_args((intptr_t)expected, stag, v_empty); \
+    return; \
+  }
+#define BUILTIN_CHECK_NARGS_ABOVE(tag) \
+  if ((intptr_t)N < 1) { \
+    static void *stag = 0; \
+    if (!stag) STRING(stag, strdup(tag)); \
+    handle_args(-1, stag, v_empty); \
+    return; \
+  }
+
+static void bad_tag(void *object, int expected) {
+  printf("bad tag=`%s` (expected tag=`%s`), value = %s\n",
+         get_tag_name(getTag(object)), get_tag_name(expected), print_object(object));
+  abort();
+}
+
+static void builtin_bad_tag(void *object, int expected, int arg_index, char *name) {
+  int i;
+  printf("cant invoke %s", name);
+  for (i = 1; i < (int)(intptr_t)N; i++) {
+    printf(" %s", print_object(getArg(i)));
+  }
+  printf("\n", name);
+
+  printf("  arg %d isnt `%s`\n", arg_index, get_tag_name(expected));
+  abort();
+}
+
+static void handle_args(intptr_t expected, void *tag, void *meta) {
+  intptr_t got = (intptr_t)N;
+  void *k = getArg(0);
+  if (got == 0) { //request for tag
+    CALL0(k, tag);
+    return;
+  } else if (got == -1) {
+    CALL0(k, meta);
+    return;
+  }
+  printf("bad number of arguments: got=`%ld`, expected=`%ld`\n", got-1, expected-1);
+  if (meta) {
+  }
+  abort();
+}
+
 
 #define BUILTIN0(name) \
   static void b_##name() { \
   void *k; \
-  BUILTIN_CHECK_NARGS(1,0); \
+  BUILTIN_CHECK_NARGS(1,#name); \
   k = getArg(0);
 
-#define BUILTIN1(name,a) \
+#define BUILTIN1(name,a_type, a) \
   static void b_##name() { \
   void *k, *a; \
-  BUILTIN_CHECK_NARGS(2,0); \
-  k = getArg(0); \
-  a = getArg(1);
-
-#define BUILTIN2(name,a,b) \
-  static void b_##name() { \
-  void *k, *a, *b; \
-  BUILTIN_CHECK_NARGS(3,0); \
+  BUILTIN_CHECK_NARGS(2,#name); \
   k = getArg(0); \
   a = getArg(1); \
-  b = getArg(2);
+  BUILTIN_CHECK_TAG(a, a_type, 0, #name);
+
+#define BUILTIN2(name,a_type,a,b_type,b) \
+  static void b_##name() { \
+  void *k, *a, *b; \
+  BUILTIN_CHECK_NARGS(3,#name); \
+  k = getArg(0); \
+  a = getArg(1); \
+  b = getArg(2); \
+  BUILTIN_CHECK_TAG(a, a_type, 0, #name); \
+  BUILTIN_CHECK_TAG(b, b_type, 1, #name);
+
 
 #define BUILTIN_ANY(name) \
   static void b_##name() { \
   void *k; \
-  BUILTIN_CHECK_NARGS_ABOVE(1, #name); \
+  BUILTIN_CHECK_NARGS_ABOVE(#name); \
   k = getArg(0);
 
-#define ENDBUILTIN(r) \
-    ALLOC(E, 1); \
-    STORE(E, 0, (r)); \
-    MOVE(N, 1); \
-    CALL(k); \
-  }
+#define RETURNS(r) CALL0(k,(r)); }
 
-#define ENDBUILTIN_VOID \
-  }
+#define RETURNS_VOID }
 
 
 //E[0] = environment, E[1] = continuation, E[2] = function_name
 
 // run continuation recieves entry point into user specified program
-// it should run it with supplyed host resolver, which should resolve all unknown symbols
+// which it runs with supplied host resolver, which resolves all builtin symbols
 
 BUILTIN0(run)
   //printf("got into run!\n");
-  ALLOC(E, 2);
-  STORE(E, 0, fin); // continuation
-  STORE(E, 1, host); // resolver
-  MOVE(N, 2);
-  CALL(k);
-ENDBUILTIN_VOID
+  CALL1(k,fin,host);
+RETURNS_VOID
 
-static char *print_object(char *out, void *o) {
+static char *print_object_r(char *out, void *o) {
   int tag = getTag(o);
 
   if (tag == T_FIXNUM) {
     out += sprintf(out, "%ld", (intptr_t)getVal(o)>>TAG_BITS);
   } else if (tag == T_STRING) {
     out += sprintf(out, "\"%s\"", (char*)getVal(o));
-  } else if (tag == T_CLOSURE) {
-    out += sprintf(out, "#(closure #%08lx)", getVal(o));
-  } else if (tag == T_PAIR) {
+  } else if (tag == T_LIST) {
     out += sprintf(out, "(");
     for (;;)  {
-      out = print_object(out, CAR(o));
+      out = print_object_r(out, CAR(o));
       o = CDR(o);
       if (o == v_empty) break;
       out += sprintf(out, " ");
@@ -187,64 +237,68 @@ static char *print_object(char *out, void *o) {
     out += sprintf(out, "No");
   } else if (o == v_empty) {
     out += sprintf(out, "()");
+  } else if (tag == T_CLOSURE) {
+    //FIXME: print tag and check metainfo to see if this object is printable
+    out += sprintf(out, "#(closure #%08lx)", getVal(o));
   } else {
     out += sprintf(out, "#(ufo %p)", o);
   }
   return out;
 }
 
+static char print_buffer[1024*16];
+static char* print_object(void *object) {
+  print_object_r(print_buffer, object);
+  return print_buffer;
+}
+
 BUILTIN0(fin)
   //printf("got into fin!\n");
   T = k;
-ENDBUILTIN_VOID
+RETURNS_VOID
 
 BUILTIN_ANY(void)
   printf("FIXME: implement `void`\n");
   abort();
-ENDBUILTIN(0)
+RETURNS(0)
 
 BUILTIN_ANY(yes)
   printf("FIXME: implement `yes`\n");
   abort();
-ENDBUILTIN(0)
+RETURNS(0)
 
 BUILTIN_ANY(no)
   printf("FIXME: implement `no`\n");
   abort();
-ENDBUILTIN(0)
+RETURNS(0)
 
 BUILTIN_ANY(empty)
   printf("FIXME: implement `empty`\n");
   abort();
-ENDBUILTIN(0)
+RETURNS(0)
 
-BUILTIN2(add,a,b)
-  CHECK_TAG(a, T_FIXNUM);
-  CHECK_TAG(b, T_FIXNUM);
-ENDBUILTIN(getVal(a) + getVal(b))
+BUILTIN2(add,T_FIXNUM,a,T_FIXNUM,b)
+RETURNS(getVal(a) + getVal(b))
 
-BUILTIN2(mul,a,b)
-  CHECK_TAG(a, T_FIXNUM);
-  CHECK_TAG(b, T_FIXNUM);
-ENDBUILTIN((getVal(a)>>TAG_BITS) * getVal(b))
+BUILTIN2(mul,T_FIXNUM,a,T_FIXNUM,b)
+RETURNS((getVal(a)>>TAG_BITS) * getVal(b))
 
-BUILTIN1(tag_of,a)
-  if (getTag(a) == T_CLOSURE) {
-    MOVE(N, -1);
-    CALL(k);
+BUILTIN1(tag_of,T_ANY,a)
+  int tag = getTag(a);
+  if (tag == T_CLOSURE) {
+    N = 0; // signal that we want meta-info
+    CALL_NO_ENV(a);
     return;
   }
-  printf("FIXME: implement for other builtin types\n");
-  abort();
-ENDBUILTIN(0)
+RETURNS(tag_names[tag])
 
 BUILTIN_ANY(list)
-  void *r = v_empty;
+  void *xs = v_empty;
   int i = (int)(intptr_t)N;
   while (i-- > 1) {
-    CONS(r, getArg(i), r);
+    CONS(xs, getArg(i), xs);
   }
-ENDBUILTIN(r)
+RETURNS(xs)
 
 static struct {
   char *name;
@@ -257,8 +311,7 @@ static struct {
   {0, 0}
 };
 
-BUILTIN1(host,t_name)
-  CHECK_TAG(t_name, T_STRING);
+BUILTIN1(host,T_STRING,t_name)
   int i;
   char *name = (char*)getVal(t_name);
   for (i = 0; ; i++) {
@@ -271,7 +324,7 @@ BUILTIN1(host,t_name)
     }
   }
   CLOSURE(R, builtins[i].fun);
-ENDBUILTIN(R)
+RETURNS(R)
 
 
 // FIXME: the real implementation should encode these strings as a values of a tagged pointers
@@ -409,8 +462,22 @@ static uint8_t string_atoms[] = {
 
 static void entry();
 
+#define T_FIXNUM   0
+#define T_STRING   1
+#define T_LIST     2
+#define T_CLOSURE  3
+
 // gcc -O3 test.c && ./a.out
 int main(int argc, char **argv) {
+  STRING(tag_names[0], strdup("integer"));
+  STRING(tag_names[1], strdup("string"));
+  STRING(tag_names[2], strdup("list"));
+  STRING(tag_names[3], strdup("fn"));
+  STRING(tag_names[4], strdup("unknown=4"));
+  STRING(tag_names[5], strdup("unknown=5"));
+  STRING(tag_names[6], strdup("unknown=6"));
+  STRING(tag_names[7], strdup("unknown=7"));
+
   CLOSURE(run, b_run);
   CLOSURE(fin, b_fin);
   CLOSURE(host, b_host);
@@ -419,8 +486,6 @@ int main(int argc, char **argv) {
   CLOSURE(v_no, b_no);
   CLOSURE(v_empty, b_empty);
   entry();
-  char buf[4096];
-  print_object(buf, T);
-  printf("%s\n", buf);
+  printf("%s\n", print_object(T));
   //printf("main() says goodbay\n");
 }

@@ -581,7 +581,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (defparameter *ssa-fns* nil)
 
 (defparameter *ssa-closure* nil) ; other lambdas', this lambda references
-(defparameter *ssa-builtins* '("*" "+")) ;;'("_fn_if" "+" "-" "*" "/" "text_out"))
+(defparameter *ssa-builtins* '("*" "+" "list" "tag_of")) ;;'("_fn_if" "+" "-" "*" "/" "text_out"))
 (defparameter *ssa-inits* nil)
 
 
@@ -659,6 +659,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ;; check if we really need new closure here, because in some cases we can reuse parent's closure
   ;; a single argument to a function could be passed in register, while a closure would be created if required
   ;; a single reference closure could be itself held in a register
+  ;; for now we just capture required parent's closure
   ! ssa 'alloc 'r (+ nparents 1)
   ! i = -1
   ! ssa 'store 'r (incf i) f
@@ -805,7 +806,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (abort))
          ((''closure dst code env) (to-c-emit "  CLOSURE(~a, ~a, ~a);" dst code env))
          ((''check_tag tag expected) (to-c-emit "  CHECK_TAG(~a, ~a);" tag expected))
-         ((''check_nargs expected meta) (to-c-emit "  CHECK_NARGS(~a, ~a);" expected (or meta 0)))
+         ((''check_nargs expected meta) (to-c-emit "  CHECK_NARGS(~a, ~a);" expected (or meta "v_no")))
          (else (error "invalid ssa: ~a" x))))
     (to-c-emit "}~%")
     (let ((defs nil)
@@ -832,7 +833,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-compile-entry k entry builtins expr
   ! fn-expr = `("_fn" ("host") (("_fn" ,builtins ,expr) ,@(m b builtins `("host" ("_quote" ,b)))))
-  ! r = ssa-compile `("_move" r ,k) entry fn-expr)
+  ! ssa-compile `("_move" r ,k) entry fn-expr)
 
 (to ssa-produce-file file src
   ! text = ssa-compile-entry "run" "entry" *ssa-builtins* src
