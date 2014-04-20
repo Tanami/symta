@@ -772,7 +772,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (data nil))
     (e x *ssa-inits* (to-c-emit "static void *~a;" (first x)))
     (e x *ssa-inits* (to-c-emit "~a" (second x)))
-    (to-c-emit "static void ~a() {" entry)
+    (to-c-emit "static void ~a(regs_t *regs) {" entry)
     (e x *ssa-inits*
        (progn
          (to-c-emit "  init_~a();" (first x))
@@ -781,13 +781,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (e x xs
        (match x
          ((''label label-name)
-          (push (format nil "static void ~a();" label-name) decls)
+          (push (format nil "static void ~a(regs_t *regs);" label-name) decls)
           (to-c-emit "}~%")
-          (to-c-emit "static void ~a() {" label-name)
+          (to-c-emit "static void ~a(regs_t *regs) {" label-name)
           ;;(to-c-emit "  printf(\"entering %s\\n\", \"~a\");" label-name)
           )
          ((''call name) (to-c-emit "  CALL(~a);" name))
-         ((''goto name) (to-c-emit "  ~a();" name))
+         ((''goto name) (to-c-emit "  ~a(regs);" name))
          ((''alloc place size) (to-c-emit "  ALLOC(~a, ~a);" place size))
          ((''load dst src off) (to-c-emit "  LOAD(~a, ~a, ~a);" dst src off))
          ((''store dst off src) (to-c-emit "  STORE(~a, ~a, ~a);" dst off src))
