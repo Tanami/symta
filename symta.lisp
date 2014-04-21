@@ -772,7 +772,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (data nil))
     (e x *ssa-inits* (to-c-emit "static void *~a;" (first x)))
     (e x *ssa-inits* (to-c-emit "~a" (second x)))
-    (to-c-emit "static void ~a(regs_t *regs) {" entry)
+    (to-c-emit "void ~a(regs_t *regs) {" entry)
     (e x *ssa-inits*
        (progn
          (to-c-emit "  init_~a(regs);" (first x))
@@ -837,7 +837,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-produce-file file src
   ! text = ssa-compile-entry "run" "entry" *ssa-builtins* src
-  ! header = "#include \"../c/common.h\""
+  ! header = "#include \"../runtime.h\""
   ! save-text-file file (format nil "~a~%~%~a" header text))
 
 (defparameter *native-files-folder* "/Users/nikita/Documents/prj/symta/libs/symta/native/")
@@ -847,15 +847,22 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! sb-ext:run-program command args :output s :search t :wait t
   ! get-output-stream-string s)
 
-(to c-compiler dst src ! shell "gcc" "-O3" "-o" dst src)
+(to c-runtime-compiler dst src ! shell "gcc" "-O3" "-o" dst src)
+(to c-compiler dst src ! shell "gcc" "-O3" "-fpic" "-shared" "-o" dst src)
+
+(to compile-runtime main-file
+  ! result = c-runtime-compiler main-file "{*native-files-folder*}../runtime.c"
+  ! e l (split #\Newline result) (format t "~a~%" l))
 
 (to test-ssa src
+  ! main-file = "{*native-files-folder*}/runtime"
+  ! compile-runtime main-file
   ! c-file = "{*native-files-folder*}test.c"
   ! exe-file = "{c-file}.bin"
   ! ssa-produce-file c-file src
   ! result = c-compiler exe-file c-file
   ! e l (split #\Newline result) (format t "~a~%" l)
-  ! result = shell exe-file
+  ! result = shell main-file exe-file
   ! e l (split #\Newline result) (format t "~a~%" l)
   )
 
