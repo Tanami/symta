@@ -775,7 +775,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (to-c-emit "static void ~a(regs_t *regs) {" entry)
     (e x *ssa-inits*
        (progn
-         (to-c-emit "  init_~a();" (first x))
+         (to-c-emit "  init_~a(regs);" (first x))
          (to-c-emit "  ~a = getArg(0);" (first x))
          ))
     (e x xs

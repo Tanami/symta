@@ -344,7 +344,7 @@ BUILTIN1(host,T_STRING,t_name)
 RETURNS(R)
 
 
-// FIXME: the real implementation should encode these strings as a values of a tagged pointers
+// FIXME: the real implementation should encode these strings as values of tagged pointers
 static uint8_t string_atoms[] = {
   0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 
   2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 
