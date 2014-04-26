@@ -773,11 +773,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (e x *ssa-inits* (to-c-emit "static void *~a;" (first x)))
     (e x *ssa-inits* (to-c-emit "~a" (second x)))
     (to-c-emit "void ~a(regs_t *regs) {" entry)
-    (e x *ssa-inits*
-       (progn
-         (to-c-emit "  init_~a(regs);" (first x))
-         (to-c-emit "  ~a = getArg(0);" (first x))
-         ))
+    (when *ssa-inits*
+      (to-c-emit "  static int done_init = 0;")
+      (to-c-emit "  if (done_init) goto skip_init;")
+      (e x *ssa-inits*
+         (progn
+           (to-c-emit "  init_~a(regs);" (first x))
+           (to-c-emit "  ~a = getArg(0);" (first x))))
+      (to-c-emit "  done_init = 1;")
+      (to-c-emit "  skip_init:;")
+      )
     (e x xs
        (match x
          ((''label label-name)
@@ -847,8 +852,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! sb-ext:run-program command args :output s :search t :wait t
   ! get-output-stream-string s)
 
-(to c-runtime-compiler dst src ! shell "gcc" "-O3" "-o" dst src)
-(to c-compiler dst src ! shell "gcc" "-O3" "-fpic" "-shared" "-o" dst src)
+(to c-runtime-compiler dst src ! shell "gcc" "-O3" "-s" "-DNDEBUG" "-o" dst src)
+(to c-compiler dst src ! shell "gcc" "-O3" "-s" "-DNDEBUG" "-fpic" "-shared" "-o" dst src)
 
 (to compile-runtime main-file
   ! result = c-runtime-compiler main-file "{*native-files-folder*}../runtime.c"
