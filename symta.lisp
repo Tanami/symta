@@ -637,7 +637,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-quote x
   ! cond
-     ((stringp x) (ssa 'string 'r x))
+     ((stringp x) (ssa 'symbol 'r x))
      ((integerp x) (ssa-atom x))
      ((listp x) (ssa-quote-list x))
      (t (error "unsupported quoted value: ~a" x)))
@@ -660,27 +660,24 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ;; a single argument to a function could be passed in register, while a closure would be created if required
   ;; a single reference closure could be itself held in a register
   ;; for now we just capture required parent's closure
-  ! ssa 'alloc 'r (+ nparents 1)
+  ! ssa 'alloc 'r f nparents
   ! i = -1
-  ! ssa 'store 'r (incf i) f
   ! e c cs (! if (equal c *ssa-ns*) ; self?
                  (ssa 'store 'r (incf i) 'e)
                  (ssa 'copy 'r (incf i) 'p (ssa-get-parent-index c)))
-  ! ssa 'ior 'r 'r 'T_CLOSURE)
+  ! ssa 'known_closure)
 
 (to ssa-apply f as
   ;; FIXME: if it is a lambda call, we don't have to change env or create a closure, just push env
   ! produce-ssa f
-  ! unless (and (eql (first (car *ssa-out*)) 'ior) (eql (fourth (car *ssa-out*)) 'T_CLOSURE))
-     (ssa 'check_tag 'r 't_closure) ;no need to check local closures
+  ! known-closure = eql (first (car *ssa-out*)) 'known_closure
   ! ssa 'move 'c 'r
-  ! ssa 'alloc 'a (length as)
+  ! ssa 'alloc 'a (length as) (length as)
   ! i = -1
   ! e a as (! produce-ssa a
             ! ssa 'store 'a (incf i) 'r)
   ! ssa 'move 'e 'a ; replace current frame with new environment
-  ! ssa 'move 'n (length as)
-  ! ssa 'call 'c)
+  ! if known-closure (ssa 'call 'c) (ssa 'call_tagged 'c))
 
 (to ssa-set k place value
   ! ssa 'store (ssa-symbol place t) value
@@ -755,34 +752,26 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to to-c-emit &rest args ! (push (apply #'format nil args) *compiled*))
 
-(defun emit-c-array (name align bytes)
-  (to-c-emit "static uint8_t ~a[] = {" name)
-  (let ((xs bytes))
-    (while xs
-      (let ((ys (subseq xs 0 align)))
-        (setf xs (subseq xs align))
-        (to-c-emit (if xs "  ~{~a, ~}" "  ~{~a~^, ~}") ys))))
-  (unless bytes (to-c-emit "0"))
-  (to-c-emit "};"))
+(defparameter *pool-size* 64)
 
 (defun ssa-to-c (entry xs)
   (let ((*compiled* nil)
+        (statics nil)
         (decls nil)
+        (inits nil)
         (data-name (ssa-name "data"))
-        (data nil))
+        (inits-name (ssa-name "inits"))
+        (data nil)
+        )
     (e x *ssa-inits* (to-c-emit "static void *~a;" (first x)))
     (e x *ssa-inits* (to-c-emit "~a" (second x)))
+    (to-c-emit "static void ~a(regs_t *regs);" inits-name)
     (to-c-emit "void ~a(regs_t *regs) {" entry)
-    (when *ssa-inits*
-      (to-c-emit "  static int done_init = 0;")
-      (to-c-emit "  if (done_init) goto skip_init;")
-      (e x *ssa-inits*
-         (progn
-           (to-c-emit "  init_~a(regs);" (first x))
-           (to-c-emit "  ~a = getArg(0);" (first x))))
-      (to-c-emit "  done_init = 1;")
-      (to-c-emit "  skip_init:;")
-      )
+    (to-c-emit "  static int done_init = 0;")
+    (to-c-emit "  if (done_init) goto skip_init;")
+    (to-c-emit "  ~a(regs);" inits-name)
+    (to-c-emit "  done_init = 1;")
+    (to-c-emit "  skip_init:;")
     (e x xs
        (match x
          ((''label label-name)
@@ -792,42 +781,47 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           ;;(to-c-emit "  printf(\"entering %s\\n\", \"~a\");" label-name)
           )
          ((''call name) (to-c-emit "  CALL(~a);" name))
+         ((''call_tagged name) (to-c-emit "  CALL_TAGGED(~a);" name))
          ((''goto name) (to-c-emit "  ~a(regs);" name))
-         ((''alloc place size) (to-c-emit "  ALLOC(~a, ~a);" place size))
+         ((''alloc place name size)
+          (if (numberp name)
+              (let ((pool (min *pool-size* name)))
+                (to-c-emit "  ALLOC(~a, ~a, ~a, ~a);" place name pool size))
+              (progn
+                (push (format nil "static int ~a_pool;" name) decls)
+                (push (format nil "~a_pool = regs->new_pool();" name) inits)
+                (to-c-emit "  ALLOC(~a, ~a, ~a_pool, ~a);" place name name size))))
          ((''load dst src off) (to-c-emit "  LOAD(~a, ~a, ~a);" dst src off))
          ((''store dst off src) (to-c-emit "  STORE(~a, ~a, ~a);" dst off src))
          ((''copy dst p src q) (to-c-emit "  COPY(~a, ~a, ~a, ~a);" dst p src q))
          ((''move dst src) (to-c-emit "  MOVE(~a, ~a);" dst src))
          ((''add dst a b) (to-c-emit "  ADD(~a, ~a, ~a);" dst a b))
-         ((''ior dst a b) (to-c-emit "  IOR(~a, ~a, ~a);" dst a b))
+         ((''known_closure) (to-c-emit "  /* known closure */"))
          ((''fixnum dst str) (to-c-emit "  FIXNUM(~a, ~s);" dst str))
-         ((''string dst str)
-          (let ((name (ssa-name "s")))
-            (to-c-emit "  STRING(~a, ~a);" dst name)
-            (push `(,name ,@(m c (coerce str 'list) (char-code c)) 0) data)))
+         ((''symbol dst str)
+          (let ((name (ssa-name "s"))
+                (bytes `(,@(m c (coerce str 'list) (char-code c)) 0)))
+            (push (format nil "static uint8_t ~a_bytes[] = {~{~a~^,~}};" name bytes) decls)
+            (push (format nil "static void *~a;" name) decls)
+            (push (format nil "SYMBOL(~a, (char*)~a_bytes);" name name) inits)
+            (to-c-emit "  MOVE(~a, ~a);" dst name)))
          ((''list dst xs)
           (let ((name (ssa-name "s")))
             (to-c-emit "  MOVE(~a, ~a);" dst name))
           (abort))
          ((''closure dst code env) (to-c-emit "  CLOSURE(~a, ~a, ~a);" dst code env))
          ((''check_tag tag expected) (to-c-emit "  CHECK_TAG(~a, ~a);" tag expected))
-         ((''check_nargs expected meta) (to-c-emit "  CHECK_NARGS(~a, ~a);" expected (or meta "v_no")))
+         ((''check_nargs expected meta) (to-c-emit "  CHECK_NARGS(~a, ~a);" expected (or meta "v_empty")))
          (else (error "invalid ssa: ~a" x))))
     (to-c-emit "}~%")
-    (let ((defs nil)
-          (data-bytes nil)
-          (data-ptr 0))
-      (e xs data
-         (let ((bytes (cdr xs)))
-           (push (format nil "#define ~a (~a+~a)" (car xs) data-name data-ptr) decls)
-           (setf data-bytes `(,@(reverse bytes) ,@data-bytes))
-           (incf data-ptr (length bytes))
-           (while (/= (mod data-ptr 16) 0)
-             (push 0 data-bytes)
-             (incf data-ptr))))
-      (push (format nil "static uint8_t ~a[];" data-name) decls)
-      ;;(push (format nil "static int ~a_size = ~a;" data-name data-ptr) decls)
-      (emit-c-array data-name 16 (reverse data-bytes)))
+    (to-c-emit "static void ~a(regs_t *regs) {" inits-name)
+    (when (or *ssa-inits* inits)
+      (e i inits (to-c-emit "  ~a" i))
+      (e x *ssa-inits*
+         (progn
+           (to-c-emit "  init_~a(regs);" (first x))
+           (to-c-emit "  LOAD(~a, E, 0);" (first x)))))
+    (to-c-emit "}~%")
     (format nil "~{~a~%~}" (reverse (append *compiled* decls)))))
 
 (to ssa-compile k entry fn-expr
@@ -856,8 +850,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to c-compiler dst src ! shell "gcc" "-O3" "-s" "-DNDEBUG" "-fpic" "-shared" "-o" dst src)
 
 (to compile-runtime main-file
-  ! result = c-runtime-compiler main-file "{*native-files-folder*}../runtime.c"
-  ! e l (split #\Newline result) (format t "~a~%" l))
+  ! src-file = "{*native-files-folder*}../runtime.c"
+  ! result = c-runtime-compiler main-file src-file
+  ! when (string/= result "")
+      (e l (split #\Newline result) (format t "~a~%" l)))
 
 (to test-ssa src
   ! main-file = "{*native-files-folder*}/runtime"
@@ -866,9 +862,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! exe-file = "{c-file}.bin"
   ! ssa-produce-file c-file src
   ! result = c-compiler exe-file c-file
-  ! e l (split #\Newline result) (format t "~a~%" l)
-  ! result = shell main-file exe-file
-  ! e l (split #\Newline result) (format t "~a~%" l)
+  ! when (string/= result "")
+     (e l (split #\Newline result) (format t "~a~%" l))
+  #|! result = shell main-file exe-file
+  ! e l (butlast (split #\Newline result)) (format t "~a~%" l)|#
   )
 
 ;;(cps-to-ssa '("_fn" ("+" "x") ("+" "x" 1)))
