@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 
+// used for debugging
+#define D fprintf(stderr, "%d:%s\n", __LINE__, __FILE__);
 
 #define TAG_BITS ((uintptr_t)2)
 #define TAG_MASK (((uintptr_t)1<<TAG_BITS)-1)

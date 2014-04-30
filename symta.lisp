@@ -810,7 +810,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
             (to-c-emit "  MOVE(~a, ~a);" dst name))
           (abort))
          ((''closure dst code env) (to-c-emit "  CLOSURE(~a, ~a, ~a);" dst code env))
-         ((''check_tag tag expected) (to-c-emit "  CHECK_TAG(~a, ~a);" tag expected))
          ((''check_nargs expected meta) (to-c-emit "  CHECK_NARGS(~a, ~a);" expected (or meta "v_empty")))
          (else (error "invalid ssa: ~a" x))))
     (to-c-emit "}~%")
@@ -846,8 +845,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! sb-ext:run-program command args :output s :search t :wait t
   ! get-output-stream-string s)
 
-(to c-runtime-compiler dst src ! shell "gcc" "-O3" "-s" "-DNDEBUG" "-o" dst src)
-(to c-compiler dst src ! shell "gcc" "-O3" "-s" "-DNDEBUG" "-fpic" "-shared" "-o" dst src)
+(to c-runtime-compiler dst src ! shell "gcc" "-g" #|"-O3" "-DNDEBUG"|# "-o" dst src)
+(to c-compiler dst src ! shell "gcc"  "-g" #|"-O3" "-DNDEBUG"|# "-fpic" "-shared" "-o" dst src)
 
 (to compile-runtime main-file
   ! src-file = "{*native-files-folder*}../runtime.c"
@@ -864,8 +863,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! result = c-compiler exe-file c-file
   ! when (string/= result "")
      (e l (split #\Newline result) (format t "~a~%" l))
-  #|! result = shell main-file exe-file
-  ! e l (butlast (split #\Newline result)) (format t "~a~%" l)|#
+  ! result = shell main-file exe-file
+  ! e l (butlast (split #\Newline result)) (format t "~a~%" l)
   )
 
 ;;(cps-to-ssa '("_fn" ("+" "x") ("+" "x" 1)))

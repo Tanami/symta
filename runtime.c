@@ -337,7 +337,9 @@ int main(int argc, char **argv) {
 
   module = argv[1];
 
-  heap_ptr = (void**)(((uintptr_t)heap_base + POOL_SIZE) & POOL_BASE);
+  heap_ptr = (void**)((uintptr_t)(heap_base + POOL_SIZE) & POOL_BASE);
+  heap_end = heap_ptr + HEAP_SIZE;
+
   regs = new_regs();
 
   // multi-array pools
@@ -375,5 +377,4 @@ int main(int argc, char **argv) {
   entry(regs);
 
   printf("%s\n", print_object(T));
-  //printf("main() says goodbay\n");
 }
