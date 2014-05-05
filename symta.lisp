@@ -581,7 +581,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (defparameter *ssa-fns* nil)
 
 (defparameter *ssa-closure* nil) ; other lambdas', this lambda references
-(defparameter *ssa-builtins* '("*" "+" "list" "tag_of")) ;;'("_fn_if" "+" "-" "*" "/" "text_out"))
 (defparameter *ssa-inits* nil)
 
 
@@ -599,11 +598,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa name &rest args ! push `(,name ,@args) *ssa-out*)
 
-(to ssa-get-parent-index parent ; auto-add 1 to accomodate for code pointer (self)
+(to ssa-get-parent-index parent
   ! p = position-if (fn e ! equal parent e) (car *ssa-closure*)
-  ! when p (ret (+ 1 p)) ; already exist
+  ! when p (ret p) ; already exist
   ! setf (car *ssa-closure*) `(,@(car *ssa-closure*) ,parent)
-  ! length (car *ssa-closure*))
+  ! - (length (car *ssa-closure*)) 1)
 
 (to ssa-path-to-sym x es
   ! unless es (ret nil)
@@ -778,7 +777,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (push (format nil "static void ~a(regs_t *regs);" label-name) decls)
           (to-c-emit "}~%")
           (to-c-emit "static void ~a(regs_t *regs) {" label-name)
-          ;;(to-c-emit "  printf(\"entering %s\\n\", \"~a\");" label-name)
+          ;;(to-c-emit "  D;");
           )
          ((''call name) (to-c-emit "  CALL(~a);" name))
          ((''call_tagged name) (to-c-emit "  CALL_TAGGED(~a);" name))
@@ -832,6 +831,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to ssa-compile-entry k entry builtins expr
   ! fn-expr = `("_fn" ("host") (("_fn" ,builtins ,expr) ,@(m b builtins `("host" ("_quote" ,b)))))
   ! ssa-compile `("_move" r ,k) entry fn-expr)
+
+(defparameter *ssa-builtins* '("+" "-" "*" "/" "list" "tag_of")) ;;'("_fn_if" "+" "-" "*" "/" "text_out"))
 
 (to ssa-produce-file file src
   ! text = ssa-compile-entry "run" "entry" *ssa-builtins* src

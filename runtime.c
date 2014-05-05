@@ -22,7 +22,7 @@ static int pools_count = 0;
 
 static void **alloc(int count) {
   void **r = heap_ptr;
-  heap_ptr += (count+POOL_SIZE-1)/POOL_SIZE;
+  heap_ptr += (count+POOL_SIZE-1)&~(POOL_SIZE-1);
   if ((void**)heap_ptr > heap_end) {
     printf("FIXME: can't alloc %d cells, implement GC\n", count);
     abort();
@@ -32,10 +32,6 @@ static void **alloc(int count) {
 
 static int new_pool(regs_t *regs) {
   return pools_count++;
-}
-
-static int is_unicode(char *s) {
-  return 0;
 }
 
 static void bad_type(regs_t *regs, char *expected, int arg_index, char *name) {
@@ -152,7 +148,7 @@ BUILTIN2(mul,C_FIXNUM,a,C_FIXNUM,b)
 RETURNS(((intptr_t)a/(1<<TAG_BITS)) * ((intptr_t)b-1) + 1)
 
 BUILTIN2(div,C_FIXNUM,a,C_FIXNUM,b)
-RETURNS((intptr_t)a / (intptr_t)b * (1<<TAG_BITS) + 1)
+RETURNS((intptr_t)a / ((intptr_t)b-1) * (1<<TAG_BITS) + 1)
 
 // FIXME: we can re-use single META_POOL, changing only `k`
 BUILTIN1(tag_of,C_ANY,a)
@@ -174,8 +170,12 @@ RETURNS(0)
 BUILTIN_VARARGS(symbol)
   printf("FIXME: implement symbol-handler\n");
   abort();
+  //*(void**)0 = 0;
 RETURNS(0)
 
+static int is_unicode(char *s) {
+  return 0;
+}
 // FIXME1: use different pool-descriptors to encode length
 // FIXME2: immediate encoding for symbols:
 //         one 7-bit char, then nine 6-bit chars (61 bit in total)
@@ -191,7 +191,7 @@ static void *alloc_symbol(regs_t *regs, char *s) {
   }
 
   l = strlen(s);
-  a = ((l+4)+TAG_MASK)>>TAG_BITS;
+  a = (l+4+TAG_MASK)>>TAG_BITS;
   ALLOC(p,b_symbol,SYMBOL_POOL,a);
   *(uint32_t*)p = l;
   memcpy(((uint32_t*)p+1), s, l);
@@ -224,16 +224,22 @@ static struct {
   {"list", b_make_list},
   {0, 0}
 };
+ 
+static int symbols_equal(void *a, void *b) {
+  uint32_t al = *(uint32_t*)a;
+  uint32_t bl = *(uint32_t*)b;
+  return al == bl && !memcmp((uint8_t*)a+4, (uint8_t*)b+4, al);
+}
 
-BUILTIN1(host,C_SYMBOL,t_name)
+BUILTIN1(host,C_SYMBOL,name)
   int i;
-  char *name = (char*)getVal(t_name);
   for (i = 0; ; i++) {
     if (!builtins[i].name) {
-      printf("host doesn't provide `%s`\n", name);
+      // FIXME: return void instead
+      printf("host doesn't provide `%s`\n", print_object(name));
       abort();
     }
-    if (!strcmp(builtins[i].name, name)) {
+    if (symbols_equal(builtins[i].name, name)) {
       break;
     }
   }
@@ -272,7 +278,8 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
       out += sprintf(out, "#(closure %p %p)", handler, o);
     }
   } else if (tag == T_FIXNUM) {
-    out += sprintf(out, "%ld", (intptr_t)o/(1<<TAG_BITS));
+    // FIXME: this relies on the fact that shift preserves sign
+    out += sprintf(out, "%ld", (intptr_t)o>>TAG_BITS);
   } else {
     out += sprintf(out, "#(ufo %d %p)", tag, o);
   }
@@ -298,13 +305,14 @@ static void handle_args(regs_t *regs, intptr_t expected, void *tag, void *meta) 
     CALL0(k, meta);
     return;
   }
-  printf("bad number of arguments: got=`%ld`, expected=`%ld`\n", got-1, expected-1);
+  printf("bad number of arguments: got=%ld, expected=%ld\n", got-1, expected-1);
   if (meta != v_void) {
   }
   abort();
 }
 
 static regs_t *new_regs() {
+  int i;
   regs_t *regs = (regs_t*)malloc(sizeof(regs_t));
   memset(regs, 0, sizeof(regs_t));
 
@@ -313,6 +321,9 @@ static regs_t *new_regs() {
   regs->new_pool = new_pool;
   regs->alloc = alloc;
   regs->alloc_symbol = alloc_symbol;
+  
+  // mark pools as full
+  for (i = 0; i < MAX_POOLS; i++) regs->pools[i] = (void*)POOL_MASK;
 
   return regs;
 }
@@ -348,7 +359,7 @@ int main(int argc, char **argv) {
   regs->new_pool(); // array pool
   regs->new_pool(); // meta pool
   regs->new_pool(); // list pool
-  regs->new_pool(); // string pool
+  regs->new_pool(); // symbol pool
 
   CLOSURE(v_void, b_void);
   CLOSURE(v_empty, b_empty);
@@ -359,6 +370,7 @@ int main(int argc, char **argv) {
 
   for (i = 0; ; i++) {
     if (!builtins[i].name) break;
+    SYMBOL(builtins[i].name, builtins[i].name);
     CLOSURE(builtins[i].fun, builtins[i].fun);
   }
 

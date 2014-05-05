@@ -20,7 +20,7 @@
 #define MAX_POOLS 1024*100
 #define POOL_SIZE 64
 #define POOL_BYTE_SIZE (POOL_SIZE*sizeof(void*))
-#define POOL_MASK (uintptr_t)(POOL_SIZE*sizeof(void*)-1)
+#define POOL_MASK (uintptr_t)(POOL_BYTE_SIZE-1)
 #define POOL_BASE (~POOL_MASK)
 #define POOL_HANDLER(x) (((pfun*)((uintptr_t)(x)&POOL_BASE))[0])
 
@@ -76,7 +76,7 @@ typedef void (*pfun)(regs_t *regs);
 #define print_object(object) regs->print_object_f(regs, object)
 
 #define ALLOC(dst,code,pool,count) \
-  if (((uintptr_t)regs->pools[pool]&POOL_MASK) + ((uintptr_t)count*sizeof(void*)-1) >= POOL_BYTE_SIZE) { \
+  if (((uintptr_t)regs->pools[pool]&POOL_MASK) + ((uintptr_t)(count||1)*sizeof(void*)-1) >= POOL_BYTE_SIZE) { \
     regs->pools[pool] = regs->alloc(count+1); \
     *regs->pools[pool]++ = (void*)(code); \
   } \
