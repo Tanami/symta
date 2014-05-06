@@ -829,7 +829,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa-to-c entry ssa)
 
 (to ssa-compile-entry k entry builtins expr
-  ! fn-expr = `("_fn" ("host") (("_fn" ,builtins ,expr) ,@(m b builtins `("host" ("_quote" ,b)))))
+  ! fn-expr = `("_fn" ("host") ("host" ("_fn" ,builtins ,expr) ,@(m b builtins `("_quote" ,b))))
   ! ssa-compile `("_move" r ,k) entry fn-expr)
 
 (defparameter *ssa-builtins* '("+" "-" "*" "/" "list" "tag_of")) ;;'("_fn_if" "+" "-" "*" "/" "text_out"))

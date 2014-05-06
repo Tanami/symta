@@ -49,7 +49,7 @@ typedef struct regs_t {
   int (*new_pool)();
   void** (*alloc)(int count);
   void *(*alloc_symbol)(struct regs_t *regs, char *s);
-  void (*fixnum)();
+  void (*fixnum)(struct regs_t *regs);
 
   // for multithreading, caching could be used to get on-demand pools for each thread, minimizing locking
   void **pools[MAX_POOLS];
@@ -93,7 +93,7 @@ typedef void (*pfun)(regs_t *regs);
     CALL(f); \
   } else if (GET_TAG(f) == T_FIXNUM) { \
     MOVE(P, f); \
-    regs->fixnum(); \
+    regs->fixnum(regs); \
   } else { \
     printf("bad tag = %d\n", (int)GET_TAG(f)); \
     abort(); \

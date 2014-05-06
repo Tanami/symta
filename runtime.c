@@ -36,8 +36,7 @@ static int new_pool(regs_t *regs) {
 
 static void bad_type(regs_t *regs, char *expected, int arg_index, char *name) {
   int i, nargs = (int)NARGS;
-  printf("arg %d isnt %s, during call to:\n", arg_index, expected);
-  printf("  %s", name);
+  printf("arg %d isnt %s, in: %s", arg_index, expected, name);
   for (i = 1; i < nargs; i++) printf(" %s", print_object(getArg(i)));
   printf("\n", name);
   abort();
@@ -47,7 +46,7 @@ static void bad_type(regs_t *regs, char *expected, int arg_index, char *name) {
 
 #define C_FIXNUM(o,arg_index,meta) \
   if (GET_TAG(o) != T_FIXNUM) \
-    bad_type(regs, "fixnum", arg_index, meta)
+    bad_type(regs, "integer", arg_index, meta)
 
 #define C_SYMBOL(o,arg_index,meta) \
   if (GET_TAG(o) != T_CLOSURE || POOL_HANDLER(o) != b_symbol) \
@@ -91,31 +90,31 @@ static void bad_type(regs_t *regs, char *expected, int arg_index, char *name) {
   STORE(E, 2, b); \
   CALL(f);
 
-#define BUILTIN0(name) \
+#define BUILTIN0(sname, name)           \
   static void b_##name(regs_t *regs) { \
   void *k; \
-  BUILTIN_CHECK_NARGS(1,#name); \
+  BUILTIN_CHECK_NARGS(1,sname); \
   k = getArg(0);
-#define BUILTIN1(name,a_check, a) \
+#define BUILTIN1(sname,name,a_check, a)         \
   static void b_##name(regs_t *regs) { \
   void *k, *a; \
-  BUILTIN_CHECK_NARGS(2,#name); \
+  BUILTIN_CHECK_NARGS(2,sname); \
   k = getArg(0); \
   a = getArg(1); \
-  a_check(a, 0, #name);
-#define BUILTIN2(name,a_check,a,b_check,b) \
+  a_check(a, 0, sname);
+#define BUILTIN2(sname,name,a_check,a,b_check,b)    \
   static void b_##name(regs_t *regs) { \
   void *k, *a, *b; \
-  BUILTIN_CHECK_NARGS(3,#name); \
+  BUILTIN_CHECK_NARGS(3,sname); \
   k = getArg(0); \
   a = getArg(1); \
-  a_check(a, 0, #name); \
+  a_check(a, 0, sname); \
   b = getArg(2); \
-  b_check(a, 1, #name);
-#define BUILTIN_VARARGS(name) \
+  b_check(a, 1, sname);
+#define BUILTIN_VARARGS(sname,name)    \
   static void b_##name(regs_t *regs) { \
   void *k; \
-  BUILTIN_CHECK_NARGS_ABOVE(#name); \
+  BUILTIN_CHECK_NARGS_ABOVE(sname); \
   k = getArg(0);
 
 #define RETURNS(r) CALL0(k,(r)); }
@@ -124,50 +123,50 @@ static void bad_type(regs_t *regs, char *expected, int arg_index, char *name) {
 // E[0] = environment, E[1] = continuation, E[2] = function_name
 // run continuation recieves entry point into user specified program
 // which it runs with supplied host resolver, which resolves all builtin symbols
-BUILTIN0(run) CALL1(k,fin,host); RETURNS_VOID
+BUILTIN0("run",run) CALL1(k,fin,host); RETURNS_VOID
 
-BUILTIN0(fin) T = k; RETURNS_VOID
+BUILTIN0("fin",fin) T = k; RETURNS_VOID
 
-BUILTIN_VARARGS(void)
+BUILTIN_VARARGS("void",void)
   printf("FIXME: implement `void`\n");
   abort();
 RETURNS(0)
 
-BUILTIN_VARARGS(empty)
+BUILTIN_VARARGS("empty",empty)
   printf("FIXME: implement `empty`\n");
   abort();
 RETURNS(0)
 
-BUILTIN2(add,C_FIXNUM,a,C_FIXNUM,b)
+BUILTIN2("+",add,C_FIXNUM,a,C_FIXNUM,b)
 RETURNS((intptr_t)a + (intptr_t)b - 1)
 
-BUILTIN2(sub,C_FIXNUM,a,C_FIXNUM,b)
+BUILTIN2("-",sub,C_FIXNUM,a,C_FIXNUM,b)
 RETURNS((intptr_t)a - (intptr_t)b + 1)
 
-BUILTIN2(mul,C_FIXNUM,a,C_FIXNUM,b)
+BUILTIN2("*",mul,C_FIXNUM,a,C_FIXNUM,b)
 RETURNS(((intptr_t)a/(1<<TAG_BITS)) * ((intptr_t)b-1) + 1)
 
-BUILTIN2(div,C_FIXNUM,a,C_FIXNUM,b)
+BUILTIN2("/",div,C_FIXNUM,a,C_FIXNUM,b)
 RETURNS((intptr_t)a / ((intptr_t)b-1) * (1<<TAG_BITS) + 1)
 
 // FIXME: we can re-use single META_POOL, changing only `k`
-BUILTIN1(tag_of,C_ANY,a)
+BUILTIN1("tag_of",tag_of,C_ANY,a)
   ALLOC(E, 0, META_POOL, 1); // signal that we want meta-info
   STORE(E, 0, k);
   CALL_TAGGED(a);
 RETURNS_VOID
 
-BUILTIN_VARARGS(fixnum)
-  printf("FIXME: implement fixnum handler");
+BUILTIN_VARARGS("integer",fixnum)
+  printf("FIXME: implement fixnum handler\n");
   abort();
 RETURNS(0)
 
-BUILTIN_VARARGS(list)
+BUILTIN_VARARGS("list",list)
   printf("FIXME: implement list-handler\n");
   abort();
 RETURNS(0)
 
-BUILTIN_VARARGS(symbol)
+BUILTIN_VARARGS("symbol",symbol)
   printf("FIXME: implement symbol-handler\n");
   abort();
   //*(void**)0 = 0;
@@ -204,7 +203,7 @@ static void *alloc_symbol(regs_t *regs, char *s) {
   STORE(T, 1, b); \
   MOVE(dst, T);
 
-BUILTIN_VARARGS(make_list)
+BUILTIN_VARARGS("list",make_list)
   void *xs = v_empty;
   int i = (int)NARGS;
   while (i-- > 1) {
@@ -231,19 +230,35 @@ static int symbols_equal(void *a, void *b) {
   return al == bl && !memcmp((uint8_t*)a+4, (uint8_t*)b+4, al);
 }
 
-BUILTIN1(host,C_SYMBOL,name)
-  int i;
-  for (i = 0; ; i++) {
-    if (!builtins[i].name) {
-      // FIXME: return void instead
-      printf("host doesn't provide `%s`\n", print_object(name));
-      abort();
-    }
-    if (symbols_equal(builtins[i].name, name)) {
-      break;
-    }
+BUILTIN_VARARGS("host",host)
+  int i,j, n = NARGS-1;
+  void *f;
+
+  if (NARGS >= POOL_SIZE-1) {
+    printf("host: implement large arrays\n");
+    abort();
   }
-RETURNS(builtins[i].fun)
+
+  f = getArg(1);
+  ALLOC(A,(intptr_t)n,n,n);
+  STORE(A,0,k);
+  for (j = 1; j < n; j++) {
+    void *name = getArg(j+1);
+    for (i = 0; ; i++) {
+      if (!builtins[i].name) {
+        // FIXME: return void instead
+        printf("host doesn't provide `%s`\n", print_object(name));
+        abort();
+      }
+      if (symbols_equal(builtins[i].name, name)) {
+        break;
+      }
+    }
+    STORE(A,j,builtins[i].fun);
+  }
+  MOVE(E,A);
+  CALL_TAGGED(f);
+RETURNS_VOID
 
 
 #define CAR(x) ((void**)getVal(x))[0]
@@ -321,6 +336,7 @@ static regs_t *new_regs() {
   regs->new_pool = new_pool;
   regs->alloc = alloc;
   regs->alloc_symbol = alloc_symbol;
+  regs->fixnum = b_fixnum;
   
   // mark pools as full
   for (i = 0; i < MAX_POOLS; i++) regs->pools[i] = (void*)POOL_MASK;
