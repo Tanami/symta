@@ -634,9 +634,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'move 'r name
   ! push `(,name ,(ssa-quote-list-rec xs)) *ssa-inits*)
 
+(to ssa-quoted-symbol s
+  ! name = ssa-name "s"
+  ! ssa 'symbol name s
+  ! ssa 'move 'r name)
+
 (to ssa-quote x
   ! cond
-     ((stringp x) (ssa 'symbol 'r x))
+     ((stringp x) (ssa-quoted-symbol x))
      ((integerp x) (ssa-atom x))
      ((listp x) (ssa-quote-list x))
      (t (error "unsupported quoted value: ~a" x)))
@@ -695,6 +700,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to produce-ssa x ! if (listp x) (ssa-form x) (ssa-atom x))
 
+(to peephole-optimize xs
+  ! match xs
+    (((''move a b) (''move b c) . zs) `((move ,a ,c) ,@(peephole-optimize zs)))
+    (((''move a b) (''load b c d) . zs) `((load ,a ,c ,d) ,@(peephole-optimize zs)))
+    (((''store a b c) (''move c d) . zs) `((store ,a ,b ,d) ,@(peephole-optimize zs)))
+    (((''store a b c) (''load c d e) . zs) `((copy ,a ,b ,d ,e) ,@(peephole-optimize zs)))
+    (((''move a b) (''store b c d) (''known_closure) (''alloc d x y) (''alloc b e f) . zs)
+     `((store ,a ,c ,d) (alloc ,d ,x ,y) (alloc ,a ,e ,f) ,@(peephole-optimize zs)))
+    (((''move a b) (''known_closure) (''store b c d) (''alloc b e f) . zs)
+     `((store ,a ,c ,d) (alloc ,a ,e ,f) ,@(peephole-optimize zs)))
+    ((z . zs) (cons z (peephole-optimize zs)))
+    (nil nil))
+
 (to cps-to-ssa x
   ! *ssa-out* = nil
   ! *ssa-fns* = nil
@@ -704,21 +722,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (! name = first x
          ! expr = second x
          ! list name (ssa-compile-entry "run" "init_{name}" '("list") expr)))
-  ! nreverse (apply #'concatenate 'list  `(,@(reverse *ssa-fns*) ,*ssa-out*)))
+  ! rs = apply #'concatenate 'list  `(,@(reverse *ssa-fns*) ,*ssa-out*)
+  ! rs = peephole-optimize rs
+  ! nreverse rs)
 
 (to cps-fn k args body o
   ! kk = ssa-name "k"
   ! `(,k ,(set-meta (get-meta o) `("_fn" (,kk ,@args) ,(produce-cps kk body)))))
 
+(to cps-const? x ! or (not (listp x)) (equal (first x) "_quote"))
+
 (to cps-apply k f as o
   ! fas = `(,f ,@as)
-  ! (g . gs) = m a fas (if (listp a) (ssa-name "a") a)
+  ! (g . gs) = m a fas (if (cps-const? a) a (ssa-name "a"))
   ! r = `(,g ,k ,@gs)
   ! rgs = reverse `(,g ,@gs)
   ! ras = reverse fas
   ! while rgs
       ;; treat quoted and _fn values as constants
-      (when (listp (car ras))
+      (unless (cps-const? (car ras))
         (setf r (produce-cps (set-meta (get-meta o) `("_fn" (,(car rgs)) ,r)) (car ras))))
       (pop rgs)
       (pop ras)
@@ -797,13 +819,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''add dst a b) (to-c-emit "  ADD(~a, ~a, ~a);" dst a b))
          ((''known_closure) (to-c-emit "  /* known closure */"))
          ((''fixnum dst str) (to-c-emit "  FIXNUM(~a, ~s);" dst str))
-         ((''symbol dst str)
-          (let ((name (ssa-name "s"))
-                (bytes `(,@(m c (coerce str 'list) (char-code c)) 0)))
+         ((''symbol name str)
+          (let ((bytes `(,@(m c (coerce str 'list) (char-code c)) 0)))
             (push (format nil "static uint8_t ~a_bytes[] = {~{~a~^,~}};" name bytes) decls)
             (push (format nil "static void *~a;" name) decls)
-            (push (format nil "SYMBOL(~a, (char*)~a_bytes);" name name) inits)
-            (to-c-emit "  MOVE(~a, ~a);" dst name)))
+            (push (format nil "SYMBOL(~a, (char*)~a_bytes);" name name) inits)))
          ((''list dst xs)
           (let ((name (ssa-name "s")))
             (to-c-emit "  MOVE(~a, ~a);" dst name))
@@ -868,11 +888,4 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! e l (butlast (split #\Newline result)) (format t "~a~%" l)
   )
 
-;;(cps-to-ssa '("_fn" ("+" "x") ("+" "x" 1)))
-;;(lisp-to-ssa '("_fn" ("a" "b") ("_fn" ("x") ("+" ("*" "a" "x") "b"))))
-;;(print-ssa (cps-to-ssa '("_fn" ("+" "x") ("+" "x" 1))))
-;;(print-ssa (cps-to-ssa (produce-cps '("_fn" ("x") 123) '("_fn" ("+" "*" "x") ("*" ("+" "x" 1) 2)))))
-;;(ssa-compile-fn '("_fn" ("x") "x") '("_fn" ("+" "*" "x") ("*" ("+" "x" 123) 456)))
-;;(ssa-to-c (cps-to-ssa (produce-cps '("_fn" ("x") "x") '("_fn" ("+" "*" "x") ("*" ("+" "x" 123) 456)))))
-;;(ssa-produce-file "/Users/nikita/Documents/prj/symta/libs/symta/c/test.c" '("*" ("+" 123 789) 456))
-;;(ssa-produce-file "/Users/nikita/Documents/prj/symta/libs/symta/c/test.c" '("_quote" ("+" 123 789)))
+;;(test-ssa '("list" 1 2 3 4 5))
