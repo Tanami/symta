@@ -110,7 +110,18 @@ static void bad_type(regs_t *regs, char *expected, int arg_index, char *name) {
   a = getArg(1); \
   a_check(a, 0, sname); \
   b = getArg(2); \
-  b_check(a, 1, sname);
+  b_check(b, 1, sname);
+#define BUILTIN3(sname,name,a_check,a,b_check,b,c_check,c)    \
+  static void b_##name(regs_t *regs) { \
+  void *k, *a, *b,*c; \
+  BUILTIN_CHECK_NARGS(4,sname); \
+  k = getArg(0); \
+  a = getArg(1); \
+  a_check(a, 0, sname); \
+  b = getArg(2); \
+  b_check(b, 1, sname); \
+  c = getArg(3); \
+  c_check(c, 1, sname);
 #define BUILTIN_VARARGS(sname,name)    \
   static void b_##name(regs_t *regs) { \
   void *k; \
@@ -149,11 +160,31 @@ RETURNS(((intptr_t)a/(1<<TAG_BITS)) * ((intptr_t)b-1) + 1)
 BUILTIN2("/",div,C_FIXNUM,a,C_FIXNUM,b)
 RETURNS((intptr_t)a / ((intptr_t)b-1) * (1<<TAG_BITS) + 1)
 
+BUILTIN2("<",lt,C_FIXNUM,a,C_FIXNUM,b)
+RETURNS((intptr_t)((intptr_t)a < (intptr_t)b) * (1<<TAG_BITS) + 1)
+
+BUILTIN2(">",gt,C_FIXNUM,a,C_FIXNUM,b)
+RETURNS((intptr_t)((intptr_t)a > (intptr_t)b) * (1<<TAG_BITS) + 1)
+
+BUILTIN2("eq",eq,C_ANY,a,C_ANY,b)
+RETURNS((intptr_t)(a == b) * (1<<TAG_BITS) + 1)
+
+
 // FIXME: we can re-use single META_POOL, changing only `k`
 BUILTIN1("tag_of",tag_of,C_ANY,a)
   ALLOC(E, 0, META_POOL, 1); // signal that we want meta-info
   STORE(E, 0, k);
   CALL_TAGGED(a);
+RETURNS_VOID
+
+BUILTIN3("_fn_if",_fn_if,C_ANY,a,C_ANY,b,C_ANY,c)
+  ALLOC(E, 1, 1, 1);
+  STORE(E, 0, k);
+  if ((intptr_t)a != 1) {
+    CALL(b);
+  } else {
+    CALL(c);
+  }
 RETURNS_VOID
 
 BUILTIN_VARARGS("integer",fixnum)
@@ -219,7 +250,11 @@ static struct {
   {"-", b_sub},
   {"*", b_mul},
   {"/", b_div},
+  {"<", b_lt},
+  {">", b_gt},
+  {"eq", b_eq},
   {"tag_of", b_tag_of},
+  {"_fn_if", b__fn_if},
   {"list", b_make_list},
   {0, 0}
 };

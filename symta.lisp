@@ -611,12 +611,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! when (eq es *ssa-env*) (ret (list p nil)) ; it is an argument of the current function
   ! list p (ssa-get-parent-index (cdr (nth p (car es)))))
 
-(to ssa-symbol x ptr
+(to ssa-symbol x value
   ! match (ssa-path-to-sym x *ssa-env*)
      ((pos parent) (if parent
                        (! ssa 'load 'r 'p parent
-                        ! ssa (if ptr 'add 'load) 'r 'r pos)
-                       (ssa (if ptr 'add 'load) 'r 'e pos)))
+                        ! if value
+                           (ssa 'store 'r pos value)
+                           (ssa 'load 'r 'r pos))
+                       (if value
+                           (ssa 'store 'e pos value)
+                           (ssa 'load 'r 'e pos))))
      (else (error "undefined variable: ~a" x)))
 
 (to ssa-atom x
@@ -684,7 +688,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! if known-closure (ssa 'call 'c) (ssa 'call_tagged 'c))
 
 (to ssa-set k place value
-  ! ssa 'store (ssa-symbol place t) value
+  ! produce-ssa value
+  ! ssa 'move 'a 'r
+  ! ssa-symbol place 'a
   ! produce-ssa `(,k ,value))
 
 (to ssa-form xs
@@ -705,7 +711,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (((''move a b) (''move b c) . zs) `((move ,a ,c) ,@(peephole-optimize zs)))
     (((''move a b) (''load b c d) . zs) `((load ,a ,c ,d) ,@(peephole-optimize zs)))
     (((''store a b c) (''move c d) . zs) `((store ,a ,b ,d) ,@(peephole-optimize zs)))
-    (((''store a b c) (''load c d e) . zs) `((copy ,a ,b ,d ,e) ,@(peephole-optimize zs)))
+    (((''store a b ''r) (''load ''r d e) . zs) `((copy ,a ,b ,d ,e) ,@(peephole-optimize zs)))
     (((''move a b) (''store b c d) (''known_closure) (''alloc d x y) (''alloc b e f) . zs)
      `((store ,a ,c ,d) (alloc ,d ,x ,y) (alloc ,a ,e ,f) ,@(peephole-optimize zs)))
     (((''move a b) (''known_closure) (''store b c d) (''alloc b e f) . zs)
@@ -746,17 +752,28 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       (pop ras)
   ! r)
 
-(to cps-set xs k place value o
-  ! unless (stringp place) (bad-sexp xs "_set cant handle `{place}`")
-  ! v = ssa-name "Value"
-  ! (produce-cps (set-meta (get-meta o) `("_fn" (,v) ("_set" ,k ,place ,v))) value))
+(to cps-set k place value o
+  ! unless (stringp place) (bad-sexp o "_set cant handle `{place}`")
+  ! unless (listp value) (ret `("_set" ,k ,place ,value))
+  ! v = ssa-name "value"
+  ! r = produce-cps (set-meta (get-meta o) `("_fn" (,v) ("_set" ,k ,place ,v))) value
+  ! r)
+
+(to lambda-sequence xs prev
+  ! next = ssa-name "a"
+  ! if xs `(("_fn" (,next) ,(lambda-sequence (cdr xs) next)) ,(car xs)) prev)
 
 (to cps-form k xs
   ! match xs
     (("_fn" as body) (cps-fn k as body xs))
     (("_if" cnd then else) (cps-form k `("_fn_if" ,cnd ("_fn" () ,then) ("_fn" () ,else))))
+    (("_let" xs . body)
+     (if (= (length body) 1)
+         (setf body (car body))
+         (setf body (lambda-sequence body "Void")))
+     (cps-form k `(("_fn" ,(m x xs (first x)) ,body) ,@(m x xs (second x)))))
     (("_quote" x) `(,k ,xs))
-    (("_set" place value) (cps-set xs k place value xs))
+    (("_set" place value) (cps-set k place value xs))
     ;;(("_goto" x) (cps-goto k x))
     ;;(("_show" x) (cps-show k x))
     ((f . as) (cps-apply k f as xs))
@@ -816,7 +833,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''store dst off src) (to-c-emit "  STORE(~a, ~a, ~a);" dst off src))
          ((''copy dst p src q) (to-c-emit "  COPY(~a, ~a, ~a, ~a);" dst p src q))
          ((''move dst src) (to-c-emit "  MOVE(~a, ~a);" dst src))
-         ((''add dst a b) (to-c-emit "  ADD(~a, ~a, ~a);" dst a b))
          ((''known_closure) (to-c-emit "  /* known closure */"))
          ((''fixnum dst str) (to-c-emit "  FIXNUM(~a, ~s);" dst str))
          ((''symbol name str)
@@ -852,7 +868,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! fn-expr = `("_fn" ("host") ("host" ("_fn" ,builtins ,expr) ,@(m b builtins `("_quote" ,b))))
   ! ssa-compile `("_move" r ,k) entry fn-expr)
 
-(defparameter *ssa-builtins* '("+" "-" "*" "/" "list" "tag_of")) ;;'("_fn_if" "+" "-" "*" "/" "text_out"))
+(defparameter *ssa-builtins* '("+" "-" "*" "/" "<" ">" "eq" "list" "tag_of" "_fn_if"))
 
 (to ssa-produce-file file src
   ! text = ssa-compile-entry "run" "entry" *ssa-builtins* src
