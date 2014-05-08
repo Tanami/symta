@@ -38,9 +38,26 @@ static void bad_type(regs_t *regs, char *expected, int arg_index, char *name) {
   int i, nargs = (int)NARGS;
   printf("arg %d isnt %s, in: %s", arg_index, expected, name);
   for (i = 1; i < nargs; i++) printf(" %s", print_object(getArg(i)));
-  printf("\n", name);
+  printf("\n");
   abort();
 }
+
+static void bad_call(regs_t *regs, void *head) {
+  int i, nargs = (int)NARGS;
+  printf("bad call: %s", print_object(head));
+  for (i = 1; i < nargs; i++) printf(" %s", print_object(getArg(i)));
+  printf("\n");
+  abort();
+}
+
+
+#define CAR(x) ((void**)getVal(x))[0]
+#define CDR(x) ((void**)getVal(x))[1]
+#define CONS(dst,a,b) \
+  ALLOC(T, b_list, LIST_POOL, 2); \
+  STORE(T, 0, a); \
+  STORE(T, 1, b); \
+  MOVE(dst, T);
 
 #define C_ANY(o,arg_index,meta)
 
@@ -143,32 +160,135 @@ BUILTIN_VARARGS("void",void)
   abort();
 RETURNS(0)
 
-BUILTIN_VARARGS("empty",empty)
-  printf("FIXME: implement `empty`\n");
-  abort();
-RETURNS(0)
+static int symbols_equal(void *a, void *b) {
+  uint32_t al = *(uint32_t*)a;
+  uint32_t bl = *(uint32_t*)b;
+  return al == bl && !memcmp((uint8_t*)a+4, (uint8_t*)b+4, al/(1<<TAG_BITS));
+}
 
-BUILTIN2("+",add,C_FIXNUM,a,C_FIXNUM,b)
-RETURNS((intptr_t)a + (intptr_t)b - 1)
 
-BUILTIN2("-",sub,C_FIXNUM,a,C_FIXNUM,b)
-RETURNS((intptr_t)a - (intptr_t)b + 1)
+#define TO_FIXNUM(x) (((uintptr_t)(x)*(1<<TAG_BITS)) + 1)
 
-BUILTIN2("*",mul,C_FIXNUM,a,C_FIXNUM,b)
-RETURNS(((intptr_t)a/(1<<TAG_BITS)) * ((intptr_t)b-1) + 1)
+static void *s_size, *s_get;
 
-BUILTIN2("/",div,C_FIXNUM,a,C_FIXNUM,b)
-RETURNS((intptr_t)a / ((intptr_t)b-1) * (1<<TAG_BITS) + 1)
+BUILTIN_VARARGS("symbol",symbol)
+  intptr_t n = NARGS;
+  intptr_t l = *(uint32_t*)P;
+  void *r;
+  if (n == 2) {
+    void *op, *a = P;
+    op = getArg(1);
+    C_SYMBOL(op, 0, "symbol");
+    if (symbols_equal(op,s_size)) {
+      r = (void*)l;
+    } else {
+      bad_call(regs,P);
+    }
+  } else if (n == 3) {
+    void *op, *a = P, *b;
+    char t[2];
+    op = getArg(1);
+    C_SYMBOL(op, 0, "symbol");
+    b = getArg(2);
+    if (symbols_equal(op,s_get)) {
+      C_FIXNUM(b, 1, "text_get");
+      if (l <= (intptr_t)b) {
+         printf("index out of bounds\n");
+         bad_call(regs,P);
+      }
+      t[0] = *((char*)a + 4+ (intptr_t)b/(1<<TAG_BITS));
+      t[1] = 0;
+      SYMBOL(r,t);
+    } else {
+      bad_call(regs,P);
+    }
+  } else {
+    bad_call(regs,P);
+  }
+RETURNS(r)
 
-BUILTIN2("<",lt,C_FIXNUM,a,C_FIXNUM,b)
-RETURNS((intptr_t)((intptr_t)a < (intptr_t)b) * (1<<TAG_BITS) + 1)
+static void *s_neg, *s_add, *s_sub, *s_mul, *s_div, *s_rem, *s_is, *s_isnt, *s_lt, *s_gt, *s_lte, *s_gte;
 
-BUILTIN2(">",gt,C_FIXNUM,a,C_FIXNUM,b)
-RETURNS((intptr_t)((intptr_t)a > (intptr_t)b) * (1<<TAG_BITS) + 1)
+BUILTIN_VARARGS("integer",fixnum)
+  intptr_t n = NARGS;
+  void *r;
+  if (n == 3) {
+    void *op, *a = P, *b;
+    op = getArg(1);
+    C_SYMBOL(op, 0, "integer");
+    b = getArg(2);
+    C_FIXNUM(b, 1, "integer");
+    if (symbols_equal(op,s_add)) {
+      r = (void*)((intptr_t)a + (intptr_t)b - 1);
+    } else if (symbols_equal(op,s_sub)) {
+      r = (void*)((intptr_t)a - (intptr_t)b + 1);
+    } else if (symbols_equal(op,s_mul)) {
+      r = (void*)(((intptr_t)a / (1<<TAG_BITS)) * ((intptr_t)b-1) + 1);
+    } else if (symbols_equal(op,s_div)) {
+      r = (void*)(TO_FIXNUM((intptr_t)a / ((intptr_t)b-1)));
+    } else if (symbols_equal(op,s_rem)) {
+      r = (void*)(TO_FIXNUM(((intptr_t)a/(1<<TAG_BITS)) % ((intptr_t)b/(1<<TAG_BITS))));
+    } else if (symbols_equal(op,s_is)) {
+      r = (void*)(TO_FIXNUM(a == b));
+    } else if (symbols_equal(op,s_isnt)) {
+      r = (void*)(TO_FIXNUM(a != b));
+    } else if (symbols_equal(op,s_lt)) {
+      r = (void*)(TO_FIXNUM((intptr_t)a < (intptr_t)b));
+    } else if (symbols_equal(op,s_gt)) {
+      r = (void*)(TO_FIXNUM((intptr_t)a > (intptr_t)b));
+    } else if (symbols_equal(op,s_lte)) {
+      r = (void*)(TO_FIXNUM((intptr_t)a <= (intptr_t)b));
+    } else if (symbols_equal(op,s_gte)) {
+      r = (void*)(TO_FIXNUM((intptr_t)a >= (intptr_t)b));
+    } else {
+      bad_call(regs,P);
+    }
+  } else if (n == 2) {
+    void *op, *a = P;
+    op = getArg(1);
+    C_SYMBOL(op, 0, "integer");
+    if (symbols_equal(op,s_neg)) {
+      r = (void*)((intptr_t)2-(intptr_t)a);
+    } else {
+      bad_call(regs,P);
+    }
+  } else {
+    bad_call(regs,P);
+  }
+RETURNS(r)
 
-BUILTIN2("eq",eq,C_ANY,a,C_ANY,b)
-RETURNS((intptr_t)(a == b) * (1<<TAG_BITS) + 1)
+static void *s_head, *s_tail, *s_headed, *s_end;
 
+BUILTIN_VARARGS("list",list)
+  intptr_t n = NARGS;
+  void *r;
+  if (n == 2) {
+    void *op, *a = P;
+    op = getArg(1);
+    C_SYMBOL(op, 0, "list");
+    if (symbols_equal(op,s_head)) {
+      r = (void*)(CAR(a));
+    } else if (symbols_equal(op,s_tail)) {
+      r = (void*)(CDR(a));
+    } else if (symbols_equal(op,s_end)) {
+      r = (void*)(TO_FIXNUM(a == v_empty));
+    } else {
+      bad_call(regs,P);
+    }
+  } else if (n == 3) {
+    void *op, *a = P, *b;
+    op = getArg(1);
+    C_SYMBOL(op, 0, "list");
+    b = getArg(2);
+    if (symbols_equal(op,s_headed)) {
+      CONS(r, b, a);
+    } else {
+      bad_call(regs,P);
+    }
+  } else {
+    bad_call(regs,P);
+  }
+RETURNS(r)
 
 // FIXME: we can re-use single META_POOL, changing only `k`
 BUILTIN1("tag_of",tag_of,C_ANY,a)
@@ -176,6 +296,40 @@ BUILTIN1("tag_of",tag_of,C_ANY,a)
   STORE(E, 0, k);
   CALL_TAGGED(a);
 RETURNS_VOID
+
+BUILTIN0("halt",halt)
+  abort();
+RETURNS_VOID
+
+BUILTIN1("dbg",dbg,C_ANY,a)
+  printf("%s\n", print_object(a));
+RETURNS(a)
+
+BUILTIN1("set_error_handler",set_error_handler,C_ANY,h)
+  printf("FIXME: implement set_error_handler\n");
+  abort();
+RETURNS(v_void)
+
+BUILTIN1("load_file",load_file,C_ANY,path)
+  printf("FIXME: implement load_file\n");
+  abort();
+RETURNS(v_void)
+
+BUILTIN1("utf8_to_text",utf8_to_text,C_ANY,bytes)
+  printf("FIXME: implement utf8_to_text\n");
+  abort();
+RETURNS(v_void)
+
+
+BUILTIN1("text_out",text_out,C_SYMBOL,o)
+  int i;
+  int l = *(uint32_t*)o / (1<<TAG_BITS);
+  char *p = (char*)o + 4;
+  for (i = 0; i < l; i++) putchar(p[i]);
+  fflush(stdout);
+RETURNS(v_void)
+
+
 
 BUILTIN3("_fn_if",_fn_if,C_ANY,a,C_ANY,b,C_ANY,c)
   ALLOC(E, 1, 1, 1);
@@ -186,22 +340,6 @@ BUILTIN3("_fn_if",_fn_if,C_ANY,a,C_ANY,b,C_ANY,c)
     CALL(c);
   }
 RETURNS_VOID
-
-BUILTIN_VARARGS("integer",fixnum)
-  printf("FIXME: implement fixnum handler\n");
-  abort();
-RETURNS(0)
-
-BUILTIN_VARARGS("list",list)
-  printf("FIXME: implement list-handler\n");
-  abort();
-RETURNS(0)
-
-BUILTIN_VARARGS("symbol",symbol)
-  printf("FIXME: implement symbol-handler\n");
-  abort();
-  //*(void**)0 = 0;
-RETURNS(0)
 
 static int is_unicode(char *s) {
   return 0;
@@ -223,16 +361,10 @@ static void *alloc_symbol(regs_t *regs, char *s) {
   l = strlen(s);
   a = (l+4+TAG_MASK)>>TAG_BITS;
   ALLOC(p,b_symbol,SYMBOL_POOL,a);
-  *(uint32_t*)p = l;
+  *(uint32_t*)p = (uint32_t)TO_FIXNUM(l);
   memcpy(((uint32_t*)p+1), s, l);
   return p;
 }
-
-#define CONS(dst,a,b) \
-  ALLOC(T, b_list, LIST_POOL, 2); \
-  STORE(T, 0, a); \
-  STORE(T, 1, b); \
-  MOVE(dst, T);
 
 BUILTIN_VARARGS("list",make_list)
   void *xs = v_empty;
@@ -246,24 +378,11 @@ static struct {
   char *name;
   void *fun;
 } builtins[] = {
-  {"+", b_add},
-  {"-", b_sub},
-  {"*", b_mul},
-  {"/", b_div},
-  {"<", b_lt},
-  {">", b_gt},
-  {"eq", b_eq},
   {"tag_of", b_tag_of},
   {"_fn_if", b__fn_if},
   {"list", b_make_list},
   {0, 0}
 };
- 
-static int symbols_equal(void *a, void *b) {
-  uint32_t al = *(uint32_t*)a;
-  uint32_t bl = *(uint32_t*)b;
-  return al == bl && !memcmp((uint8_t*)a+4, (uint8_t*)b+4, al);
-}
 
 BUILTIN_VARARGS("host",host)
   int i,j, n = NARGS-1;
@@ -295,9 +414,6 @@ BUILTIN_VARARGS("host",host)
   CALL_TAGGED(f);
 RETURNS_VOID
 
-
-#define CAR(x) ((void**)getVal(x))[0]
-#define CDR(x) ((void**)getVal(x))[1]
 static char *print_object_r(regs_t *regs, char *out, void *o) {
   int tag = GET_TAG(o);
 
@@ -307,9 +423,10 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
       out += sprintf(out, "$(array %d %p)", (int)(uintptr_t)handler, o);
     } else if (handler == b_symbol) {
       int i;
-      int l = *(uint32_t*)o;
+      int l = *(uint32_t*)o / (1<<TAG_BITS);
       char *p = (char*)o + 4;
       for (i = 0; i < l; i++) *out++ = *p++;
+      *out = 0;
     } else if (handler == b_list) {
       out += sprintf(out, "(");
       for (;;) {
@@ -319,9 +436,9 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
         out += sprintf(out, " ");
       }
       out += sprintf(out, ")");
-    } else if (handler == b_empty) {
+    } else if (o == v_empty) {
       out += sprintf(out, "()");
-    } else if (handler == b_void) {
+    } else if (o == v_void) {
       out += sprintf(out, "Void");
     } else {
       //FIXME: check metainfo to see if this object has associated print routine
@@ -342,8 +459,6 @@ char* print_object_f(regs_t *regs, void *object) {
   print_object_r(regs, print_buffer, object);
   return print_buffer;
 }
-
-
 
 static void handle_args(regs_t *regs, intptr_t expected, void *tag, void *meta) {
   intptr_t got = NARGS;
@@ -413,7 +528,7 @@ int main(int argc, char **argv) {
   regs->new_pool(); // symbol pool
 
   CLOSURE(v_void, b_void);
-  CLOSURE(v_empty, b_empty);
+  CLOSURE(v_empty, b_list);
 
   CLOSURE(run, b_run);
   CLOSURE(fin, b_fin);
@@ -424,6 +539,28 @@ int main(int argc, char **argv) {
     SYMBOL(builtins[i].name, builtins[i].name);
     CLOSURE(builtins[i].fun, builtins[i].fun);
   }
+
+  SYMBOL(s_neg, "neg");
+  SYMBOL(s_add, "+");
+  SYMBOL(s_sub, "-");
+  SYMBOL(s_mul, "*");
+  SYMBOL(s_div, "/");
+  SYMBOL(s_rem, "%");
+  SYMBOL(s_is, "is");
+  SYMBOL(s_is, "isnt");
+  SYMBOL(s_lt, "<");
+  SYMBOL(s_gt, ">");
+  SYMBOL(s_lte, "<<");
+  SYMBOL(s_gte, ">>");
+
+  SYMBOL(s_head, "head");
+  SYMBOL(s_tail, "tail");
+  SYMBOL(s_headed, "headed");
+  SYMBOL(s_end, "end");
+
+  SYMBOL(s_size, "size");
+  SYMBOL(s_get, "get");
+
 
   lib = dlopen(module, RTLD_LAZY);
   if (!lib) {
