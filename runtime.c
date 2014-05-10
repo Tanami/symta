@@ -15,10 +15,10 @@ static void **heap_ptr;
 static void **heap_end;
 static int pools_count = 0;
 
-#define ARRAY_POOL  (POOL_SIZE+0)
-#define META_POOL   (POOL_SIZE+1)
-#define LIST_POOL   (POOL_SIZE+2)
-#define SYMBOL_POOL (POOL_SIZE+3)
+#define ARRAY_POOL (POOL_SIZE+0)
+#define META_POOL  (POOL_SIZE+1)
+#define LIST_POOL  (POOL_SIZE+2)
+#define TEXT_POOL  (POOL_SIZE+3)
 
 static void **alloc(int count) {
   void **r = heap_ptr;
@@ -65,9 +65,9 @@ static void bad_call(regs_t *regs, void *head) {
   if (GET_TAG(o) != T_FIXNUM) \
     bad_type(regs, "integer", arg_index, meta)
 
-#define C_SYMBOL(o,arg_index,meta) \
-  if (GET_TAG(o) != T_CLOSURE || POOL_HANDLER(o) != b_symbol) \
-    bad_type(regs, "symbol", arg_index, meta)
+#define C_TEXT(o,arg_index,meta) \
+  if (GET_TAG(o) != T_CLOSURE || POOL_HANDLER(o) != b_text) \
+    bad_type(regs, "text", arg_index, meta)
 
 #define C_LIST(o,arg_index,meta) \
   if (GET_TAG(o) != T_CLOSURE || POOL_HANDLER(o) != b_list) \
@@ -76,14 +76,14 @@ static void bad_call(regs_t *regs, void *head) {
 #define BUILTIN_CHECK_NARGS(expected,tag) \
   if (NARGS != expected) { \
     static void *stag = 0; \
-    if (!stag) SYMBOL(stag, tag); \
+    if (!stag) TEXT(stag, tag); \
     regs->handle_args(regs, (intptr_t)expected, stag, v_empty); \
     return; \
   }
 #define BUILTIN_CHECK_NARGS_ABOVE(tag) \
   if (NARGS < 1) { \
     static void *stag = 0; \
-    if (!stag) SYMBOL(stag, tag); \
+    if (!stag) TEXT(stag, tag); \
     regs->handle_args(regs, -1, stag, v_empty); \
     return; \
   }
@@ -160,7 +160,7 @@ BUILTIN_VARARGS("void",void)
   abort();
 RETURNS(0)
 
-static int symbols_equal(void *a, void *b) {
+static int texts_equal(void *a, void *b) {
   uint32_t al = *(uint32_t*)a;
   uint32_t bl = *(uint32_t*)b;
   return al == bl && !memcmp((uint8_t*)a+4, (uint8_t*)b+4, al/(1<<TAG_BITS));
@@ -170,16 +170,18 @@ static int symbols_equal(void *a, void *b) {
 #define TO_FIXNUM(x) (((uintptr_t)(x)*(1<<TAG_BITS)) + 1)
 
 static void *s_size, *s_get;
+static void *s_neg, *s_add, *s_sub, *s_mul, *s_div, *s_rem, *s_is, *s_isnt, *s_lt, *s_gt, *s_lte, *s_gte;
+static void *s_head, *s_tail, *s_headed, *s_end;
 
-BUILTIN_VARARGS("symbol",symbol)
+BUILTIN_VARARGS("text",text)
   intptr_t n = NARGS;
   intptr_t l = *(uint32_t*)P;
   void *r;
   if (n == 2) {
     void *op, *a = P;
     op = getArg(1);
-    C_SYMBOL(op, 0, "symbol");
-    if (symbols_equal(op,s_size)) {
+    C_TEXT(op, 0, "text");
+    if (texts_equal(op,s_size)) {
       r = (void*)l;
     } else {
       bad_call(regs,P);
@@ -188,9 +190,9 @@ BUILTIN_VARARGS("symbol",symbol)
     void *op, *a = P, *b;
     char t[2];
     op = getArg(1);
-    C_SYMBOL(op, 0, "symbol");
+    C_TEXT(op, 0, "text");
     b = getArg(2);
-    if (symbols_equal(op,s_get)) {
+    if (texts_equal(op,s_get)) {
       C_FIXNUM(b, 1, "text_get");
       if (l <= (intptr_t)b) {
          printf("index out of bounds\n");
@@ -198,7 +200,7 @@ BUILTIN_VARARGS("symbol",symbol)
       }
       t[0] = *((char*)a + 4+ (intptr_t)b/(1<<TAG_BITS));
       t[1] = 0;
-      SYMBOL(r,t);
+      TEXT(r,t);
     } else {
       bad_call(regs,P);
     }
@@ -207,38 +209,36 @@ BUILTIN_VARARGS("symbol",symbol)
   }
 RETURNS(r)
 
-static void *s_neg, *s_add, *s_sub, *s_mul, *s_div, *s_rem, *s_is, *s_isnt, *s_lt, *s_gt, *s_lte, *s_gte;
-
 BUILTIN_VARARGS("integer",fixnum)
   intptr_t n = NARGS;
   void *r;
   if (n == 3) {
     void *op, *a = P, *b;
     op = getArg(1);
-    C_SYMBOL(op, 0, "integer");
+    C_TEXT(op, 0, "integer");
     b = getArg(2);
     C_FIXNUM(b, 1, "integer");
-    if (symbols_equal(op,s_add)) {
+    if (texts_equal(op,s_add)) {
       r = (void*)((intptr_t)a + (intptr_t)b - 1);
-    } else if (symbols_equal(op,s_sub)) {
+    } else if (texts_equal(op,s_sub)) {
       r = (void*)((intptr_t)a - (intptr_t)b + 1);
-    } else if (symbols_equal(op,s_mul)) {
+    } else if (texts_equal(op,s_mul)) {
       r = (void*)(((intptr_t)a / (1<<TAG_BITS)) * ((intptr_t)b-1) + 1);
-    } else if (symbols_equal(op,s_div)) {
+    } else if (texts_equal(op,s_div)) {
       r = (void*)(TO_FIXNUM((intptr_t)a / ((intptr_t)b-1)));
-    } else if (symbols_equal(op,s_rem)) {
+    } else if (texts_equal(op,s_rem)) {
       r = (void*)(TO_FIXNUM(((intptr_t)a/(1<<TAG_BITS)) % ((intptr_t)b/(1<<TAG_BITS))));
-    } else if (symbols_equal(op,s_is)) {
+    } else if (texts_equal(op,s_is)) {
       r = (void*)(TO_FIXNUM(a == b));
-    } else if (symbols_equal(op,s_isnt)) {
+    } else if (texts_equal(op,s_isnt)) {
       r = (void*)(TO_FIXNUM(a != b));
-    } else if (symbols_equal(op,s_lt)) {
+    } else if (texts_equal(op,s_lt)) {
       r = (void*)(TO_FIXNUM((intptr_t)a < (intptr_t)b));
-    } else if (symbols_equal(op,s_gt)) {
+    } else if (texts_equal(op,s_gt)) {
       r = (void*)(TO_FIXNUM((intptr_t)a > (intptr_t)b));
-    } else if (symbols_equal(op,s_lte)) {
+    } else if (texts_equal(op,s_lte)) {
       r = (void*)(TO_FIXNUM((intptr_t)a <= (intptr_t)b));
-    } else if (symbols_equal(op,s_gte)) {
+    } else if (texts_equal(op,s_gte)) {
       r = (void*)(TO_FIXNUM((intptr_t)a >= (intptr_t)b));
     } else {
       bad_call(regs,P);
@@ -246,8 +246,8 @@ BUILTIN_VARARGS("integer",fixnum)
   } else if (n == 2) {
     void *op, *a = P;
     op = getArg(1);
-    C_SYMBOL(op, 0, "integer");
-    if (symbols_equal(op,s_neg)) {
+    C_TEXT(op, 0, "integer");
+    if (texts_equal(op,s_neg)) {
       r = (void*)((intptr_t)2-(intptr_t)a);
     } else {
       bad_call(regs,P);
@@ -257,7 +257,22 @@ BUILTIN_VARARGS("integer",fixnum)
   }
 RETURNS(r)
 
-static void *s_head, *s_tail, *s_headed, *s_end;
+BUILTIN_VARARGS("empty",empty)
+  intptr_t n = NARGS;
+  void *r;
+  if (n == 2) {
+    void *op, *a = P;
+    op = getArg(1);
+    C_TEXT(op, 0, "list");
+    if (texts_equal(op,s_end)) {
+      r = (void*)(TO_FIXNUM(1));
+    } else {
+      bad_call(regs,P);
+    }
+  } else {
+    bad_call(regs,P);
+  }
+RETURNS(r)
 
 BUILTIN_VARARGS("list",list)
   intptr_t n = NARGS;
@@ -265,22 +280,22 @@ BUILTIN_VARARGS("list",list)
   if (n == 2) {
     void *op, *a = P;
     op = getArg(1);
-    C_SYMBOL(op, 0, "list");
-    if (symbols_equal(op,s_head)) {
+    C_TEXT(op, 0, "list");
+    if (texts_equal(op,s_head)) {
       r = (void*)(CAR(a));
-    } else if (symbols_equal(op,s_tail)) {
+    } else if (texts_equal(op,s_tail)) {
       r = (void*)(CDR(a));
-    } else if (symbols_equal(op,s_end)) {
-      r = (void*)(TO_FIXNUM(a == v_empty));
+    } else if (texts_equal(op,s_end)) {
+      r = (void*)(TO_FIXNUM(0));
     } else {
       bad_call(regs,P);
     }
   } else if (n == 3) {
     void *op, *a = P, *b;
     op = getArg(1);
-    C_SYMBOL(op, 0, "list");
+    C_TEXT(op, 0, "list");
     b = getArg(2);
-    if (symbols_equal(op,s_headed)) {
+    if (texts_equal(op,s_headed)) {
       CONS(r, b, a);
     } else {
       bad_call(regs,P);
@@ -321,7 +336,7 @@ BUILTIN1("utf8_to_text",utf8_to_text,C_ANY,bytes)
 RETURNS(v_void)
 
 
-BUILTIN1("text_out",text_out,C_SYMBOL,o)
+BUILTIN1("text_out",text_out,C_TEXT,o)
   int i;
   int l = *(uint32_t*)o / (1<<TAG_BITS);
   char *p = (char*)o + 4;
@@ -345,22 +360,22 @@ static int is_unicode(char *s) {
   return 0;
 }
 // FIXME1: use different pool-descriptors to encode length
-// FIXME2: immediate encoding for symbols:
+// FIXME2: immediate encoding for text:
 //         one 7-bit char, then nine 6-bit chars (61 bit in total)
 //         7-bit char includes complete ASCII
 //         6-bit char includes all letters, all digits `_` and 0 (to indicate EOF)
-static void *alloc_symbol(regs_t *regs, char *s) {
+static void *alloc_text(regs_t *regs, char *s) {
   int l, a;
   void *p;
 
   if (is_unicode(s)) {
-    printf("FIXME: implement unicode symbols\n");
+    printf("FIXME: implement unicode\n");
     abort();
   }
 
   l = strlen(s);
   a = (l+4+TAG_MASK)>>TAG_BITS;
-  ALLOC(p,b_symbol,SYMBOL_POOL,a);
+  ALLOC(p,b_text,TEXT_POOL,a);
   *(uint32_t*)p = (uint32_t)TO_FIXNUM(l);
   memcpy(((uint32_t*)p+1), s, l);
   return p;
@@ -404,7 +419,7 @@ BUILTIN_VARARGS("host",host)
         printf("host doesn't provide `%s`\n", print_object(name));
         abort();
       }
-      if (symbols_equal(builtins[i].name, name)) {
+      if (texts_equal(builtins[i].name, name)) {
         break;
       }
     }
@@ -421,7 +436,7 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
     pfun handler = POOL_HANDLER(o);
     if ((uintptr_t)handler < MAX_ARRAY_SIZE) {
       out += sprintf(out, "$(array %d %p)", (int)(uintptr_t)handler, o);
-    } else if (handler == b_symbol) {
+    } else if (handler == b_text) {
       int i;
       int l = *(uint32_t*)o / (1<<TAG_BITS);
       char *p = (char*)o + 4;
@@ -485,7 +500,7 @@ static regs_t *new_regs() {
   regs->print_object_f = print_object_f;
   regs->new_pool = new_pool;
   regs->alloc = alloc;
-  regs->alloc_symbol = alloc_symbol;
+  regs->alloc_text = alloc_text;
   regs->fixnum = b_fixnum;
   
   // mark pools as full
@@ -525,10 +540,10 @@ int main(int argc, char **argv) {
   regs->new_pool(); // array pool
   regs->new_pool(); // meta pool
   regs->new_pool(); // list pool
-  regs->new_pool(); // symbol pool
+  regs->new_pool(); // text pool
 
   CLOSURE(v_void, b_void);
-  CLOSURE(v_empty, b_list);
+  CLOSURE(v_empty, b_empty);
 
   CLOSURE(run, b_run);
   CLOSURE(fin, b_fin);
@@ -536,41 +551,41 @@ int main(int argc, char **argv) {
 
   for (i = 0; ; i++) {
     if (!builtins[i].name) break;
-    SYMBOL(builtins[i].name, builtins[i].name);
+    TEXT(builtins[i].name, builtins[i].name);
     CLOSURE(builtins[i].fun, builtins[i].fun);
   }
 
-  SYMBOL(s_neg, "neg");
-  SYMBOL(s_add, "+");
-  SYMBOL(s_sub, "-");
-  SYMBOL(s_mul, "*");
-  SYMBOL(s_div, "/");
-  SYMBOL(s_rem, "%");
-  SYMBOL(s_is, "is");
-  SYMBOL(s_is, "isnt");
-  SYMBOL(s_lt, "<");
-  SYMBOL(s_gt, ">");
-  SYMBOL(s_lte, "<<");
-  SYMBOL(s_gte, ">>");
+  TEXT(s_neg, "neg");
+  TEXT(s_add, "+");
+  TEXT(s_sub, "-");
+  TEXT(s_mul, "*");
+  TEXT(s_div, "/");
+  TEXT(s_rem, "%");
+  TEXT(s_is, "is");
+  TEXT(s_is, "isnt");
+  TEXT(s_lt, "<");
+  TEXT(s_gt, ">");
+  TEXT(s_lte, "<<");
+  TEXT(s_gte, ">>");
 
-  SYMBOL(s_head, "head");
-  SYMBOL(s_tail, "tail");
-  SYMBOL(s_headed, "headed");
-  SYMBOL(s_end, "end");
+  TEXT(s_head, "head");
+  TEXT(s_tail, "tail");
+  TEXT(s_headed, "headed");
+  TEXT(s_end, "end");
 
-  SYMBOL(s_size, "size");
-  SYMBOL(s_get, "get");
+  TEXT(s_size, "size");
+  TEXT(s_get, "get");
 
 
   lib = dlopen(module, RTLD_LAZY);
   if (!lib) {
-    printf("cant load %s\n", module);
+    printf("dlopen couldnt load %s\n", module);
     abort();
   }
 
   entry = (pfun)dlsym(lib, "entry");
   if (!entry) {
-    printf("cant find symbol `entry` in %s\n", module);
+    printf("dlsym couldnt find symbol `entry` in %s\n", module);
     abort();
   }
 

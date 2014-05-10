@@ -640,7 +640,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-quoted-symbol s
   ! name = ssa-name "s"
-  ! ssa 'symbol name s
+  ! ssa 'text name s
   ! ssa 'move 'r name)
 
 (to ssa-quote x
@@ -835,11 +835,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''move dst src) (to-c-emit "  MOVE(~a, ~a);" dst src))
          ((''known_closure) (to-c-emit "  /* known closure */"))
          ((''fixnum dst str) (to-c-emit "  FIXNUM(~a, ~s);" dst str))
-         ((''symbol name str)
+         ((''text name str)
           (let ((bytes `(,@(m c (coerce str 'list) (char-code c)) 0)))
             (push (format nil "static uint8_t ~a_bytes[] = {~{~a~^,~}};" name bytes) decls)
             (push (format nil "static void *~a;" name) decls)
-            (push (format nil "SYMBOL(~a, (char*)~a_bytes);" name name) inits)))
+            (push (format nil "TEXT(~a, (char*)~a_bytes);" name name) inits)))
          ((''list dst xs)
           (let ((name (ssa-name "s")))
             (to-c-emit "  MOVE(~a, ~a);" dst name))
