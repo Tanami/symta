@@ -5,7 +5,6 @@
 #define getArg(i) ((void**)(E))[i]
 #define getVal(x) ((uintptr_t)(x)&~TAG_MASK)
 
-
 #define HEAP_SIZE (1024*1024*32)
 #define MAX_ARRAY_SIZE (HEAP_SIZE/2)
 
@@ -35,7 +34,7 @@ static int new_pool(regs_t *regs) {
 }
 
 static void bad_type(regs_t *regs, char *expected, int arg_index, char *name) {
-  int i, nargs = (int)NARGS;
+  int i, nargs = (int)UNFIXNUM(NARGS);
   printf("arg %d isnt %s, in: %s", arg_index, expected, name);
   for (i = 1; i < nargs; i++) printf(" %s", print_object(getArg(i)));
   printf("\n");
@@ -43,7 +42,7 @@ static void bad_type(regs_t *regs, char *expected, int arg_index, char *name) {
 }
 
 static void bad_call(regs_t *regs, void *head) {
-  int i, nargs = (int)NARGS;
+  int i, nargs = (int)UNFIXNUM(NARGS);
   printf("bad call: %s", print_object(head));
   for (i = 1; i < nargs; i++) printf(" %s", print_object(getArg(i)));
   printf("\n");
@@ -74,34 +73,34 @@ static void bad_call(regs_t *regs, void *head) {
     bad_type(regs, "list", arg_index, meta)
 
 #define BUILTIN_CHECK_NARGS(expected,tag) \
-  if (NARGS != expected) { \
+  if (NARGS != TO_FIXNUM(expected)) { \
     static void *stag = 0; \
     if (!stag) TEXT(stag, tag); \
-    regs->handle_args(regs, (intptr_t)expected, stag, v_empty); \
+    regs->handle_args(regs, TO_FIXNUM(expected), stag, v_empty); \
     return; \
   }
-#define BUILTIN_CHECK_NARGS_ABOVE(tag) \
-  if (NARGS < 1) { \
+#define BUILTIN_CHECK_VARARGS(tag) \
+  if (NARGS < TO_FIXNUM(1)) { \
     static void *stag = 0; \
     if (!stag) TEXT(stag, tag); \
-    regs->handle_args(regs, -1, stag, v_empty); \
+    regs->handle_args(regs, TO_FIXNUM(-1), stag, v_empty); \
     return; \
   }
 
 
 #define CALL0(f,k) \
-  ALLOC(E, 1, 1, 1); \
+  ARRAY(E, 1); \
   STORE(E, 0, k); \
   CALL(f);
 
 #define CALL1(f,k,a) \
-  ALLOC(E, 2, 2, 2); \
+  ARRAY(E, 2); \
   STORE(E, 0, k); \
   STORE(E, 1, a); \
   CALL(f);
 
 #define CALL2(f,k,a,b) \
-  ALLOC(E, 3, 3, 3); \
+  ARRAY(E, 3); \
   STORE(E, 0, k); \
   STORE(E, 1, a); \
   STORE(E, 2, b); \
@@ -142,7 +141,7 @@ static void bad_call(regs_t *regs, void *head) {
 #define BUILTIN_VARARGS(sname,name)    \
   static void b_##name(regs_t *regs) { \
   void *k; \
-  BUILTIN_CHECK_NARGS_ABOVE(sname); \
+  BUILTIN_CHECK_VARARGS(sname); \
   k = getArg(0);
 
 #define RETURNS(r) CALL0(k,(r)); }
@@ -163,13 +162,11 @@ RETURNS(0)
 static int texts_equal(void *a, void *b) {
   uint32_t al = *(uint32_t*)a;
   uint32_t bl = *(uint32_t*)b;
-  return al == bl && !memcmp((uint8_t*)a+4, (uint8_t*)b+4, al/(1<<TAG_BITS));
+  return al == bl && !memcmp((uint8_t*)a+4, (uint8_t*)b+4, UNFIXNUM(al));
 }
 
 
-#define TO_FIXNUM(x) (((uintptr_t)(x)*(1<<TAG_BITS)) + 1)
-
-static void *s_size, *s_get;
+static void *s_size, *s_get, *s_set;
 static void *s_neg, *s_add, *s_sub, *s_mul, *s_div, *s_rem, *s_is, *s_isnt, *s_lt, *s_gt, *s_lte, *s_gte;
 static void *s_head, *s_tail, *s_headed, *s_end;
 
@@ -177,7 +174,7 @@ BUILTIN_VARARGS("text",text)
   intptr_t n = NARGS;
   intptr_t l = *(uint32_t*)P;
   void *r;
-  if (n == 2) {
+  if (n == TO_FIXNUM(2)) {
     void *op, *a = P;
     op = getArg(1);
     C_TEXT(op, 0, "text");
@@ -186,7 +183,7 @@ BUILTIN_VARARGS("text",text)
     } else {
       bad_call(regs,P);
     }
-  } else if (n == 3) {
+  } else if (n == TO_FIXNUM(3)) {
     void *op, *a = P, *b;
     char t[2];
     op = getArg(1);
@@ -198,7 +195,43 @@ BUILTIN_VARARGS("text",text)
          printf("index out of bounds\n");
          bad_call(regs,P);
       }
-      t[0] = *((char*)a + 4+ (intptr_t)b/(1<<TAG_BITS));
+      t[0] = *((char*)a + 4 + UNFIXNUM(b));
+      t[1] = 0;
+      TEXT(r,t);
+    } else {
+      bad_call(regs,P);
+    }
+  } else {
+    bad_call(regs,P);
+  }
+RETURNS(r)
+
+BUILTIN_VARARGS("array",array)
+  intptr_t n = NARGS;
+  intptr_t l = *(uint32_t*)P;
+  void *r;
+  if (n == TO_FIXNUM(2)) {
+    void *op, *a = P;
+    op = getArg(1);
+    C_TEXT(op, 0, "text");
+    if (texts_equal(op,s_size)) {
+      r = (void*)l;
+    } else {
+      bad_call(regs,P);
+    }
+  } else if (n == TO_FIXNUM(3)) {
+    void *op, *a = P, *b;
+    char t[2];
+    op = getArg(1);
+    C_TEXT(op, 0, "text");
+    b = getArg(2);
+    if (texts_equal(op,s_get)) {
+      C_FIXNUM(b, 1, "text_get");
+      if (l <= (intptr_t)b) {
+         printf("index out of bounds\n");
+         bad_call(regs,P);
+      }
+      t[0] = *((char*)a + 4 + UNFIXNUM(b));
       t[1] = 0;
       TEXT(r,t);
     } else {
@@ -212,7 +245,7 @@ RETURNS(r)
 BUILTIN_VARARGS("integer",fixnum)
   intptr_t n = NARGS;
   void *r;
-  if (n == 3) {
+  if (n == TO_FIXNUM(3)) {
     void *op, *a = P, *b;
     op = getArg(1);
     C_TEXT(op, 0, "integer");
@@ -223,11 +256,11 @@ BUILTIN_VARARGS("integer",fixnum)
     } else if (texts_equal(op,s_sub)) {
       r = (void*)((intptr_t)a - (intptr_t)b + 1);
     } else if (texts_equal(op,s_mul)) {
-      r = (void*)(((intptr_t)a / (1<<TAG_BITS)) * ((intptr_t)b-1) + 1);
+      r = (void*)(UNFIXNUM(a) * ((intptr_t)b-1) + 1);
     } else if (texts_equal(op,s_div)) {
-      r = (void*)(TO_FIXNUM((intptr_t)a / ((intptr_t)b-1)));
+      r = (void*)TO_FIXNUM((intptr_t)a / ((intptr_t)b-1));
     } else if (texts_equal(op,s_rem)) {
-      r = (void*)(TO_FIXNUM(((intptr_t)a/(1<<TAG_BITS)) % ((intptr_t)b/(1<<TAG_BITS))));
+      r = (void*)TO_FIXNUM(UNFIXNUM(a) % UNFIXNUM(b));
     } else if (texts_equal(op,s_is)) {
       r = (void*)(TO_FIXNUM(a == b));
     } else if (texts_equal(op,s_isnt)) {
@@ -243,7 +276,7 @@ BUILTIN_VARARGS("integer",fixnum)
     } else {
       bad_call(regs,P);
     }
-  } else if (n == 2) {
+  } else if (n == TO_FIXNUM(2)) {
     void *op, *a = P;
     op = getArg(1);
     C_TEXT(op, 0, "integer");
@@ -260,7 +293,7 @@ RETURNS(r)
 BUILTIN_VARARGS("empty",empty)
   intptr_t n = NARGS;
   void *r;
-  if (n == 2) {
+  if (n == TO_FIXNUM(2)) {
     void *op, *a = P;
     op = getArg(1);
     C_TEXT(op, 0, "list");
@@ -277,7 +310,7 @@ RETURNS(r)
 BUILTIN_VARARGS("list",list)
   intptr_t n = NARGS;
   void *r;
-  if (n == 2) {
+  if (n == TO_FIXNUM(2)) {
     void *op, *a = P;
     op = getArg(1);
     C_TEXT(op, 0, "list");
@@ -290,7 +323,7 @@ BUILTIN_VARARGS("list",list)
     } else {
       bad_call(regs,P);
     }
-  } else if (n == 3) {
+  } else if (n == TO_FIXNUM(3)) {
     void *op, *a = P, *b;
     op = getArg(1);
     C_TEXT(op, 0, "list");
@@ -338,16 +371,14 @@ RETURNS(v_void)
 
 BUILTIN1("text_out",text_out,C_TEXT,o)
   int i;
-  int l = *(uint32_t*)o / (1<<TAG_BITS);
+  int l = UNFIXNUM(*(uint32_t*)o);
   char *p = (char*)o + 4;
   for (i = 0; i < l; i++) putchar(p[i]);
   fflush(stdout);
 RETURNS(v_void)
 
-
-
 BUILTIN3("_fn_if",_fn_if,C_ANY,a,C_ANY,b,C_ANY,c)
-  ALLOC(E, 1, 1, 1);
+  ARRAY(E, 1);
   STORE(E, 0, k);
   if ((intptr_t)a != 1) {
     CALL(b);
@@ -375,7 +406,7 @@ static void *alloc_text(regs_t *regs, char *s) {
 
   l = strlen(s);
   a = (l+4+TAG_MASK)>>TAG_BITS;
-  ALLOC(p,b_text,TEXT_POOL,a);
+  ALLOC(p, b_text, TEXT_POOL, a);
   *(uint32_t*)p = (uint32_t)TO_FIXNUM(l);
   memcpy(((uint32_t*)p+1), s, l);
   return p;
@@ -383,7 +414,7 @@ static void *alloc_text(regs_t *regs, char *s) {
 
 BUILTIN_VARARGS("list",make_list)
   void *xs = v_empty;
-  int i = (int)NARGS;
+  int i = (int)UNFIXNUM(NARGS);
   while (i-- > 1) {
     CONS(xs, getArg(i), xs);
   }
@@ -400,17 +431,17 @@ static struct {
 };
 
 BUILTIN_VARARGS("host",host)
-  int i,j, n = NARGS-1;
+  int i,j, n = (int)UNFIXNUM(NARGS)-1;
   void *f;
 
-  if (NARGS >= POOL_SIZE-1) {
+  if (n >= POOL_SIZE-2) {
     printf("host: implement large arrays\n");
     abort();
   }
 
   f = getArg(1);
-  ALLOC(A,(intptr_t)n,n,n);
-  STORE(A,0,k);
+  ARRAY(A, n);
+  STORE(A, 0, k);
   for (j = 1; j < n; j++) {
     void *name = getArg(j+1);
     for (i = 0; ; i++) {
@@ -423,9 +454,9 @@ BUILTIN_VARARGS("host",host)
         break;
       }
     }
-    STORE(A,j,builtins[i].fun);
+    STORE(A, j, builtins[i].fun);
   }
-  MOVE(E,A);
+  MOVE(E, A);
   CALL_TAGGED(f);
 RETURNS_VOID
 
@@ -438,7 +469,7 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
       out += sprintf(out, "$(array %d %p)", (int)(uintptr_t)handler, o);
     } else if (handler == b_text) {
       int i;
-      int l = *(uint32_t*)o / (1<<TAG_BITS);
+      int l = UNFIXNUM(*(uint32_t*)o);
       char *p = (char*)o + 4;
       for (i = 0; i < l; i++) *out++ = *p++;
       *out = 0;
@@ -478,16 +509,16 @@ char* print_object_f(regs_t *regs, void *object) {
 static void handle_args(regs_t *regs, intptr_t expected, void *tag, void *meta) {
   intptr_t got = NARGS;
   void *k = getArg(0);
-  if (got == 0) { //request for tag
+  if (got == TO_FIXNUM(0)) { //request for tag
     CALL0(k, tag);
     return;
-  } else if (got == -1) {
+  } else if (got == TO_FIXNUM(-1)) {
     CALL0(k, meta);
     return;
   }
-  printf("bad number of arguments: got=%ld, expected=%ld\n", got-1, expected-1);
-  if (meta != v_void) {
+  if (meta != v_empty) {
   }
+  printf("bad number of arguments: got=%ld, expected=%ld\n", UNFIXNUM(got)-1, UNFIXNUM(expected)-1);
   abort();
 }
 
@@ -575,6 +606,7 @@ int main(int argc, char **argv) {
 
   TEXT(s_size, "size");
   TEXT(s_get, "get");
+  TEXT(s_set, "set");
 
 
   lib = dlopen(module, RTLD_LAZY);

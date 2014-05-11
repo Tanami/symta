@@ -668,7 +668,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ;; a single argument to a function could be passed in register, while a closure would be created if required
   ;; a single reference closure could be itself held in a register
   ;; for now we just capture required parent's closure
-  ! ssa 'alloc 'r f nparents
+  ! ssa 'closure 'r f nparents
   ! i = -1
   ! e c cs (! if (equal c *ssa-ns*) ; self?
                  (ssa 'store 'r (incf i) 'e)
@@ -680,7 +680,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! produce-ssa f
   ! known-closure = eql (first (car *ssa-out*)) 'known_closure
   ! ssa 'move 'c 'r
-  ! ssa 'alloc 'a (length as) (length as)
+  ! ssa 'array 'a (length as)
   ! i = -1
   ! e a as (! produce-ssa a
             ! ssa 'store 'a (incf i) 'r)
@@ -712,10 +712,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (((''move a b) (''load b c d) . zs) `((load ,a ,c ,d) ,@(peephole-optimize zs)))
     (((''store a b c) (''move c d) . zs) `((store ,a ,b ,d) ,@(peephole-optimize zs)))
     (((''store a b ''r) (''load ''r d e) . zs) `((copy ,a ,b ,d ,e) ,@(peephole-optimize zs)))
-    (((''move a b) (''store b c d) (''known_closure) (''alloc d x y) (''alloc b e f) . zs)
-     `((store ,a ,c ,d) (alloc ,d ,x ,y) (alloc ,a ,e ,f) ,@(peephole-optimize zs)))
-    (((''move a b) (''known_closure) (''store b c d) (''alloc b e f) . zs)
-     `((store ,a ,c ,d) (alloc ,a ,e ,f) ,@(peephole-optimize zs)))
+    (((''move a b) (''store b c d) (''known_closure) (''closure d x y) (''array b e) . zs)
+     `((store ,a ,c ,d) (closure ,d ,x ,y) (array ,a ,e) ,@(peephole-optimize zs)))
+    (((''move a b) (''known_closure) (''store b c d) (''closure b e f) . zs)
+     `((store ,a ,c ,d) (closure ,a ,e ,f) ,@(peephole-optimize zs)))
     ((z . zs) (cons z (peephole-optimize zs)))
     (nil nil))
 
@@ -783,9 +783,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to produce-cps k x ! if (listp x) (cps-form k x) (cps-atom k x))
 
-(defun print-ssa (xs)
-  (e x xs (format t "~{~s ~}~%" x)))
-
 (defparameter *compiled* nil)
 
 (to to-c-emit &rest args ! (push (apply #'format nil args) *compiled*))
@@ -821,14 +818,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''call name) (to-c-emit "  CALL(~a);" name))
          ((''call_tagged name) (to-c-emit "  CALL_TAGGED(~a);" name))
          ((''goto name) (to-c-emit "  ~a(regs);" name))
-         ((''alloc place name size)
-          (if (numberp name)
-              (let ((pool (min *pool-size* name)))
-                (to-c-emit "  ALLOC(~a, ~a, ~a, ~a);" place name pool size))
-              (progn
-                (push (format nil "static int ~a_pool;" name) decls)
-                (push (format nil "~a_pool = regs->new_pool();" name) inits)
-                (to-c-emit "  ALLOC(~a, ~a, ~a_pool, ~a);" place name name size))))
+         ((''array place size) (to-c-emit "  ARRAY(~a, ~a);" place size))
+         ((''closure place name size)
+          (progn
+            (push (format nil "static int ~a_pool;" name) decls)
+            (push (format nil "~a_pool = regs->new_pool();" name) inits)
+            (to-c-emit "  ALLOC(~a, ~a, ~a_pool, ~a);" place name name size)))
          ((''load dst src off) (to-c-emit "  LOAD(~a, ~a, ~a);" dst src off))
          ((''store dst off src) (to-c-emit "  STORE(~a, ~a, ~a);" dst off src))
          ((''copy dst p src q) (to-c-emit "  COPY(~a, ~a, ~a, ~a);" dst p src q))
@@ -844,7 +839,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (let ((name (ssa-name "s")))
             (to-c-emit "  MOVE(~a, ~a);" dst name))
           (abort))
-         ((''closure dst code env) (to-c-emit "  CLOSURE(~a, ~a, ~a);" dst code env))
          ((''check_nargs expected meta) (to-c-emit "  CHECK_NARGS(~a, ~a);" expected (or meta "v_empty")))
          (else (error "invalid ssa: ~a" x))))
     (to-c-emit "}~%")

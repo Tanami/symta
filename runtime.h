@@ -23,6 +23,7 @@
 #define POOL_MASK (uintptr_t)(POOL_BYTE_SIZE-1)
 #define POOL_BASE (~POOL_MASK)
 #define POOL_HANDLER(x) (((pfun*)((uintptr_t)(x)&POOL_BASE))[0])
+#define TO_FIXNUM(x) (((uintptr_t)(x)*(1<<TAG_BITS)) + 1)
 
 typedef struct regs_t {
   // registers array
@@ -48,7 +49,7 @@ typedef struct regs_t {
   char* (*print_object_f)(struct regs_t *regs, void *object);
   int (*new_pool)();
   void** (*alloc)(int count);
-  void *(*alloc_symbol)(struct regs_t *regs, char *s);
+  void *(*alloc_text)(struct regs_t *regs, char *s);
   void (*fixnum)(struct regs_t *regs);
 
   // for multithreading, caching could be used to get on-demand pools for each thread, minimizing locking
@@ -74,16 +75,19 @@ typedef void (*pfun)(regs_t *regs);
 #define NARGS ((intptr_t)POOL_HANDLER(E))
 
 #define print_object(object) regs->print_object_f(regs, object)
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
 
 #define ALLOC(dst,code,pool,count) \
-  if (((uintptr_t)regs->pools[pool]&POOL_MASK) + ((uintptr_t)(count||1)*sizeof(void*)-1) >= POOL_BYTE_SIZE) { \
+  if (((uintptr_t)regs->pools[pool]&POOL_MASK) + ((uintptr_t)(count||1)*sizeof(void*)-1) >= POOL_BYTE_SIZE){\
     regs->pools[pool] = regs->alloc(count+1); \
     *regs->pools[pool]++ = (void*)(code); \
   } \
   MOVE(dst, regs->pools[pool]); \
   regs->pools[pool] += count;
+#define ARRAY(dst,size) ALLOC(dst,TO_FIXNUM(size),MIN(POOL_SIZE,size),size)
 #define FIXNUM(dst,x) dst = (void*)(((uintptr_t)(x)<<TAG_BITS) | T_FIXNUM)
-#define SYMBOL(dst,x) dst = regs->alloc_symbol(regs,x)
+#define UNFIXNUM(x) ((intptr_t)(x)/(1<<TAG_BITS))
+#define TEXT(dst,x) dst = regs->alloc_text(regs,x)
 #define CALL_BASE(f) POOL_HANDLER(f)(regs);
 #define CALL(f) \
   MOVE(P, f); \
@@ -105,12 +109,12 @@ typedef void (*pfun)(regs_t *regs);
 #define MOVE(dst,src) dst = (void*)(src)
 
 #define CHECK_NARGS(expected,tag) \
-  if (NARGS != (intptr_t)expected) { \
-    regs->handle_args(regs, (intptr_t)expected, tag, v_empty); \
+  if (NARGS != TO_FIXNUM(expected)) { \
+    regs->handle_args(regs, TO_FIXNUM(expected), tag, v_empty); \
     return; \
   }
-#define CHECK_NARGS_ABOVE(tag) \
-  if (NARGS < 1) { \
+#define CHECK_VARARGS(tag) \
+  if (NARGS < TO_FIXNUM(1)) { \
     regs->handle_args(regs, -1, tag, v_empty); \
     return; \
   }
