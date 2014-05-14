@@ -5,8 +5,6 @@
 #define getArg(i) ((void**)(E))[i]
 #define getVal(x) ((uintptr_t)(x)&~TAG_MASK)
 
-#define HEAP_SIZE (1024*1024*32)
-#define MAX_ARRAY_SIZE (HEAP_SIZE/2)
 
 static void *heap_base[HEAP_SIZE+POOL_SIZE];
 static void *heap_tags[HEAP_SIZE/4];
@@ -155,9 +153,8 @@ BUILTIN0("run",run) CALL1(k,fin,host); RETURNS_VOID
 BUILTIN0("fin",fin) T = k; RETURNS_VOID
 
 BUILTIN_VARARGS("void",void)
-  printf("FIXME: implement `void`\n");
-  abort();
-RETURNS(0)
+  bad_call(regs,P);
+RETURNS(v_void)
 
 static int texts_equal(void *a, void *b) {
   uint32_t al = *(uint32_t*)a;
@@ -177,7 +174,7 @@ BUILTIN_VARARGS("text",text)
   if (n == TO_FIXNUM(2)) {
     void *op, *a = P;
     op = getArg(1);
-    C_TEXT(op, 0, "text");
+    C_TEXT(op, 0, "text.size");
     if (texts_equal(op,s_size)) {
       r = (void*)l;
     } else {
@@ -190,7 +187,7 @@ BUILTIN_VARARGS("text",text)
     C_TEXT(op, 0, "text");
     b = getArg(2);
     if (texts_equal(op,s_get)) {
-      C_FIXNUM(b, 1, "text_get");
+      C_FIXNUM(b, 1, "text.get");
       if (l <= (intptr_t)b) {
          printf("index out of bounds\n");
          bad_call(regs,P);
@@ -208,32 +205,47 @@ RETURNS(r)
 
 BUILTIN_VARARGS("array",array)
   intptr_t n = NARGS;
-  intptr_t l = *(uint32_t*)P;
   void *r;
   if (n == TO_FIXNUM(2)) {
     void *op, *a = P;
     op = getArg(1);
-    C_TEXT(op, 0, "text");
+    C_TEXT(op, 0, "array.size");
     if (texts_equal(op,s_size)) {
-      r = (void*)l;
+      r = POOL_HANDLER(P);
     } else {
       bad_call(regs,P);
     }
   } else if (n == TO_FIXNUM(3)) {
     void *op, *a = P, *b;
-    char t[2];
+    intptr_t l = (intptr_t)POOL_HANDLER(a);
     op = getArg(1);
-    C_TEXT(op, 0, "text");
+    C_TEXT(op, 0, "array");
     b = getArg(2);
     if (texts_equal(op,s_get)) {
-      C_FIXNUM(b, 1, "text_get");
+      C_FIXNUM(b, 1, "array.get");
       if (l <= (intptr_t)b) {
          printf("index out of bounds\n");
          bad_call(regs,P);
       }
-      t[0] = *((char*)a + 4 + UNFIXNUM(b));
-      t[1] = 0;
-      TEXT(r,t);
+      r = *((void**)a + UNFIXNUM(b));
+    } else {
+      bad_call(regs,P);
+    }
+  } else if (n == TO_FIXNUM(4)) {
+    void *op, *a = P, *b, *c;
+    intptr_t l = (intptr_t)POOL_HANDLER(a);
+    op = getArg(1);
+    C_TEXT(op, 0, "array");
+    b = getArg(2);
+    c = getArg(3);
+    if (texts_equal(op,s_set)) {
+      C_FIXNUM(b, 1, "array.set");
+      if (l <= (intptr_t)b) {
+         printf("index out of bounds\n");
+         bad_call(regs,P);
+      }
+      *((void**)a + UNFIXNUM(b)) = c;
+      r = v_void;
     } else {
       bad_call(regs,P);
     }
@@ -346,6 +358,7 @@ BUILTIN1("tag_of",tag_of,C_ANY,a)
 RETURNS_VOID
 
 BUILTIN0("halt",halt)
+  printf("halted.\n");
   abort();
 RETURNS_VOID
 
@@ -367,7 +380,6 @@ BUILTIN1("utf8_to_text",utf8_to_text,C_ANY,bytes)
   printf("FIXME: implement utf8_to_text\n");
   abort();
 RETURNS(v_void)
-
 
 BUILTIN1("text_out",text_out,C_TEXT,o)
   int i;
@@ -420,6 +432,17 @@ BUILTIN_VARARGS("list",make_list)
   }
 RETURNS(xs)
 
+
+BUILTIN2("array",make_array,C_FIXNUM,size,C_ANY,init)
+  void *r;
+  void **p;
+  intptr_t s = UNFIXNUM(size);
+  ARRAY(r,s);
+  p = (void**)r;
+  while(s-- > 0) *p++ = init;
+RETURNS(r)
+
+
 static struct {
   char *name;
   void *fun;
@@ -427,6 +450,7 @@ static struct {
   {"tag_of", b_tag_of},
   {"_fn_if", b__fn_if},
   {"list", b_make_list},
+  {"array", b_make_array},
   {0, 0}
 };
 
@@ -465,8 +489,8 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
 
   if (tag == T_CLOSURE) {
     pfun handler = POOL_HANDLER(o);
-    if ((uintptr_t)handler < MAX_ARRAY_SIZE) {
-      out += sprintf(out, "$(array %d %p)", (int)(uintptr_t)handler, o);
+    if ((intptr_t)handler < TO_FIXNUM(MAX_ARRAY_SIZE)) {
+      out += sprintf(out, "$(array %d %p)", (int)UNFIXNUM(handler), o);
     } else if (handler == b_text) {
       int i;
       int l = UNFIXNUM(*(uint32_t*)o);
@@ -533,6 +557,7 @@ static regs_t *new_regs() {
   regs->alloc = alloc;
   regs->alloc_text = alloc_text;
   regs->fixnum = b_fixnum;
+  regs->array = b_array;
   
   // mark pools as full
   for (i = 0; i < MAX_POOLS; i++) regs->pools[i] = (void*)POOL_MASK;

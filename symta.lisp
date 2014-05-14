@@ -593,34 +593,46 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to get-meta object ! gethash object *compiler-meta-info*)
 
 
-(defun ssa-resolved (name) (cons name *ssa-ns*))
 (defun ssa-name (name) (symbol-name (gensym name)))
 
 (to ssa name &rest args ! push `(,name ,@args) *ssa-out*)
 
 (to ssa-get-parent-index parent
   ! p = position-if (fn e ! equal parent e) (car *ssa-closure*)
-  ! when p (ret p) ; already exist
+  ! when p (ret p) ; already added to the current closure
   ! setf (car *ssa-closure*) `(,@(car *ssa-closure*) ,parent)
   ! - (length (car *ssa-closure*)) 1)
 
 (to ssa-path-to-sym x es
   ! unless es (ret nil)
-  ! p = position-if (fn v ! equal x (car v)) (car es)
-  ! unless p (ret (ssa-path-to-sym x (cdr es)))
+  ! head = car es
+  ! tail = cdr es
+  ! when (eql (first head) :all) ; reference to the whole arglist?
+     (setf head (second head))
+     (unless (equal x (car head)) (ret (ssa-path-to-sym x tail)))
+     (when (eq es *ssa-env*) (ret (list :all nil))) ; it is an argument of the current function
+     (ret (list :all (ssa-get-parent-index (cdr head))))
+  ! p = position-if (fn v ! equal x (car v)) head
+  ! unless p (ret (ssa-path-to-sym x tail))
   ! when (eq es *ssa-env*) (ret (list p nil)) ; it is an argument of the current function
-  ! list p (ssa-get-parent-index (cdr (nth p (car es)))))
+  ! list p (ssa-get-parent-index (cdr (nth p head))))
 
 (to ssa-symbol x value
   ! match (ssa-path-to-sym x *ssa-env*)
-     ((pos parent) (if parent
-                       (! ssa 'load 'r 'p parent
-                        ! if value
-                           (ssa 'store 'r pos value)
-                           (ssa 'load 'r 'r pos))
-                       (if value
-                           (ssa 'store 'e pos value)
-                           (ssa 'load 'r 'e pos))))
+     ((pos parent)
+      (! base = if parent 'r 'e
+           #|(if parent
+               (ssa 'store 'p parent value)
+               (ssa 'copy 'e value))
+           (ret nil)|#
+       ! when parent (ssa 'load 'r 'p parent) ; symbol resides in parent environment
+       ! when (eql pos :all)
+          (when value (error "can't set ~a" x))
+          (unless (eql base 'r) (ssa 'move 'r base))
+          (ret nil)
+       ! if value
+            (ssa 'store base pos value)
+            (ssa 'load 'r base pos)))
      (else (error "undefined variable: ~a" x)))
 
 (to ssa-atom x
@@ -650,15 +662,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      ((listp x) (ssa-quote-list x))
      (t (error "unsupported quoted value: ~a" x)))
 
+(to ssa-resolved name ! cons name *ssa-ns*)
+
 (to ssa-fn args body o
   ! f = ssa-name "f"
   ! cs = nil
   ! (! *ssa-out* = nil
      ! *ssa-ns* = f
-     ! *ssa-env* = cons (mapcar #'ssa-resolved args) *ssa-env*
+     ! *ssa-env* = if (stringp args)
+                      (cons `(:all ,(ssa-resolved args)) *ssa-env*)
+                      (cons (mapcar #'ssa-resolved args) *ssa-env*)
      ! *ssa-closure* = cons nil *ssa-closure*
      ! ssa 'label *ssa-ns*
-     ! ssa 'check_nargs (length args) (get-meta o)
+     ! if (stringp args)
+          (ssa 'check_varargs (get-meta o))
+          (ssa 'check_nargs (length args) (get-meta o))
      ! produce-ssa body
      ! push *ssa-out* *ssa-fns*
      ! setf cs (car *ssa-closure*)
@@ -732,9 +750,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! rs = peephole-optimize rs
   ! nreverse rs)
 
-(to cps-fn k args body o
+(to cps-fn-nargs args body
   ! kk = ssa-name "k"
-  ! `(,k ,(set-meta (get-meta o) `("_fn" (,kk ,@args) ,(produce-cps kk body)))))
+  ! `("_fn" (,kk ,@args) ,(produce-cps kk body)))
+
+(to cps-fn-varargs args body
+  ! kk = ssa-name "k"
+  ! `("_fn" ,args (,args ("_fn" (,kk) ,(produce-cps kk body)) ("_quote" "get") 0)))
+
+(to cps-fn k args body o
+   ! `(,k ,(set-meta (get-meta o)
+                     (if (stringp args)
+                         (cps-fn-varargs args body)
+                         (cps-fn-nargs args body)))))
 
 (to cps-const? x ! or (not (listp x)) (equal (first x) "_quote"))
 
@@ -840,6 +868,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
             (to-c-emit "  MOVE(~a, ~a);" dst name))
           (abort))
          ((''check_nargs expected meta) (to-c-emit "  CHECK_NARGS(~a, ~a);" expected (or meta "v_empty")))
+         ((''check_varargs meta) (to-c-emit "  CHECK_VARARGS(~a);" (or meta "v_empty")))
          (else (error "invalid ssa: ~a" x))))
     (to-c-emit "}~%")
     (to-c-emit "static void ~a(regs_t *regs) {" inits-name)
@@ -862,7 +891,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! fn-expr = `("_fn" ("host") ("host" ("_fn" ,builtins ,expr) ,@(m b builtins `("_quote" ,b))))
   ! ssa-compile `("_move" r ,k) entry fn-expr)
 
-(defparameter *ssa-builtins* '("list" "tag_of" "_fn_if"))
+(defparameter *ssa-builtins* '("tag_of" "_fn_if" "list" "array"))
 
 (to ssa-produce-file file src
   ! text = ssa-compile-entry "run" "entry" *ssa-builtins* src

@@ -25,6 +25,9 @@
 #define POOL_HANDLER(x) (((pfun*)((uintptr_t)(x)&POOL_BASE))[0])
 #define TO_FIXNUM(x) (((uintptr_t)(x)*(1<<TAG_BITS)) + 1)
 
+#define HEAP_SIZE (1024*1024*32)
+#define MAX_ARRAY_SIZE (HEAP_SIZE/2)
+
 typedef struct regs_t {
   // registers array
   void *E; // current environment
@@ -51,6 +54,7 @@ typedef struct regs_t {
   void** (*alloc)(int count);
   void *(*alloc_text)(struct regs_t *regs, char *s);
   void (*fixnum)(struct regs_t *regs);
+  void (*array)(struct regs_t *regs);
 
   // for multithreading, caching could be used to get on-demand pools for each thread, minimizing locking
   void **pools[MAX_POOLS];
@@ -78,12 +82,17 @@ typedef void (*pfun)(regs_t *regs);
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 
 #define ALLOC(dst,code,pool,count) \
-  if (((uintptr_t)regs->pools[pool]&POOL_MASK) + ((uintptr_t)(count||1)*sizeof(void*)-1) >= POOL_BYTE_SIZE){\
+  MOVE(dst, regs->pools[pool]); \
+  regs->pools[pool] += count; \
+  if ((((uintptr_t)regs->pools[pool]+(count ? 0 : 1))&POOL_BASE) != ((uintptr_t)dst&POOL_BASE)) { \
     regs->pools[pool] = regs->alloc(count+1); \
     *regs->pools[pool]++ = (void*)(code); \
-  } \
-  MOVE(dst, regs->pools[pool]); \
-  regs->pools[pool] += count;
+    if (((uintptr_t)regs->pools[pool]&POOL_MASK) || count>POOL_SIZE-1) { \
+      MOVE(dst, regs->pools[pool]); \
+      regs->pools[pool] += count; \
+    } \
+  }
+
 #define ARRAY(dst,size) ALLOC(dst,TO_FIXNUM(size),MIN(POOL_SIZE,size),size)
 #define FIXNUM(dst,x) dst = (void*)(((uintptr_t)(x)<<TAG_BITS) | T_FIXNUM)
 #define UNFIXNUM(x) ((intptr_t)(x)/(1<<TAG_BITS))
@@ -94,7 +103,12 @@ typedef void (*pfun)(regs_t *regs);
   CALL_BASE(f);
 #define CALL_TAGGED(f) \
   if (GET_TAG(f) == T_CLOSURE) { \
-    CALL(f); \
+    if ((intptr_t)POOL_HANDLER(f) < TO_FIXNUM(MAX_ARRAY_SIZE)) { \
+      MOVE(P, f); \
+      regs->array(regs); \
+    } else { \
+      CALL(f); \
+    } \
   } else if (GET_TAG(f) == T_FIXNUM) { \
     MOVE(P, f); \
     regs->fixnum(regs); \
