@@ -637,9 +637,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-atom x
   ! cond
-    ((eql x 'run) (ssa 'move 'r "run"))
     ((integerp x) (ssa 'fixnum 'r x))
     ((stringp x) (ssa-symbol x nil))
+    ((eql x 'run) (ssa 'move 'r "run"))
+    ((eql x :void) (ssa 'move 'r "v_void"))
     (t (error "unexpected ~a" x)))
 
 (to ssa-quote-list-rec xs
@@ -798,7 +799,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_let" xs . body)
      (if (= (length body) 1)
          (setf body (car body))
-         (setf body (lambda-sequence body "Void")))
+         (setf body (lambda-sequence body :void)))
      (cps-form k `(("_fn" ,(m x xs (first x)) ,body) ,@(m x xs (second x)))))
     (("_quote" x) `(,k ,xs))
     (("_set" place value) (cps-set k place value xs))
@@ -891,7 +892,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! fn-expr = `("_fn" ("host") ("host" ("_fn" ,builtins ,expr) ,@(m b builtins `("_quote" ,b))))
   ! ssa-compile `("_move" r ,k) entry fn-expr)
 
-(defparameter *ssa-builtins* '("tag_of" "_fn_if" "list" "array" "cc"))
+(defparameter *ssa-builtins* '("tag_of" "_fn_if" "list" "array" "cc" "read_file_as_text"))
 
 (to ssa-produce-file file src
   ! text = ssa-compile-entry "run" "entry" *ssa-builtins* src
@@ -913,6 +914,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! result = c-runtime-compiler main-file src-file
   ! when (string/= result "")
       (e l (split #\Newline result) (format t "~a~%" l)))
+
+(to convert-symbols o
+  ! if (symbolp o)
+       (let ((n (symbol-name o)))
+         (if (lower-case-p (aref n 0))
+             n
+             (string-downcase n)))
+       (if (atom o) o (m x o (convert-symbols x))))
+
+(to scheme-into-symta xs
+  ! xs = convert-symbols xs
+  ! xs = m x xs 
+           (if (and (listp x) (equal (first x) "define"))
+               (if (listp (second x))
+                   (list (car (second x)) `("_fn" ,(cdr (second x)) ("_let" () ,@(cddr x))))
+                   (cdr x))
+               (list (ssa-name "d") x))
+  ! `("_let" ,(m x xs `(,(first x) :void))
+        ,@(m x xs `("_set" ,(first x) ,(second x)))))
 
 (to test-ssa src
   ! main-file = "{*native-files-folder*}/runtime"

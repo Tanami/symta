@@ -48,6 +48,7 @@ static void bad_call(regs_t *regs, void *head) {
 }
 
 
+
 #define CAR(x) ((void**)getVal(x))[0]
 #define CDR(x) ((void**)getVal(x))[1]
 #define CONS(dst,a,b) \
@@ -55,6 +56,26 @@ static void bad_call(regs_t *regs, void *head) {
   STORE(T, 0, a); \
   STORE(T, 1, b); \
   MOVE(dst, T);
+
+static char *print_object_r(regs_t *regs, char *out, void *o);
+
+// FIXME: use heap instead
+static char print_buffer[1024*1024*2];
+char* print_object_f(regs_t *regs, void *object) {
+  print_object_r(regs, print_buffer, object);
+  return print_buffer;
+}
+
+static char *text_to_cstring(void *o) {
+  int i;
+  int l = UNFIXNUM(*(uint32_t*)o);
+  char *p = (char*)o + 4;
+  char *out = print_buffer;
+  for (i = 0; i < l; i++) *out++ = *p++;
+  *out = 0;
+  return print_buffer;
+}
+
 
 #define C_ANY(o,arg_index,meta)
 
@@ -432,7 +453,6 @@ BUILTIN_VARARGS("list",make_list)
   }
 RETURNS(xs)
 
-
 BUILTIN2("array",make_array,C_FIXNUM,size,C_ANY,init)
   void *r;
   void **p;
@@ -454,6 +474,33 @@ BUILTIN_VARARGS("cc",cc)
   CALL(C);
 RETURNS_VOID
 
+static char *read_whole_file_as_string(char *input_file_name) {
+  char *file_contents;
+  long input_file_size;
+  FILE *input_file = fopen(input_file_name, "rb");
+  if (!input_file) return 0;
+  fseek(input_file, 0, SEEK_END);
+  input_file_size = ftell(input_file);
+  rewind(input_file);
+  file_contents = malloc(input_file_size + 1);
+  file_contents[input_file_size] = 0;
+  fread(file_contents, sizeof(char), input_file_size, input_file);
+  fclose(input_file);
+  return file_contents;
+}
+
+BUILTIN1("read_file_as_text",read_file_as_text,C_TEXT,filename_text)
+  void *r;
+  char *filename = text_to_cstring(filename_text);
+  char *contents = read_whole_file_as_string(filename);
+  if (contents) {
+    TEXT(r, contents);
+    free(contents);
+  } else {
+    r = v_void;
+  }
+RETURNS(r)
+
 
 static struct {
   char *name;
@@ -464,6 +511,8 @@ static struct {
   {"list", b_make_list},
   {"array", b_make_array},
   {"cc", b_cc},
+  {"read_file_as_text", b_read_file_as_text},
+  //{"save_string_as_file", b_save_text_as_file},
   {0, 0}
 };
 
@@ -496,6 +545,10 @@ BUILTIN_VARARGS("host",host)
   MOVE(E, A);
   CALL_TAGGED(f);
 RETURNS_VOID
+
+
+
+
 
 static char *print_object_r(regs_t *regs, char *out, void *o) {
   int tag = GET_TAG(o);
@@ -534,13 +587,6 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
     out += sprintf(out, "#(ufo %d %p)", tag, o);
   }
   return out;
-}
-
-// FIXME: use heap instead
-static char print_buffer[1024*16];
-char* print_object_f(regs_t *regs, void *object) {
-  print_object_r(regs, print_buffer, object);
-  return print_buffer;
 }
 
 static void handle_args(regs_t *regs, intptr_t expected, void *tag, void *meta) {
