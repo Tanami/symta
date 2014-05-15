@@ -219,7 +219,7 @@ BUILTIN_VARARGS("array",array)
     void *op, *a = P, *b;
     intptr_t l = (intptr_t)POOL_HANDLER(a);
     op = getArg(1);
-    C_TEXT(op, 0, "array");
+    C_TEXT(op, 0, print_object(a));
     b = getArg(2);
     if (texts_equal(op,s_get)) {
       C_FIXNUM(b, 1, "array.get");
@@ -442,6 +442,18 @@ BUILTIN2("array",make_array,C_FIXNUM,size,C_ANY,init)
   while(s-- > 0) *p++ = init;
 RETURNS(r)
 
+BUILTIN_VARARGS("cc",cc)
+  int i;
+  int n = (int)UNFIXNUM(NARGS);
+  LOAD(C, E, 1);
+  ARRAY(T, n-2);
+  for (i = 2; i < n; i++) {
+    COPY(T, i-2, E, i);
+  }
+  MOVE(E, T);
+  CALL(C);
+RETURNS_VOID
+
 
 static struct {
   char *name;
@@ -451,6 +463,7 @@ static struct {
   {"_fn_if", b__fn_if},
   {"list", b_make_list},
   {"array", b_make_array},
+  {"cc", b_cc},
   {0, 0}
 };
 
@@ -608,7 +621,8 @@ int main(int argc, char **argv) {
   for (i = 0; ; i++) {
     if (!builtins[i].name) break;
     TEXT(builtins[i].name, builtins[i].name);
-    CLOSURE(builtins[i].fun, builtins[i].fun);
+    CLOSURE(T, builtins[i].fun);
+    builtins[i].fun = T;
   }
 
   TEXT(s_neg, "neg");
