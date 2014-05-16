@@ -27,17 +27,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to headed head o ! match o (('head . _) t))
 
-(defparameter *error* nil) ;;default error handler
+(defparameter g_error nil) ;;default error handler
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;; READER
-(defparameter /origin nil)
-(defparameter /input nil)
-(defparameter /output nil)
-(defparameter /table nil)
-(defparameter /specs nil)
+(defparameter g_origin nil)
+(defparameter g_input nil)
+(defparameter g_output nil)
+(defparameter g_table nil)
+(defparameter g_specs nil)
 
-(defparameter *symbol-source* (make-hash-table :test 'eq))
+(defparameter g_symbol_source (make-hash-table :test 'eq))
 
 
 (to-expand $ obj msg &rest args ! `(funcall ,obj ',msg ,@args))
@@ -57,9 +57,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                (! col := 0
                 ! incf row)
              ! last))
-       (src (list row col /origin))
+       (src (list row col g_origin))
        (last last)
-       (error (funcall *error* "{row},{col}: {car args}"))))
+       (error (funcall g_error "{row},{col}: {car args}"))))
 
 (to /add-lexeme dst pattern type
   ! unless pattern (! gethash :type dst := type ! ret nil)
@@ -95,18 +95,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
            ((,head-char ,tail-char *) :symbol))
   ! ss = '(("if" :if) ("then" :then) ("else" :else) ("and" :and) ("or" :or)
            ("Yes" :kw) ("No" :kw) ("Void" :kw))
-  ! /table := (make-hash-table)
-  ! /specs := make-hash-table :test 'equal
-  ! e (a b) ss (! gethash a /specs := b)
+  ! g_table := (make-hash-table)
+  ! g_specs := make-hash-table :test 'equal
+  ! e (a b) ss (! gethash a g_specs := b)
   ! e l ls
     (! (pattern type) = if (consp l) l (list l (keywordize l))
      ! when (stringp pattern) (! pattern := coerce pattern 'list)
-     ! /add-lexeme /table pattern type))
+     ! /add-lexeme g_table pattern type))
 
 (to /token r &optional left-spaced
   ! src = $ r src
   ! head = $ r peek
-  ! next = /table
+  ! next = g_table
   ! cur = nil
   ! c = nil
   ! cs = nil
@@ -116,7 +116,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      ! next := (gethash c next)
      ! unless next
       (! value = coerce (nreverse cs) 'string
-       ! type = or (gethash value /specs) (gethash :type cur)
+       ! type = or (gethash value g_specs) (gethash :type cur)
        ! when (and (equal "-" value) left-spaced (not (find c '(#\newline #\space))))
          (setf type :negate)
        ! when (and (eq type :end) c) (setf type nil)
@@ -156,7 +156,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! while t
     (! x = /token r
      ! when (token-is close x) (ret (nreverse xs))
-     ! when (token-is :end x) (funcall *error* "{orig}:{row},{col}: unclosed `{open}`")
+     ! when (token-is :end x) (funcall g_error "{orig}:{row},{col}: unclosed `{open}`")
      ! push x xs))
 
 (to str-merge left middle right
@@ -199,11 +199,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to parser-error cause tok
   ! (row col orig) = or (getf tok :src) (list -1 -1 "<unknown>")
-  ! funcall *error* "{orig}:{row},{col}: {cause} `{or (getf tok :value) 'eof}`")
+  ! funcall g_error "{orig}:{row},{col}: {cause} `{or (getf tok :value) 'eof}`")
 (to /expect what &optional (head nil)
-  ! tok = car /input
+  ! tok = car g_input
   ! unless (token-is what tok) (parser-error "expected {symbol-name what}; got" (or head tok))
-  ! pop /input)
+  ! pop g_input)
 
 (to /if sym
   ! head = (/xs)
@@ -216,15 +216,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to /bar h
   ! c = token-col h
   ! zs = nil
-  ! while /input
+  ! while g_input
     (! ys = nil
-     ! while (and /input (> (token-col (car /input)) c))
-       (push (pop /input) ys)
+     ! while (and g_input (> (token-col (car g_input)) c))
+       (push (pop g_input) ys)
      ! push (/parse (nreverse ys)) zs
-     ! x = car /input
+     ! x = car g_input
      ! unless (and (token-is :|\|| x) (= (token-col x) c))
        (ret `(,h ,@(nreverse zs)))
-     ! pop /input))
+     ! pop g_input))
 
 (to-expand try expr fail
   ! g = gensym "V"
@@ -238,8 +238,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ret r)
 
 (to /term
-  ! unless /input (ret :fail)
-  ! tok = pop /input
+  ! unless g_input (ret :fail)
+  ! tok = pop g_input
   ! when (getf tok :parsed) (parser-error "already parsed token" tok)
   ! v = getf tok :value
   ! p = case (second tok)
@@ -251,15 +251,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (:|\|| (ret (/bar tok)))
      (:if (ret (/if tok)))
      (:- (ret (/negate tok)))
-     (otherwise (push tok /input) (ret :fail))
+     (otherwise (push tok g_input) (ret :fail))
   ! `(,@tok :parsed ,p))
 
 (to delim? x ! match x ((:token (or :|:| :|=| :|=>| :|,| :if :then :else) . _) t))
 
 (to /op ops
-  ! v = second (car /input)
+  ! v = second (car g_input)
   ! unless (find v ops) (ret :fail)
-  ! pop /input)
+  ! pop g_input)
 
 (to /binary-loop ops down e
   ! o = try (/op ops) e
@@ -288,49 +288,49 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to /logic
   ! o = try (/op '(:and :or)) (/dots)
-  ! /output := nreverse /output
-  ! p = position-if #'delim? /input ;hack LL(1) to speed-up parsing
-  ! tok = and p (elt /input p)
+  ! g_output := nreverse g_output
+  ! p = position-if #'delim? g_input ;hack LL(1) to speed-up parsing
+  ! tok = and p (elt g_input p)
   ! when (or (not p) (find (second tok) '(:if :then :else)))
-    (! /output := list (/xs) /output o ! ret :fail)
-  ! r = subseq /input 0 p
-  ! /input := subseq /input p
-  ! /output := if (token-is :|:| tok)
-                  (list (list o (cdr /output) (/parse r)) (car /output))
-                  (list (list o /output (/parse r)))
+    (! g_output := list (/xs) g_output o ! ret :fail)
+  ! r = subseq g_input 0 p
+  ! g_input := subseq g_input p
+  ! g_output := if (token-is :|:| tok)
+                  (list (list o (cdr g_output) (/parse r)) (car g_output))
+                  (list (list o g_output (/parse r)))
   ! nil)
 
 (to /delim
   ! o = try (/op '(:|:| :|=| :|=>| :|,|)) (/logic)
-  ! pref = or (nreverse /output) '(:void)
-  ! unless (token-is :|,| o) (! /output := `(,(/xs) ,pref ,o) ! ret nil)
+  ! pref = or (nreverse g_output) '(:void)
+  ! unless (token-is :|,| o) (! g_output := `(,(/xs) ,pref ,o) ! ret nil)
   ! pref = m x pref `(:token :escape :value ,(/strip x) :src ,(getf o :src))
-  ! r = split-if (fn x ! token-is :|,| x) /input
+  ! r = split-if (fn x ! token-is :|,| x) g_input
   ! r = m x (nreverse r) `(,@x (:token :|:| :value ":" :src ,(getf o :src)))
-  ! /input := apply #'append `(,@r ,pref)
-  ! /output := nreverse (/xs)
+  ! g_input := apply #'append `(,@r ,pref)
+  ! g_output := nreverse (/xs)
   ! nil)
 
 (to /semicolon
-  ! p = position-if (fn x ! if (token-is :|\|| x) (ret nil) (token-is :|;| x)) /input
+  ! p = position-if (fn x ! if (token-is :|\|| x) (ret nil) (token-is :|;| x)) g_input
   ! unless p (ret)
-  ! l = /parse (subseq /input 0 p)
-  ! m = elt /input p
-  ! r = /parse (subseq /input (+ p 1))
-  ! /input := nil
-  ! /output := if (token-is :|;| (first r)) `(,@(nreverse (cdr r)) ,l ,m) `(,r ,l ,m))
+  ! l = /parse (subseq g_input 0 p)
+  ! m = elt g_input p
+  ! r = /parse (subseq g_input (+ p 1))
+  ! g_input := nil
+  ! g_output := if (token-is :|;| (first r)) `(,@(nreverse (cdr r)) ,l ,m) `(,r ,l ,m))
 
 (to /xs
-  ! /output = nil
+  ! g_output = nil
   ! (/semicolon)
   ! while t
-    (! x = try (/delim) (ret (nreverse /output))
-     ! when x (push x /output)))
+    (! x = try (/delim) (ret (nreverse g_output))
+     ! when x (push x g_output)))
 
 (to /parse input
-  ! /input = input
+  ! g_input = input
   ! xs = (/xs)
-  ! when /input (parser-error "unexpected" (car /input))
+  ! when g_input (parser-error "unexpected" (car g_input))
   ! xs)
 
 (to /strip x
@@ -338,7 +338,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! when (headed :token x)
     (! p = position :parsed x
      ! r = if p (/strip (elt x (+ p 1))) (getf x :value)
-     ! when (stringp r) (setf (gethash r *symbol-source*) (getf x :src))
+     ! when (stringp r) (setf (gethash r g_symbol_source) (getf x :src))
      ! ret r)
   ! e v x (when (and (token-is :! (car v)) (not (token-is :! (car x))))
             (ret `("!!" ,@(mapcar #'/strip x))))
@@ -357,7 +357,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 ;;;;;;;;; EVALUATOR
 (defparameter *pkg* "st") ; where to store compiled symbols
 (defparameter *env* nil)   ; code walker environment
-(defparameter *error* nil)
+(defparameter g_error nil)
 
 (to env-sym? sym &optional (env *env*)
   ! unless (stringp sym) (ret)
@@ -397,8 +397,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! if (eql tag :no) `(lambda ,as ,body) `(typed-closure ,tag ,as ,body))
 
 (to bad-sexp x msg
-  ! (row col orig) = or (gethash (if (consp x) (car x) x) *symbol-source*) `(-1 -1 "<unknown>")
-  ! funcall *error* "{orig}:{row},{col}: {msg}")
+  ! (row col orig) = or (gethash (if (consp x) (car x) x) g_symbol_source) `(-1 -1 "<unknown>")
+  ! funcall g_error "{orig}:{row},{col}: {msg}")
 
 (to /compile-builtin xs ! match xs
   (("_fn" as . xs) (/compile-fn as xs))
@@ -410,7 +410,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   (("_show" x) (print (/compile x)) nil)
   (xs (bad-sexp xs "invalid builtin `{car xs}`")))
 
-(to invoke-error obj ! funcall *error* "invoke error: invalid object ({obj})")
+(to invoke-error obj ! funcall g_error "invoke error: invalid object ({obj})")
 (to gen-invoker recur env type as gs
   ! (v n . as) = as
   ! (h m . gs) = gs
@@ -492,7 +492,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   (integer   "integer")
   (keyword   "bool") ;in future keywords will be implemented as functions
   (function  (or (get-closure-type x) :no))
-  (otherwise (funcall *error* "tag-of: cant handle {type-of x}")))
+  (otherwise (funcall g_error "tag-of: cant handle {type-of x}")))
 (to-expand yes? &rest x ! `(if ,x :yes :no))
 (to-expand no? &rest x ! `(if ,x :no :yes))
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -509,14 +509,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
  ;; home holds dynamic data, shared between all instance of the program, like preferences
  ;; how about `here`/`workdir`?
  ! cd root
- ! setf *error* (fn x ! error "~a" x)
+ ! setf g_error (fn x ! error "~a" x)
  ! (/init-tokenizer)
  ! bs = builtins
      (address_of o ! object-address o)
      (tag_of o ! tag-of o)
      (halt ! (abort))
      (dbg s ! print s ! s)
-     (set_error_handler h ! setf *error* h)
+     (set_error_handler h ! setf g_error h)
      (load_file path ! load-file path)
      (utf8_to_text bytes ! utf8-to-string bytes)
      (text_to_utf8 text ! string-to-utf8 text)
@@ -524,9 +524,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      ;;(apply_macro e ! apply-macro e)
      ;;(eval e ! process-toplevel e)
      ;;(host expr ! )
-     (fn_ m o &rest as ! funcall *error* "fn has no method {m}")
+     (fn_ m o &rest as ! funcall g_error "fn has no method {m}")
      (fn_is a b ! yes? eq a b)
-     (integer_ m o &rest as ! funcall *error* "integer has no method {m} {as}")
+     (integer_ m o &rest as ! funcall g_error "integer has no method {m} {as}")
      (integer_is a b ! yes? eql a b)
      (integer_isnt a b ! no? eql a b)
      (integer_< a b ! yes? < a b)
@@ -539,7 +539,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (integer_* a b ! * a b)
      (integer_/ a b ! truncate a b)
      (integer_% a b ! q r = truncate a b ! r)
-     (text_ m o &rest as ! funcall *error* "text has no method {m}")
+     (text_ m o &rest as ! funcall g_error "text has no method {m}")
      (text_is a b ! yes? equal a b)
      (text_< a b ! yes? string< a b)
      (text_> a b ! yes? string> a b)
@@ -554,21 +554,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (text_downcase? a ! yes? every #'lower-case-p a)
      (text_alpha? a ! yes? and (every #'alpha-char-p a) (plusp (length a)))
      (text_digit? a ! yes? and (every #'digit-char-p a) (plusp (length a)))
-     (text_parse x &optional (o :no) ! /origin = o ! /read-toplevel x)
-     (text_source x ! or (gethash x *symbol-source*) :no)
+     (text_parse x &optional (o :no) ! g_origin = o ! /read-toplevel x)
+     (text_source x ! or (gethash x g_symbol_source) :no)
      (text_out s ! write-string s ! (force-output) ! :void)
      ;; generic_ should act as a place, where users can register their ad-hoc methods
-     (generic_ m &rest as ! funcall *error* "generic_ got called with {m}")
-     (list_ m o &rest as ! funcall *error* "list has no method {m}")
+     (generic_ m &rest as ! funcall g_error "generic_ got called with {m}")
+     (list_ m o &rest as ! funcall g_error "list has no method {m}")
      (list_end a ! if a :no :yes)
-     (list_head a ! if a (car a) (funcall *error* "head: list is empty"))
-     (list_tail a ! if a (cdr a) (funcall *error* "tail: list is empty"))
+     (list_head a ! if a (car a) (funcall g_error "head: list is empty"))
+     (list_tail a ! if a (cdr a) (funcall g_error "tail: list is empty"))
      (list_headed a b ! cons b a)
      (list_join_text a ! apply #'concatenate 'string a)
      (list_eval x env ! /eval x env)
  ! stage-text = utf8-to-string (load-file "{root}/boot/stage0.hit")
  ! e = `(("Root" ,root) ,@bs)
- ! /origin = "stage0.hit"
+ ! g_origin = "stage0.hit"
  ! /eval (/read-toplevel stage-text) `(("Env" ,e) ,@e)
  ! nil)
 
@@ -796,11 +796,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! match xs
     (("_fn" as body) (cps-fn k as body xs))
     (("_if" cnd then else) (cps-form k `("_fn_if" ,cnd ("_fn" () ,then) ("_fn" () ,else))))
-    (("_let" xs . body)
-     (if (= (length body) 1)
-         (setf body (car body))
-         (setf body (lambda-sequence body :void)))
-     (cps-form k `(("_fn" ,(m x xs (first x)) ,body) ,@(m x xs (second x)))))
     (("_quote" x) `(,k ,xs))
     (("_set" place value) (cps-set k place value xs))
     ;;(("_goto" x) (cps-goto k x))
@@ -915,25 +910,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! when (string/= result "")
       (e l (split #\Newline result) (format t "~a~%" l)))
 
-(to convert-symbols o
-  ! if (symbolp o)
-       (let ((n (symbol-name o)))
-         (if (lower-case-p (aref n 0))
-             n
-             (string-downcase n)))
-       (if (atom o) o (m x o (convert-symbols x))))
-
-(to scheme-into-symta xs
-  ! xs = convert-symbols xs
-  ! xs = m x xs 
-           (if (and (listp x) (equal (first x) "define"))
-               (if (listp (second x))
-                   (list (car (second x)) `("_fn" ,(cdr (second x)) ("_let" () ,@(cddr x))))
-                   (cdr x))
-               (list (ssa-name "d") x))
-  ! `("_let" ,(m x xs `(,(first x) :void))
-        ,@(m x xs `("_set" ,(first x) ,(second x)))))
-
 (to test-ssa src
   ! main-file = "{*native-files-folder*}/runtime"
   ! compile-runtime main-file
@@ -946,5 +922,44 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! result = shell main-file exe-file
   ! e l (butlast (split #\Newline result)) (format t "~a~%" l)
   )
+
+
+(to convert-symbols o
+  ! cond
+      ((null o) o)
+      ((symbolp o)
+       (let ((n (symbol-name o)))
+         (if (lower-case-p (aref n 0))
+             n
+             (string-downcase n))))
+      ((stringp o) `("_quote" ,o))
+      ((atom o) o)
+      (t (m x o (convert-symbols x))))
+
+(to builtin-expander xs
+  ! unless (listp xs) (return-from builtin-expander xs)
+  ! match xs
+    (("let" xs . body)
+     (if (= (length body) 1)
+         (setf body (car body))
+         (setf body (lambda-sequence body :void)))
+     (builtin-expander `(("_fn" ,(m x xs (first x)) ,body) ,@(m x xs (second x)))))
+    (("begin" . xs)
+     (! xs = m x xs
+          (if (and (listp x) (equal (first x) "define"))
+              (if (listp (second x))
+                  (list (car (second x)) `("_fn" ,(cdr (second x)) ("let" () ,@(cddr x))))
+                  (cdr x))
+              (list (ssa-name "d") x))
+      ! ys = `("let" ,(m x xs `(,(first x) :void))
+                ,@(m x xs `("_set" ,(first x) ,(second x))))
+      ! builtin-expander ys))
+   (else (m x xs (builtin-expander x))))
+
+(to symta xs
+  ! xs = convert-symbols xs
+  ! ys = builtin-expander xs
+  ! test-ssa ys)
+
 
 ;;(test-ssa '("list" 1 2 3 4 5))

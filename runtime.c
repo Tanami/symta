@@ -323,23 +323,6 @@ BUILTIN_VARARGS("integer",fixnum)
   }
 RETURNS(r)
 
-BUILTIN_VARARGS("empty",empty)
-  intptr_t n = NARGS;
-  void *r;
-  if (n == TO_FIXNUM(2)) {
-    void *op, *a = P;
-    op = getArg(1);
-    C_TEXT(op, 0, "list");
-    if (texts_equal(op,s_end)) {
-      r = (void*)(TO_FIXNUM(1));
-    } else {
-      bad_call(regs,P);
-    }
-  } else {
-    bad_call(regs,P);
-  }
-RETURNS(r)
-
 BUILTIN_VARARGS("list",list)
   intptr_t n = NARGS;
   void *r;
@@ -353,6 +336,33 @@ BUILTIN_VARARGS("list",list)
       r = (void*)(CDR(a));
     } else if (texts_equal(op,s_end)) {
       r = (void*)(TO_FIXNUM(0));
+    } else {
+      bad_call(regs,P);
+    }
+  } else if (n == TO_FIXNUM(3)) {
+    void *op, *a = P, *b;
+    op = getArg(1);
+    C_TEXT(op, 0, "list");
+    b = getArg(2);
+    if (texts_equal(op,s_headed)) {
+      CONS(r, b, a);
+    } else {
+      bad_call(regs,P);
+    }
+  } else {
+    bad_call(regs,P);
+  }
+RETURNS(r)
+
+BUILTIN_VARARGS("empty",empty)
+  intptr_t n = NARGS;
+  void *r;
+  if (n == TO_FIXNUM(2)) {
+    void *op, *a = P;
+    op = getArg(1);
+    C_TEXT(op, 0, "list");
+    if (texts_equal(op,s_end)) {
+      r = (void*)(TO_FIXNUM(1));
     } else {
       bad_call(regs,P);
     }
@@ -678,7 +688,7 @@ int main(int argc, char **argv) {
   TEXT(s_div, "/");
   TEXT(s_rem, "%");
   TEXT(s_is, "is");
-  TEXT(s_is, "isnt");
+  TEXT(s_isnt, "isnt");
   TEXT(s_lt, "<");
   TEXT(s_gt, ">");
   TEXT(s_lte, "<<");
