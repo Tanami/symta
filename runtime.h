@@ -38,8 +38,8 @@ typedef struct regs_t {
   void *T; // temporary, used by CLOSURE, CONS and other macros
 
   // constants
-  void *v_void;
-  void *v_empty;
+  void *Void;
+  void *Empty;
 
   // utils
   void *fin;  // the closure, which would receive evaluation result
@@ -69,8 +69,8 @@ typedef void (*pfun)(regs_t *regs);
 #define C regs->C
 #define R regs->R
 #define T regs->T
-#define v_void regs->v_void
-#define v_empty regs->v_empty
+#define Void regs->Void
+#define Empty regs->Empty
 #define fin regs->fin
 #define run regs->run
 #define host regs->host
@@ -124,12 +124,12 @@ typedef void (*pfun)(regs_t *regs);
 
 #define CHECK_NARGS(expected,tag) \
   if (NARGS != TO_FIXNUM(expected)) { \
-    regs->handle_args(regs, TO_FIXNUM(expected), tag, v_empty); \
+    regs->handle_args(regs, TO_FIXNUM(expected), tag, Empty); \
     return; \
   }
 #define CHECK_VARARGS(tag) \
   if (NARGS < TO_FIXNUM(1)) { \
-    regs->handle_args(regs, -1, tag, v_empty); \
+    regs->handle_args(regs, -1, tag, Empty); \
     return; \
   }
 

@@ -640,7 +640,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     ((integerp x) (ssa 'fixnum 'r x))
     ((stringp x) (ssa-symbol x nil))
     ((eql x 'run) (ssa 'move 'r "run"))
-    ((eql x :void) (ssa 'move 'r "v_void"))
+    ((eql x :void) (ssa 'move 'r "Void"))
     (t (error "unexpected ~a" x)))
 
 (to ssa-quote-list-rec xs
@@ -757,7 +757,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to cps-fn-varargs args body
   ! kk = ssa-name "k"
-  ! `("_fn" ,args (,args ("_fn" (,kk) ,(produce-cps kk body)) ("_quote" "get") 0)))
+  ! m = ssa-name "m"
+  ! `("_fn" ,args
+       (,args ("_fn" (,m) (,m ("_fn" (,kk) ,(produce-cps kk body)) ,args 0))
+              ("_quote" "get"))))
 
 (to cps-fn k args body o
    ! `(,k ,(set-meta (get-meta o)
@@ -787,10 +790,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! v = ssa-name "value"
   ! r = produce-cps (set-meta (get-meta o) `("_fn" (,v) ("_set" ,k ,place ,v))) value
   ! r)
-
-(to lambda-sequence xs prev
-  ! next = ssa-name "a"
-  ! if xs `(("_fn" (,next) ,(lambda-sequence (cdr xs) next)) ,(car xs)) prev)
 
 (to cps-form k xs
   ! match xs
@@ -837,7 +836,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (push (format nil "static void ~a(regs_t *regs);" label-name) decls)
           (to-c-emit "}~%")
           (to-c-emit "static void ~a(regs_t *regs) {" label-name)
-          ;;(to-c-emit "  D;");
+          ;;(to-c-emit "  D;")
           )
          ((''call name) (to-c-emit "  CALL(~a);" name))
          ((''call_tagged name) (to-c-emit "  CALL_TAGGED(~a);" name))
@@ -863,8 +862,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (let ((name (ssa-name "s")))
             (to-c-emit "  MOVE(~a, ~a);" dst name))
           (abort))
-         ((''check_nargs expected meta) (to-c-emit "  CHECK_NARGS(~a, ~a);" expected (or meta "v_empty")))
-         ((''check_varargs meta) (to-c-emit "  CHECK_VARARGS(~a);" (or meta "v_empty")))
+         ((''check_nargs expected meta) (to-c-emit "  CHECK_NARGS(~a, ~a);" expected (or meta "Empty")))
+         ((''check_varargs meta) (to-c-emit "  CHECK_VARARGS(~a);" (or meta "Empty")))
          (else (error "invalid ssa: ~a" x))))
     (to-c-emit "}~%")
     (to-c-emit "static void ~a(regs_t *regs) {" inits-name)
@@ -936,14 +935,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       ((atom o) o)
       (t (m x o (convert-symbols x))))
 
+
+(to lambda-sequence xs prev
+  ! next = ssa-name "a"
+  ! if xs `(("_fn" (,next) ,(lambda-sequence (cdr xs) next)) ,(car xs)) prev)
+
 (to builtin-expander xs
   ! unless (listp xs) (return-from builtin-expander xs)
-  ! match xs
+  ! ys = match xs
     (("let" xs . body)
-     (if (= (length body) 1)
-         (setf body (car body))
-         (setf body (lambda-sequence body :void)))
-     (builtin-expander `(("_fn" ,(m x xs (first x)) ,body) ,@(m x xs (second x)))))
+     (let ((body (if (= (length body) 1)
+                     (car body)
+                     (lambda-sequence body :void))))
+       `(("_fn" ,(m x xs (first x)) ,body) ,@(m x xs (second x)))))
     (("begin" . xs)
      (! xs = m x xs
           (if (and (listp x) (equal (first x) "define"))
@@ -951,10 +955,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                   (list (car (second x)) `("_fn" ,(cdr (second x)) ("let" () ,@(cddr x))))
                   (cdr x))
               (list (ssa-name "d") x))
-      ! ys = `("let" ,(m x xs `(,(first x) :void))
-                ,@(m x xs `("_set" ,(first x) ,(second x))))
-      ! builtin-expander ys))
-   (else (m x xs (builtin-expander x))))
+      ! `("let" ,(m x xs `(,(first x) :void))
+                ,@(m x xs `("_set" ,(first x) ,(second x))))))
+    (("c" o x . as) `((,o ,x) ,o ,@as))
+    (("get" m o) `("c" ,o ("_quote" "get") ,m))
+    (("end" o) `("c" ,o ("_quote" "end")))
+    (("head" o) `("get" ("_quote" "head") ,o))
+    (("tail" o) `("get" ("_quote" "tail") ,o))
+    (("rear" x o) `("c" ,o ("_quote" "rear") ,x))
+    (("+" a b) `("c" ,a ("_quote" "+") ,b))
+    (("-" a b) `("c" ,a ("_quote" "-") ,b))
+    (("*" a b) `("c" ,a ("_quote" "*") ,b))
+    (("/" a b) `("c" ,a ("_quote" "/") ,b))
+    (("%" a b) `("c" ,a ("_quote" "%") ,b))
+    (else (return-from builtin-expander (m x xs (builtin-expander x))))
+  ! builtin-expander ys)
 
 (to symta xs
   ! xs = convert-symbols xs

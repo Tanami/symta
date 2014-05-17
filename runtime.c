@@ -95,17 +95,16 @@ static char *text_to_cstring(void *o) {
   if (NARGS != TO_FIXNUM(expected)) { \
     static void *stag = 0; \
     if (!stag) TEXT(stag, tag); \
-    regs->handle_args(regs, TO_FIXNUM(expected), stag, v_empty); \
+    regs->handle_args(regs, TO_FIXNUM(expected), stag, Empty); \
     return; \
   }
 #define BUILTIN_CHECK_VARARGS(tag) \
   if (NARGS < TO_FIXNUM(1)) { \
     static void *stag = 0; \
     if (!stag) TEXT(stag, tag); \
-    regs->handle_args(regs, TO_FIXNUM(-1), stag, v_empty); \
+    regs->handle_args(regs, TO_FIXNUM(-1), stag, Empty); \
     return; \
   }
-
 
 #define CALL0(f,k) \
   ARRAY(E, 1); \
@@ -125,19 +124,22 @@ static char *text_to_cstring(void *o) {
   STORE(E, 2, b); \
   CALL(f);
 
-#define BUILTIN0(sname, name)           \
+#define BUILTIN0(sname, name) \
+  static void *v_##name; \
   static void b_##name(regs_t *regs) { \
   void *k; \
   BUILTIN_CHECK_NARGS(1,sname); \
   k = getArg(0);
-#define BUILTIN1(sname,name,a_check, a)         \
+#define BUILTIN1(sname,name,a_check, a) \
+  static void *v_##name; \
   static void b_##name(regs_t *regs) { \
   void *k, *a; \
   BUILTIN_CHECK_NARGS(2,sname); \
   k = getArg(0); \
   a = getArg(1); \
   a_check(a, 0, sname);
-#define BUILTIN2(sname,name,a_check,a,b_check,b)    \
+#define BUILTIN2(sname,name,a_check,a,b_check,b) \
+  static void *v_##name; \
   static void b_##name(regs_t *regs) { \
   void *k, *a, *b; \
   BUILTIN_CHECK_NARGS(3,sname); \
@@ -146,7 +148,8 @@ static char *text_to_cstring(void *o) {
   a_check(a, 0, sname); \
   b = getArg(2); \
   b_check(b, 1, sname);
-#define BUILTIN3(sname,name,a_check,a,b_check,b,c_check,c)    \
+#define BUILTIN3(sname,name,a_check,a,b_check,b,c_check,c) \
+  static void *v_##name; \
   static void b_##name(regs_t *regs) { \
   void *k, *a, *b,*c; \
   BUILTIN_CHECK_NARGS(4,sname); \
@@ -157,13 +160,14 @@ static char *text_to_cstring(void *o) {
   b_check(b, 1, sname); \
   c = getArg(3); \
   c_check(c, 1, sname);
-#define BUILTIN_VARARGS(sname,name)    \
+#define BUILTIN_VARARGS(sname,name) \
+  static void *v_##name; \
   static void b_##name(regs_t *regs) { \
   void *k; \
   BUILTIN_CHECK_VARARGS(sname); \
   k = getArg(0);
 
-#define RETURNS(r) CALL0(k,(r)); }
+#define RETURNS(r) CALL0(k,(void*)(r)); }
 #define RETURNS_VOID }
 
 // E[0] = environment, E[1] = continuation, E[2] = function_name
@@ -175,7 +179,7 @@ BUILTIN0("fin",fin) T = k; RETURNS_VOID
 
 BUILTIN_VARARGS("void",void)
   bad_call(regs,P);
-RETURNS(v_void)
+RETURNS(Void)
 
 static int texts_equal(void *a, void *b) {
   uint32_t al = *(uint32_t*)a;
@@ -186,199 +190,128 @@ static int texts_equal(void *a, void *b) {
 
 static void *s_size, *s_get, *s_set;
 static void *s_neg, *s_add, *s_sub, *s_mul, *s_div, *s_rem, *s_is, *s_isnt, *s_lt, *s_gt, *s_lte, *s_gte;
-static void *s_head, *s_tail, *s_headed, *s_end;
+static void *s_head, *s_tail, *s_rear, *s_end;
 
-BUILTIN_VARARGS("text",text)
-  intptr_t n = NARGS;
-  intptr_t l = *(uint32_t*)P;
+
+BUILTIN1("text size",text_size,C_ANY,o)
+RETURNS((uintptr_t)*(uint32_t*)o)
+BUILTIN2("text get",text_get,C_ANY,o,C_FIXNUM,index)
   void *r;
-  if (n == TO_FIXNUM(2)) {
-    void *op, *a = P;
-    op = getArg(1);
-    C_TEXT(op, 0, "text.size");
-    if (texts_equal(op,s_size)) {
-      r = (void*)l;
-    } else {
-      bad_call(regs,P);
-    }
-  } else if (n == TO_FIXNUM(3)) {
-    void *op, *a = P, *b;
-    char t[2];
-    op = getArg(1);
-    C_TEXT(op, 0, "text");
-    b = getArg(2);
-    if (texts_equal(op,s_get)) {
-      C_FIXNUM(b, 1, "text.get");
-      if (l <= (intptr_t)b) {
-         printf("index out of bounds\n");
-         bad_call(regs,P);
-      }
-      t[0] = *((char*)a + 4 + UNFIXNUM(b));
-      t[1] = 0;
-      TEXT(r,t);
-    } else {
-      bad_call(regs,P);
-    }
-  } else {
+  char t[2];
+  if ((uintptr_t)*(uint32_t*)o <= (uintptr_t)index) {
+    printf("index out of bounds\n");
     bad_call(regs,P);
   }
+  t[0] = *((char*)o + 4 + UNFIXNUM(index));
+  t[1] = 0;
+  TEXT(r,t);
+RETURNS(r)
+BUILTIN1("text",text,C_TEXT,x)
+  void *r;
+  if (texts_equal(x,s_size)) r = v_text_size;
+  else if (texts_equal(x,s_get)) r = v_text_get;
+  else bad_call(regs,P);
 RETURNS(r)
 
-BUILTIN_VARARGS("array",array)
-  intptr_t n = NARGS;
+BUILTIN1("array size",array_size,C_ANY,o)
+RETURNS(POOL_HANDLER(P))
+BUILTIN2("array get",array_get,C_ANY,o,C_FIXNUM,index)
   void *r;
-  if (n == TO_FIXNUM(2)) {
-    void *op, *a = P;
-    op = getArg(1);
-    C_TEXT(op, 0, "array.size");
-    if (texts_equal(op,s_size)) {
-      r = POOL_HANDLER(P);
-    } else {
-      bad_call(regs,P);
-    }
-  } else if (n == TO_FIXNUM(3)) {
-    void *op, *a = P, *b;
-    intptr_t l = (intptr_t)POOL_HANDLER(a);
-    op = getArg(1);
-    C_TEXT(op, 0, print_object(a));
-    b = getArg(2);
-    if (texts_equal(op,s_get)) {
-      C_FIXNUM(b, 1, "array.get");
-      if (l <= (intptr_t)b) {
-         printf("index out of bounds\n");
-         bad_call(regs,P);
-      }
-      r = *((void**)a + UNFIXNUM(b));
-    } else {
-      bad_call(regs,P);
-    }
-  } else if (n == TO_FIXNUM(4)) {
-    void *op, *a = P, *b, *c;
-    intptr_t l = (intptr_t)POOL_HANDLER(a);
-    op = getArg(1);
-    C_TEXT(op, 0, "array");
-    b = getArg(2);
-    c = getArg(3);
-    if (texts_equal(op,s_set)) {
-      C_FIXNUM(b, 1, "array.set");
-      if (l <= (intptr_t)b) {
-         printf("index out of bounds\n");
-         bad_call(regs,P);
-      }
-      *((void**)a + UNFIXNUM(b)) = c;
-      r = v_void;
-    } else {
-      bad_call(regs,P);
-    }
-  } else {
+  if ((uintptr_t)POOL_HANDLER(o) <= (uintptr_t)index) {
+    printf("index out of bounds\n");
     bad_call(regs,P);
   }
+  r = *((void**)o + UNFIXNUM(index));
+RETURNS(r)
+BUILTIN3("array set",array_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
+  if ((uintptr_t)POOL_HANDLER(o) <= (uintptr_t)index) {
+    printf("index out of bounds\n");
+    bad_call(regs,P);
+  }
+  *((void**)o + UNFIXNUM(index)) = value;
+RETURNS(Void)
+BUILTIN1("array",array,C_TEXT,x)
+  void *r;
+  if (texts_equal(x,s_get)) r = v_array_get;
+  else if (texts_equal(x,s_set)) r = v_array_set;
+  else if (texts_equal(x,s_size)) r = v_array_size;
+  else bad_call(regs,P);
 RETURNS(r)
 
-BUILTIN_VARARGS("integer",fixnum)
-  intptr_t n = NARGS;
+BUILTIN1("integer neg",integer_neg,C_ANY,o)
+RETURNS((intptr_t)2-(intptr_t)o)
+BUILTIN2("integer +",integer_add,C_ANY,a,C_FIXNUM,b)
+RETURNS((intptr_t)a + (intptr_t)b - 1)
+BUILTIN2("integer -",integer_sub,C_ANY,a,C_FIXNUM,b)
+RETURNS((intptr_t)a - (intptr_t)b + 1)
+BUILTIN2("integer *",integer_mul,C_ANY,a,C_FIXNUM,b)
+RETURNS(UNFIXNUM(a) * ((intptr_t)b-1) + 1)
+BUILTIN2("integer /",integer_div,C_ANY,a,C_FIXNUM,b)
+RETURNS(TO_FIXNUM((intptr_t)a / ((intptr_t)b-1)))
+BUILTIN2("integer %",integer_rem,C_ANY,a,C_FIXNUM,b)
+RETURNS(TO_FIXNUM(UNFIXNUM(a) % UNFIXNUM(b)))
+BUILTIN2("integer is",integer_is,C_ANY,a,C_FIXNUM,b)
+RETURNS(TO_FIXNUM(a == b))
+BUILTIN2("integer isnt",integer_isnt,C_ANY,a,C_FIXNUM,b)
+RETURNS(TO_FIXNUM(a != b))
+BUILTIN2("integer <",integer_lt,C_ANY,a,C_FIXNUM,b)
+RETURNS(TO_FIXNUM((intptr_t)a < (intptr_t)b))
+BUILTIN2("integer >",integer_gt,C_ANY,a,C_FIXNUM,b)
+RETURNS(TO_FIXNUM((intptr_t)a > (intptr_t)b))
+BUILTIN2("integer <<",integer_lte,C_ANY,a,C_FIXNUM,b)
+RETURNS(TO_FIXNUM((intptr_t)a <= (intptr_t)b))
+BUILTIN2("integer >>",integer_gte,C_ANY,a,C_FIXNUM,b)
+RETURNS(TO_FIXNUM((intptr_t)a <= (intptr_t)b))
+BUILTIN1("integer",fixnum,C_TEXT,x)
   void *r;
-  if (n == TO_FIXNUM(3)) {
-    void *op, *a = P, *b;
-    op = getArg(1);
-    C_TEXT(op, 0, "integer");
-    b = getArg(2);
-    C_FIXNUM(b, 1, "integer");
-    if (texts_equal(op,s_add)) {
-      r = (void*)((intptr_t)a + (intptr_t)b - 1);
-    } else if (texts_equal(op,s_sub)) {
-      r = (void*)((intptr_t)a - (intptr_t)b + 1);
-    } else if (texts_equal(op,s_mul)) {
-      r = (void*)(UNFIXNUM(a) * ((intptr_t)b-1) + 1);
-    } else if (texts_equal(op,s_div)) {
-      r = (void*)TO_FIXNUM((intptr_t)a / ((intptr_t)b-1));
-    } else if (texts_equal(op,s_rem)) {
-      r = (void*)TO_FIXNUM(UNFIXNUM(a) % UNFIXNUM(b));
-    } else if (texts_equal(op,s_is)) {
-      r = (void*)(TO_FIXNUM(a == b));
-    } else if (texts_equal(op,s_isnt)) {
-      r = (void*)(TO_FIXNUM(a != b));
-    } else if (texts_equal(op,s_lt)) {
-      r = (void*)(TO_FIXNUM((intptr_t)a < (intptr_t)b));
-    } else if (texts_equal(op,s_gt)) {
-      r = (void*)(TO_FIXNUM((intptr_t)a > (intptr_t)b));
-    } else if (texts_equal(op,s_lte)) {
-      r = (void*)(TO_FIXNUM((intptr_t)a <= (intptr_t)b));
-    } else if (texts_equal(op,s_gte)) {
-      r = (void*)(TO_FIXNUM((intptr_t)a >= (intptr_t)b));
-    } else {
-      bad_call(regs,P);
-    }
-  } else if (n == TO_FIXNUM(2)) {
-    void *op, *a = P;
-    op = getArg(1);
-    C_TEXT(op, 0, "integer");
-    if (texts_equal(op,s_neg)) {
-      r = (void*)((intptr_t)2-(intptr_t)a);
-    } else {
-      bad_call(regs,P);
-    }
-  } else {
-    bad_call(regs,P);
-  }
+  if (texts_equal(x,s_add)) r = v_integer_add;
+  else if (texts_equal(x,s_sub)) r = v_integer_sub;
+  else if (texts_equal(x,s_mul)) r = v_integer_mul;
+  else if (texts_equal(x,s_div)) r = v_integer_div;
+  else if (texts_equal(x,s_rem)) r = v_integer_rem;
+  else if (texts_equal(x,s_is)) r = v_integer_is;
+  else if (texts_equal(x,s_isnt)) r = v_integer_isnt;
+  else if (texts_equal(x,s_lt)) r = v_integer_lt;
+  else if (texts_equal(x,s_gt)) r = v_integer_gt;
+  else if (texts_equal(x,s_lte)) r = v_integer_lte;
+  else if (texts_equal(x,s_gte)) r = v_integer_gte;
+  else if (texts_equal(x,s_neg)) r = v_integer_neg;
+  else bad_call(regs,P);
 RETURNS(r)
 
-BUILTIN_VARARGS("list",list)
-  intptr_t n = NARGS;
+BUILTIN2("list get",list_get,C_ANY,o,C_TEXT,name)
   void *r;
-  if (n == TO_FIXNUM(2)) {
-    void *op, *a = P;
-    op = getArg(1);
-    C_TEXT(op, 0, "list");
-    if (texts_equal(op,s_head)) {
-      r = (void*)(CAR(a));
-    } else if (texts_equal(op,s_tail)) {
-      r = (void*)(CDR(a));
-    } else if (texts_equal(op,s_end)) {
-      r = (void*)(TO_FIXNUM(0));
-    } else {
-      bad_call(regs,P);
-    }
-  } else if (n == TO_FIXNUM(3)) {
-    void *op, *a = P, *b;
-    op = getArg(1);
-    C_TEXT(op, 0, "list");
-    b = getArg(2);
-    if (texts_equal(op,s_headed)) {
-      CONS(r, b, a);
-    } else {
-      bad_call(regs,P);
-    }
-  } else {
-    bad_call(regs,P);
-  }
+  if (texts_equal(name,s_head)) r = CAR(o);
+  else if (texts_equal(name,s_tail)) r = CDR(o);
+  else bad_call(regs,P);
 RETURNS(r)
 
-BUILTIN_VARARGS("empty",empty)
-  intptr_t n = NARGS;
+static void b_list(regs_t*);
+BUILTIN1("list end",list_end,C_ANY,o)
+RETURNS(TO_FIXNUM(0))
+BUILTIN2("list rear",list_rear,C_ANY,o,C_ANY,head)
   void *r;
-  if (n == TO_FIXNUM(2)) {
-    void *op, *a = P;
-    op = getArg(1);
-    C_TEXT(op, 0, "list");
-    if (texts_equal(op,s_end)) {
-      r = (void*)(TO_FIXNUM(1));
-    } else {
-      bad_call(regs,P);
-    }
-  } else if (n == TO_FIXNUM(3)) {
-    void *op, *a = P, *b;
-    op = getArg(1);
-    C_TEXT(op, 0, "list");
-    b = getArg(2);
-    if (texts_equal(op,s_headed)) {
-      CONS(r, b, a);
-    } else {
-      bad_call(regs,P);
-    }
-  } else {
-    bad_call(regs,P);
-  }
+  CONS(r, head, o);
+RETURNS(r)
+BUILTIN1("list",list,C_TEXT,x)
+  void *r;
+  if (texts_equal(x,s_get)) r = v_list_get;
+  else if (texts_equal(x,s_end)) r = v_list_end;
+  else if (texts_equal(x,s_rear)) r = v_list_rear;
+  else bad_call(regs,P);
+RETURNS(r)
+
+BUILTIN1("empty end",empty_end,C_ANY,o)
+RETURNS(TO_FIXNUM(1))
+BUILTIN2("empty rear",empty_rear,C_ANY,o,C_ANY,head)
+  void *r;
+  CONS(r, head, o);
+RETURNS(r)
+BUILTIN1("empty",empty,C_TEXT,x)
+  void *r;
+  if (texts_equal(x,s_end)) r = v_empty_end;
+  else if (texts_equal(x,s_rear)) r = v_empty_rear;
+  else bad_call(regs,P);
 RETURNS(r)
 
 // FIXME: we can re-use single META_POOL, changing only `k`
@@ -400,17 +333,17 @@ RETURNS(a)
 BUILTIN1("set_error_handler",set_error_handler,C_ANY,h)
   printf("FIXME: implement set_error_handler\n");
   abort();
-RETURNS(v_void)
+RETURNS(Void)
 
 BUILTIN1("load_file",load_file,C_ANY,path)
   printf("FIXME: implement load_file\n");
   abort();
-RETURNS(v_void)
+RETURNS(Void)
 
 BUILTIN1("utf8_to_text",utf8_to_text,C_ANY,bytes)
   printf("FIXME: implement utf8_to_text\n");
   abort();
-RETURNS(v_void)
+RETURNS(Void)
 
 BUILTIN1("text_out",text_out,C_TEXT,o)
   int i;
@@ -418,7 +351,7 @@ BUILTIN1("text_out",text_out,C_TEXT,o)
   char *p = (char*)o + 4;
   for (i = 0; i < l; i++) putchar(p[i]);
   fflush(stdout);
-RETURNS(v_void)
+RETURNS(Void)
 
 BUILTIN3("_fn_if",_fn_if,C_ANY,a,C_ANY,b,C_ANY,c)
   ARRAY(E, 1);
@@ -456,7 +389,7 @@ static void *alloc_text(regs_t *regs, char *s) {
 }
 
 BUILTIN_VARARGS("list",make_list)
-  void *xs = v_empty;
+  void *xs = Empty;
   int i = (int)UNFIXNUM(NARGS);
   while (i-- > 1) {
     CONS(xs, getArg(i), xs);
@@ -507,7 +440,7 @@ BUILTIN1("read_file_as_text",read_file_as_text,C_TEXT,filename_text)
     TEXT(r, contents);
     free(contents);
   } else {
-    r = v_void;
+    r = Void;
   }
 RETURNS(r)
 
@@ -578,13 +511,13 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
       for (;;) {
         out = print_object_r(regs, out, CAR(o));
         o = CDR(o);
-        if (o == v_empty) break;
+        if (o == Empty) break;
         out += sprintf(out, " ");
       }
       out += sprintf(out, ")");
-    } else if (o == v_empty) {
+    } else if (o == Empty) {
       out += sprintf(out, "()");
-    } else if (o == v_void) {
+    } else if (o == Void) {
       out += sprintf(out, "Void");
     } else {
       //FIXME: check metainfo to see if this object has associated print routine
@@ -609,7 +542,7 @@ static void handle_args(regs_t *regs, intptr_t expected, void *tag, void *meta) 
     CALL0(k, meta);
     return;
   }
-  if (meta != v_empty) {
+  if (meta != Empty) {
   }
   printf("bad number of arguments: got=%ld, expected=%ld\n", UNFIXNUM(got)-1, UNFIXNUM(expected)-1);
   abort();
@@ -667,8 +600,35 @@ int main(int argc, char **argv) {
   regs->new_pool(); // list pool
   regs->new_pool(); // text pool
 
-  CLOSURE(v_void, b_void);
-  CLOSURE(v_empty, b_empty);
+  CLOSURE(Void, b_void);
+  CLOSURE(Empty, b_empty);
+
+  CLOSURE(v_empty_end, b_empty_end);
+  CLOSURE(v_empty_rear, b_empty_rear);
+
+  CLOSURE(v_list_end, b_list_end);
+  CLOSURE(v_list_rear, b_list_rear);
+  CLOSURE(v_list_get, b_list_get);
+
+  CLOSURE(v_integer_add, b_integer_add);
+  CLOSURE(v_integer_sub, b_integer_sub);
+  CLOSURE(v_integer_mul, b_integer_mul);
+  CLOSURE(v_integer_div, b_integer_div);
+  CLOSURE(v_integer_rem, b_integer_rem);
+  CLOSURE(v_integer_is, b_integer_is);
+  CLOSURE(v_integer_isnt, b_integer_isnt);
+  CLOSURE(v_integer_lt, b_integer_lt);
+  CLOSURE(v_integer_gt, b_integer_gt);
+  CLOSURE(v_integer_lte, b_integer_lte);
+  CLOSURE(v_integer_gte, b_integer_gte);
+  CLOSURE(v_integer_neg, b_integer_neg);
+
+  CLOSURE(v_array_get, b_array_get);
+  CLOSURE(v_array_set, b_array_set);
+  CLOSURE(v_array_size, b_array_size);
+
+  CLOSURE(v_text_get, b_text_get);
+  CLOSURE(v_text_size, b_text_size);
 
   CLOSURE(run, b_run);
   CLOSURE(fin, b_fin);
@@ -696,13 +656,12 @@ int main(int argc, char **argv) {
 
   TEXT(s_head, "head");
   TEXT(s_tail, "tail");
-  TEXT(s_headed, "headed");
+  TEXT(s_rear, "rear");
   TEXT(s_end, "end");
 
   TEXT(s_size, "size");
   TEXT(s_get, "get");
   TEXT(s_set, "set");
-
 
   lib = dlopen(module, RTLD_LAZY);
   if (!lib) {
