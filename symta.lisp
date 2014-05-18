@@ -696,6 +696,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-apply f as
   ;; FIXME: if it is a lambda call, we don't have to change env or create a closure, just push env
+  ! when (equal f "_call")
+     (setf f (second as))
+     (setf as (cddr as))
   ! produce-ssa f
   ! known-closure = eql (first (car *ssa-out*)) 'known_closure
   ! ssa 'move 'c 'r
@@ -717,8 +720,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_fn" as body) (ssa-fn as body xs))
     (("_quote" x) (ssa-quote x))
     (("_set" k place value) (ssa-set k place value))
-    (("_goto" x) (ssa-goto x))
-    (("_show" x) (ssa-show x))
+    ;;(("_goto" x) (ssa-goto x))
+    ;;(("_show" x) (ssa-show x))
     (("_move" dst src) (ssa 'move dst src))
     ((f . as) (ssa-apply f as))
     (else (error "invalid CPS form: ~a" xs)))
@@ -751,22 +754,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! rs = peephole-optimize rs
   ! nreverse rs)
 
-(to cps-fn-nargs args body
-  ! kk = ssa-name "k"
-  ! `("_fn" (,kk ,@args) ,(produce-cps kk body)))
+(to cps-fn-nargs kk args body ! `("_fn" (,kk ,@args) ,(produce-cps kk body)))
 
-(to cps-fn-varargs args body
-  ! kk = ssa-name "k"
+(to cps-fn-varargs kk args body
   ! m = ssa-name "m"
   ! `("_fn" ,args
        (,args ("_fn" (,m) (,m ("_fn" (,kk) ,(produce-cps kk body)) ,args 0))
               ("_quote" "get"))))
 
-(to cps-fn k args body o
-   ! `(,k ,(set-meta (get-meta o)
-                     (if (stringp args)
-                         (cps-fn-varargs args body)
-                         (cps-fn-nargs args body)))))
+(to cps-fn kk k args body o
+  ! `(,k ,(set-meta (get-meta o)
+                    (if (stringp args)
+                        (cps-fn-varargs kk args body)
+                        (cps-fn-nargs kk args body)))))
 
 (to cps-const? x ! or (not (listp x)) (equal (first x) "_quote"))
 
@@ -793,12 +793,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to cps-form k xs
   ! match xs
-    (("_fn" as body) (cps-fn k as body xs))
+    (("_fn" as body) (cps-fn (ssa-name "k") k as body xs))
+    (("_kfn" kk as body) (cps-fn kk k as body xs))
     (("_if" cnd then else) (cps-form k `("_fn_if" ,cnd ("_fn" () ,then) ("_fn" () ,else))))
     (("_quote" x) `(,k ,xs))
     (("_set" place value) (cps-set k place value xs))
     ;;(("_goto" x) (cps-goto k x))
     ;;(("_show" x) (cps-show k x))
+    ;;(("_call" f a . as) (print (cps-apply f a as xs)))
     ((f . as) (cps-apply k f as xs))
     (else `(,k :void)))
 
@@ -886,7 +888,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! fn-expr = `("_fn" ("host") ("host" ("_fn" ,builtins ,expr) ,@(m b builtins `("_quote" ,b))))
   ! ssa-compile `("_move" r ,k) entry fn-expr)
 
-(defparameter *ssa-builtins* '("tag_of" "_fn_if" "list" "array" "cc" "read_file_as_text"))
+(defparameter *ssa-builtins* '("tag_of" "_fn_if" "list" "array" "read_file_as_text"))
 
 (to ssa-produce-file file src
   ! text = ssa-compile-entry "run" "entry" *ssa-builtins* src
@@ -943,6 +945,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to builtin-expander xs
   ! unless (listp xs) (return-from builtin-expander xs)
   ! ys = match xs
+    (("if" a b c) `("_if" ,a ,b ,c))
+    (("when" a . body) `("_if" ,a ("let" () ,@body) :void))
+    (("unless" a . body) `("_if" ,a :void ("let" () ,@body)))
     (("let" xs . body)
      (let ((body (if (= (length body) 1)
                      (car body)
@@ -950,11 +955,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        `(("_fn" ,(m x xs (first x)) ,body) ,@(m x xs (second x)))))
     (("begin" . xs)
      (! xs = m x xs
-          (if (and (listp x) (equal (first x) "define"))
-              (if (listp (second x))
-                  (list (car (second x)) `("_fn" ,(cdr (second x)) ("let" () ,@(cddr x))))
-                  (cdr x))
-              (list (ssa-name "d") x))
+        (match x
+          (("define" (name . args) . body)
+           (let ((kname (concatenate 'string "_k_" name)))
+             (list name `("_kfn" ,kname ,args ("let" () ,@body)))))
+          (("define" name value) (list name value))
+          (else (list (ssa-name "d") x)))
       ! `("let" ,(m x xs `(,(first x) :void))
                 ,@(m x xs `("_set" ,(first x) ,(second x))))))
     (("c" o x . as) `((,o ,x) ,o ,@as))
@@ -968,6 +974,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("*" a b) `("c" ,a ("_quote" "*") ,b))
     (("/" a b) `("c" ,a ("_quote" "/") ,b))
     (("%" a b) `("c" ,a ("_quote" "%") ,b))
+    (("leave" from value)
+     (let ((kname (concatenate 'string "_k_" from)))
+       `("_call" ,kname ,value)))
+     #|(let ((kname (concatenate 'string "_k_" from))
+           (tmp (ssa-name "t")))
+       `("let" ((,tmp ,value)) ("_call" ,kname ,tmp))))|#
     (else (return-from builtin-expander (m x xs (builtin-expander x))))
   ! builtin-expander ys)
 

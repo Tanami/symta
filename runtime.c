@@ -405,18 +405,6 @@ BUILTIN2("array",make_array,C_FIXNUM,size,C_ANY,init)
   while(s-- > 0) *p++ = init;
 RETURNS(r)
 
-BUILTIN_VARARGS("cc",cc)
-  int i;
-  int n = (int)UNFIXNUM(NARGS);
-  LOAD(C, E, 1);
-  ARRAY(T, n-2);
-  for (i = 2; i < n; i++) {
-    COPY(T, i-2, E, i);
-  }
-  MOVE(E, T);
-  CALL(C);
-RETURNS_VOID
-
 static char *read_whole_file_as_string(char *input_file_name) {
   char *file_contents;
   long input_file_size;
@@ -453,7 +441,6 @@ static struct {
   {"_fn_if", b__fn_if},
   {"list", b_make_list},
   {"array", b_make_array},
-  {"cc", b_cc},
   {"read_file_as_text", b_read_file_as_text},
   //{"save_string_as_file", b_save_text_as_file},
   {0, 0}
