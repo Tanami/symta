@@ -641,6 +641,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     ((stringp x) (ssa-symbol x nil))
     ((eql x 'run) (ssa 'move 'r "run"))
     ((eql x :void) (ssa 'move 'r "Void"))
+    ((eql x :empty) (ssa 'move 'r "Empty"))
     (t (error "unexpected ~a" x)))
 
 (to ssa-quote-list-rec xs
@@ -928,6 +929,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to convert-symbols o
   ! cond
       ((null o) o)
+      ((eql o 'Void) :void)
+      ((eql o 'Empty) :empty)
       ((symbolp o)
        (let ((n (symbol-name o)))
          (if (lower-case-p (aref n 0))

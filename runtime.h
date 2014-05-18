@@ -24,6 +24,7 @@
 #define POOL_BASE (~POOL_MASK)
 #define POOL_HANDLER(x) (((pfun*)((uintptr_t)(x)&POOL_BASE))[0])
 #define TO_FIXNUM(x) (((uintptr_t)(x)*(1<<TAG_BITS)) + 1)
+#define UNFIXNUM(x) ((intptr_t)(x)/(1<<TAG_BITS))
 
 #define HEAP_SIZE (1024*1024*32)
 #define MAX_ARRAY_SIZE (HEAP_SIZE/2)
@@ -95,7 +96,6 @@ typedef void (*pfun)(regs_t *regs);
 
 #define ARRAY(dst,size) ALLOC(dst,TO_FIXNUM(size),MIN(POOL_SIZE,size),size)
 #define FIXNUM(dst,x) dst = (void*)(((uintptr_t)(x)<<TAG_BITS) | T_FIXNUM)
-#define UNFIXNUM(x) ((intptr_t)(x)/(1<<TAG_BITS))
 #define TEXT(dst,x) dst = regs->alloc_text(regs,x)
 #define CALL_BASE(f) POOL_HANDLER(f)(regs);
 #define CALL(f) \
