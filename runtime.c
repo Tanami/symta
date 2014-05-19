@@ -203,7 +203,7 @@ BUILTIN1("void",void,C_TEXT,x)
   else bad_call(regs,P);
 RETURNS(r)
 
-#define IS_TEXT(x) (GET_TAG(x) == T_CLOSURE && POOL_HANDLER(x) != b_text)
+#define IS_TEXT(x) (GET_TAG(x) == T_CLOSURE && POOL_HANDLER(x) == b_text)
 BUILTIN2("text is",text_is,C_ANY,a,C_ANY,b)
 RETURNS(TO_FIXNUM(IS_TEXT(b) ? texts_equal(a,b) : 0))
 BUILTIN2("text isnt",text_isnt,C_ANY,a,C_ANY,b)
@@ -349,7 +349,7 @@ RETURNS(r)
 
 // FIXME: we can re-use single META_POOL, changing only `k`
 BUILTIN1("tag_of",tag_of,C_ANY,a)
-  ALLOC(E, 0, META_POOL, 1); // signal that we want meta-info
+  ALLOC(E, TO_FIXNUM(0), META_POOL, 1); // signal that we want meta-info
   STORE(E, 0, k);
   CALL_TAGGED(a);
 RETURNS_VOID

@@ -926,11 +926,79 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   )
 
 
+(defun expand-hole (key hole hit miss)
+  (unless (consp hole)
+    (return-from expand-hole
+      (if (stringp hole)
+          (if (equal hole "_")
+              hit
+              `("let" ((,hole ,key))
+                 ,hit))
+          `("if" ("is" ,hole ,key)
+                 ,hit
+                 ,miss))))
+  (when (equal (car hole) "is")
+    (return-from expand-hole
+       (expand-hole key (second hole) (expand-hole key (third hole) hit miss) miss)))
+  (when (equal (car hole) "or")
+    (return-from expand-hole
+      `("if" ("is" ("match" ,key ,@(mapcar (lambda (x) `(,x 1)) (cdr hole))) :void)
+             ,miss
+             ,hit)))
+  (when (equal (car hole) "not")
+    (return-from expand-hole
+      `("if" ("is" ("match" ,key ,@(mapcar (lambda (x) `(,x 1)) (cdr hole))) :void)
+             ,hit
+             ,miss)))
+  (when (equal (car hole) "bind")
+    (return-from expand-hole
+      (let ((g (ssa-name "g")))
+        `("let" ((,g (,(second hole) ,key)))
+           ,(expand-hole g (third hole) hit miss)))))
+  (when (equal (car hole) "fn")
+    (return-from expand-hole
+      `("let" ((,(second hole) ,key))
+         ("if" ("begin" ,@(cddr hole))
+             ,hit
+             ,miss))))
+  (when (equal (car hole) "_quote")
+    (return-from expand-hole
+      `("if" ("is" ,(second hole) ,key)
+             ,hit
+             ,miss)))
+  (let* ((h (ssa-name "x"))
+         (xs (cdr hole))
+         (xs (if (equal (car xs) "@") (second xs) xs))
+         (hit (expand-hole key (if xs xs :empty) hit miss)))
+    `("if" ("is" ("tag_of" ,key) ("_quote" "list"))
+           ("let" ((,h ("head" ,key))
+                   (,key ("tail" ,key)))
+             ,(expand-hole h (car hole) hit miss))
+           ,miss)))
+
+
+(defun expand-match (keyform cases)
+  (let* ((key (ssa-name "key"))
+         (b (ssa-name "b"))
+         (ys (reduce (lambda (next case)
+                     (let* ((name (ssa-name "c"))
+                            (miss (if next (second (first next)) `("_call" ,b :void)))
+                            (hit `("_call" ,b ("begin" ,@(cdr case)))))
+                       `(("define" (,name) ,(expand-hole key (car case) hit miss) )
+                         ,@next)))
+                     (cons nil (reverse cases)))))
+    `(("_kfn" ,b (,key)
+              ("begin" ,@ys ,(second (first ys))))
+      ,keyform)))
+
+
+
 (to convert-symbols o
   ! cond
       ((null o) o)
       ((eql o 'Void) :void)
       ((eql o 'Empty) :empty)
+      ((eql o 'quote) "_quote")
       ((symbolp o)
        (let ((n (symbol-name o)))
          (if (lower-case-p (aref n 0))
@@ -939,7 +1007,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       ((stringp o) `("_quote" ,o))
       ((atom o) o)
       (t (m x o (convert-symbols x))))
-
 
 (to lambda-sequence xs prev
   ! next = ssa-name "a"
@@ -977,12 +1044,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("*" a b) `("c" ,a ("_quote" "*") ,b))
     (("/" a b) `("c" ,a ("_quote" "/") ,b))
     (("%" a b) `("c" ,a ("_quote" "%") ,b))
+    (("is" a b) `("c" ,a ("_quote" "is") ,b))
     (("leave" from value)
      (let ((kname (concatenate 'string "_k_" from)))
        `("_call" ,kname ,value)))
      #|(let ((kname (concatenate 'string "_k_" from))
            (tmp (ssa-name "t")))
        `("let" ((,tmp ,value)) ("_call" ,kname ,tmp))))|#
+    (("match" keyform . cases) (expand-match keyform cases))
     (else (return-from builtin-expander (m x xs (builtin-expander x))))
   ! builtin-expander ys)
 
