@@ -786,7 +786,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! r)
 
 (to cps-set k place value o
-  ! unless (stringp place) (bad-sexp o "_set cant handle `{place}`")
+  ! unless (stringp place) (error "_set cant handle `{place}`")
   ! unless (listp value) (ret `("_set" ,k ,place ,value))
   ! v = ssa-name "value"
   ! r = produce-cps (set-meta (get-meta o) `("_fn" (,v) ("_set" ,k ,place ,v))) value
@@ -925,18 +925,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! e l (butlast (split #\Newline result)) (format t "~a~%" l)
   )
 
+(defun first-char-upcase? (s) (and (stringp s) (string/= s "") (upper-case-p (aref s 0))))
 
 (defun expand-hole (key hole hit miss)
   (unless (consp hole)
     (return-from expand-hole
-      (if (stringp hole)
-          (if (equal hole "_")
-              hit
+      (if (equal hole "_")
+          hit
+          (if (and (stringp hole) (first-char-upcase? hole))
               `("let" ((,hole ,key))
-                 ,hit))
-          `("if" ("is" ,hole ,key)
-                 ,hit
-                 ,miss))))
+                      ,hit)
+              `("if" ("is" ,key ,hole)
+                     ,hit
+                     ,miss)))))
   (when (equal (car hole) "is")
     (return-from expand-hole
        (expand-hole key (second hole) (expand-hole key (third hole) hit miss) miss)))
@@ -952,7 +953,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
              ,miss)))
   (when (equal (car hole) "bind")
     (return-from expand-hole
-      (let ((g (ssa-name "g")))
+      (let ((g (ssa-name "G")))
         `("let" ((,g (,(second hole) ,key)))
            ,(expand-hole g (third hole) hit miss)))))
   (when (equal (car hole) "fn")
@@ -966,7 +967,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       `("if" ("is" ,(second hole) ,key)
              ,hit
              ,miss)))
-  (let* ((h (ssa-name "x"))
+  (let* ((h (ssa-name "X"))
          (xs (cdr hole))
          (xs (if (equal (car xs) "@") (second xs) xs))
          (hit (expand-hole key (if xs xs :empty) hit miss)))
@@ -978,10 +979,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 
 (defun expand-match (keyform cases)
-  (let* ((key (ssa-name "key"))
-         (b (ssa-name "b"))
+  (let* ((key (ssa-name "Key"))
+         (b (ssa-name "B"))
          (ys (reduce (lambda (next case)
-                     (let* ((name (ssa-name "c"))
+                     (let* ((name (ssa-name "C"))
                             (miss (if next (second (first next)) `("_call" ,b :void)))
                             (hit `("_call" ,b ("begin" ,@(cdr case)))))
                        `(("define" (,name) ,(expand-hole key (car case) hit miss) )
@@ -996,69 +997,97 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to convert-symbols o
   ! cond
       ((null o) o)
-      ((eql o 'Void) :void)
-      ((eql o 'Empty) :empty)
+      ((eql o '|Void|) :void)
+      ((eql o '|Empty|) :empty)
+      ((eql o '|Newline|) `("_quote" ,(string #\Newline)))
       ((eql o 'quote) "_quote")
-      ((symbolp o)
-       (let ((n (symbol-name o)))
-         (if (lower-case-p (aref n 0))
-             n
-             (string-downcase n))))
+      ((symbolp o) (symbol-name o))
       ((stringp o) `("_quote" ,o))
       ((atom o) o)
       (t (m x o (convert-symbols x))))
 
 (to lambda-sequence xs prev
-  ! next = ssa-name "a"
+  ! next = ssa-name "A"
   ! if xs `(("_fn" (,next) ,(lambda-sequence (cdr xs) next)) ,(car xs)) prev)
 
+(to expand-begin xs
+  ! when (and (= (length xs) 1)
+              (or (atom (first xs))
+                  (not (match (first xs) (("define" . _) t)))))
+     (return-from expand-begin (first xs))
+  ! xs = m x xs
+      (match x
+        (("define" (name . args) . body)
+         (let ((kname (concatenate 'string "_k_" name)))
+           (list name `("_kfn" ,kname ,args ("let" () ,@body)))))
+        (("define" name value) (list name value))
+        (else (list (ssa-name "D") x)))
+  ! `("let" ,(m x xs `(,(first x) :void))
+        ,@(m x xs `("_set" ,(first x) ,(second x)))))
+
+(to normalize-symbol s
+  ! unless (stringp s) (return-from normalize-symbol s)
+  ! if (first-char-upcase? s) s `("_quote" ,s))
+
 (to builtin-expander xs
-  ! unless (listp xs) (return-from builtin-expander xs)
+  ! when (atom xs) (return-from builtin-expander xs)
   ! ys = match xs
     (("if" a b c) `("_if" ,a ,b ,c))
-    (("when" a . body) `("_if" ,a ("let" () ,@body) :void))
-    (("unless" a . body) `("_if" ,a :void ("let" () ,@body)))
+    (("_fn" as body)
+     (return-from builtin-expander
+       `("_fn" ,as ,(builtin-expander body))))
+    (("fn" as . body) `("_fn" ,as ("begin" ,@body)))
+    (("set" dst src) `("_set" ,dst ,src))
+    (("when" a . body) `("_if" ,a ("begin" ,@body) :void))
+    (("unless" a . body) `("_if" ,a :void ("begin" ,@body)))
     (("let" xs . body)
      (let ((body (if (= (length body) 1)
                      (car body)
                      (lambda-sequence body :void))))
        `(("_fn" ,(m x xs (first x)) ,body) ,@(m x xs (second x)))))
-    (("begin" . xs)
-     (! xs = m x xs
-        (match x
-          (("define" (name . args) . body)
-           (let ((kname (concatenate 'string "_k_" name)))
-             (list name `("_kfn" ,kname ,args ("let" () ,@body)))))
-          (("define" name value) (list name value))
-          (else (list (ssa-name "d") x)))
-      ! `("let" ,(m x xs `(,(first x) :void))
-                ,@(m x xs `("_set" ,(first x) ,(second x))))))
+    (("begin" . xs) (expand-begin xs))
     (("c" o x . as) `((,o ,x) ,o ,@as))
-    (("get" m o) `("c" ,o ("_quote" "get") ,m))
-    (("end" o) `("c" ,o ("_quote" "end")))
-    (("head" o) `("get" ("_quote" "head") ,o))
-    (("tail" o) `("get" ("_quote" "tail") ,o))
-    (("rear" x o) `("c" ,o ("_quote" "rear") ,x))
-    (("+" a b) `("c" ,a ("_quote" "+") ,b))
-    (("-" a b) `("c" ,a ("_quote" "-") ,b))
-    (("*" a b) `("c" ,a ("_quote" "*") ,b))
-    (("/" a b) `("c" ,a ("_quote" "/") ,b))
-    (("%" a b) `("c" ,a ("_quote" "%") ,b))
-    (("is" a b) `("c" ,a ("_quote" "is") ,b))
+    (("get" m o) `("c" ,o "get" ,m))
+    (("end" o) `("c" ,o "end"))
+    (("head" o) `("get" "head" ,o))
+    (("tail" o) `("get" "tail" ,o))
+    (("rear" x o) `("c" ,o "rear" ,x))
+    (("size" o) `("c" ,o "size"))
+    (("+" a b) `("c" ,a "+" ,b))
+    (("-" a b) `("c" ,a "-" ,b))
+    (("*" a b) `("c" ,a "*" ,b))
+    (("/" a b) `("c" ,a "/" ,b))
+    (("%" a b) `("c" ,a  "%" ,b))
+    (("is" a b) `("c" ,a "is" ,b))
+    (("<" a b) `("c" ,a "<" ,b))
+    ((">" a b) `("c" ,a ">" ,b))
+    (("and" a b) `("if" ,a ,b 0))
+    (("or" a b) (let ((n (ssa-name "T")))
+                  `("let" ((,n a)) ("if" ,n ,n ,b))))
     (("leave" from value)
      (let ((kname (concatenate 'string "_k_" from)))
        `("_call" ,kname ,value)))
      #|(let ((kname (concatenate 'string "_k_" from))
-           (tmp (ssa-name "t")))
+           (tmp (ssa-name "T")))
        `("let" ((,tmp ,value)) ("_call" ,kname ,tmp))))|#
     (("match" keyform . cases) (expand-match keyform cases))
-    (else (return-from builtin-expander (m x xs (builtin-expander x))))
+    (else (return-from builtin-expander
+            (let ((ys (m x xs (builtin-expander x))))
+              (if (or (equal (car ys) "_quote")
+                      (equal (car ys) "_kfn")
+                      (equal (car ys) "_fn")
+                      (equal (car ys) "_set"))
+                  ys
+                  (cons (car ys) (m y (cdr ys) (normalize-symbol y)))))))
   ! builtin-expander ys)
 
-(to symta xs
+(to symta filename
+  ! text = load-text-file filename
+  ! xs = read-case-preserving (format nil "(begin ~a)" text)
   ! xs = convert-symbols xs
   ! ys = builtin-expander xs
   ! test-ssa ys)
+
 
 
 ;;(test-ssa '("list" 1 2 3 4 5))
