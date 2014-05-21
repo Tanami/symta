@@ -76,6 +76,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to keywordize x ! intern (string-upcase x) "KEYWORD")
 
 (to /init-tokenizer
+  ! when g_table (return-from /init-tokenizer)
   ! digit = "0123456789"
   ! head-char = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?<>"
   ! tail-char = "{head-char}{digit}"
@@ -354,227 +355,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;; EVALUATOR
-(defparameter *pkg* "st") ; where to store compiled symbols
-(defparameter *env* nil)   ; code walker environment
-(defparameter g_error nil)
-
-(to env-sym? sym &optional (env *env*)
-  ! unless (stringp sym) (ret)
-  ! find-if (fn closure ! find sym closure :test 'equal) env)
-(to env-push args &optional (env *env*)
-  ! args = m a args (if (incut? a) (second a) a)
-  ! cons args env)
-
-(to incut? o ! headed "@" o)
-(to string-headed f o ! and (stringp o) (> (length o) 0) (funcall f (aref o 0)))
-(to var-sym? x ! string-headed #'upper-case-p x)
-(to fn-sym? x ! and (stringp x) (not (var-sym? x)))
-(to builtin? x ! string-headed (fn h ! eql h #\_) x)
-
-(to /compile-do xs
-  ! unless xs (ret :void)
-  ! unless (cdr xs) (ret (if (fn-sym? (car xs)) :void (/compile (car xs))))
-  ! x = car (last xs)
-  ! void = or (eql x :void) (fn-sym? x)
-  ! xs = m x xs (if (fn-sym? x) (intern x) (/compile x))
-  ! when void (ret `(tagbody ,@xs))
-  ! x = car (last xs)
-  ! xs = butlast xs
-  ! r = gensym "R"
-  ! `(let ((,r :void))
-       (tagbody ,@xs (setf ,r ,x))
-       ,r))
-
-(to /compile-fn as xs
-  ! e = and as (car (last as))
-  ! as = if (incut? e) `(,@(butlast as) ,(second e)) as
-  ! tag = if (headed "_tag" (car xs)) (second (pop xs)) :no
-  ! *env* = env-push as *env*
-  ! body = /compile-do xs
-  ! as = m a as (intern a *pkg*)
-  ! as = if (incut? e) `(,@(butlast as) &rest ,@(last as)) as
-  ! if (eql tag :no) `(lambda ,as ,body) `(typed-closure ,tag ,as ,body))
-
-(to bad-sexp x msg
-  ! (row col orig) = or (gethash (if (consp x) (car x) x) g_symbol_source) `(-1 -1 "<unknown>")
-  ! funcall g_error "{orig}:{row},{col}: {msg}")
-
-(to /compile-builtin xs ! match xs
-  (("_fn" as . xs) (/compile-fn as xs))
-  (("_if" a b c) `(if (eq ,(/compile a) :no) ,(/compile c) ,(/compile b)))
-  (("_quote" x) (if (or (numberp x) (stringp x)) x `(quote ,x)))
-  (("_set" p v) (unless (env-sym? p) (bad-sexp xs "unknown variable `{p}`"))
-                `(setq ,(intern p *pkg*) ,(/compile v)))
-  (("_goto" label) `(go ,(intern label)))
-  (("_show" x) (print (/compile x)) nil)
-  (xs (bad-sexp xs "invalid builtin `{car xs}`")))
-
-(to invoke-error obj ! funcall g_error "invoke error: invalid object ({obj})")
-(to gen-invoker recur env type as gs
-  ! (v n . as) = as
-  ! (h m . gs) = gs
-  ! s = when (stringp n) (intern "{type}_{n}" "st")
-  ! when (and s (lexically-bound-p s env)) (ret `(funcall ,s ,h ,@gs))
-  ! s = when (stringp n) (intern "generic_{n}" "st")
-  ! when (and s (lexically-bound-p s env)) (ret `(funcall ,s ,h ,@gs))
-  ! r = `(funcall ,(intern "{type}_" "st") ,m ,h ,@gs)
-  ! if recur
-       `(typecase ,m
-          (integer ,(gen-invoker nil env type `(,v "get" ,n ,@as) `(,h "get" ,m ,@gs)))
-          (function ,(gen-invoker nil env type `(,v "map" ,n ,@as) `(,h "map" ,m ,@gs)))
-          (otherwise ,r))
-       r)
-(to-expand invoke &rest as &environment e
-  ! gs = m a as (gensym)
-  ! h = car gs
-  ! `(let ,(mapcar #'list gs as)
-       (if (functionp ,h)
-           (funcall ,@gs)
-           ,(if (not (cdr as))
-                h
-                `(typecase ,h
-                   (integer ,(gen-invoker t e "integer" as gs))
-                   (list ,(gen-invoker t e "list" as gs))
-                   (string ,(gen-invoker t e "text" as gs))
-                   (keyword ,(gen-invoker t e "fn" as gs))
-                   (otherwise (invoke-error ,h)))))))
-
-(to /compile-var h f as
-  ! match as (((_ (= a ("list" . _)))) (ret `(invoke ,h ,@(cddr (/compile a)))))
-  ! r = m a as (if (incut? a) (/compile (second a)) `(list ,(/compile a)))
-  ! r = if (> (length as) 1) `(append ,@r) (car r)
-  ! if (equal f "list") r `(apply ,h ,r)) ;FIXME: what if `list` got redeclared?
-
-(to /compile-fix head f as
-  ! as = m a as (/compile a)
-  ! (cond ((headed "_fn" f) `(,head ,@as))
-          ((fn-sym? f) `(funcall ,head ,@as))
-          (t `(invoke ,head ,@as))))
-
-(to /compile-form f as
-  ! unless (or (consp as) (fn-sym? f)) (ret (/compile f))
-  ! when (builtin? f) (ret (/compile-builtin (cons f as)))
-  ! head = if (fn-sym? f) (/compile-atom f) (/compile f)
-  ! if (find-if #'incut? as) (/compile-var head f as) (/compile-fix head f as))
-
-(to /compile-atom e &key (ignore-fn nil) (default :error) ! cond
-  ((and (functionp e) (equal (get-closure-type e) "extern")) (funcall e))
-  ((not (stringp e)) e)
-  ((and (fn-sym? e) ignore-fn) e)
-  ((env-sym? e) (intern e *pkg*))
-  ((eql default :error) (bad-sexp e "unknown variable `{e}`"))
-  ((t default)))
-
-(to /compile expr ! match expr
-  (("&" x) (/compile-atom x))
-  ((f . as) (/compile-form f as))
-  (() :void)
-  (_ (/compile-atom expr :ignore-fn t)))
-
-(to /eval expr env
-  ! expr = `("_fn" ,(mapcar #'first env) ,expr)
-  ! c = eval `(muffle-compiler-note (muffle-compiler-warning ,(/compile expr)))
-  ! apply c (mapcar #'second env))
-
-(defvar *unisym-counter* 0)
-(to unisym &optional (name "G") ! "{name}{incf *unisym-counter*}&")
-(defparameter *chars* (make-hash-table :test 'eq)) ;;char-to-string cache
-(to char-string c
-  ! s = gethash c *chars*
-  ! when s (ret s)
-  ! s = string c
-  ! gethash c *chars* := s
-  ! s)
-(to tag-of x ! typecase x
-  (string    "text") ;we use strings to represent symbols
-  (list      "list")
-  (integer   "integer")
-  (keyword   "bool") ;in future keywords will be implemented as functions
-  (function  (or (get-closure-type x) :no))
-  (otherwise (funcall g_error "tag-of: cant handle {type-of x}")))
-(to-expand yes? &rest x ! `(if ,x :yes :no))
-(to-expand no? &rest x ! `(if ,x :no :yes))
-(eval-when (:compile-toplevel :load-toplevel :execute)
- (to make-builtin xs
-   ! ((n . as) . xs) = split '! xs
-   ! (b n) = if (symbolp n) `(,n ,(string-downcase (symbol-name n))) `(nil ,n)
-   ! `(list ,n (named-fn ,(intern n "KEYWORD") ,as (block ,b ,(!body xs))))))
-(to-expand builtins &body xs ! `(list ,@(mapcar #'make-builtin xs)))
-
-(to run-kernel root &rest args
- ;; apps should give access to complete applications, like /usr/bin
- ;; lib holds overridable static data
- ;; data holds dynamic data, unique to each instance of the running program, like `/tmp`
- ;; home holds dynamic data, shared between all instance of the program, like preferences
- ;; how about `here`/`workdir`?
- ! cd root
- ! setf g_error (fn x ! error "~a" x)
- ! (/init-tokenizer)
- ! bs = builtins
-     (address_of o ! object-address o)
-     (tag_of o ! tag-of o)
-     (halt ! (abort))
-     (dbg s ! print s ! s)
-     (set_error_handler h ! setf g_error h)
-     (load_file path ! load-file path)
-     (utf8_to_text bytes ! utf8-to-string bytes)
-     (text_to_utf8 text ! string-to-utf8 text)
-     ;;(time ! / (get-internal-real-time) internal-time-units-per-second)
-     ;;(apply_macro e ! apply-macro e)
-     ;;(eval e ! process-toplevel e)
-     ;;(host expr ! )
-     (fn_ m o &rest as ! funcall g_error "fn has no method {m}")
-     (fn_is a b ! yes? eq a b)
-     (integer_ m o &rest as ! funcall g_error "integer has no method {m} {as}")
-     (integer_is a b ! yes? eql a b)
-     (integer_isnt a b ! no? eql a b)
-     (integer_< a b ! yes? < a b)
-     (integer_> a b ! yes? > a b)
-     (integer_<< a b ! yes? <= a b)
-     (integer_>> a b ! yes? >= a b)
-     (integer_neg a ! - a)
-     (integer_+ a b ! + a b)
-     (integer_- a b ! - a b)
-     (integer_* a b ! * a b)
-     (integer_/ a b ! truncate a b)
-     (integer_% a b ! q r = truncate a b ! r)
-     (text_ m o &rest as ! funcall g_error "text has no method {m}")
-     (text_is a b ! yes? equal a b)
-     (text_< a b ! yes? string< a b)
-     (text_> a b ! yes? string> a b)
-     (text_<< a b ! yes? string<= a b)
-     (text_>> a b ! yes? string>= a b)
-     (text_size a ! length a)
-     (text_get a i ! char-string (aref a i))
-     (text_upcase a ! string-upcase a)
-     (text_downcase a ! string-downcase a)
-     (text_capitalize a ! string-capitalize a)
-     (text_upcase? a ! yes? every #'upper-case-p a)
-     (text_downcase? a ! yes? every #'lower-case-p a)
-     (text_alpha? a ! yes? and (every #'alpha-char-p a) (plusp (length a)))
-     (text_digit? a ! yes? and (every #'digit-char-p a) (plusp (length a)))
-     (text_parse x &optional (o :no) ! g_origin = o ! /read-toplevel x)
-     (text_source x ! or (gethash x g_symbol_source) :no)
-     (text_out s ! write-string s ! (force-output) ! :void)
-     ;; generic_ should act as a place, where users can register their ad-hoc methods
-     (generic_ m &rest as ! funcall g_error "generic_ got called with {m}")
-     (list_ m o &rest as ! funcall g_error "list has no method {m}")
-     (list_end a ! if a :no :yes)
-     (list_head a ! if a (car a) (funcall g_error "head: list is empty"))
-     (list_tail a ! if a (cdr a) (funcall g_error "tail: list is empty"))
-     (list_headed a b ! cons b a)
-     (list_join_text a ! apply #'concatenate 'string a)
-     (list_eval x env ! /eval x env)
- ! stage-text = utf8-to-string (load-file "{root}/boot/stage0.hit")
- ! e = `(("Root" ,root) ,@bs)
- ! g_origin = "stage0.hit"
- ! /eval (/read-toplevel stage-text) `(("Env" ,e) ,@e)
- ! nil)
-
-;;(run-kernel "/Users/nikita/Documents/prj/symta/libs/symta/root")
-
-
+;;;;;;;;; COMPILER
 (defparameter *ssa-env* nil)
 (defparameter *ssa-out* nil) ; where resulting assembly code is stored
 (defparameter *ssa-ns*  nil) ; unique name of current function
@@ -721,8 +502,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_fn" as body) (ssa-fn as body xs))
     (("_quote" x) (ssa-quote x))
     (("_set" k place value) (ssa-set k place value))
-    ;;(("_goto" x) (ssa-goto x))
-    ;;(("_show" x) (ssa-show x))
     (("_move" dst src) (ssa 'move dst src))
     ((f . as) (ssa-apply f as))
     (else (error "invalid CPS form: ~a" xs)))
@@ -799,9 +578,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_if" cnd then else) (cps-form k `("_fn_if" ,cnd ("_fn" () ,then) ("_fn" () ,else))))
     (("_quote" x) `(,k ,xs))
     (("_set" place value) (cps-set k place value xs))
-    ;;(("_goto" x) (cps-goto k x))
-    ;;(("_show" x) (cps-show k x))
-    ;;(("_call" f a . as) (print (cps-apply f a as xs)))
     ((f . as) (cps-apply k f as xs))
     (else `(,k :void)))
 
@@ -1076,6 +852,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! builtin-expander ys)
 
 (to symta filename
+  ! (/init-tokenizer)
   ! text = load-text-file filename
   ! xs = /read text
   ! xs = match xs (("|" . as) xs)
