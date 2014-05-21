@@ -572,6 +572,7 @@ static void handle_args(regs_t *regs, intptr_t expected, void *tag, void *meta) 
   if (meta != Empty) {
   }
   printf("bad number of arguments: got=%ld, expected=%ld\n", UNFIXNUM(got)-1, UNFIXNUM(expected)-1);
+  printf("during call to `%s`\n", print_object(tag));
   abort();
 }
 

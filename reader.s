@@ -1,5 +1,5 @@
-[1 2 3].tail
-
+f X = X+1
+f 2
 
 /*(define GError Void)
 (define GInput Void)
@@ -10,9 +10,9 @@
 
 (define (id X) X)
 (define (headed H O)
-  (if (end O)
+  (if O.end
       0
-      (is (head O) H)))
+      (is O.head H)))
 
 (define (map F Xs)
   (_if (end Xs)

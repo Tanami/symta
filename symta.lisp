@@ -959,7 +959,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   (when (equal (car hole) "fn")
     (return-from expand-hole
       `("let" ((,(second hole) ,key))
-         ("if" ("begin" ,@(cddr hole))
+         ("if" ("|" ,@(cddr hole))
              ,hit
              ,miss))))
   (when (equal (car hole) "_quote")
@@ -984,37 +984,45 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          (ys (reduce (lambda (next case)
                      (let* ((name (ssa-name "C"))
                             (miss (if next (second (first next)) `("_call" ,b :void)))
-                            (hit `("_call" ,b ("begin" ,@(cdr case)))))
-                       `(("define" (,name) ,(expand-hole key (car case) hit miss) )
+                            (hit `("_call" ,b ("|" ,@(cdr case)))))
+                       `(("=" (,name) ,(expand-hole key (car case) hit miss) )
                          ,@next)))
                      (cons nil (reverse cases)))))
     `(("_kfn" ,b (,key)
-              ("begin" ,@ys ,(second (first ys))))
+              ("|" ,@ys ,(second (first ys))))
       ,keyform)))
 
 
-(to lambda-sequence xs prev
-  ! next = ssa-name "A"
-  ! if xs `(("_fn" (,next) ,(lambda-sequence (cdr xs) next)) ,(car xs)) prev)
+(to lambda-sequence xs
+  ! unless (cdr xs) (return-from lambda-sequence (car xs))
+  ! dummy = ssa-name "A"
+  ! `(("_fn" (,dummy) ,(lambda-sequence (cdr xs))) ,(car xs)))
 
-(to expand-begin xs
+(to expand-block xs
   ! when (and (= (length xs) 1)
               (or (atom (first xs))
-                  (not (match (first xs) (("define" . _) t)))))
-     (return-from expand-begin (first xs))
+                  (not (match (first xs) (("=" . _) t)))))
+     (return-from expand-block (first xs))
   ! xs = m x xs
       (match x
-        (("define" (name . args) . body)
-         (let ((kname (concatenate 'string "_k_" name)))
-           (list name `("_kfn" ,kname ,args ("let" () ,@body)))))
-        (("define" name value) (list name value))
-        (else (list (ssa-name "D") x)))
-  ! `("let" ,(m x xs `(,(first x) :void))
-        ,@(m x xs `("_set" ,(first x) ,(second x)))))
+        (("=" (name . args) value)
+         (if (first-char-upcase? name)
+             (list name value) ;; FIXME: check that args are empty
+             (let ((kname (concatenate 'string "_k_" name)))
+               (list name `("_kfn" ,kname ,args ,value)))))
+        (else (list nil x)))
+  ! `("let" ,(m x (remove-if-not #'car xs) `(,(first x) :void))
+        ,@(m x xs (if (first x)
+                      `("_set" ,(first x) ,(second x))
+                      (second x)))))
 
 (to normalize-symbol s
   ! unless (stringp s) (return-from normalize-symbol s)
   ! if (first-char-upcase? s) s `("_quote" ,s))
+
+(to normalize-matryoshka x
+  ! match x ((x) (normalize-matryoshka x))
+            (x x))
 
 (to builtin-expander xs
   ! when (atom xs) (return-from builtin-expander xs)
@@ -1023,34 +1031,28 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_fn" as body)
      (return-from builtin-expander
        `("_fn" ,as ,(builtin-expander body))))
-    (("fn" as . body) `("_fn" ,as ("begin" ,@body)))
+    (("_kfn" all as body)
+     (return-from builtin-expander
+       `("_kfn" ,all ,as ,(builtin-expander body))))
+    (("fn" as . body) `("_fn" ,as ("|" ,@body)))
     (("set" dst src) `("_set" ,dst ,src))
-    (("when" a . body) `("_if" ,a ("begin" ,@body) :void))
-    (("unless" a . body) `("_if" ,a :void ("begin" ,@body)))
-    (("let" xs . body)
+    (("when" a . body) `("_if" ,a ("|" ,@body) :void))
+    (("unless" a . body) `("_if" ,a :void ("|" ,@body)))
+    (("let" bs . body)
      (let ((body (if (= (length body) 1)
                      (car body)
-                     (lambda-sequence body :void))))
-       `(("_fn" ,(m x xs (first x)) ,body) ,@(m x xs (second x)))))
-    (("begin" . xs) (expand-begin xs))
+                     (lambda-sequence body))))
+       (if bs
+           `(("_fn" ,(m b bs (first b)) ,body) ,@(m b bs (second b)))
+           body)))
+    (("|" . xs) (expand-block xs))
     (("[]" . as) `("list" ,@as))
     (("." a b) `(,a ,b))
-
-    #|(("c" o x . as) `((,o ,x) ,o ,@as))
-    (("get" m o) `("c" ,o "get" ,m))
-    (("end" o) `("c" ,o "end"))
-    (("head" o) `("get" "head" ,o))
-    (("tail" o) `("get" "tail" ,o))
-    (("rear" x o) `("c" ,o "rear" ,x))
-    (("size" o) `("c" ,o "size"))
-    (("+" a b) `("c" ,a "+" ,b))
-    (("-" a b) `("c" ,a "-" ,b))
-    (("*" a b) `("c" ,a "*" ,b))
-    (("/" a b) `("c" ,a "/" ,b))
-    (("%" a b) `("c" ,a  "%" ,b))
-    (("is" a b) `("c" ,a "is" ,b))
-    (("<" a b) `("c" ,a "<" ,b))
-    ((">" a b) `("c" ,a ">" ,b))|#
+    (("+" a b) `(,a "+" ,b))
+    (("-" a b) `(,a "-" ,b))
+    (("*" a b) `(,a "*" ,b))
+    (("/" a b) `(,a "/" ,b))
+    (("%" a b) `(,a  "%" ,b))
     (("and" a b) `("if" ,a ,b 0))
     (("or" a b) (let ((n (ssa-name "T")))
                   `("let" ((,n a)) ("if" ,n ,n ,b))))
@@ -1063,17 +1065,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("match" keyform . cases) (expand-match keyform cases))
     (else (return-from builtin-expander
             (let ((ys (m x xs (builtin-expander x))))
-              (if (or (equal (car ys) "_quote")
-                      (equal (car ys) "_kfn")
-                      (equal (car ys) "_fn")
-                      (equal (car ys) "_set"))
+              (if (and (consp ys)
+                       (or (equal (car ys) "_quote")
+                           (equal (car ys) "_kfn")
+                           (equal (car ys) "_fn")
+                           (equal (car ys) "_set")))
                   ys
-                  (cons (car ys) (m y (cdr ys) (normalize-symbol y)))))))
+                  (normalize-matryoshka 
+                   (cons (car ys) (m y (cdr ys) (normalize-symbol y))))))))
   ! builtin-expander ys)
 
 (to symta filename
   ! text = load-text-file filename
-  ! xs = cons "begin" (/read text)
+  ! xs = /read text
+  ! xs = match xs (("|" . as) xs)
+                  (x `("|" ,x))
   ! ys = builtin-expander xs
   ! test-ssa ys)
 
