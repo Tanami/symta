@@ -363,11 +363,11 @@ RETURNS_VOID
 
 BUILTIN0("halt",halt)
   printf("halted.\n");
-  abort();
+  exit(0);
 RETURNS_VOID
 
-BUILTIN1("dbg",dbg,C_ANY,a)
-  printf("%s\n", print_object(a));
+BUILTIN1("log",log,C_ANY,a)
+  printf("log: %s\n", print_object(a));
 RETURNS(a)
 
 BUILTIN1("set_error_handler",set_error_handler,C_ANY,h)
@@ -472,12 +472,13 @@ BUILTIN1("read_file_as_text",read_file_as_text,C_TEXT,filename_text)
   }
 RETURNS(r)
 
-
 static struct {
   char *name;
   void *fun;
 } builtins[] = {
   {"tag_of", b_tag_of},
+  {"halt", b_halt},
+  {"log", b_log},
   {"_fn_if", b__fn_if},
   {"list", b_make_list},
   {"array", b_make_array},

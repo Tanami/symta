@@ -889,7 +889,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! fn-expr = `("_fn" ("host") ("host" ("_fn" ,builtins ,expr) ,@(m b builtins `("_quote" ,b))))
   ! ssa-compile `("_move" r ,k) entry fn-expr)
 
-(defparameter *ssa-builtins* '("tag_of" "_fn_if" "list" "array" "read_file_as_text"))
+(defparameter *ssa-builtins* '("tag_of" "_fn_if" "halt" "log" "list" "array" "read_file_as_text"))
 
 (to ssa-produce-file file src
   ! text = ssa-compile-entry "run" "entry" *ssa-builtins* src
