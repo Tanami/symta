@@ -1,4 +1,7 @@
-(define GError Void)
+[1 2 3].tail
+
+
+/*(define GError Void)
 (define GInput Void)
 (define GOutput Void)
 (define GTable Void)
@@ -46,10 +49,10 @@
         (last (fn (O) Last))
         (error (fn (O) (GError O "error in text reader")))
         ))))
-#|
-(define In (newInput "abcdefg" "test"))
-(list (c In next) (c In peek) (c In last))
-|#
+
+;;(define In (newInput "abcdefg" "test"))
+;;(list (c In next) (c In peek) (c In last))
+
 
 (define (newToken Symbol Value Src)
   (fn (Name)
@@ -58,3 +61,4 @@
       (value (fn (O) Value))
       (src (fn (O) Src))
       )))
+*/

@@ -993,19 +993,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       ,keyform)))
 
 
-
-(to convert-symbols o
-  ! cond
-      ((null o) o)
-      ((eql o '|Void|) :void)
-      ((eql o '|Empty|) :empty)
-      ((eql o '|Newline|) `("_quote" ,(string #\Newline)))
-      ((eql o 'quote) "_quote")
-      ((symbolp o) (symbol-name o))
-      ((stringp o) `("_quote" ,o))
-      ((atom o) o)
-      (t (m x o (convert-symbols x))))
-
 (to lambda-sequence xs prev
   ! next = ssa-name "A"
   ! if xs `(("_fn" (,next) ,(lambda-sequence (cdr xs) next)) ,(car xs)) prev)
@@ -1046,7 +1033,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                      (lambda-sequence body :void))))
        `(("_fn" ,(m x xs (first x)) ,body) ,@(m x xs (second x)))))
     (("begin" . xs) (expand-begin xs))
-    (("c" o x . as) `((,o ,x) ,o ,@as))
+    (("[]" . as) `("list" ,@as))
+    (("." a b) `(,a ,b))
+
+    #|(("c" o x . as) `((,o ,x) ,o ,@as))
     (("get" m o) `("c" ,o "get" ,m))
     (("end" o) `("c" ,o "end"))
     (("head" o) `("get" "head" ,o))
@@ -1060,7 +1050,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("%" a b) `("c" ,a  "%" ,b))
     (("is" a b) `("c" ,a "is" ,b))
     (("<" a b) `("c" ,a "<" ,b))
-    ((">" a b) `("c" ,a ">" ,b))
+    ((">" a b) `("c" ,a ">" ,b))|#
     (("and" a b) `("if" ,a ,b 0))
     (("or" a b) (let ((n (ssa-name "T")))
                   `("let" ((,n a)) ("if" ,n ,n ,b))))
@@ -1083,8 +1073,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to symta filename
   ! text = load-text-file filename
-  ! xs = read-case-preserving (format nil "(begin ~a)" text)
-  ! xs = convert-symbols xs
+  ! xs = cons "begin" (/read text)
   ! ys = builtin-expander xs
   ! test-ssa ys)
 
