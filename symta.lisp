@@ -267,7 +267,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! when (token-is :} o)
     (! as = /parse (getf o :value)
      ! as = if (find-if #'delim? as) (list as) as ;allow Xs.map{X=>...}
-     ! ret (/binary-loop ops down `((,@o :parsed '"{}") ,e ,@as)))
+     ! ret (/binary-loop ops down `((,@o :parsed "{}") ,e ,@as)))
   ! b = try (funcall down) (parser-error "no right operand for" o)
   ! unless (and (token-is :|.| o) (token-is :integer e) (token-is :integer b))
     (ret (/binary-loop ops down (list o e b)))
@@ -534,7 +534,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! rs = peephole-optimize rs
   ! nreverse rs)
 
-(to cps-fn-nargs kk args body ! `("_fn" (,kk ,@args) ,(produce-cps kk body)))
+(to find-duplicates xs ys zs
+  ! unless xs (return-from find-duplicates ys)
+  ! x = car xs
+  ! xs = cdr xs
+  ! if (find x zs :test 'equal)
+       (find-duplicates xs (cons x ys) zs)
+       (find-duplicates xs ys (cons x zs)))
+
+(to cps-fn-nargs kk args body
+  ! args = `(,kk ,@args)
+  ! ds = find-duplicates args nil nil
+  ! when ds (error "duplicate symbols in arglist: ~a" args)
+  ! `("_fn" ,args ,(produce-cps kk body)))
 
 (to cps-fn-varargs kk args body
   ! m = ssa-name "m"
@@ -701,14 +713,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! e l (butlast (split #\Newline result)) (format t "~a~%" l)
   )
 
-(defun first-char-upcase? (s) (and (stringp s) (string/= s "") (upper-case-p (aref s 0))))
+(defun var-sym? (s) (and (stringp s) (string/= s "") (upper-case-p (aref s 0))))
+(defun fn-sym? (s) (and (stringp s) (not (var-sym? s))))
+
 
 (defun expand-hole (key hole hit miss)
   (unless (consp hole)
     (return-from expand-hole
       (if (equal hole "_")
           hit
-          (if (and (stringp hole) (first-char-upcase? hole))
+          (if (and (stringp hole) (var-sym? hole))
               `("let" ((,hole ,key))
                       ,hit)
               `("if" ("is" ,key ,hole)
@@ -782,7 +796,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! xs = m x xs
       (match x
         (("=" (name . args) value)
-         (if (first-char-upcase? name)
+         (if (var-sym? name)
              (list name value) ;; FIXME: check that args are empty
              (let ((kname (concatenate 'string "_k_" name)))
                (list name `("_kfn" ,kname ,args ,value)))))
@@ -794,13 +808,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to normalize-symbol s
   ! unless (stringp s) (return-from normalize-symbol s)
-  ! if (first-char-upcase? s) s `("_quote" ,s))
+  ! if (var-sym? s) s `("_quote" ,s))
 
-(to normalize-matryoshka x
-  ! match x ((x) (normalize-matryoshka x))
+(to normalize-matryoshka o
+  ! match o ((x) (if (fn-sym? x)
+                     o
+                     (normalize-matryoshka x)))
             (x x))
 
 (to builtin-expander xs
+  ;; FIXME: don't notmalize macros, because the may expand for fn syms
+  ! xs = normalize-matryoshka xs
   ! when (atom xs) (return-from builtin-expander xs)
   ! ys = match xs
     (("if" a b c) `("_if" ,a ,b ,c))
@@ -823,12 +841,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
            body)))
     (("|" . xs) (expand-block xs))
     (("[]" . as) `("list" ,@as))
-    (("." a b) `(,a ,b))
+    (("." a b) `(,a "." ,b))
     (("+" a b) `(,a "+" ,b))
     (("-" a b) `(,a "-" ,b))
     (("*" a b) `(,a "*" ,b))
     (("/" a b) `(,a "/" ,b))
     (("%" a b) `(,a  "%" ,b))
+    (("&" o) (return-from builtin-expander
+               (if (fn-sym? o)
+                   o
+                   `(,(builtin-expander o)))))
     (("and" a b) `("if" ,a ,b 0))
     (("or" a b) (let ((n (ssa-name "T")))
                   `("let" ((,n a)) ("if" ,n ,n ,b))))
@@ -847,8 +869,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                            (equal (car ys) "_fn")
                            (equal (car ys) "_set")))
                   ys
-                  (normalize-matryoshka 
-                   (cons (car ys) (m y (cdr ys) (normalize-symbol y))))))))
+                  (cons (car ys) (m y (cdr ys) (normalize-symbol y)))))))
   ! builtin-expander ys)
 
 (to symta filename

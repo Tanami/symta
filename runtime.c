@@ -213,12 +213,12 @@ BUILTIN2("text isnt",text_isnt,C_ANY,a,C_ANY,b)
 RETURNS(TO_FIXNUM(IS_TEXT(b) ? !texts_equal(a,b) : 1))
 BUILTIN1("text size",text_size,C_ANY,o)
 RETURNS((uintptr_t)*(uint32_t*)o)
-BUILTIN2("text get",text_get,C_ANY,o,C_FIXNUM,index)
+BUILTIN2("text .",text_get,C_ANY,o,C_FIXNUM,index)
   void *r;
   char t[2];
   if ((uintptr_t)*(uint32_t*)o <= (uintptr_t)index) {
     printf("index out of bounds\n");
-    TEXT(P, "get");
+    TEXT(P, ".");
     bad_call(regs,P);
   }
   t[0] = *((char*)o + 4 + UNFIXNUM(index));
@@ -240,11 +240,11 @@ BUILTIN2("array isnt",array_isnt,C_ANY,a,C_ANY,b)
 RETURNS(TO_FIXNUM(a != b))
 BUILTIN1("array size",array_size,C_ANY,o)
 RETURNS(POOL_HANDLER(P))
-BUILTIN2("array get",array_get,C_ANY,o,C_FIXNUM,index)
+BUILTIN2("array .",array_get,C_ANY,o,C_FIXNUM,index)
   void *r;
   if ((uintptr_t)POOL_HANDLER(o) <= (uintptr_t)index) {
     printf("index out of bounds\n");
-    TEXT(P, "get");
+    TEXT(P, ".");
     bad_call(regs,P);
   }
   r = *((void**)o + UNFIXNUM(index));
@@ -662,7 +662,7 @@ int main(int argc, char **argv) {
   TEXT(s_end, "end");
 
   TEXT(s_size, "size");
-  TEXT(s_get, "get");
+  TEXT(s_get, ".");
   TEXT(s_set, "set");
 
   lib = dlopen(module, RTLD_LAZY);
