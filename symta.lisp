@@ -521,6 +521,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     ((z . zs) (cons z (peephole-optimize zs)))
     (nil nil))
 
+(to host-deps expr deps ! `("_fn" ("host")
+                                  ("host" ("_fn" ,deps ,expr)
+                                          ,@(m d deps `("_quote" ,d)))))
+
 (to cps-to-ssa x
   ! *ssa-out* = nil
   ! *ssa-fns* = nil
@@ -528,8 +532,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! setf *ssa-inits*
      (m x *ssa-inits*
         (! name = first x
-         ! expr = second x
-         ! list name (ssa-compile-entry "run" "init_{name}" '("list") expr)))
+         ! expr = host-deps (second x) '("list")
+         ! list name (ssa-compile-entry "run" "init_{name}" expr)))
   ! rs = apply #'concatenate 'list  `(,@(reverse *ssa-fns*) ,*ssa-out*)
   ! rs = peephole-optimize rs
   ! nreverse rs)
@@ -673,14 +677,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa = cps-to-ssa cps
   ! ssa-to-c entry ssa)
 
-(to ssa-compile-entry k entry builtins expr
-  ! fn-expr = `("_fn" ("host") ("host" ("_fn" ,builtins ,expr) ,@(m b builtins `("_quote" ,b))))
-  ! ssa-compile `("_move" r ,k) entry fn-expr)
-
-(defparameter *ssa-builtins* '("tag_of" "_fn_if" "halt" "log" "list" "array" "read_file_as_text"))
+(to ssa-compile-entry k entry expr ! ssa-compile `("_move" r ,k) entry expr)
 
 (to ssa-produce-file file src
-  ! text = ssa-compile-entry "run" "entry" *ssa-builtins* src
+  ! text = ssa-compile-entry "run" "entry" src
   ! header = "#include \"../runtime.h\""
   ! save-text-file file (format nil "~a~%~%~a" header text))
 
@@ -872,14 +872,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                   (cons (car ys) (m y (cdr ys) (normalize-symbol y)))))))
   ! builtin-expander ys)
 
-(to symta filename
+(to symta-eval text
   ! (/init-tokenizer)
+  ! expr = /read text
+  ! deps = list "tag_of" "_fn_if" "halt" "log" "list" "array" "read_file_as_text"
+  ! normalized-expr = match expr (("|" . as) expr)
+                                  (x `("|" ,x))
+  ! expr-with-deps = host-deps normalized-expr *ssa-builtins*
+  ! expanded-expr = builtin-expander expr-with-deps
+  ! test-ssa expanded-expr)
+
+(to symta filename
   ! text = load-text-file filename
-  ! xs = /read text
-  ! xs = match xs (("|" . as) xs)
-                  (x `("|" ,x))
-  ! ys = builtin-expander xs
-  ! test-ssa ys)
+  ! symta-eval text)
 
 
 
