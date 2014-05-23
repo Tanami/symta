@@ -1,7 +1,17 @@
-f X = X+1
-f 2
+map F [X@Xs] = Xs^map{F} grow X^F
+[1 2 3]^map{X => X*X}
 
-/*(define GError Void)
+//car [X@Xs] = X
+//car [1 2 3]
+
+//match [1 2 3] ([X@Xs] [Xs X])
+//2^(X => X+1)
+
+/*
+
+map F [X@Xs] = Xs.tail^map{F} + Xs.head^F
+
+(define GError Void)
 (define GInput Void)
 (define GOutput Void)
 (define GTable Void)
