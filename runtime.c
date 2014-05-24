@@ -291,6 +291,25 @@ BUILTIN2("integer <<",integer_lte,C_ANY,a,C_FIXNUM,b)
 RETURNS(TO_FIXNUM((intptr_t)a <= (intptr_t)b))
 BUILTIN2("integer >>",integer_gte,C_ANY,a,C_FIXNUM,b)
 RETURNS(TO_FIXNUM((intptr_t)a <= (intptr_t)b))
+BUILTIN1("integer head",integer_head,C_ANY,o)
+  if (o == (void*)TO_FIXNUM(0)) {
+     TEXT(R,"integer head");
+     bad_call(regs,R);
+  }
+RETURNS(o)
+BUILTIN1("integer tail",integer_tail,C_ANY,o)
+  void *r;
+  if (o == (void*)TO_FIXNUM(0)) {
+     TEXT(R,"integer tail");
+     bad_call(regs,R);
+  } else if (o == (void*)TO_FIXNUM(1)) {
+     r = Empty;
+  } else {
+     r = (void*)((intptr_t)o - (intptr_t)TO_FIXNUM(1) + 1);
+  }
+RETURNS(r)
+BUILTIN1("integer end",integer_end,C_ANY,o)
+RETURNS(TO_FIXNUM(o == (void*)TO_FIXNUM(0)))
 BUILTIN_HANDLER("integer",fixnum,C_TEXT,x)
   STORE(E, 1, P);
   if (texts_equal(x,s_add)) b_integer_add(regs);
@@ -305,6 +324,9 @@ BUILTIN_HANDLER("integer",fixnum,C_TEXT,x)
   else if (texts_equal(x,s_lte)) b_integer_lte(regs);
   else if (texts_equal(x,s_gte)) b_integer_gte(regs);
   else if (texts_equal(x,s_neg)) b_integer_neg(regs);
+  else if (texts_equal(x,s_end)) b_integer_end(regs);
+  else if (texts_equal(x,s_head)) b_integer_head(regs);
+  else if (texts_equal(x,s_tail)) b_integer_tail(regs);
   else bad_call(regs,x);
 RETURNS_VOID
 

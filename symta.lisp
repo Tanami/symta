@@ -689,8 +689,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! sb-ext:run-program command args :output s :search t :wait t
   ! get-output-stream-string s)
 
-(to c-runtime-compiler dst src ! shell "gcc" "-g" #|"-O3" "-DNDEBUG"|# "-o" dst src)
-(to c-compiler dst src ! shell "gcc"  "-g" #|"-O3" "-DNDEBUG"|# "-fpic" "-shared" "-o" dst src)
+(to c-runtime-compiler dst src ! shell "gcc" "-O1" "-g" #|"-DNDEBUG"|# "-o" dst src)
+(to c-compiler dst src ! shell "gcc" "-O1" "-g" #|"-DNDEBUG"|# "-fpic" "-shared" "-o" dst src)
 
 (to compile-runtime main-file
   ! src-file = "{*native-files-folder*}../runtime.c"
@@ -714,6 +714,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (defun var-sym? (s) (and (stringp s) (string/= s "") (upper-case-p (aref s 0))))
 (defun fn-sym? (s) (and (stringp s) (not (var-sym? s))))
 
+(defun expand-list-hole (key hole hit miss)
+  (match hole
+    (() (return-from expand-list-hole (expand-hole key :empty hit miss)))
+    ((("@" zs)) (return-from expand-list-hole (expand-hole key zs hit miss)))
+    ((("@" zs) . more) (error "@ in the middle isn't supported")))
+     (let* ((h (ssa-name "X"))
+            (hit (expand-list-hole key (cdr hole) hit miss)))
+    `("if" (,key "end")
+           ,miss
+           ("let" ((,h (,key "head"))
+                   (,key (,key "tail")))
+             ,(expand-hole h (car hole) hit miss)))))
 
 (defun expand-hole (key hole hit miss)
   (unless (consp hole)
@@ -726,9 +738,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
               `("if" (,hole "is" ,key)
                      ,hit
                      ,miss)))))
-  (unless (equal (car hole) "[]")
-    (error "bad hole: ~a" hole))
-  (setf hole (cdr hole))
   (when (equal (car hole) "is")
     (return-from expand-hole
        (expand-hole key (second hole) (expand-hole key (third hole) hit miss) miss)))
@@ -758,34 +767,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       `("if" (,(second hole) "is" ,key)
              ,hit
              ,miss)))
-  (let* ((h (ssa-name "X"))
-         (xs (cdr hole))
-         (xs (match xs ((("@" zs))  zs)
-                       ((("@" zs) . more) (error "@ in the middle isn't supported"))
-                       (else xs)))
-         ;;(xs (if (equal (car xs) "@") (second xs) xs))
-         (hit (expand-hole key (if xs xs :empty) hit miss)))
-    `("if" ("is" ("tag_of" ,key) ("_quote" "list"))
-           ("let" ((,h (,key "head"))
-                   (,key (,key "tail")))
-             ,(expand-hole h (car hole) hit miss))
-           ,miss)))
+  (when (equal (car hole) "[]")
+    (return-from expand-hole
+      `("if" (:empty "is" ("tag_of" ,key))
+             ,miss
+             ,(expand-list-hole key (cdr hole) hit miss))))
+  (error "bad hole: ~a" hole))
 
-
-(defun expand-match (keyform cases)
+(defun expand-match (keyform cases default)
   (let* ((key (ssa-name "Key"))
          (b (ssa-name "B"))
          (ys (reduce (lambda (next case)
-                     (let* ((name (ssa-name "C"))
-                            (miss (if next (second (first next)) `("_call" ,b :empty)))
-                            (hit `("_call" ,b ("|" ,@(cdr case)))))
-                       `(("=" (,name) ,(expand-hole key (car case) hit miss) )
-                         ,@next)))
+                       (let* ((name (ssa-name "C"))
+                              (miss (if next (second (first next)) `("_call" ,b ,default)))
+                              (hit `("_call" ,b ("|" ,@(cdr case)))))
+                         `(("=" (,name) ,(expand-hole key (car case) hit miss) )
+                           ,@next)))
                      (cons nil (reverse cases)))))
-    `(("_kfn" ,b (,key)
-              ("|" ,@ys ,(second (first ys))))
+    `(("_kfn" ,b (,key) ("|" ,@ys ,(second (first ys))))
       ,keyform)))
-
 
 (to lambda-sequence xs
   ! unless (cdr xs) (return-from lambda-sequence (car xs))
@@ -794,23 +794,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to pattern-arg x ! not (stringp x))
 
+(to expand-block-item x
+  ! match x
+     (("=" (name . args) value)
+      (if (var-sym? name)
+          (list name value) ;; FIXME: check that args are empty
+          (let ((kname (concatenate 'string "_k_" name))
+                (default (match args
+                           ((("&" default) . tail)
+                            (setf args tail)
+                            default)
+                           (else :empty))))
+            (when (find-if #'pattern-arg args)
+              (let ((gs (m a args (ssa-name "A"))))
+                ;; FIXME: value gets duplicated - potentially exponential code growth
+                (e g gs (setf value (expand-match g `((,(pop args) ,value)) default)))
+                (setf args gs)))
+            (list name `("_kfn" ,kname ,args ,value)))))
+     (else (list nil x)))
+
 (to expand-block xs
   ! when (and (= (length xs) 1)
               (or (atom (first xs))
                   (not (match (first xs) (("=" . _) t)))))
      (return-from expand-block (first xs))
-  ! xs = m x xs
-      (match x
-        (("=" (name . args) value)
-         (if (var-sym? name)
-             (list name value) ;; FIXME: check that args are empty
-             (let ((kname (concatenate 'string "_k_" name)))
-               (when (find-if #'pattern-arg args)
-                 (let ((gs (m a args (ssa-name "A"))))
-                   (e g gs (setf value `("match" ,g (,(pop args) ,value))))
-                   (setf args gs)))
-               (list name `("_kfn" ,kname ,args ,value)))))
-        (else (list nil x)))
+  ! xs = m x xs (expand-block-item x)
   ! `("let" ,(m x (remove-if-not #'car xs) `(,(first x) :void))
         ,@(m x xs (if (first x)
                       `("_set" ,(first x) ,(second x))
@@ -881,10 +889,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("leave" from value)
          (let ((kname (concatenate 'string "_k_" from)))
            `("_call" ,kname ,value)))
-        #|(let ((kname (concatenate 'string "_k_" from))
-        (tmp (ssa-name "T")))
-        `("let" ((,tmp ,value)) ("_call" ,kname ,tmp))))|#
-        (("match" keyform . cases) (expand-match keyform cases))
+        ;;(("match" keyform . cases) (expand-match keyform cases :empty))
     (else (return-from builtin-expander
             (let ((ys (m x xs (builtin-expander x))))
               (if (and (consp ys)

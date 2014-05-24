@@ -256,10 +256,6 @@ pathnames as well."
     (format stream "~a" text)))
 
 
-(defun read-case-preserving (input)
-  (let ((*readtable* (copy-readtable *readtable*)))
-    (setf (readtable-case *readtable*) :preserve)
-    (read-from-string input)))
 
 #|
 (defun open-temporary-file ()

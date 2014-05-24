@@ -1,28 +1,20 @@
-map F [X@Xs] = Xs^map{F} grow X^F
-[1 2 3]^map{X => X*X}
+//f [X@Xs] = [X Xs]
+//f [1 2 3]
+//map F [X@Xs] = Xs^map{F} grow X^F
+//[1 2 3]^map{X => X*X}
+sum&0 [X@Xs] = X + sum.Xs
 
-//car [X@Xs] = X
-//car [1 2 3]
-
-//match [1 2 3] ([X@Xs] [Xs X])
-//2^(X => X+1)
+1000000^sum
 
 /*
+GError = Void
+GInput = Void
+GOutput = Void
+GTable = Void
+GSpecs = Void
+GSymbolSource = Void
 
-map F [X@Xs] = Xs.tail^map{F} + Xs.head^F
-
-(define GError Void)
-(define GInput Void)
-(define GOutput Void)
-(define GTable Void)
-(define GSpecs Void)
-(define GSymbolSource Void)
-
-(define (id X) X)
-(define (headed H O)
-  (if O.end
-      0
-      (is O.head H)))
+headed:0 H [X@Xs] = H is X
 
 (define (map F Xs)
   (_if (end Xs)
