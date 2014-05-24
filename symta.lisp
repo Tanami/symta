@@ -84,7 +84,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
            "\\" "$" "@" "&" "!" (() :end)
            ")" ("(" ,(fn r o ! `(:|()| ,(/list r o :|)|))))
            "]" ("[" ,(fn r o ! `(:|[]| ,(/list r o :|]|))))
-           "}" (,(string #\{) ,(fn r o ! `(:} ,(/list r o :|}|))))
+           "}" (,(string #\{) ,(fn r o ! `(:|{}| ,(/list r o :|}|))))
            ("'" ,(fn r cs ! `(:text ,(cons "\\" (/string r nil #\')))))
            ("\"" ,(fn r cs ! `(:text ,(cons "\"" (/string r #\[ #\")))))
            ("`" ,(fn r cs ! `(:symbol ,(first (/string r nil #\`)))))
@@ -264,7 +264,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to /binary-loop ops down e
   ! o = try (/op ops) e
-  ! when (token-is :} o)
+  ! when (token-is :|{}| o)
     (! as = /parse (getf o :value)
      ! as = if (find-if #'delim? as) (list as) as ;allow Xs.map{X=>...}
      ! ret (/binary-loop ops down `((,@o :parsed "{}") ,e ,@as)))
@@ -277,7 +277,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to /binary down ops ! a = try (funcall down) :fail ! /binary-loop ops down a)
 (to /suffix-loop e ! o = try (/op '(:!)) e ! /suffix-loop (list o e))
-(to /suffix ! a = try (/binary #'/term '(:. :^ :-> :~ :})) :fail ! /suffix-loop a)
+(to /suffix ! a = try (/binary #'/term '(:. :^ :-> :~ :|{}|)) :fail ! /suffix-loop a)
 (to /prefix ! o = try (/op '(:negate :\\ :$ :@ :&)) (/suffix)
             ! when (token-is :negate o) (ret (/negate o))
             ! a = try (/prefix) (parser-error "no operand for" o)
@@ -554,7 +554,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! m = ssa-name "m"
   ! `("_fn" ,args
        (,args ("_fn" (,m) (,m ("_fn" (,kk) ,(produce-cps kk body)) ,args 0))
-              ("_quote" "get"))))
+              ("_quote" "{}"))))
 
 (to cps-fn kk k args body o
   ! `(,k ,(set-meta (get-meta o)
@@ -866,7 +866,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("^" a b) `(,b ,a))
         (("{}" ("." a b) . as) `(,a ,b ,@as))
         (("{}" ("^" a b) . as) `(,b ,@as ,a))
-        (("{}" . as) as)
+        (("{}" h . as) (if (fn-sym? h)
+                           `(,h ,@as)
+                           (if (> (length as) 1)
+                               `(,h "{!}" ,@as)
+                               `(,h "{}" ,@as))))
+        (("{}" . else) (error "bad {}: ~%" xs))
         (("+" a b) `(,a "+" ,b))
         (("-" a) `(,a "neg"))
         (("-" a b) `(,a "-" ,b))
@@ -889,7 +894,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("leave" from value)
          (let ((kname (concatenate 'string "_k_" from)))
            `("_call" ,kname ,value)))
-        ;;(("match" keyform . cases) (expand-match keyform cases :empty))
+        (("match" keyform . cases) (expand-match keyform cases :empty))
     (else (return-from builtin-expander
             (let ((ys (m x xs (builtin-expander x))))
               (if (and (consp ys)

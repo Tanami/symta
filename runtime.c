@@ -186,8 +186,8 @@ BUILTIN0("fin",fin) T = k; RETURNS_VOID
 
 
 static void *s_size, *s_get, *s_set;
-static void *s_neg, *s_add, *s_sub, *s_mul, *s_div, *s_rem, *s_is, *s_isnt, *s_lt, *s_gt, *s_lte, *s_gte;
-static void *s_head, *s_tail, *s_grow, *s_end;
+static void *s_neg, *s_plus, *s_sub, *s_mul, *s_div, *s_rem, *s_is, *s_isnt, *s_lt, *s_gt, *s_lte, *s_gte;
+static void *s_head, *s_tail, *s_add, *s_end;
 
 static int texts_equal(void *a, void *b) {
   uint32_t al = *(uint32_t*)a;
@@ -199,10 +199,13 @@ BUILTIN2("void is",void_is,C_ANY,a,C_ANY,b)
 RETURNS(TO_FIXNUM(a == b))
 BUILTIN2("void isnt",void_isnt,C_ANY,a,C_ANY,b)
 RETURNS(TO_FIXNUM(a != b))
+BUILTIN1("void end",void_end,C_ANY,o)
+RETURNS(TO_FIXNUM(1))
 BUILTIN_HANDLER("void",void,C_TEXT,x)
   STORE(E, 1, P);
   if (texts_equal(x,s_is)) b_void_is(regs);
   else if (texts_equal(x,s_isnt)) b_void_isnt(regs);
+  else if (texts_equal(x,s_end)) b_void_end(regs);
   else bad_call(regs,x);
 RETURNS_VOID
 
@@ -213,24 +216,27 @@ BUILTIN2("text isnt",text_isnt,C_ANY,a,C_ANY,b)
 RETURNS(TO_FIXNUM(IS_TEXT(b) ? !texts_equal(a,b) : 1))
 BUILTIN1("text size",text_size,C_ANY,o)
 RETURNS((uintptr_t)*(uint32_t*)o)
-BUILTIN2("text get",text_get,C_ANY,o,C_FIXNUM,index)
+BUILTIN2("text {}",text_get,C_ANY,o,C_FIXNUM,index)
   void *r;
   char t[2];
   if ((uintptr_t)*(uint32_t*)o <= (uintptr_t)index) {
     printf("index out of bounds\n");
-    TEXT(P, "get");
+    TEXT(P, "{}");
     bad_call(regs,P);
   }
   t[0] = *((char*)o + 4 + UNFIXNUM(index));
   t[1] = 0;
   TEXT(r,t);
 RETURNS(r)
+BUILTIN1("text end",text_end,C_ANY,o)
+RETURNS(TO_FIXNUM(1))
 BUILTIN_HANDLER("text",text,C_TEXT,x)
   STORE(E, 1, P);
   if (texts_equal(x,s_size)) b_text_size(regs);
   else if (texts_equal(x,s_get)) b_text_get(regs);
   else if (texts_equal(x,s_is)) b_text_is(regs);
   else if (texts_equal(x,s_isnt)) b_text_isnt(regs);
+  else if (texts_equal(x,s_end)) b_text_end(regs);
   else bad_call(regs,x);
 RETURNS_VOID
 
@@ -240,23 +246,25 @@ BUILTIN2("array isnt",array_isnt,C_ANY,a,C_ANY,b)
 RETURNS(TO_FIXNUM(a != b))
 BUILTIN1("array size",array_size,C_ANY,o)
 RETURNS(POOL_HANDLER(P))
-BUILTIN2("array get",array_get,C_ANY,o,C_FIXNUM,index)
+BUILTIN2("array {}",array_get,C_ANY,o,C_FIXNUM,index)
   void *r;
   if ((uintptr_t)POOL_HANDLER(o) <= (uintptr_t)index) {
     printf("index out of bounds\n");
-    TEXT(P, "get");
+    TEXT(P, "{}");
     bad_call(regs,P);
   }
   r = *((void**)o + UNFIXNUM(index));
 RETURNS(r)
-BUILTIN3("array set",array_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
+BUILTIN3("array {!}",array_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   if ((uintptr_t)POOL_HANDLER(o) <= (uintptr_t)index) {
-    printf("array set: index out of bounds\n");
+    printf("array {!}: index out of bounds\n");
     TEXT(P, "set");
     bad_call(regs,P);
   }
   *((void**)o + UNFIXNUM(index)) = value;
 RETURNS(Void)
+BUILTIN1("array end",array_end,C_ANY,o)
+RETURNS(TO_FIXNUM(1))
 BUILTIN_HANDLER("array",array,C_TEXT,x)
   STORE(E, 1, P);
   if (texts_equal(x,s_get)) b_array_get(regs);
@@ -264,6 +272,7 @@ BUILTIN_HANDLER("array",array,C_TEXT,x)
   else if (texts_equal(x,s_size)) b_array_size(regs);
   else if (texts_equal(x,s_is)) b_array_is(regs);
   else if (texts_equal(x,s_isnt)) b_array_isnt(regs);
+  else if (texts_equal(x,s_end)) b_array_end(regs);
   else bad_call(regs,x);
 RETURNS_VOID
 
@@ -312,7 +321,7 @@ BUILTIN1("integer end",integer_end,C_ANY,o)
 RETURNS(TO_FIXNUM(o == (void*)TO_FIXNUM(0)))
 BUILTIN_HANDLER("integer",fixnum,C_TEXT,x)
   STORE(E, 1, P);
-  if (texts_equal(x,s_add)) b_integer_add(regs);
+  if (texts_equal(x,s_plus)) b_integer_add(regs);
   else if (texts_equal(x,s_sub)) b_integer_sub(regs);
   else if (texts_equal(x,s_mul)) b_integer_mul(regs);
   else if (texts_equal(x,s_div)) b_integer_div(regs);
@@ -340,7 +349,7 @@ BUILTIN2("list isnt",list_isnt,C_ANY,a,C_ANY,b)
 RETURNS(TO_FIXNUM(a != b))
 BUILTIN1("list end",list_end,C_ANY,o)
 RETURNS(TO_FIXNUM(0))
-BUILTIN2("list grow",list_grow,C_ANY,o,C_ANY,head)
+BUILTIN2("list add",list_add,C_ANY,o,C_ANY,head)
   void *r;
   CONS(r, head, o);
 RETURNS(r)
@@ -349,7 +358,7 @@ BUILTIN_HANDLER("list",list,C_TEXT,x)
   if (texts_equal(x,s_head)) b_list_head(regs);
   else if (texts_equal(x,s_tail)) b_list_tail(regs);
   else if (texts_equal(x,s_end)) b_list_end(regs);
-  else if (texts_equal(x,s_grow)) b_list_grow(regs);
+  else if (texts_equal(x,s_add)) b_list_add(regs);
   else if (texts_equal(x,s_is)) b_list_is(regs);
   else if (texts_equal(x,s_isnt)) b_list_isnt(regs);
   else bad_call(regs,x);
@@ -362,14 +371,14 @@ BUILTIN2("empty isnt",empty_isnt,C_ANY,a,C_ANY,b)
 RETURNS(TO_FIXNUM(a != b))
 BUILTIN1("empty end",empty_end,C_ANY,o)
 RETURNS(TO_FIXNUM(1))
-BUILTIN2("empty grow",empty_grow,C_ANY,o,C_ANY,head)
+BUILTIN2("empty add",empty_add,C_ANY,o,C_ANY,head)
   void *r;
   CONS(r, head, o);
 RETURNS(r)
 BUILTIN_HANDLER("empty",empty,C_TEXT,x)
   STORE(E, 1, P);
   if (texts_equal(x,s_end)) b_empty_end(regs);
-  else if (texts_equal(x,s_grow)) b_empty_grow(regs);
+  else if (texts_equal(x,s_add)) b_empty_add(regs);
   else if (texts_equal(x,s_is)) b_empty_is(regs);
   else if (texts_equal(x,s_isnt)) b_empty_isnt(regs);
   else bad_call(regs,x);
@@ -666,7 +675,7 @@ int main(int argc, char **argv) {
   }
 
   TEXT(s_neg, "neg");
-  TEXT(s_add, "+");
+  TEXT(s_plus, "+");
   TEXT(s_sub, "-");
   TEXT(s_mul, "*");
   TEXT(s_div, "/");
@@ -680,12 +689,12 @@ int main(int argc, char **argv) {
 
   TEXT(s_head, "head");
   TEXT(s_tail, "tail");
-  TEXT(s_grow, "grow");
+  TEXT(s_add, "add");
   TEXT(s_end, "end");
 
   TEXT(s_size, "size");
-  TEXT(s_get, "get");
-  TEXT(s_set, "set");
+  TEXT(s_get, "{}");
+  TEXT(s_set, "{!}");
 
   lib = dlopen(module, RTLD_LAZY);
   if (!lib) {
