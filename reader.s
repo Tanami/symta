@@ -1,10 +1,50 @@
 //f [X@Xs] = [X Xs]
 //f [1 2 3]
-//map F [X@Xs] = Xs^map{F} grow X^F
+//map F [X@Xs] = Xs^map{F} add X^F
 //[1 2 3]^map{X => X*X}
-sum&0 [X@Xs] = X + sum.Xs
+//sum&0 [X@Xs] = X + sum.Xs
+//100000^sum
+//(_quote abc).end
 
-1000000^sum
+point X Y = | x => X
+            | y => Y
+
+
+P = point 123 456
+P.x+P.y
+
+/*
+As = array 10 Void
+As{1 123}
+Data = As add 456
+[Data{0} Data{1} Data{2}]
+*/
+
+/*
+
+point X Y = | x => X
+            | y => Y
+
+//Data = array 10 Void
+//Data{1 123}
+//[Data{0} Data{1} Data{2}]
+
+void X = Void is X
+
+find:Void F [X@Xs] = if F X then X else find F Xs
+
+hash Size =
+  | Data = array Size Void
+  | `{}` K => Data{K.hash%Size}^find{X => X{0} is K}{1}
+  | `{!}` K V => | H = K.hash%Size
+                 | Xs = Data{H}
+                 | if void Xs then Data{H [t{K V}]}
+                   else | Old = Xs^find{X => X{0} is K}
+                        | if void Old then Data{H Xs.add{t{K V}}}
+                          else Old{1 V}
+
+*/
+
 
 /*
 GError = Void

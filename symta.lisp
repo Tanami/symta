@@ -553,8 +553,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to cps-fn-varargs kk args body
   ! m = ssa-name "m"
   ! `("_fn" ,args
-       (,args ("_fn" (,m) (,m ("_fn" (,kk) ,(produce-cps kk body)) ,args 0))
-              ("_quote" "{}"))))
+       (,args ("_fn" (,m) (("_fn" (,kk) ,(produce-cps kk body)) ,m))
+              ("_quote" "{}")
+              0)))
 
 (to cps-fn kk k args body o
   ! `(,k ,(set-meta (get-meta o)
@@ -729,10 +730,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (defun expand-hole (key hole hit miss)
   (unless (consp hole)
+    (when (fn-sym? hole) (setf hole `("_quote" ,hole)))
     (return-from expand-hole
       (if (equal hole "_")
           hit
-          (if (and (stringp hole) (var-sym? hole))
+          (if (var-sym? hole)
               `("let" ((,hole ,key))
                       ,hit)
               `("if" (,hole "is" ,key)
@@ -774,8 +776,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
              ,(expand-list-hole key (cdr hole) hit miss))))
   (error "bad hole: ~a" hole))
 
-(defun expand-match (keyform cases default)
-  (let* ((key (ssa-name "Key"))
+(defun expand-match (keyform cases default &key (keyvar nil))
+  (let* ((key (or keyvar (ssa-name "Key")))
          (b (ssa-name "B"))
          (ys (reduce (lambda (next case)
                        (let* ((name (ssa-name "C"))
@@ -813,11 +815,36 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
             (list name `("_kfn" ,kname ,args ,value)))))
      (else (list nil x)))
 
+(to make-multimethod xs
+  ! when (match xs ((("=" as expr)) (or (not as) (var-sym? (first as)))))
+     (return-from make-multimethod (first xs))
+  ! dummy = ssa-name "D"
+  ! all = ssa-name "A"
+  ! key = ssa-name "K"
+  ! cases = m x xs
+      (match x
+        (("=>" as expr)
+         (unless as (error "prototype doesnt support no args multimethods"))
+         (list (first as)
+               `("_fn" ,(if (var-sym? (first as)) as `(,dummy ,@(cdr as)))
+                       ,expr))))
+  ! key = ssa-name "K"
+  ! sel = expand-match `(,all "{}" 1) cases `("_no_method" ,key) :keyvar key
+  ! (print `("_fn" ,all ("_apply" ,sel ,all)))
+  )
+
 (to expand-block xs
   ! when (and (= (length xs) 1)
               (or (atom (first xs))
                   (not (match (first xs) (("=" . _) t)))))
      (return-from expand-block (first xs))
+  ! ms = nil
+  ! ys = nil
+  ! e x xs (match x
+             (("=>" a b) (push x ms))
+             (else (push x ys)))
+  ! when ms (push (make-multimethod (reverse ms)) ys)
+  ! xs = reverse ys
   ! xs = m x xs (expand-block-item x)
   ! `("let" ,(m x (remove-if-not #'car xs) `(,(first x) :void))
         ,@(m x xs (if (first x)
@@ -909,10 +936,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to symta-eval text
   ! (/init-tokenizer)
   ! expr = /read text
-  ! deps = list "tag_of" "_fn_if" "halt" "log" "list" "array" "read_file_as_text"
+  ! deps = list "tag_of" "_fn_if" "halt" "log" "list" "array" "_apply" "_no_method" "read_file_as_text"
   ! normalized-expr = match expr (("|" . as) expr)
                                   (x `("|" ,x))
-  ! expr-with-deps = host-deps normalized-expr *ssa-builtins*
+  ! expr-with-deps = host-deps normalized-expr deps
   ! expanded-expr = builtin-expander expr-with-deps
   ! test-ssa expanded-expr)
 

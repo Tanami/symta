@@ -201,11 +201,14 @@ BUILTIN2("void isnt",void_isnt,C_ANY,a,C_ANY,b)
 RETURNS(TO_FIXNUM(a != b))
 BUILTIN1("void end",void_end,C_ANY,o)
 RETURNS(TO_FIXNUM(1))
+BUILTIN2("void get",void_get,C_ANY,o,C_ANY,key)
+RETURNS(Void)
 BUILTIN_HANDLER("void",void,C_TEXT,x)
   STORE(E, 1, P);
   if (texts_equal(x,s_is)) b_void_is(regs);
   else if (texts_equal(x,s_isnt)) b_void_isnt(regs);
   else if (texts_equal(x,s_end)) b_void_end(regs);
+  else if (texts_equal(x,s_get)) b_void_get(regs);
   else bad_call(regs,x);
 RETURNS_VOID
 
@@ -265,6 +268,16 @@ BUILTIN3("array {!}",array_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
 RETURNS(Void)
 BUILTIN1("array end",array_end,C_ANY,o)
 RETURNS(TO_FIXNUM(1))
+BUILTIN2("array add",array_add,C_ANY,o,C_ANY,x)
+  void *r;
+  void **p, **q;
+  intptr_t s = UNFIXNUM(POOL_HANDLER(o));
+  ARRAY(r, s+1);
+  p = (void**)r;
+  *p++ = x;
+  q = (void**)o;
+  while(s-- > 0) *p++ = *q++;
+RETURNS(r)
 BUILTIN_HANDLER("array",array,C_TEXT,x)
   STORE(E, 1, P);
   if (texts_equal(x,s_get)) b_array_get(regs);
@@ -273,6 +286,7 @@ BUILTIN_HANDLER("array",array,C_TEXT,x)
   else if (texts_equal(x,s_is)) b_array_is(regs);
   else if (texts_equal(x,s_isnt)) b_array_isnt(regs);
   else if (texts_equal(x,s_end)) b_array_end(regs);
+  else if (texts_equal(x,s_add)) b_array_add(regs);
   else bad_call(regs,x);
 RETURNS_VOID
 
@@ -383,7 +397,6 @@ BUILTIN_HANDLER("empty",empty,C_TEXT,x)
   else if (texts_equal(x,s_isnt)) b_empty_isnt(regs);
   else bad_call(regs,x);
 RETURNS_VOID
-
 
 // FIXME: we can re-use single META_POOL, changing only `k`
 BUILTIN1("tag_of",tag_of,C_ANY,a)
@@ -503,6 +516,21 @@ BUILTIN1("read_file_as_text",read_file_as_text,C_TEXT,filename_text)
   }
 RETURNS(r)
 
+BUILTIN2("_apply",_apply,C_ANY,f,C_ANY,args)
+  // NOTE: no typecheck, because this function should be hidden from user
+  //       intended use is fast re-apply in handlers
+  MOVE(E, args);
+  CALL(f);
+RETURNS_VOID
+
+BUILTIN1("_no_method",_no_method,C_TEXT,name)
+  printf("method not found: %s\n", print_object(name));
+  STORE(E, 1, P);
+  bad_call(regs, name);
+  abort();
+RETURNS(Void)
+
+
 static struct {
   char *name;
   void *fun;
@@ -513,6 +541,8 @@ static struct {
   {"_fn_if", b__fn_if},
   {"list", b_make_list},
   {"array", b_make_array},
+  {"_apply", b__apply},
+  {"_no_method", b__no_method},
   {"read_file_as_text", b_read_file_as_text},
   //{"save_string_as_file", b_save_text_as_file},
   {0, 0}
