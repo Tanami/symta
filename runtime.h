@@ -30,7 +30,7 @@
 #define UNFIXNUM(x) ((intptr_t)(x)/(1<<TAG_BITS))
 
 #define HEAP_SIZE (1024*1024*32)
-#define MAX_ARRAY_SIZE (HEAP_SIZE/2)
+#define MAX_LIST_SIZE (HEAP_SIZE/2)
 
 typedef struct regs_t {
   // registers array
@@ -51,14 +51,14 @@ typedef struct regs_t {
   void *host; // called to resolve builtin functions (runtime API)
 
   // runtime's C API
-  char *(*get_tag_name)(int tag);
+  void (*bad_tag)(struct regs_t *regs);
   void (*handle_args)(struct regs_t *regs, intptr_t expected, void *tag, void *meta);
   char* (*print_object_f)(struct regs_t *regs, void *object);
   int (*new_pool)();
   void** (*alloc)(int count);
   void *(*alloc_text)(struct regs_t *regs, char *s);
   void (*fixnum)(struct regs_t *regs);
-  void (*array)(struct regs_t *regs);
+  void (*list)(struct regs_t *regs);
 
   // for multithreading, caching could be used to get on-demand pools for each thread, minimizing locking
   void **pools[MAX_POOLS];
@@ -97,28 +97,23 @@ typedef void (*pfun)(regs_t *regs);
     } \
   }
 
-#define ARRAY(dst,size) ALLOC(dst,TO_FIXNUM(size),MIN(POOL_SIZE,size),size)
+#define LIST(dst,size) ALLOC(dst,TO_FIXNUM(size),MIN(POOL_SIZE,size),size)
 #define FIXNUM(dst,x) dst = (void*)(((uintptr_t)(x)<<TAG_BITS) | T_FIXNUM)
 #define TEXT(dst,x) dst = regs->alloc_text(regs,(char*)(x))
 #define NEW_POOL(dst) dst = regs->new_pool();
-#define CALL_BASE(f) POOL_HANDLER(f)(regs);
-#define CALL(f) \
-  MOVE(P, f); \
-  CALL_BASE(f);
+#define CALL(f) MOVE(P, f); POOL_HANDLER(f)(regs);
 #define CALL_TAGGED(f) \
-  if (GET_TAG(f) == T_CLOSURE) { \
-    if ((intptr_t)POOL_HANDLER(f) < TO_FIXNUM(MAX_ARRAY_SIZE)) { \
-      MOVE(P, f); \
-      regs->array(regs); \
+  MOVE(P, f); \
+  if (GET_TAG(P) == T_CLOSURE) { \
+    if ((intptr_t)POOL_HANDLER(P) < TO_FIXNUM(MAX_LIST_SIZE)) { \
+      regs->list(regs); \
     } else { \
-      CALL(f); \
+      POOL_HANDLER(P)(regs); \
     } \
-  } else if (GET_TAG(f) == T_FIXNUM) { \
-    MOVE(P, f); \
+  } else if (GET_TAG(P) == T_FIXNUM) { \
     regs->fixnum(regs); \
   } else { \
-    printf("bad tag = %d\n", (int)GET_TAG(f)); \
-    abort(); \
+    regs->bad_tag(regs); /*should never happen*/ \
   }
 
 #define STORE(dst,off,src) ((void**)(dst))[(int)(off)] = (void*)(src)

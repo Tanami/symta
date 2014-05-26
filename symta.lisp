@@ -635,7 +635,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''call name) (to-c-emit "  CALL(~a);" name))
          ((''call_tagged name) (to-c-emit "  CALL_TAGGED(~a);" name))
          ((''goto name) (to-c-emit "  ~a(regs);" name))
-         ((''array place size) (to-c-emit "  ARRAY(~a, ~a);" place size))
+         ((''array place size) (to-c-emit "  LIST(~a, ~a);" place size))
          ((''closure place name size)
           (progn
             (push (format nil "static int ~a_pool;" name) decls)
@@ -899,7 +899,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                                `(,h "{!}" ,@as)
                                `(,h "{}" ,@as))))
         (("{}" . else) (error "bad {}: ~%" xs))
-        (("\\" o) `("_quote" ,o))
+        (("\\" o) (return-from builtin-expander `("_quote" ,o)))
         (("+" a b) `(,a "+" ,b))
         (("-" a) `(,a "neg"))
         (("-" a b) `(,a "-" ,b))
@@ -937,7 +937,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to symta-eval text
   ! (/init-tokenizer)
   ! expr = /read text
-  ! deps = list "tag_of" "_fn_if" "halt" "log" "list" "array" "_apply" "_no_method" "read_file_as_text"
+  ! deps = list "tag_of" "_fn_if" "halt" "log" "list" "_apply" "_no_method" "read_file_as_text"
   ! normalized-expr = match expr (("|" . as) expr)
                                   (x `("|" ,x))
   ! expr-with-deps = host-deps normalized-expr deps
