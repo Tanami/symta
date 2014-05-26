@@ -830,7 +830,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                        ,expr))))
   ! key = ssa-name "K"
   ! sel = expand-match `(,all "{}" 1) cases `("_no_method" ,key) :keyvar key
-  ! (print `("_fn" ,all ("_apply" ,sel ,all)))
+  ! `("_fn" ,all ("_apply" ,sel ,all))
   )
 
 (to expand-block xs
@@ -899,6 +899,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                                `(,h "{!}" ,@as)
                                `(,h "{}" ,@as))))
         (("{}" . else) (error "bad {}: ~%" xs))
+        (("\\" o) `("_quote" ,o))
         (("+" a b) `(,a "+" ,b))
         (("-" a) `(,a "neg"))
         (("-" a b) `(,a "-" ,b))

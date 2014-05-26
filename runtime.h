@@ -10,6 +10,8 @@
 #define TAG_MASK (((uintptr_t)1<<TAG_BITS)-1)
 #define GET_TAG(x) ((uintptr_t)(x)&TAG_MASK)
 
+#define SIGN_BIT ((uintptr_t)1<<(sizeof(uintptr_t)*8-1))
+
 #define T_CLOSURE  0
 #define T_FIXNUM   1
 
@@ -23,6 +25,7 @@
 #define POOL_MASK (uintptr_t)(POOL_BYTE_SIZE-1)
 #define POOL_BASE (~POOL_MASK)
 #define POOL_HANDLER(x) (((pfun*)((uintptr_t)(x)&POOL_BASE))[0])
+#define POOL_HEAD_SIZE 1
 #define TO_FIXNUM(x) (((uintptr_t)(x)*(1<<TAG_BITS)) + 1)
 #define UNFIXNUM(x) ((intptr_t)(x)/(1<<TAG_BITS))
 
@@ -86,9 +89,9 @@ typedef void (*pfun)(regs_t *regs);
   MOVE(dst, regs->pools[pool]); \
   regs->pools[pool] += count; \
   if ((((uintptr_t)regs->pools[pool]+(count ? 0 : 1))&POOL_BASE) != ((uintptr_t)dst&POOL_BASE)) { \
-    regs->pools[pool] = regs->alloc(count+1); \
+    regs->pools[pool] = regs->alloc(count+POOL_HEAD_SIZE); \
     *regs->pools[pool]++ = (void*)(code); \
-    if (((uintptr_t)regs->pools[pool]&POOL_MASK) || count>POOL_SIZE-1) { \
+    if (((uintptr_t)regs->pools[pool]&POOL_MASK) || count>POOL_SIZE-POOL_HEAD_SIZE) { \
       MOVE(dst, regs->pools[pool]); \
       regs->pools[pool] += count; \
     } \

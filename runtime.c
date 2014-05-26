@@ -185,14 +185,28 @@ BUILTIN0("run",run) CALL1(k,fin,host); RETURNS_VOID
 BUILTIN0("fin",fin) T = k; RETURNS_VOID
 
 
-static void *s_size, *s_get, *s_set;
+static void *s_size, *s_get, *s_set, *s_hash;
 static void *s_neg, *s_plus, *s_sub, *s_mul, *s_div, *s_rem, *s_is, *s_isnt, *s_lt, *s_gt, *s_lte, *s_gte;
+static void *s_mask, *s_ior, *s_xor; //NOTE: `not X` can be implemented as X^0xFFFFFFFF
+static void *s_shl, *s_shr;
 static void *s_head, *s_tail, *s_add, *s_end;
 
 static int texts_equal(void *a, void *b) {
   uint32_t al = *(uint32_t*)a;
   uint32_t bl = *(uint32_t*)b;
   return al == bl && !memcmp((uint8_t*)a+4, (uint8_t*)b+4, UNFIXNUM(al));
+}
+
+
+#define MOD_ADLER 65521
+uint32_t hash(uint8_t *data, int len) {
+  uint32_t a = 1, b = 0;
+  int index;
+  for (index = 0; index < len; ++index) {
+    a = (a + data[index]) % MOD_ADLER;
+    b = (b + a) % MOD_ADLER;
+  } 
+  return (b << 16) | a;
 }
 
 BUILTIN2("void is",void_is,C_ANY,a,C_ANY,b)
@@ -233,6 +247,8 @@ BUILTIN2("text {}",text_get,C_ANY,o,C_FIXNUM,index)
 RETURNS(r)
 BUILTIN1("text end",text_end,C_ANY,o)
 RETURNS(TO_FIXNUM(1))
+BUILTIN1("text hash",text_hash,C_ANY,o)
+RETURNS(TO_FIXNUM(hash((uint8_t*)o+4, *(int32_t*)o)))
 BUILTIN_HANDLER("text",text,C_TEXT,x)
   STORE(E, 1, P);
   if (texts_equal(x,s_size)) b_text_size(regs);
@@ -240,6 +256,7 @@ BUILTIN_HANDLER("text",text,C_TEXT,x)
   else if (texts_equal(x,s_is)) b_text_is(regs);
   else if (texts_equal(x,s_isnt)) b_text_isnt(regs);
   else if (texts_equal(x,s_end)) b_text_end(regs);
+  else if (texts_equal(x,s_hash)) b_text_hash(regs);
   else bad_call(regs,x);
 RETURNS_VOID
 
@@ -314,6 +331,16 @@ BUILTIN2("integer <<",integer_lte,C_ANY,a,C_FIXNUM,b)
 RETURNS(TO_FIXNUM((intptr_t)a <= (intptr_t)b))
 BUILTIN2("integer >>",integer_gte,C_ANY,a,C_FIXNUM,b)
 RETURNS(TO_FIXNUM((intptr_t)a <= (intptr_t)b))
+BUILTIN2("integer mask",integer_mask,C_ANY,a,C_FIXNUM,b)
+RETURNS((uintptr_t)a & (uintptr_t)b)
+BUILTIN2("integer ior",integer_ior,C_ANY,a,C_FIXNUM,b)
+RETURNS((uintptr_t)a | (uintptr_t)b)
+BUILTIN2("integer xor",integer_xor,C_ANY,a,C_FIXNUM,b)
+RETURNS(((uintptr_t)a&~TAG_MASK) ^ (uintptr_t)b)
+BUILTIN2("integer shl",integer_shl,C_ANY,a,C_FIXNUM,b)
+RETURNS((((intptr_t)a^1)<<UNFIXNUM(b))^1)
+BUILTIN2("integer shr",integer_shr,C_ANY,a,C_FIXNUM,b)
+RETURNS((((intptr_t)a^1)>>UNFIXNUM(b))^1)
 BUILTIN1("integer head",integer_head,C_ANY,o)
   if (o == (void*)TO_FIXNUM(0)) {
      TEXT(R,"integer head");
@@ -350,6 +377,11 @@ BUILTIN_HANDLER("integer",fixnum,C_TEXT,x)
   else if (texts_equal(x,s_end)) b_integer_end(regs);
   else if (texts_equal(x,s_head)) b_integer_head(regs);
   else if (texts_equal(x,s_tail)) b_integer_tail(regs);
+  else if (texts_equal(x,s_mask)) b_integer_mask(regs);
+  else if (texts_equal(x,s_ior)) b_integer_ior(regs);
+  else if (texts_equal(x,s_xor)) b_integer_xor(regs);
+  else if (texts_equal(x,s_shl)) b_integer_shl(regs);
+  else if (texts_equal(x,s_shr)) b_integer_shr(regs);
   else bad_call(regs,x);
 RETURNS_VOID
 
@@ -717,6 +749,12 @@ int main(int argc, char **argv) {
   TEXT(s_lte, "<<");
   TEXT(s_gte, ">>");
 
+  TEXT(s_mask, "mask");
+  TEXT(s_ior, "ior");
+  TEXT(s_xor, "xor");
+  TEXT(s_shl, "shl");
+  TEXT(s_shr, "shr");
+
   TEXT(s_head, "head");
   TEXT(s_tail, "tail");
   TEXT(s_add, "add");
@@ -725,6 +763,7 @@ int main(int argc, char **argv) {
   TEXT(s_size, "size");
   TEXT(s_get, "{}");
   TEXT(s_set, "{!}");
+  TEXT(s_hash, "hash");
 
   lib = dlopen(module, RTLD_LAZY);
   if (!lib) {
