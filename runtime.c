@@ -3,6 +3,7 @@
 #include "runtime.h"
 
 static void b_list(regs_t*);
+static void b_view(regs_t*);
 static void b_text(regs_t*);
 static void b_cons(regs_t*);
 
@@ -20,6 +21,7 @@ static int pools_count = 0;
 #define META_POOL (POOL_SIZE+1)
 #define CONS_POOL (POOL_SIZE+2)
 #define TEXT_POOL (POOL_SIZE+3)
+#define VIEW_POOL (POOL_SIZE+4)
 
 static void **alloc(int count) {
   void **r = heap_ptr;
@@ -187,7 +189,7 @@ BUILTIN0("fin",fin) T = k; RETURNS_VOID
 
 static void *s_size, *s_get, *s_set, *s_hash;
 static void *s_neg, *s_plus, *s_sub, *s_mul, *s_div, *s_rem, *s_is, *s_isnt, *s_lt, *s_gt, *s_lte, *s_gte;
-static void *s_mask, *s_ior, *s_xor; //NOTE: `not X` can be implemented as X^0xFFFFFFFF
+static void *s_mask, *s_ior, *s_xor; //NOTE: ~X can be implemented as X^0xFFFFFFFF
 static void *s_shl, *s_shr;
 static void *s_head, *s_tail, *s_add, *s_end;
 static void *s_x; //duplicate
@@ -261,6 +263,81 @@ BUILTIN_HANDLER("text",text,C_TEXT,x)
   else bad_call(regs,x);
 RETURNS_VOID
 
+
+
+#define VIEW(dst,o,start,size) \
+  ALLOC(dst,b_view,VIEW_POOL,2); \
+  STORE(dst, 0, o); \
+  ((uint32_t*)((void**)dst+1))[0] = (uint32_t)(start); \
+  ((uint32_t*)((void**)dst+1))[1] = (uint32_t)(size);
+
+
+BUILTIN2("view is",view_is,C_ANY,a,C_ANY,b)
+RETURNS(TO_FIXNUM(a == b))
+BUILTIN2("view isnt",view_isnt,C_ANY,a,C_ANY,b)
+RETURNS(TO_FIXNUM(a != b))
+BUILTIN1("view size",view_size,C_ANY,o)
+RETURNS((uintptr_t)((uint32_t*)((void**)o+1))[1])
+BUILTIN2("view {}",view_get,C_ANY,o,C_FIXNUM,index)
+  uint32_t start = ((uint32_t*)((void**)o+1))[0];
+  uint32_t size = ((uint32_t*)((void**)o+1))[1];
+  if (size <= (uint32_t)(uintptr_t)index) {
+    printf("index out of bounds\n");
+    TEXT(P, "{}");
+    bad_call(regs,P);
+  }
+RETURNS(*(*(void***)o + start + UNFIXNUM(index)))
+BUILTIN3("view {!}",view_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
+  uint32_t start = ((uint32_t*)((void**)o+1))[0];
+  uint32_t size = ((uint32_t*)((void**)o+1))[1];
+  if (size <= (uint32_t)(uintptr_t)index) {
+    printf("view {!}: index out of bounds\n");
+    TEXT(P, "{!}");
+    bad_call(regs,P);
+  }
+  *(*(void***)o + start + UNFIXNUM(index)) = value;
+RETURNS(Void)
+BUILTIN1("view end",view_end,C_ANY,o)
+RETURNS(TO_FIXNUM(0))
+BUILTIN1("view head",view_head,C_ANY,o)
+RETURNS(**(void***)o)
+BUILTIN1("view tail",view_tail,C_ANY,o)
+  void *r;
+  uint32_t size = UNFIXNUM(((uint32_t*)((void**)o+1))[1]);
+  if (size == 1) r = Empty;
+  else {
+    uint32_t start = ((uint32_t*)((void**)o+1))[0];
+    VIEW(r, *(void**)o, start+1, TO_FIXNUM(size-1));
+  }
+RETURNS(r)
+BUILTIN2("view add",view_add,C_ANY,o,C_ANY,x)
+  void *r;
+  void **p, **q;
+  int s = (int)UNFIXNUM(((uint32_t*)((void**)o+1))[1]);
+  LIST(r, s+1);
+  p = (void**)r;
+  *p++ = x;
+  q = *(void***)o;
+  while(s-- > 0) *p++ = *q++;
+RETURNS(r)
+BUILTIN_HANDLER("list",view,C_TEXT,x)
+  STORE(E, 1, P);
+  if (texts_equal(x,s_get)) b_view_get(regs);
+  else if (texts_equal(x,s_set)) b_view_set(regs);
+  else if (texts_equal(x,s_size)) b_view_size(regs);
+  else if (texts_equal(x,s_is)) b_view_is(regs);
+  else if (texts_equal(x,s_isnt)) b_view_isnt(regs);
+  else if (texts_equal(x,s_head)) b_view_head(regs);
+  else if (texts_equal(x,s_tail)) b_view_tail(regs);
+  else if (texts_equal(x,s_end)) b_view_end(regs);
+  else if (texts_equal(x,s_add)) b_view_add(regs);
+  else bad_call(regs,x);
+RETURNS_VOID
+
+
+
+
+
 BUILTIN2("list is",list_is,C_ANY,a,C_ANY,b)
 RETURNS(TO_FIXNUM(a == b))
 BUILTIN2("list isnt",list_isnt,C_ANY,a,C_ANY,b)
@@ -268,24 +345,32 @@ RETURNS(TO_FIXNUM(a != b))
 BUILTIN1("list size",list_size,C_ANY,o)
 RETURNS(POOL_HANDLER(P))
 BUILTIN2("list {}",list_get,C_ANY,o,C_FIXNUM,index)
-  void *r;
   if ((uintptr_t)POOL_HANDLER(o) <= (uintptr_t)index) {
     printf("index out of bounds\n");
     TEXT(P, "{}");
     bad_call(regs,P);
   }
-  r = *((void**)o + UNFIXNUM(index));
-RETURNS(r)
+RETURNS(*((void**)o + UNFIXNUM(index)))
 BUILTIN3("list {!}",list_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   if ((uintptr_t)POOL_HANDLER(o) <= (uintptr_t)index) {
     printf("list {!}: index out of bounds\n");
-    TEXT(P, "set");
+    TEXT(P, "{!}");
     bad_call(regs,P);
   }
   *((void**)o + UNFIXNUM(index)) = value;
 RETURNS(Void)
 BUILTIN1("list end",list_end,C_ANY,o)
-RETURNS(TO_FIXNUM(1))
+RETURNS(TO_FIXNUM(0))
+BUILTIN1("list head",list_head,C_ANY,o)
+RETURNS(*(void**)o)
+BUILTIN1("list tail",list_tail,C_ANY,o)
+  void *r;
+  intptr_t size = UNFIXNUM(POOL_HANDLER(o));
+  if (size == 1) r = Empty;
+  else {
+    VIEW(r, o, 1, TO_FIXNUM(size-1));
+  }
+RETURNS(r)
 BUILTIN2("list add",list_add,C_ANY,o,C_ANY,x)
   void *r;
   void **p, **q;
@@ -303,10 +388,23 @@ BUILTIN_HANDLER("list",list,C_TEXT,x)
   else if (texts_equal(x,s_size)) b_list_size(regs);
   else if (texts_equal(x,s_is)) b_list_is(regs);
   else if (texts_equal(x,s_isnt)) b_list_isnt(regs);
+  else if (texts_equal(x,s_head)) b_list_head(regs);
+  else if (texts_equal(x,s_tail)) b_list_tail(regs);
   else if (texts_equal(x,s_end)) b_list_end(regs);
   else if (texts_equal(x,s_add)) b_list_add(regs);
   else bad_call(regs,x);
 RETURNS_VOID
+
+BUILTIN_VARARGS("list new",make_list)
+  void *r;
+  int size = (int)UNFIXNUM(NARGS);
+  int i;
+  if (size == 1) r = Empty;
+  else {
+    LIST(r, size-1);
+    for (i = 1; i < size; i++) *((void**)r+i-1) = getArg(i);
+  }
+RETURNS(r)
 
 BUILTIN1("integer neg",integer_neg,C_ANY,o)
 RETURNS((intptr_t)2-(intptr_t)o)
@@ -517,25 +615,6 @@ static void *alloc_text(regs_t *regs, char *s) {
   return p;
 }
 
-BUILTIN_VARARGS("list",make_list)
-  void *r;
-  int size = (int)UNFIXNUM(NARGS);
-  int i;
-  LIST(r, size-1);
-  for (i = 1; i < size; i++) *((void**)r+i-1) = getArg(i);
-RETURNS(r)
-
-
-/*
-BUILTIN_VARARGS("list",make_list)
-  void *xs = Empty;
-  int i = (int)UNFIXNUM(NARGS);
-  while (i-- > 1) {
-    CONS(xs, getArg(i), xs);
-  }
-RETURNS(xs)
-*/
-
 static char *read_whole_file_as_string(char *input_file_name) {
   char *file_contents;
   long input_file_size;
@@ -629,12 +708,12 @@ RETURNS_VOID
 
 
 static char *print_object_r(regs_t *regs, char *out, void *o) {
+  int i;
   int tag = GET_TAG(o);
 
   if (tag == T_CLOSURE) {
     pfun handler = POOL_HANDLER(o);
     if ((intptr_t)handler < TO_FIXNUM(MAX_LIST_SIZE)) {
-      int i;
       int size = (int)UNFIXNUM(handler);
       out += sprintf(out, "(");
       for (i = 0; i < size; i++) {
@@ -642,8 +721,16 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
         out = print_object_r(regs, out, *((void**)o + i));
       }
       out += sprintf(out, ")");
+    } else if (handler == b_view) {
+      uint32_t start = ((uint32_t*)((void**)o+1))[0];
+      int size = (int)UNFIXNUM(((uint32_t*)((void**)o+1))[1]);
+      out += sprintf(out, "(");
+      for (i = 0; i < size; i++) {
+        if (i) out += sprintf(out, " ");
+        out = print_object_r(regs, out, *(*(void***)o + start + i));
+      }
+      out += sprintf(out, ")");
     } else if (handler == b_text) {
-      int i;
       int l = UNFIXNUM(*(uint32_t*)o);
       char *p = (char*)o + 4;
       for (i = 0; i < l; i++) *out++ = *p++;
@@ -748,6 +835,7 @@ int main(int argc, char **argv) {
   regs->new_pool(); // meta pool
   regs->new_pool(); // cons pool
   regs->new_pool(); // text pool
+  regs->new_pool(); // view pool
 
   CLOSURE(Void, b_void);
   CLOSURE(Empty, b_empty);
