@@ -6,18 +6,23 @@
 // used for debugging
 #define D fprintf(stderr, "%d:%s\n", __LINE__, __FILE__);
 
-#define TAG_BITS ((uintptr_t)2)
+#define TAG_BITS ((uintptr_t)3)
 #define TAG_MASK (((uintptr_t)1<<TAG_BITS)-1)
 #define GET_TAG(x) ((uintptr_t)(x)&TAG_MASK)
 
 #define SIGN_BIT ((uintptr_t)1<<(sizeof(uintptr_t)*8-1))
 
-#define T_CLOSURE  0
-#define T_FIXNUM   1
+#define T_FIXNUM  0
+#define T_CLOSURE 1
+
 
 //#define T_FLOAT
 //#define T_NEXT_HERE
 //#define T_NEXT_NONE
+
+// sign preserving shifts
+#define ASHL(x,count) ((x)*(1<<(count)))
+#define ASHR(x,count) ((x)/(1<<(count)))
 
 #define MAX_POOLS 1024*100
 #define POOL_SIZE 64
@@ -26,8 +31,8 @@
 #define POOL_BASE (~POOL_MASK)
 #define POOL_HANDLER(x) (((pfun*)((uintptr_t)(x)&POOL_BASE))[0])
 #define POOL_HEAD_SIZE 1
-#define TO_FIXNUM(x) (((uintptr_t)(x)*(1<<TAG_BITS)) + 1)
-#define UNFIXNUM(x) ((intptr_t)(x)/(1<<TAG_BITS))
+#define FIXNUM(x) ASHL((intptr_t)(x),TAG_BITS)
+#define UNFIXNUM(x) ASHR((intptr_t)(x),TAG_BITS)
 
 #define HEAP_SIZE (1024*1024*32)
 #define MAX_LIST_SIZE (HEAP_SIZE/2)
@@ -95,17 +100,20 @@ typedef void (*pfun)(regs_t *regs);
       MOVE(dst, regs->pools[pool]); \
       regs->pools[pool] += count; \
     } \
-  }
+  } \
+  dst = ADD_TAG(dst,T_CLOSURE);
 
-#define LIST(dst,size) ALLOC(dst,TO_FIXNUM(size),MIN(POOL_SIZE,size),size)
-#define FIXNUM(dst,x) dst = (void*)(((uintptr_t)(x)<<TAG_BITS) | T_FIXNUM)
+#define LIST(dst,size) ALLOC(dst,FIXNUM(size),MIN(POOL_SIZE,size),size)
+#define LOAD_FIXNUM(dst,x) dst = (void*)((uintptr_t)(x)<<TAG_BITS)
 #define TEXT(dst,x) dst = regs->alloc_text(regs,(char*)(x))
 #define NEW_POOL(dst) dst = regs->new_pool();
+#define ADD_TAG(src,tag) ((void*)((uintptr_t)(src) | (tag)))
+#define DEL_TAG(src) ((void*)((uintptr_t)(src) & ~(TAG_MASK>>1)))
 #define CALL(f) MOVE(P, f); POOL_HANDLER(f)(regs);
 #define CALL_TAGGED(f) \
   MOVE(P, f); \
   if (GET_TAG(P) == T_CLOSURE) { \
-    if ((intptr_t)POOL_HANDLER(P) < TO_FIXNUM(MAX_LIST_SIZE)) { \
+    if ((intptr_t)POOL_HANDLER(P) < FIXNUM(MAX_LIST_SIZE)) { \
       regs->list(regs); \
     } else { \
       POOL_HANDLER(P)(regs); \
@@ -115,19 +123,25 @@ typedef void (*pfun)(regs_t *regs);
   } else { \
     regs->bad_tag(regs); /*should never happen*/ \
   }
+#define REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-1)
+#define REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-1)
+#define REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-1)
+#define LOAD(dst,src,src_off) dst = REF(src,src_off)
+#define STORE(dst,dst_off,src) REF(dst,dst_off) = (void*)(src)
+#define COPY(dst,dst_off,src,src_off) REF(dst,dst_off) = REF(src,src_off)
 
-#define STORE(dst,off,src) ((void**)(dst))[(int)(off)] = (void*)(src)
-#define LOAD(dst,src,off) dst = ((void**)(src))[(int)(off)]
-#define COPY(dst,p,src,q) ((void**)(dst))[(int)(p)] = ((void**)(src))[(int)(q)]
+//#define STORE(dst,off,src) ((void**)(dst))[(int)(off)] = (void*)(src)
+//#define LOAD(dst,src,off) dst = ((void**)(src))[(int)(off)]
+//#define COPY(dst,p,src,q) ((void**)(dst))[(int)(p)] = ((void**)(src))[(int)(q)]
 #define MOVE(dst,src) dst = (void*)(src)
 
 #define CHECK_NARGS(expected,tag) \
-  if (NARGS != TO_FIXNUM(expected)) { \
-    regs->handle_args(regs, TO_FIXNUM(expected), tag, Empty); \
+  if (NARGS != FIXNUM(expected)) { \
+    regs->handle_args(regs, FIXNUM(expected), tag, Empty); \
     return; \
   }
 #define CHECK_VARARGS(tag) \
-  if (NARGS < TO_FIXNUM(1)) { \
+  if (NARGS < FIXNUM(1)) { \
     regs->handle_args(regs, -1, tag, Empty); \
     return; \
   }

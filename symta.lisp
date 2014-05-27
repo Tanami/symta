@@ -646,7 +646,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''copy dst p src q) (to-c-emit "  COPY(~a, ~a, ~a, ~a);" dst p src q))
          ((''move dst src) (to-c-emit "  MOVE(~a, ~a);" dst src))
          ((''known_closure) (to-c-emit "  /* known closure */"))
-         ((''fixnum dst str) (to-c-emit "  FIXNUM(~a, ~s);" dst str))
+         ((''fixnum dst str) (to-c-emit "  LOAD_FIXNUM(~a, ~s);" dst str))
          ((''text name str)
           (let ((bytes `(,@(m c (coerce str 'list) (char-code c)) 0)))
             (push (format nil "static uint8_t ~a_bytes[] = {~{~a~^,~}};" name bytes) decls)
