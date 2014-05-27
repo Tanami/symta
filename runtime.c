@@ -271,6 +271,8 @@ RETURNS_VOID
   ((uint32_t*)((void**)dst+1))[0] = (uint32_t)(start); \
   ((uint32_t*)((void**)dst+1))[1] = (uint32_t)(size);
 
+#define VIEW_START(o) ((uint32_t*)((void**)o+1))[0]
+#define VIEW_SIZE(o) ((uint32_t*)((void**)o+1))[1]
 
 BUILTIN2("view is",view_is,C_ANY,a,C_ANY,b)
 RETURNS(TO_FIXNUM(a == b))
@@ -279,7 +281,7 @@ RETURNS(TO_FIXNUM(a != b))
 BUILTIN1("view size",view_size,C_ANY,o)
 RETURNS((uintptr_t)((uint32_t*)((void**)o+1))[1])
 BUILTIN2("view {}",view_get,C_ANY,o,C_FIXNUM,index)
-  uint32_t start = ((uint32_t*)((void**)o+1))[0];
+  uint32_t start = VIEW_START(o);
   uint32_t size = ((uint32_t*)((void**)o+1))[1];
   if (size <= (uint32_t)(uintptr_t)index) {
     printf("index out of bounds\n");
@@ -288,8 +290,8 @@ BUILTIN2("view {}",view_get,C_ANY,o,C_FIXNUM,index)
   }
 RETURNS(*(*(void***)o + start + UNFIXNUM(index)))
 BUILTIN3("view {!}",view_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
-  uint32_t start = ((uint32_t*)((void**)o+1))[0];
-  uint32_t size = ((uint32_t*)((void**)o+1))[1];
+  uint32_t start = VIEW_START(o);
+  uint32_t size = VIEW_SIZE(o);
   if (size <= (uint32_t)(uintptr_t)index) {
     printf("view {!}: index out of bounds\n");
     TEXT(P, "{!}");
@@ -300,25 +302,25 @@ RETURNS(Void)
 BUILTIN1("view end",view_end,C_ANY,o)
 RETURNS(TO_FIXNUM(0))
 BUILTIN1("view head",view_head,C_ANY,o)
-RETURNS(**(void***)o)
+RETURNS(*(*(void***)o + VIEW_START(o)))
 BUILTIN1("view tail",view_tail,C_ANY,o)
   void *r;
-  uint32_t size = UNFIXNUM(((uint32_t*)((void**)o+1))[1]);
+  uint32_t size = UNFIXNUM(VIEW_SIZE(o));
   if (size == 1) r = Empty;
   else {
-    uint32_t start = ((uint32_t*)((void**)o+1))[0];
+    uint32_t start = VIEW_START(o);
     VIEW(r, *(void**)o, start+1, TO_FIXNUM(size-1));
   }
 RETURNS(r)
 BUILTIN2("view add",view_add,C_ANY,o,C_ANY,x)
   void *r;
   void **p, **q;
-  int s = (int)UNFIXNUM(((uint32_t*)((void**)o+1))[1]);
-  LIST(r, s+1);
+  int size = (int)UNFIXNUM(VIEW_SIZE(o));
+  LIST(r, size+1);
   p = (void**)r;
   *p++ = x;
   q = *(void***)o;
-  while(s-- > 0) *p++ = *q++;
+  while(size-- > 0) *p++ = *q++;
 RETURNS(r)
 BUILTIN_HANDLER("list",view,C_TEXT,x)
   STORE(E, 1, P);
@@ -444,9 +446,16 @@ BUILTIN2("integer x",integer_x,C_ANY,size,C_ANY,init)
   void *r;
   void **p;
   intptr_t s = UNFIXNUM(size);
-  LIST(r,s);
-  p = (void**)r;
-  while(s-- > 0) *p++ = init;
+  if (s < 0) {
+    TEXT(R,"integer x");
+    bad_call(regs, R);
+  } else if (s == 0) {
+    r = Empty;
+  } else {
+    LIST(r,s);
+    p = (void**)r;
+    while(s-- > 0) *p++ = init;
+  }
 RETURNS(r)
 BUILTIN1("integer head",integer_head,C_ANY,o)
   if (o == (void*)TO_FIXNUM(0)) {
@@ -722,8 +731,8 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
       }
       out += sprintf(out, ")");
     } else if (handler == b_view) {
-      uint32_t start = ((uint32_t*)((void**)o+1))[0];
-      int size = (int)UNFIXNUM(((uint32_t*)((void**)o+1))[1]);
+      uint32_t start = VIEW_START(o);
+      int size = (int)UNFIXNUM(VIEW_SIZE(o));
       out += sprintf(out, "(");
       for (i = 0; i < size; i++) {
         if (i) out += sprintf(out, " ");

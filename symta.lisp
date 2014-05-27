@@ -798,6 +798,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to expand-block-item x
   ! match x
+     (("=" ("!!" ("!" name)) value) `(nil ("_set" ,name ,value)))
      (("=" (name . args) value)
       (if (var-sym? name)
           (list name value) ;; FIXME: check that args are empty
@@ -816,7 +817,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (else (list nil x)))
 
 (to make-multimethod xs
-  ! when (match xs ((("=" as expr)) (or (not as) (var-sym? (first as)))))
+  ! when (match xs ((("=>" as expr)) (or (not as) (var-sym? (first as)))))
      (return-from make-multimethod (first xs))
   ! dummy = ssa-name "D"
   ! all = ssa-name "A"
@@ -922,6 +923,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("leave" from value)
          (let ((kname (concatenate 'string "_k_" from)))
            `("_call" ,kname ,value)))
+        (("!!" . as)
+         (let* ((ys (copy-list as))
+                (v nil)
+                (p (position-if (fn x ! match x (("!" x) (setf v x) t)) as)))
+           (if p
+               (setf (nth p ys) v)
+               (error "!!: no ! in ~a" as))
+           `("_set" ,v ,ys)))
         (("match" keyform . cases) (expand-match keyform cases :empty))
     (else (return-from builtin-expander
             (let ((ys (m x xs (builtin-expander x))))
