@@ -14,6 +14,11 @@
 
 #define T_FIXNUM  0
 #define T_CLOSURE 1
+#define T_LIST    2
+#define T_FLOAT   3
+#define T_PTR     4
+#define T_TAIL    5 /* list without head */
+#define T_TEXT    6 /* immediate text */
 
 
 //#define T_FLOAT
@@ -85,7 +90,13 @@ typedef void (*pfun)(regs_t *regs);
 #define host regs->host
 
 // number of arguments to the current function (size of E)
-#define NARGS ((intptr_t)POOL_HANDLER(E))
+
+#define LIST_SIZE(o) ((intptr_t)POOL_HANDLER(o))
+#define NARGS LIST_SIZE(E)
+
+#define IS_LIST(o)  (LIST_SIZE(o) < FIXNUM(MAX_LIST_SIZE))
+#define IS_TEXT(x) (GET_TAG(x) == T_CLOSURE && POOL_HANDLER(x) == b_text)
+
 
 #define print_object(object) regs->print_object_f(regs, object)
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -113,7 +124,7 @@ typedef void (*pfun)(regs_t *regs);
 #define CALL_TAGGED(f) \
   MOVE(P, f); \
   if (GET_TAG(P) == T_CLOSURE) { \
-    if ((intptr_t)POOL_HANDLER(P) < FIXNUM(MAX_LIST_SIZE)) { \
+    if (IS_LIST(P)) { \
       regs->list(regs); \
     } else { \
       POOL_HANDLER(P)(regs); \

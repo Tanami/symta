@@ -233,7 +233,6 @@ BUILTIN_HANDLER("void",void,C_TEXT,x)
   else bad_call(regs,x);
 RETURNS_VOID
 
-#define IS_TEXT(x) (GET_TAG(x) == T_CLOSURE && POOL_HANDLER(x) == b_text)
 BUILTIN2("text is",text_is,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(IS_TEXT(b) ? texts_equal(a,b) : 0))
 BUILTIN2("text isnt",text_isnt,C_ANY,a,C_ANY,b)
@@ -243,12 +242,12 @@ RETURNS((uintptr_t)*(uint32_t*)o)
 BUILTIN2("text {}",text_get,C_ANY,o,C_FIXNUM,index)
   void *r;
   char t[2];
-  if ((uintptr_t)*(uint32_t*)o <= (uintptr_t)index) {
+  if ((uintptr_t)REF4(o,0) <= (uintptr_t)index) {
     printf("index out of bounds\n");
     TEXT(P, "{}");
     bad_call(regs,P);
   }
-  t[0] = *((char*)o + 4 + UNFIXNUM(index));
+  t[0] = REF1(o,4+UNFIXNUM(index));
   t[1] = 0;
   TEXT(r,t);
 RETURNS(r)
@@ -368,7 +367,7 @@ RETURNS(Void)
 BUILTIN1("list end",list_end,C_ANY,o)
 RETURNS(FIXNUM(0))
 BUILTIN1("list head",list_head,C_ANY,o)
-RETURNS(*(void**)o)
+RETURNS(REF(o,0))
 BUILTIN1("list tail",list_tail,C_ANY,o)
   void *r;
   intptr_t size = UNFIXNUM(POOL_HANDLER(o));
@@ -714,7 +713,7 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
     out += sprintf(out, "Void");
   } else if (tag == T_CLOSURE) {
     pfun handler = POOL_HANDLER(o);
-    if ((intptr_t)handler < FIXNUM(MAX_LIST_SIZE)) {
+    if (IS_LIST(o)) {
       int size = (int)UNFIXNUM(handler);
       out += sprintf(out, "(");
       for (i = 0; i < size; i++) {
@@ -732,9 +731,9 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
       }
       out += sprintf(out, ")");
     } else if (handler == b_text) {
-      int l = UNFIXNUM(*(uint32_t*)o);
-      char *p = (char*)o + 4;
-      for (i = 0; i < l; i++) *out++ = *p++;
+      intptr_t size = UNFIXNUM(REF4(o,0));
+      char *p = (char*)&REF1(o,4);
+      while (size-- > 0) *out++ = *p++;
       *out = 0;
     } else if (handler == b_cons) {
       out += sprintf(out, "(");
