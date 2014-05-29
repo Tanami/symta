@@ -18,7 +18,7 @@
 #define T_FLOAT   3
 #define T_PTR     4
 #define T_TAIL    5 /* list without head */
-#define T_TEXT    6 /* immediate text */
+#define T_FIXTEXT 6 /* immediate text */
 
 
 // sign preserving shifts
@@ -65,6 +65,7 @@ typedef struct regs_t {
   void *(*alloc_text)(struct regs_t *regs, char *s);
   void (*fixnum)(struct regs_t *regs);
   void (*list)(struct regs_t *regs);
+  void (*fixtext)(struct regs_t *regs);
 
   // for multithreading, caching could be used to get on-demand pools for each thread, minimizing locking
   void **pools[MAX_POOLS];
@@ -128,6 +129,8 @@ typedef void (*pfun)(regs_t *regs);
     regs->fixnum(regs); \
   } else if (GET_TAG(P) == T_LIST) { \
       regs->list(regs); \
+  } else if (GET_TAG(P) == T_FIXTEXT) { \
+      regs->fixtext(regs); \
   } else { \
     regs->bad_tag(regs); /*should never happen*/ \
   }

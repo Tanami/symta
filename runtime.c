@@ -91,7 +91,7 @@ static char *text_to_cstring(void *o) {
     bad_type(regs, "integer", arg_index, meta)
 
 #define C_TEXT(o,arg_index,meta) \
-  if (GET_TAG(o) != T_CLOSURE || POOL_HANDLER(o) != b_text) \
+  if (GET_TAG(o) != T_FIXTEXT && (GET_TAG(o) != T_CLOSURE || POOL_HANDLER(o) != b_text)) \
     bad_type(regs, "text", arg_index, meta)
 
 #define C_CONS(o,arg_index,meta) \
@@ -199,8 +199,10 @@ static void *s_head, *s_tail, *s_add, *s_end;
 static void *s_x; //duplicate
 
 static int texts_equal(void *a, void *b) {
-  uint32_t al = REF4(a,0);
-  uint32_t bl = REF4(b,0);
+  uint32_t al, bl;
+  if (GET_TAG(a) == T_FIXTEXT || GET_TAG(b) == T_FIXTEXT) return a == b;
+  al = REF4(a,0);
+  bl = REF4(b,0);
   return al == bl && !memcmp(&REF1(a,4), &REF1(b,4), UNFIXNUM(al));
 }
 
@@ -238,7 +240,7 @@ RETURNS(FIXNUM(IS_TEXT(b) ? texts_equal(a,b) : 0))
 BUILTIN2("text isnt",text_isnt,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(IS_TEXT(b) ? !texts_equal(a,b) : 1))
 BUILTIN1("text size",text_size,C_ANY,o)
-RETURNS((uintptr_t)*(uint32_t*)o)
+RETURNS((uintptr_t)REF4(o,0))
 BUILTIN2("text {}",text_get,C_ANY,o,C_FIXNUM,index)
   void *r;
   char t[2];
@@ -263,6 +265,50 @@ BUILTIN_HANDLER("text",text,C_TEXT,x)
   else if (texts_equal(x,s_isnt)) b_text_isnt(regs);
   else if (texts_equal(x,s_end)) b_text_end(regs);
   else if (texts_equal(x,s_hash)) b_text_hash(regs);
+  else bad_call(regs,x);
+RETURNS_VOID
+
+
+
+BUILTIN2("text is",fixtext_is,C_ANY,a,C_ANY,b)
+RETURNS(FIXNUM(IS_TEXT(b) ? texts_equal(a,b) : 0))
+BUILTIN2("text isnt",fixtext_isnt,C_ANY,a,C_ANY,b)
+RETURNS(FIXNUM(IS_TEXT(b) ? !texts_equal(a,b) : 1))
+BUILTIN1("text size",fixtext_size,C_ANY,o)
+  uint64_t x = (uint64_t)o;
+  int i = 3;
+  int l = 0;
+  while (0x7F<<i) {
+    i += 7;
+    l++;
+  }
+RETURNS(FIXNUM(l))
+#define GET_CHAR()
+BUILTIN2("text {}",fixtext_get,C_ANY,o,C_FIXNUM,index)
+  char t[20];
+  uint64_t c;
+  int i = UNFIXNUM(index);
+  if (i >= 8) {
+bounds_error:
+    printf("index out of bounds\n");
+    TEXT(P, "{}");
+    bad_call(regs,P);
+  }
+  c = ((uint64_t)o>>(i*7))&(0x7F<<TAG_BITS);
+  if (!c) goto bounds_error;
+RETURNS(ADD_TAG(c,T_FIXTEXT))
+BUILTIN1("text end",fixtext_end,C_ANY,o)
+RETURNS(FIXNUM(1))
+BUILTIN1("text hash",fixtext_hash,C_ANY,o)
+RETURNS(FIXNUM(((uint64_t)o&(((uint64_t)1<<32)-1))^((uint64_t)o>>32)))
+BUILTIN_HANDLER("text",fixtext,C_TEXT,x)
+  STORE(E, 1, P);
+  if (texts_equal(x,s_size)) b_fixtext_size(regs);
+  else if (texts_equal(x,s_get)) b_fixtext_get(regs);
+  else if (texts_equal(x,s_is)) b_fixtext_is(regs);
+  else if (texts_equal(x,s_isnt)) b_fixtext_isnt(regs);
+  else if (texts_equal(x,s_end)) b_fixtext_end(regs);
+  else if (texts_equal(x,s_hash)) b_fixtext_hash(regs);
   else bad_call(regs,x);
 RETURNS_VOID
 
@@ -574,14 +620,6 @@ BUILTIN1("utf8_to_text",utf8_to_text,C_ANY,bytes)
   abort();
 RETURNS(Void)
 
-BUILTIN1("text_out",text_out,C_TEXT,o)
-  int i;
-  int l = UNFIXNUM(*(uint32_t*)o);
-  char *p = (char*)o + 4;
-  for (i = 0; i < l; i++) putchar(p[i]);
-  fflush(stdout);
-RETURNS(Void)
-
 BUILTIN3("_fn_if",_fn_if,C_ANY,a,C_ANY,b,C_ANY,c)
   LIST(E, 1);
   STORE(E, 0, k);
@@ -593,8 +631,46 @@ BUILTIN3("_fn_if",_fn_if,C_ANY,a,C_ANY,b,C_ANY,c)
 RETURNS_VOID
 
 static int is_unicode(char *s) {
+  while (*s) {
+    if (*(uint8_t*)s & 0x80) return 1;
+    s++;
+  }
   return 0;
 }
+
+#define NLETTERS 26
+#define NDIGITS 10
+
+static void *text_immediate_encoding(char *s) {
+  uint64_t r = 0;
+  uint64_t c;
+  int i = 3;
+  while (*s) {
+    if (i >= 64) return 0;
+    c = (uint8_t)*s++;
+    if (c & 0x80) return 0;
+    r |= c << i;
+    i += 7;
+  }
+  return ADD_TAG(r,T_FIXTEXT);
+}
+
+static int text_immediate_decode(char *dst, void *r) {
+  uint8_t *p = (uint8_t*)dst;
+  uint64_t x = (uint64_t)r;
+  uint64_t c;
+  int i = 3;
+  while (i < 64) {
+    c = (x>>i) & 0x7f;
+    i += 7;
+    if (!c) break;
+    *p++ = c;
+  }
+  *p = 0;
+  return p-(uint8_t*)dst;
+}
+
+
 // FIXME1: use different pool-descriptors to encode length
 // FIXME2: immediate encoding for text:
 //         one 7-bit char, then nine 6-bit chars (61 bit in total)
@@ -602,19 +678,25 @@ static int is_unicode(char *s) {
 //         6-bit char includes all letters, all digits `_` and 0 (to indicate EOF)
 static void *alloc_text(regs_t *regs, char *s) {
   int l, a;
-  void *p;
+  void *r;
+  char buf[1024];
 
   if (is_unicode(s)) {
     printf("FIXME: implement unicode\n");
     abort();
   }
 
+  r = text_immediate_encoding(s);
+  if (r) return r;
+  //text_immediate_decode(buf, r);
+  //printf("%p = `%s` = `%s`\n", r, s, buf);
+
   l = strlen(s);
   a = (l+4+TAG_MASK)>>TAG_BITS;
-  ALLOC(p, b_text, TEXT_POOL, a);
-  *(uint32_t*)((char*)p-1) = (uint32_t)FIXNUM(l);
-  memcpy((char*)p+3, s, l);
-  return p;
+  ALLOC(r, b_text, TEXT_POOL, a);
+  REF4(r,0) = (uint32_t)FIXNUM(l);
+  memcpy(&REF1(r,4), s, l);
+  return r;
 }
 
 static char *read_whole_file_as_string(char *input_file_name) {
@@ -690,6 +772,7 @@ BUILTIN_VARARGS("host",host)
   STORE(A, 0, k);
   for (j = 1; j < n; j++) {
     void *name = getArg(j+1);
+    C_TEXT(name, j, "host");
     for (i = 0; ; i++) {
       if (!builtins[i].name) {
         // FIXME: return void instead
@@ -762,6 +845,8 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
       out = print_object_r(regs, out, REF(o,i));
     }
     out += sprintf(out, ")");
+  } else if (tag == T_FIXTEXT) {
+    out += text_immediate_decode(out, o);
   } else {
     out += sprintf(out, "#(ufo %d %p)", tag, o);
   }
@@ -803,6 +888,7 @@ static regs_t *new_regs() {
   regs->alloc_text = alloc_text;
   regs->fixnum = b_fixnum;
   regs->list = b_list;
+  regs->fixtext = b_fixtext;
   
   // mark pools as full
   for (i = 0; i < MAX_POOLS; i++) regs->pools[i] = (void*)POOL_MASK;
