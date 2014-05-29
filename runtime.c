@@ -195,7 +195,7 @@ static void *s_size, *s_get, *s_set, *s_hash;
 static void *s_neg, *s_plus, *s_sub, *s_mul, *s_div, *s_rem, *s_is, *s_isnt, *s_lt, *s_gt, *s_lte, *s_gte;
 static void *s_mask, *s_ior, *s_xor; //NOTE: ~X can be implemented as X^0xFFFFFFFF
 static void *s_shl, *s_shr;
-static void *s_head, *s_tail, *s_add, *s_end;
+static void *s_head, *s_tail, *s_add, *s_end, *s_code, *s_text;
 static void *s_x; //duplicate
 
 static int texts_equal(void *a, void *b) {
@@ -268,8 +268,6 @@ BUILTIN_HANDLER("text",text,C_TEXT,x)
   else bad_call(regs,x);
 RETURNS_VOID
 
-
-
 BUILTIN2("text is",fixtext_is,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(IS_TEXT(b) ? texts_equal(a,b) : 0))
 BUILTIN2("text isnt",fixtext_isnt,C_ANY,a,C_ANY,b)
@@ -301,6 +299,8 @@ BUILTIN1("text end",fixtext_end,C_ANY,o)
 RETURNS(FIXNUM(1))
 BUILTIN1("text hash",fixtext_hash,C_ANY,o)
 RETURNS(FIXNUM(((uint64_t)o&(((uint64_t)1<<32)-1))^((uint64_t)o>>32)))
+BUILTIN1("text code",fixtext_code,C_ANY,o)
+RETURNS(FIXNUM((uint64_t)o>>TAG_BITS))
 BUILTIN_HANDLER("text",fixtext,C_TEXT,x)
   STORE(E, 1, P);
   if (texts_equal(x,s_size)) b_fixtext_size(regs);
@@ -309,6 +309,7 @@ BUILTIN_HANDLER("text",fixtext,C_TEXT,x)
   else if (texts_equal(x,s_isnt)) b_fixtext_isnt(regs);
   else if (texts_equal(x,s_end)) b_fixtext_end(regs);
   else if (texts_equal(x,s_hash)) b_fixtext_hash(regs);
+  else if (texts_equal(x,s_code)) b_fixtext_code(regs);
   else bad_call(regs,x);
 RETURNS_VOID
 
@@ -511,12 +512,14 @@ BUILTIN2("integer x",integer_x,C_ANY,size,C_ANY,init)
     r = Empty;
   } else {
     LIST(r,s);
-    p = (void**)r;
+    p = &REF(r,0);
     while(s-- > 0) *p++ = init;
   }
 RETURNS(LIST_FLIP(r))
 BUILTIN1("integer end",integer_end,C_ANY,o)
 RETURNS(FIXNUM(1))
+BUILTIN1("integer text",integer_text,C_ANY,o)
+RETURNS(ADD_TAG((uint64_t)o&~TAG_MASK,T_FIXTEXT))
 BUILTIN1("integer hash",integer_hash,C_ANY,o)
 RETURNS(o)
 BUILTIN_HANDLER("integer",fixnum,C_TEXT,x)
@@ -533,13 +536,14 @@ BUILTIN_HANDLER("integer",fixnum,C_TEXT,x)
   else if (texts_equal(x,s_lte)) b_integer_lte(regs);
   else if (texts_equal(x,s_gte)) b_integer_gte(regs);
   else if (texts_equal(x,s_neg)) b_integer_neg(regs);
-  else if (texts_equal(x,s_end)) b_integer_end(regs);
   else if (texts_equal(x,s_mask)) b_integer_mask(regs);
   else if (texts_equal(x,s_ior)) b_integer_ior(regs);
   else if (texts_equal(x,s_xor)) b_integer_xor(regs);
   else if (texts_equal(x,s_shl)) b_integer_shl(regs);
   else if (texts_equal(x,s_shr)) b_integer_shr(regs);
+  else if (texts_equal(x,s_end)) b_integer_end(regs);
   else if (texts_equal(x,s_hash)) b_integer_hash(regs);
+  else if (texts_equal(x,s_text)) b_integer_text(regs);
   else if (texts_equal(x,s_x)) b_integer_x(regs);
   else bad_call(regs,x);
 RETURNS_VOID
@@ -969,6 +973,8 @@ int main(int argc, char **argv) {
   TEXT(s_get, "{}");
   TEXT(s_set, "{!}");
   TEXT(s_hash, "hash");
+  TEXT(s_code, "code");
+  TEXT(s_text, "text");
 
   TEXT(s_x, "x");
 

@@ -459,7 +459,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      ! ssa 'label *ssa-ns*
      ! if (stringp args)
           (ssa 'check_varargs (get-meta o))
-          (ssa 'check_nargs (length args) (get-meta o))     ! produce-ssa body
+          (ssa 'check_nargs (length args) (get-meta o))
+     ! produce-ssa body
      ! push *ssa-out* *ssa-fns*
      ! setf cs (car *ssa-closure*)
      )
