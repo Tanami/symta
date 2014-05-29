@@ -312,7 +312,7 @@ BUILTIN1("view tail",view_tail,C_ANY,o)
   if (size == 1) r = Empty;
   else {
     uint32_t start = VIEW_START(o);
-    VIEW(r, &VIEW_REF(o,start,0), start+1, FIXNUM(size-1));
+    VIEW(r, &VIEW_REF(o,0,0), start+1, FIXNUM(size-1));
   }
 RETURNS(r)
 BUILTIN2("view add",view_add,C_ANY,o,C_ANY,x)
@@ -416,8 +416,9 @@ BUILTIN_VARARGS("[list]",make_list)
     p = &REF(r,0);
     q = &REF(E,1);
     while (size-- > 0) *p++ = *q++;
+    r = LIST_FLIP(r);
   }
-RETURNS(LIST_FLIP(r))
+RETURNS(r)
 
 BUILTIN1("integer neg",integer_neg,C_ANY,o)
 RETURNS(-(intptr_t)o)
