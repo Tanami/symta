@@ -638,9 +638,6 @@ static int is_unicode(char *s) {
   return 0;
 }
 
-#define NLETTERS 26
-#define NDIGITS 10
-
 static void *text_immediate_encoding(char *s) {
   uint64_t r = 0;
   uint64_t c;
