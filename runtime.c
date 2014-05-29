@@ -324,7 +324,7 @@ BUILTIN2("view add",view_add,C_ANY,o,C_ANY,x)
   *p++ = x;
   q = &VIEW_REF(o,VIEW_START(o),0);
   while(size-- > 0) *p++ = *q++;
-RETURNS(r)
+RETURNS(LIST_FLIP(r))
 BUILTIN_HANDLER("list",view,C_TEXT,x)
   STORE(E, 1, P);
   if (texts_equal(x,s_get)) b_view_get(regs);
@@ -355,6 +355,7 @@ BUILTIN2("list {}",list_get,C_ANY,o,C_FIXNUM,index)
     TEXT(P, "{}");
     bad_call(regs,P);
   }
+  o = LIST_FLIP(o);
 RETURNS(REF(o, UNFIXNUM(index)))
 BUILTIN3("list {!}",list_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   if ((uintptr_t)POOL_HANDLER(o) <= (uintptr_t)index) {
@@ -362,17 +363,20 @@ BUILTIN3("list {!}",list_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
     TEXT(P, "{!}");
     bad_call(regs,P);
   }
+  o = LIST_FLIP(o);
   REF(o, UNFIXNUM(index)) = value;
 RETURNS(Void)
 BUILTIN1("list end",list_end,C_ANY,o)
 RETURNS(FIXNUM(0))
 BUILTIN1("list head",list_head,C_ANY,o)
+  o = LIST_FLIP(o);
 RETURNS(REF(o,0))
 BUILTIN1("list tail",list_tail,C_ANY,o)
   void *r;
   intptr_t size = UNFIXNUM(POOL_HANDLER(o));
   if (size == 1) r = Empty;
   else {
+    o = LIST_FLIP(o);
     VIEW(r, &REF(o,0), 1, FIXNUM(size-1));
   }
 RETURNS(r)
@@ -383,9 +387,10 @@ BUILTIN2("list add",list_add,C_ANY,o,C_ANY,x)
   LIST(r, s+1);
   p = &REF(r,0);
   *p++ = x;
+  o = LIST_FLIP(o);
   q = &REF(o,0);
   while(s-- > 0) *p++ = *q++;
-RETURNS(r)
+RETURNS(LIST_FLIP(r))
 BUILTIN_HANDLER("list",list,C_TEXT,x)
   STORE(E, 1, P);
   if (texts_equal(x,s_get)) b_list_get(regs);
@@ -400,7 +405,7 @@ BUILTIN_HANDLER("list",list,C_TEXT,x)
   else bad_call(regs,x);
 RETURNS_VOID
 
-BUILTIN_VARARGS("list new",make_list)
+BUILTIN_VARARGS("[list]",make_list)
   void *r;
   void **p, **q;
   int size = (int)UNFIXNUM(NARGS)-1;
@@ -412,7 +417,7 @@ BUILTIN_VARARGS("list new",make_list)
     q = &REF(E,1);
     while (size-- > 0) *p++ = *q++;
   }
-RETURNS(r)
+RETURNS(LIST_FLIP(r))
 
 BUILTIN1("integer neg",integer_neg,C_ANY,o)
 RETURNS(-(intptr_t)o)
@@ -462,7 +467,7 @@ BUILTIN2("integer x",integer_x,C_ANY,size,C_ANY,init)
     p = (void**)r;
     while(s-- > 0) *p++ = init;
   }
-RETURNS(r)
+RETURNS(LIST_FLIP(r))
 BUILTIN1("integer end",integer_end,C_ANY,o)
 RETURNS(FIXNUM(1))
 BUILTIN1("integer hash",integer_hash,C_ANY,o)
@@ -640,7 +645,8 @@ RETURNS(r)
 
 BUILTIN2("_apply",_apply,C_ANY,f,C_ANY,args)
   // NOTE: no typecheck, because this function should be hidden from user
-  //       intended use is fast re-apply in handlers
+  //       intended use is the fast re-apply in handlers
+  args = LIST_FLIP(args);
   MOVE(E, args);
   CALL(f);
 RETURNS_VOID
@@ -713,14 +719,9 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
     out += sprintf(out, "Void");
   } else if (tag == T_CLOSURE) {
     pfun handler = POOL_HANDLER(o);
-    if (IS_LIST(o)) {
-      int size = (int)UNFIXNUM(handler);
-      out += sprintf(out, "(");
-      for (i = 0; i < size; i++) {
-        if (i) out += sprintf(out, " ");
-        out = print_object_r(regs, out, REF(o,i));
-      }
-      out += sprintf(out, ")");
+    if (IS_ARGLIST(o)) {
+      printf("print_object got unescaped arglist.\n");
+      abort();
     } else if (handler == b_view) {
       uint32_t start = VIEW_START(o);
       int size = (int)UNFIXNUM(VIEW_SIZE(o));
@@ -751,6 +752,15 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
   } else if (tag == T_FIXNUM) {
     // FIXME: this relies on the fact that shift preserves sign
     out += sprintf(out, "%ld", (intptr_t)o>>TAG_BITS);
+  } else if (tag == T_LIST) {
+    int size = (int)UNFIXNUM(POOL_HANDLER(o));
+    o = LIST_FLIP(o);
+    out += sprintf(out, "(");
+    for (i = 0; i < size; i++) {
+      if (i) out += sprintf(out, " ");
+      out = print_object_r(regs, out, REF(o,i));
+    }
+    out += sprintf(out, ")");
   } else {
     out += sprintf(out, "#(ufo %d %p)", tag, o);
   }

@@ -409,6 +409,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        ! when (eql pos :all)
           (when value (error "can't set ~a" x))
           (unless (eql base 'r) (ssa 'move 'r base))
+          (ssa 'list_flip base base)
           (ret nil)
        ! if value
             (ssa 'store base pos value)
@@ -645,6 +646,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''store dst off src) (to-c-emit "  STORE(~a, ~a, ~a);" dst off src))
          ((''copy dst p src q) (to-c-emit "  COPY(~a, ~a, ~a, ~a);" dst p src q))
          ((''move dst src) (to-c-emit "  MOVE(~a, ~a);" dst src))
+         ((''list_flip dst src) (to-c-emit "  ~a = LIST_FLIP(~a);" dst src))
          ((''known_closure) (to-c-emit "  /* known closure */"))
          ((''fixnum dst str) (to-c-emit "  LOAD_FIXNUM(~a, ~s);" dst str))
          ((''text name str)

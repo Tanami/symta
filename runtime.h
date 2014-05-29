@@ -21,10 +21,6 @@
 #define T_TEXT    6 /* immediate text */
 
 
-//#define T_FLOAT
-//#define T_NEXT_HERE
-//#define T_NEXT_NONE
-
 // sign preserving shifts
 #define ASHL(x,count) ((x)*(1<<(count)))
 #define ASHR(x,count) ((x)/(1<<(count)))
@@ -94,9 +90,12 @@ typedef void (*pfun)(regs_t *regs);
 #define LIST_SIZE(o) ((intptr_t)POOL_HANDLER(o))
 #define NARGS LIST_SIZE(E)
 
-#define IS_LIST(o)  (LIST_SIZE(o) < FIXNUM(MAX_LIST_SIZE))
-#define IS_TEXT(x) (GET_TAG(x) == T_CLOSURE && POOL_HANDLER(x) == b_text)
+#define IS_LIST(o) (GET_TAG(o) == T_LIST)
+#define IS_ARGLIST(o) (LIST_SIZE(o) < FIXNUM(MAX_LIST_SIZE))
+#define IS_TEXT(o) (GET_TAG(o) == T_CLOSURE && POOL_HANDLER(o) == b_text)
 
+// FIXME: most of LIST_FLIP uses could be optimized out
+#define LIST_FLIP(o) ((void*)((uintptr_t)(o)^(T_CLOSURE|T_LIST)))
 
 #define print_object(object) regs->print_object_f(regs, object)
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -124,13 +123,11 @@ typedef void (*pfun)(regs_t *regs);
 #define CALL_TAGGED(f) \
   MOVE(P, f); \
   if (GET_TAG(P) == T_CLOSURE) { \
-    if (IS_LIST(P)) { \
-      regs->list(regs); \
-    } else { \
-      POOL_HANDLER(P)(regs); \
-    } \
+    POOL_HANDLER(P)(regs); \
   } else if (GET_TAG(P) == T_FIXNUM) { \
     regs->fixnum(regs); \
+  } else if (GET_TAG(P) == T_LIST) { \
+      regs->list(regs); \
   } else { \
     regs->bad_tag(regs); /*should never happen*/ \
   }
@@ -140,10 +137,6 @@ typedef void (*pfun)(regs_t *regs);
 #define LOAD(dst,src,src_off) dst = REF(src,src_off)
 #define STORE(dst,dst_off,src) REF(dst,dst_off) = (void*)(src)
 #define COPY(dst,dst_off,src,src_off) REF(dst,dst_off) = REF(src,src_off)
-
-//#define STORE(dst,off,src) ((void**)(dst))[(int)(off)] = (void*)(src)
-//#define LOAD(dst,src,off) dst = ((void**)(src))[(int)(off)]
-//#define COPY(dst,p,src,q) ((void**)(dst))[(int)(p)] = ((void**)(src))[(int)(q)]
 #define MOVE(dst,src) dst = (void*)(src)
 
 #define CHECK_NARGS(expected,tag) \
