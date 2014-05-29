@@ -476,11 +476,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                  (ssa 'copy 'r (incf i) 'p (ssa-get-parent-index c)))
   ! ssa 'known_closure)
 
+(to ssa-if as
+  ! ssa 'array 'a 1
+  ! label = ssa-name "branch"
+  ! produce-ssa (first as)
+  ! ssa 'store 'a 0 'r
+  ! produce-ssa (second as)
+  ! ssa 'branch 'r label
+  ! produce-ssa (fourth as)
+  ! ssa 'move 'c 'r
+  ! ssa 'move 'e 'a
+  ! ssa 'call 'c
+  ! ssa 'label label
+  ! produce-ssa (third as)
+  ! ssa 'move 'c 'r
+  ! ssa 'move 'e 'a
+  ! ssa 'call 'c)
+
 (to ssa-apply f as
   ;; FIXME: if it is a lambda call, we don't have to change env or create a closure, just push env
   ! when (equal f "_call")
      (setf f (second as))
      (setf as (cddr as))
+  ! when (eql f :if)
+     (ssa-if as)
+     (return-from ssa-apply)
   ! produce-ssa f
   ! known-closure = eql (first (car *ssa-out*)) 'known_closure
   ! ssa 'move 'c 'r
@@ -510,7 +530,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to peephole-optimize xs
   ! match xs
-    (((''move a b) (''move b c) . zs) `((move ,a ,c) ,@(peephole-optimize zs)))
+    (((''move a ''r) (''move ''r c) . zs) `((move ,a ,c) ,@(peephole-optimize zs)))
     (((''move a ''r) (''load ''r c d) . zs) `((load ,a ,c ,d) ,@(peephole-optimize zs)))
     (((''store a b c) (''move c d) . zs) `((store ,a ,b ,d) ,@(peephole-optimize zs)))
     (((''store a b ''r) (''load ''r d e) . zs) `((copy ,a ,b ,d ,e) ,@(peephole-optimize zs)))
@@ -592,7 +612,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! match xs
     (("_fn" as body) (cps-fn (ssa-name "k") k as body xs))
     (("_kfn" kk as body) (cps-fn kk k as body xs))
-    (("_if" cnd then else) (cps-form k `("_fn_if" ,cnd ("_fn" () ,then) ("_fn" () ,else))))
+    (("_if" cnd then else) (cps-form k `(:if ,cnd ("_fn" () ,then) ("_fn" () ,else))))
     (("_quote" x) `(,k ,xs))
     (("_set" place value) (cps-set k place value xs))
     ((f . as) (cps-apply k f as xs))
@@ -634,6 +654,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (to-c-emit "static void ~a(regs_t *regs) {" label-name)
           ;;(to-c-emit "  D;")
           )
+         ((''branch cond label) (to-c-emit "  BRANCH(~a, ~a);" cond label))
          ((''call name) (to-c-emit "  CALL(~a);" name))
          ((''call_tagged name) (to-c-emit "  CALL_TAGGED(~a);" name))
          ((''goto name) (to-c-emit "  ~a(regs);" name))
@@ -882,8 +903,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("fn" as . body) `("_fn" ,as ("|" ,@body)))
         (("=>" as body) `("_fn" ,as ,body))
         (("set" dst src) `("_set" ,dst ,src))
-        (("when" a . body) `("_if" ,a ("|" ,@body) :void))
-        (("unless" a . body) `("_if" ,a :void ("|" ,@body)))
+        (("when" a body) `("_if" ,a ,body :void))
+        (("unless" a body) `("_if" ,a :void ,body))
         (("let" bs . body)
          (let ((body (if (= (length body) 1)
                          (car body)
@@ -949,7 +970,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to symta-eval text
   ! (/init-tokenizer)
   ! expr = /read text
-  ! deps = list "tag_of" "_fn_if" "halt" "log" "list" "_apply" "_no_method" "read_file_as_text"
+  ! deps = list "tag_of" "halt" "log" "list" "_apply" "_no_method" "read_file_as_text"
   ! normalized-expr = match expr (("|" . as) expr)
                                   (x `("|" ,x))
   ! expr-with-deps = host-deps normalized-expr deps

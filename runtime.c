@@ -624,16 +624,6 @@ BUILTIN1("utf8_to_text",utf8_to_text,C_ANY,bytes)
   abort();
 RETURNS(Void)
 
-BUILTIN3("_fn_if",_fn_if,C_ANY,a,C_ANY,b,C_ANY,c)
-  LIST(E, 1);
-  STORE(E, 0, k);
-  if (a != FIXNUM(0)) {
-    CALL(b);
-  } else {
-    CALL(c);
-  }
-RETURNS_VOID
-
 static int is_unicode(char *s) {
   while (*s) {
     if (*(uint8_t*)s & 0x80) return 1;
@@ -750,7 +740,6 @@ static struct {
   {"tag_of", b_tag_of},
   {"halt", b_halt},
   {"log", b_log},
-  {"_fn_if", b__fn_if},
   {"list", b_make_list},
   {"_apply", b__apply},
   {"_no_method", b__no_method},

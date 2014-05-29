@@ -120,6 +120,7 @@ typedef void (*pfun)(regs_t *regs);
 #define NEW_POOL(dst) dst = regs->new_pool();
 #define ADD_TAG(src,tag) ((void*)((uintptr_t)(src) | (tag)))
 #define DEL_TAG(src) ((void*)((uintptr_t)(src) & ~(TAG_MASK>>1)))
+#define BRANCH(cond,label) if ((cond) != FIXNUM(0)) { label(regs); return; }
 #define CALL(f) MOVE(P, f); POOL_HANDLER(f)(regs);
 #define CALL_TAGGED(f) \
   MOVE(P, f); \
