@@ -45,7 +45,6 @@ typedef struct regs_t {
   void *A; // args scratchpad
   void *C; // code pointer
   void *R; // return value
-  void *T; // temporary, used by CLOSURE, CONS and other macros
 
   // constants
   void *Void;
@@ -79,7 +78,6 @@ typedef void (*pfun)(regs_t *regs);
 #define A regs->A
 #define C regs->C
 #define R regs->R
-#define T regs->T
 #define Void regs->Void
 #define Empty regs->Empty
 #define fin regs->fin

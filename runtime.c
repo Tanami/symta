@@ -58,11 +58,13 @@ static void bad_call(regs_t *regs, void *method) {
 
 #define CAR(x) ((void**)getVal(x))[0]
 #define CDR(x) ((void**)getVal(x))[1]
-#define CONS(dst,a,b) \
-  ALLOC(T, b_cons, CONS_POOL, 2); \
-  STORE(T, 0, a); \
-  STORE(T, 1, b); \
-  MOVE(dst, T);
+static void *cons(regs_t *regs, void *a, void *b) {
+  void *t;
+  ALLOC(t, b_cons, CONS_POOL, 2);
+  STORE(t, 0, a);
+  STORE(t, 1, b);
+  return t;
+}
 
 static char *print_object_r(regs_t *regs, char *out, void *o);
 
@@ -210,7 +212,7 @@ BUILTIN0("run",run)
 RETURNS_VOID
 
 BUILTIN0("fin",fin)
-  T = k;
+  R = k;
 RETURNS_VOID
 
 
@@ -584,9 +586,7 @@ RETURNS(FIXNUM(a != b))
 BUILTIN1("cons end",cons_end,C_ANY,o)
 RETURNS(FIXNUM(0))
 BUILTIN2("cons add",cons_add,C_ANY,o,C_ANY,head)
-  void *r;
-  CONS(r, head, o);
-RETURNS(r)
+RETURNS(cons(regs,head, o))
 BUILTIN_HANDLER("list",cons,C_TEXT,x)
   STORE(E, 1, P);
   if (texts_equal(x,s_head)) b_cons_head(regs);
@@ -606,9 +606,7 @@ RETURNS(FIXNUM(a != b))
 BUILTIN1("empty end",empty_end,C_ANY,o)
 RETURNS(FIXNUM(1))
 BUILTIN2("empty add",empty_add,C_ANY,o,C_ANY,head)
-  void *r;
-  CONS(r, head, o);
-RETURNS(r)
+RETURNS(cons(regs,head, o))
 BUILTIN_HANDLER("empty",empty,C_TEXT,x)
   STORE(E, 1, P);
   if (texts_equal(x,s_end)) b_empty_end(regs);
@@ -895,6 +893,8 @@ static regs_t *new_regs() {
   regs_t *regs = (regs_t*)malloc(sizeof(regs_t));
   memset(regs, 0, sizeof(regs_t));
 
+  E = P = A = C = R = Void;
+
   regs->bad_tag = bad_tag;
   regs->handle_args = handle_args;
   regs->print_object_f = print_object_f;
@@ -953,10 +953,11 @@ int main(int argc, char **argv) {
   CLOSURE(host, b_host);
 
   for (i = 0; ; i++) {
+    void *t;
     if (!builtins[i].name) break;
     TEXT(builtins[i].name, builtins[i].name);
-    CLOSURE(T, builtins[i].fun);
-    builtins[i].fun = T;
+    CLOSURE(t, builtins[i].fun);
+    builtins[i].fun = t;
   }
 
   TEXT(s_neg, "neg");
@@ -1006,5 +1007,5 @@ int main(int argc, char **argv) {
 
   entry(regs);
 
-  printf("%s\n", print_object(T));
+  printf("%s\n", print_object(R));
 }
