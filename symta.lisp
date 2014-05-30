@@ -49,14 +49,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! len = length text
   ! (fn msg &rest args ! case msg
       (peek (when (< off len) (aref text off)))
-      (next (! when (< off len)
-               (! last := aref text off
-                ! incf col
-                ! incf off)
-             ! when (eq last #\newline)
-               (! col := 0
-                ! incf row)
-             ! last))
+      (next (when (< off len)
+              (! last := aref text off
+               ! incf col
+               ! incf off
+               ! when (eq last #\newline)
+                 (! col := 0
+                  ! incf row)
+               ! last)))
        (src (list row col g_origin))
        (last last)
        (error (funcall g_error "{row},{col}: {car args}"))))
@@ -945,7 +945,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                        `(,(builtin-expander o)))))
         (("and" a b) `("if" ,a ,b 0))
         (("or" a b) (let ((n (ssa-name "T")))
-                      `("let" ((,n a)) ("if" ,n ,n ,b))))
+                      `("let" ((,n ,a)) ("if" ,n ,n ,b))))
         (("leave" from value)
          (let ((kname (concatenate 'string "_k_" from)))
            `("_call" ,kname ,value)))
