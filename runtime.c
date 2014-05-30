@@ -98,20 +98,43 @@ static char *text_to_cstring(void *o) {
   if (GET_TAG(o) != T_CLOSURE || POOL_HANDLER(o) != b_cons) \
     bad_type(regs, "cons", arg_index, meta)
 
-#define BUILTIN_CHECK_NARGS(expected,tag) \
+#define BUILTIN_CHECK_NARGS(expected,tag,name) \
   if (NARGS != FIXNUM(expected)) { \
-    static void *stag = 0; \
-    if (!stag) TEXT(stag, tag); \
-    regs->handle_args(regs, FIXNUM(expected), stag, Empty); \
+    static void *meta = 0; \
+    static void *ttag = 0; \
+    if (!meta) { \
+      void *t; \
+      LIST(meta, 1); \
+      TEXT(t, name); \
+      REF(meta,0) = t; \
+      if (tag) { \
+        TEXT(ttag, tag); \
+      } else { \
+        ttag = Void; \
+      } \
+    } \
+    regs->handle_args(regs, FIXNUM(expected), ttag, meta); \
     return; \
   }
-#define BUILTIN_CHECK_VARARGS(expected,tag) \
+#define BUILTIN_CHECK_VARARGS(expected,tag,name) \
   if (NARGS < FIXNUM(expected)) { \
-    static void *stag = 0; \
-    if (!stag) TEXT(stag, tag); \
-    regs->handle_args(regs, FIXNUM(-1), stag, Empty); \
+    static void *meta = 0; \
+    static void *ttag = 0; \
+    if (!meta) { \
+      void *t; \
+      LIST(meta, 1); \
+      TEXT(t, name); \
+      REF(meta,0) = t; \
+      if (tag) { \
+        TEXT(ttag, tag); \
+      } else { \
+        ttag = Void; \
+      } \
+    } \
+    regs->handle_args(regs, FIXNUM(-1), ttag, meta); \
     return; \
   }
+
 
 #define CALL0(f,k) \
   LIST(E, 1); \
@@ -134,19 +157,19 @@ static char *text_to_cstring(void *o) {
 #define BUILTIN0(sname, name) \
   static void b_##name(regs_t *regs) { \
   void *k; \
-  BUILTIN_CHECK_NARGS(1,sname); \
+  BUILTIN_CHECK_NARGS(1,0,sname); \
   k = getArg(0);
 #define BUILTIN1(sname,name,a_check,a) \
   static void b_##name(regs_t *regs) { \
   void *k, *a; \
-  BUILTIN_CHECK_NARGS(2,sname); \
+  BUILTIN_CHECK_NARGS(2,0,sname); \
   k = getArg(0); \
   a = getArg(1); \
   a_check(a, 0, sname);
 #define BUILTIN2(sname,name,a_check,a,b_check,b) \
   static void b_##name(regs_t *regs) { \
   void *k, *a, *b; \
-  BUILTIN_CHECK_NARGS(3,sname); \
+  BUILTIN_CHECK_NARGS(3,0,sname); \
   k = getArg(0); \
   a = getArg(1); \
   a_check(a, 0, sname); \
@@ -155,7 +178,7 @@ static char *text_to_cstring(void *o) {
 #define BUILTIN3(sname,name,a_check,a,b_check,b,c_check,c) \
   static void b_##name(regs_t *regs) { \
   void *k, *a, *b,*c; \
-  BUILTIN_CHECK_NARGS(4,sname); \
+  BUILTIN_CHECK_NARGS(4,0,sname); \
   k = getArg(0); \
   a = getArg(1); \
   a_check(a, 0, sname); \
@@ -166,12 +189,12 @@ static char *text_to_cstring(void *o) {
 #define BUILTIN_VARARGS(sname,name) \
   static void b_##name(regs_t *regs) { \
   void *k; \
-  BUILTIN_CHECK_VARARGS(1,sname); \
+  BUILTIN_CHECK_VARARGS(1,0,sname); \
   k = getArg(0);
 #define BUILTIN_HANDLER(sname,name,a_check,a) \
   static void b_##name(regs_t *regs) { \
   void *a; \
-  BUILTIN_CHECK_VARARGS(2,sname); \
+  BUILTIN_CHECK_VARARGS(2,sname,sname); \
   a = getArg(1); \
   a_check(a, 0, sname);
 

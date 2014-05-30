@@ -876,6 +876,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                       `("_set" ,(first x) ,(second x))
                       (second x)))))
 
+(to normalize-ampersand x ! match x (("&" y) y) (else x))
+
 (to normalize-symbol s
   ! unless (stringp s) (return-from normalize-symbol s)
   ! if (var-sym? s) s `("_quote" ,s))
@@ -939,7 +941,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("isnt" a b) `(,a  "isnt" ,b))
         (("&" o) (return-from builtin-expander
                    (if (fn-sym? o)
-                       o
+                       `("&" ,o)
                        `(,(builtin-expander o)))))
         (("and" a b) `("if" ,a ,b 0))
         (("or" a b) (let ((n (ssa-name "T")))
@@ -964,7 +966,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                            (equal (car ys) "_fn")
                            (equal (car ys) "_set")))
                   ys
-                  (cons (car ys) (m y (cdr ys) (normalize-symbol y)))))))))
+                  (m x (cons (car ys) (m y (cdr ys) (normalize-symbol y)))
+                     (normalize-ampersand x)))))))
     (builtin-expander ys)))
       
 (to symta-eval text
