@@ -258,6 +258,8 @@ BUILTIN_HANDLER("void",void,C_TEXT,x)
   else bad_call(regs,x);
 RETURNS_VOID
 
+#define IS_TEXT(o) (GET_TAG(o) == T_CLOSURE && POOL_HANDLER(o) == b_text)
+
 BUILTIN2("text is",text_is,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(IS_TEXT(b) ? texts_equal(a,b) : 0))
 BUILTIN2("text isnt",text_isnt,C_ANY,a,C_ANY,b)
@@ -292,9 +294,9 @@ BUILTIN_HANDLER("text",text,C_TEXT,x)
 RETURNS_VOID
 
 BUILTIN2("text is",fixtext_is,C_ANY,a,C_ANY,b)
-RETURNS(FIXNUM(IS_TEXT(b) ? texts_equal(a,b) : 0))
+RETURNS(FIXNUM(GET_TAG(b) == T_FIXTEXT ? texts_equal(a,b) : 0))
 BUILTIN2("text isnt",fixtext_isnt,C_ANY,a,C_ANY,b)
-RETURNS(FIXNUM(IS_TEXT(b) ? !texts_equal(a,b) : 1))
+RETURNS(FIXNUM(GET_TAG(b) == T_FIXTEXT ? !texts_equal(a,b) : 1))
 BUILTIN1("text size",fixtext_size,C_ANY,o)
   uint64_t x = (uint64_t)o;
   int i = 3;

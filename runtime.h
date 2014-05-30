@@ -93,7 +93,6 @@ typedef void (*pfun)(regs_t *regs);
 
 #define IS_LIST(o) (GET_TAG(o) == T_LIST)
 #define IS_ARGLIST(o) (LIST_SIZE(o) < FIXNUM(MAX_LIST_SIZE))
-#define IS_TEXT(o) (GET_TAG(o) == T_CLOSURE && POOL_HANDLER(o) == b_text)
 
 // FIXME: most of LIST_FLIP uses could be optimized out
 #define LIST_FLIP(o) ((void*)((uintptr_t)(o)^(T_CLOSURE|T_LIST)))

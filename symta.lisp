@@ -57,9 +57,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                  (! col := 0
                   ! incf row)
                ! last)))
-       (src (list row col g_origin))
-       (last last)
-       (error (funcall g_error "{row},{col}: {car args}"))))
+      (src (list row col g_origin))
+      (last last)
+      (error (funcall g_error "{row},{col}: {car args}"))))
 
 (to /add-lexeme dst pattern type
   ! unless pattern (! gethash :type dst := type ! ret nil)
@@ -409,7 +409,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        ! when (eql pos :all)
           (when value (error "can't set ~a" x))
           (unless (eql base 'r) (ssa 'move 'r base))
-          (ssa 'list_flip base base)
+          (ssa 'list_flip 'r 'r)
           (ret nil)
        ! if value
             (ssa 'store base pos value)
@@ -804,7 +804,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   (let* ((key (or keyvar (ssa-name "Key")))
          (b (ssa-name "B"))
          (ys (reduce (lambda (next case)
-                       (let* ((name (ssa-name "C"))
+                       (let* ((name (ssa-name "c"))
                               (miss (if next (second (first next)) `("_call" ,b ,default)))
                               (hit `("_call" ,b ("|" ,@(cdr case)))))
                          `(("=" (,name) ,(expand-hole key (car case) hit miss) )
