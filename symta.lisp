@@ -795,7 +795,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
              ,miss)))
   (when (equal (car hole) "[]")
     (return-from expand-hole
-      `("if" (:empty "is" ("tag_of" ,key))
+      `("if" (("_quote" "list") "is" ("tag_of" ,key))
              ,miss
              ,(expand-list-hole key (cdr hole) hit miss))))
   (error "bad hole: ~a" hole))
@@ -967,7 +967,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                            (equal (car ys) "_set")))
                   ys
                   (m x (cons (car ys) (m y (cdr ys) (normalize-symbol y)))
-                     (normalize-ampersand x)))))))
+                     (normalize-ampersand x))))))))
     (builtin-expander ys)))
       
 (to symta-eval text
