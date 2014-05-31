@@ -20,18 +20,9 @@
 #define T_TAIL    5 /* list without head */
 #define T_FIXTEXT 6 /* immediate text */
 
-
 // sign preserving shifts
 #define ASHL(x,count) ((x)*(1<<(count)))
 #define ASHR(x,count) ((x)/(1<<(count)))
-
-#define MAX_POOLS 1024*100
-#define POOL_SIZE 64
-#define POOL_BYTE_SIZE (POOL_SIZE*sizeof(void*))
-#define POOL_MASK (uintptr_t)(POOL_BYTE_SIZE-1)
-#define POOL_BASE (~POOL_MASK)
-#define POOL_HANDLER(x) (((pfun*)((uintptr_t)(x)&POOL_BASE))[0])
-#define POOL_HEAD_SIZE 1
 #define FIXNUM(x) ASHL((intptr_t)(x),TAG_BITS)
 #define UNFIXNUM(x) ASHR((intptr_t)(x),TAG_BITS)
 
@@ -46,6 +37,9 @@ typedef struct regs_t {
   void *C; // code pointer
   void *R; // return value
 
+  void **H; // heap pointer
+  void **HeapEnd;
+
   // constants
   void *Void;
   void *Empty;
@@ -59,15 +53,11 @@ typedef struct regs_t {
   void (*bad_tag)(struct regs_t *regs);
   void (*handle_args)(struct regs_t *regs, intptr_t expected, void *tag, void *meta);
   char* (*print_object_f)(struct regs_t *regs, void *object);
-  int (*new_pool)();
-  void** (*alloc)(int count);
+  void (*gc)(struct regs_t *regs);
   void *(*alloc_text)(struct regs_t *regs, char *s);
   void (*fixnum)(struct regs_t *regs);
   void (*list)(struct regs_t *regs);
   void (*fixtext)(struct regs_t *regs);
-
-  // for multithreading, caching could be used to get on-demand pools for each thread, minimizing locking
-  void **pools[MAX_POOLS];
 } regs_t;
 
 
@@ -78,13 +68,29 @@ typedef void (*pfun)(regs_t *regs);
 #define A regs->A
 #define C regs->C
 #define R regs->R
+#define H regs->H
+#define HeapEnd regs->HeapEnd
 #define Void regs->Void
 #define Empty regs->Empty
 #define fin regs->fin
 #define run regs->run
 #define host regs->host
 
-// number of arguments to the current function (size of E)
+#define POOL_HANDLER(x) (((pfun*)((void**)((uintptr_t)(x)&~TAG_MASK)-1))[0])
+
+#define ALLOC(dst,code,count) \
+  for (;;) { \
+    dst = (void*)H; \
+    H += (count)+1; \
+    if (H < HeapEnd) { \
+      *(void**)dst = (void*)(code); \
+      dst = (void*)((void**)dst+1); \
+      dst = ADD_TAG(dst,T_CLOSURE); \
+      break; \
+    } \
+    regs->gc(regs); \
+  }
+
 
 #define LIST_SIZE(o) ((intptr_t)POOL_HANDLER(o))
 #define NARGS LIST_SIZE(E)
@@ -98,23 +104,10 @@ typedef void (*pfun)(regs_t *regs);
 #define print_object(object) regs->print_object_f(regs, object)
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 
-#define ALLOC(dst,code,pool,count) \
-  MOVE(dst, regs->pools[pool]); \
-  regs->pools[pool] += count; \
-  if ((((uintptr_t)regs->pools[pool]+(count ? 0 : 1))&POOL_BASE) != ((uintptr_t)dst&POOL_BASE)) { \
-    regs->pools[pool] = regs->alloc(count+POOL_HEAD_SIZE); \
-    *regs->pools[pool]++ = (void*)(code); \
-    if (((uintptr_t)regs->pools[pool]&POOL_MASK) || count>POOL_SIZE-POOL_HEAD_SIZE) { \
-      MOVE(dst, regs->pools[pool]); \
-      regs->pools[pool] += count; \
-    } \
-  } \
-  dst = ADD_TAG(dst,T_CLOSURE);
 
-#define LIST(dst,size) ALLOC(dst,FIXNUM(size),MIN(POOL_SIZE,size),size)
+#define LIST(dst,size) ALLOC(dst,FIXNUM(size),size)
 #define LOAD_FIXNUM(dst,x) dst = (void*)((uintptr_t)(x)<<TAG_BITS)
 #define TEXT(dst,x) dst = regs->alloc_text(regs,(char*)(x))
-#define NEW_POOL(dst) dst = regs->new_pool();
 #define ADD_TAG(src,tag) ((void*)((uintptr_t)(src) | (tag)))
 #define DEL_TAG(src) ((void*)((uintptr_t)(src) & ~(TAG_MASK>>1)))
 #define BRANCH(cond,label) if ((cond) != FIXNUM(0)) { label(regs); return; }

@@ -661,9 +661,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''array place size) (to-c-emit "  LIST(~a, ~a);" place size))
          ((''closure place name size)
           (progn
-            (push (format nil "static int ~a_pool;" name) decls)
-            (push (format nil "NEW_POOL(~a_pool);" name) inits)
-            (to-c-emit "  ALLOC(~a, ~a, ~a_pool, ~a);" place name name size)))
+            ;;(push (format nil "static int ~a_pool;" name) decls)
+            ;;(push (format nil "NEW_POOL(~a_pool);" name) inits)
+            (to-c-emit "  ALLOC(~a, ~a, ~a);" place name size)))
          ((''load dst src off) (to-c-emit "  LOAD(~a, ~a, ~a);" dst src off))
          ((''store dst off src) (to-c-emit "  STORE(~a, ~a, ~a);" dst off src))
          ((''copy dst p src q) (to-c-emit "  COPY(~a, ~a, ~a, ~a);" dst p src q))

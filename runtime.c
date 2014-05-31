@@ -10,32 +10,11 @@ static void b_cons(regs_t*);
 #define getArg(i) REF(E,i)
 #define getVal(x) ((uintptr_t)(x)&~TAG_MASK)
 
-
-static void *heap_base[HEAP_SIZE+POOL_SIZE];
-static void *heap_tags[HEAP_SIZE/4];
+static void *heap0_base[HEAP_SIZE];
+static void *heap1_base[HEAP_SIZE];
+int cur_heap;
 static void **heap_ptr;
 static void **heap_end;
-static int pools_count = 0;
-
-#define LIST_POOL (POOL_SIZE+0)
-#define META_POOL (POOL_SIZE+1)
-#define CONS_POOL (POOL_SIZE+2)
-#define TEXT_POOL (POOL_SIZE+3)
-#define VIEW_POOL (POOL_SIZE+4)
-
-static void **alloc(int count) {
-  void **r = heap_ptr;
-  heap_ptr += (count+POOL_SIZE-1)&~(POOL_SIZE-1);
-  if ((void**)heap_ptr > heap_end) {
-    printf("FIXME: can't alloc %d cells, implement GC\n", count);
-    abort();
-  }
-  return r;
-}
-
-static int new_pool(regs_t *regs) {
-  return pools_count++;
-}
 
 static void bad_type(regs_t *regs, char *expected, int arg_index, char *name) {
   int i, nargs = (int)UNFIXNUM(NARGS);
@@ -54,13 +33,11 @@ static void bad_call(regs_t *regs, void *method) {
   abort();
 }
 
-
-
 #define CAR(x) ((void**)getVal(x))[0]
 #define CDR(x) ((void**)getVal(x))[1]
 static void *cons(regs_t *regs, void *a, void *b) {
   void *t;
-  ALLOC(t, b_cons, CONS_POOL, 2);
+  ALLOC(t, b_cons, 2);
   STORE(t, 0, a);
   STORE(t, 1, b);
   return t;
@@ -343,7 +320,7 @@ RETURNS_VOID
 
 
 #define VIEW(dst,o,start,size) \
-  ALLOC(dst,b_view,VIEW_POOL, (sizeof(void*) < 8 ? 3 : 2)); \
+  ALLOC(dst, b_view, (sizeof(void*) < 8 ? 3 : 2)); \
   STORE(dst, 0, o); \
   REF4(dst,sizeof(void*)/4) = (uint32_t)(start); \
   REF4(dst,sizeof(void*)/4+1) = (uint32_t)(size);
@@ -606,7 +583,10 @@ RETURNS(FIXNUM(a != b))
 BUILTIN1("empty end",empty_end,C_ANY,o)
 RETURNS(FIXNUM(1))
 BUILTIN2("empty add",empty_add,C_ANY,o,C_ANY,head)
-RETURNS(cons(regs,head, o))
+  void *t;
+  LIST(t,1);
+  STORE(t,0,head);
+RETURNS(LIST_FLIP(t))
 BUILTIN_HANDLER("empty",empty,C_TEXT,x)
   STORE(E, 1, P);
   if (texts_equal(x,s_end)) b_empty_end(regs);
@@ -616,9 +596,8 @@ BUILTIN_HANDLER("empty",empty,C_TEXT,x)
   else bad_call(regs,x);
 RETURNS_VOID
 
-// FIXME: we can re-use single META_POOL, changing only `k`
 BUILTIN1("tag_of",tag_of,C_ANY,a)
-  ALLOC(E, FIXNUM(0), META_POOL, 1); // signal that we want meta-info
+  ALLOC(E, FIXNUM(0), 1); // signal that we want meta-info
   STORE(E, 0, k);
   CALL_TAGGED(a);
 RETURNS_VOID
@@ -707,7 +686,7 @@ static void *alloc_text(regs_t *regs, char *s) {
 
   l = strlen(s);
   a = (l+4+TAG_MASK)>>TAG_BITS;
-  ALLOC(r, b_text, TEXT_POOL, a);
+  ALLOC(r, b_text, a);
   REF4(r,0) = (uint32_t)FIXNUM(l);
   memcpy(&REF1(r,4), s, l);
   return r;
@@ -775,11 +754,6 @@ BUILTIN_VARARGS("host",host)
   int i,j, n = (int)UNFIXNUM(NARGS)-1;
   void *f;
 
-  if (n >= POOL_SIZE-2) {
-    printf("host: implement large lists\n");
-    abort();
-  }
-
   f = getArg(1);
   LIST(A, n);
   STORE(A, 0, k);
@@ -801,8 +775,6 @@ BUILTIN_VARARGS("host",host)
   MOVE(E, A);
   CALL_TAGGED(f);
 RETURNS_VOID
-
-
 
 
 
@@ -888,6 +860,12 @@ static void handle_args(regs_t *regs, intptr_t expected, void *tag, void *meta) 
   abort();
 }
 
+
+static void gc(regs_t *regs) {
+  printf("implement GC\n");
+  abort();
+}
+
 static regs_t *new_regs() {
   int i;
   regs_t *regs = (regs_t*)malloc(sizeof(regs_t));
@@ -898,24 +876,16 @@ static regs_t *new_regs() {
   regs->bad_tag = bad_tag;
   regs->handle_args = handle_args;
   regs->print_object_f = print_object_f;
-  regs->new_pool = new_pool;
-  regs->alloc = alloc;
+  regs->gc = gc;
   regs->alloc_text = alloc_text;
   regs->fixnum = b_fixnum;
   regs->list = b_list;
   regs->fixtext = b_fixtext;
   
-  // mark pools as full
-  for (i = 0; i < MAX_POOLS; i++) regs->pools[i] = (void*)POOL_MASK;
-
   return regs;
 }
 
-#define CLOSURE(dst,code) \
-  { \
-    int builtin_pool = regs->new_pool(); \
-    ALLOC(dst, code, builtin_pool, 0); \
-  }
+#define CLOSURE(dst,code) { ALLOC(dst, code, 0); }
 
 int main(int argc, char **argv) {
   int i;
@@ -931,19 +901,13 @@ int main(int argc, char **argv) {
 
   module = argv[1];
 
-  heap_ptr = (void**)((uintptr_t)(heap_base + POOL_SIZE) & POOL_BASE);
+  cur_heap = 0;
+  heap_ptr = heap0_base;
   heap_end = heap_ptr + HEAP_SIZE;
 
   regs = new_regs();
-
-  // multi-list pools
-  for (i = 0; i < POOL_SIZE; i++) regs->new_pool();
-
-  regs->new_pool(); // list pool
-  regs->new_pool(); // meta pool
-  regs->new_pool(); // cons pool
-  regs->new_pool(); // text pool
-  regs->new_pool(); // view pool
+  H = heap_ptr;
+  HeapEnd = heap_end;
 
   CLOSURE(Void, b_void);
   CLOSURE(Empty, b_empty);
