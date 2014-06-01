@@ -10,11 +10,10 @@ static void b_cons(regs_t*);
 #define getArg(i) REF(E,i)
 #define getVal(x) ((uintptr_t)(x)&~TAG_MASK)
 
-static void *heap0_base[HEAP_SIZE];
-static void *heap1_base[HEAP_SIZE];
-int cur_heap;
-static void **heap_ptr;
-static void **heap_end;
+#define STATICS_SIZE (100*1024)
+static void *heapS[STATICS_SIZE]; // heap for static objects
+static void *heap0[HEAP_SIZE];
+static void *heap1[HEAP_SIZE];
 
 static void bad_type(regs_t *regs, char *expected, int arg_index, char *name) {
   int i, nargs = (int)UNFIXNUM(NARGS);
@@ -92,7 +91,7 @@ static char *text_to_cstring(void *o) {
         ttag = Void; \
       } \
     } \
-    regs->handle_args(regs, FIXNUM(expected), ttag, meta); \
+    regs->handle_args(regs, FIXNUM(expected), 0, ttag, meta); \
     return; \
   }
 #define BUILTIN_CHECK_VARARGS(expected,tag,name) \
@@ -110,7 +109,7 @@ static char *text_to_cstring(void *o) {
         ttag = Void; \
       } \
     } \
-    regs->handle_args(regs, FIXNUM(-1), ttag, meta); \
+    regs->handle_args(regs, FIXNUM(-1), 0, ttag, meta); \
     return; \
   }
 
@@ -200,12 +199,15 @@ static void *s_shl, *s_shr;
 static void *s_head, *s_tail, *s_add, *s_end, *s_code, *s_text;
 static void *s_x; //duplicate
 
+#define TEXT_SIZE(o) UNFIXNUM(REF4(o,0))
+#define TEXT_DATA(o) ((char*)&REF1(o,4))
+
 static int texts_equal(void *a, void *b) {
-  uint32_t al, bl;
+  intptr_t al, bl;
   if (GET_TAG(a) == T_FIXTEXT || GET_TAG(b) == T_FIXTEXT) return a == b;
-  al = REF4(a,0);
-  bl = REF4(b,0);
-  return al == bl && !memcmp(&REF1(a,4), &REF1(b,4), UNFIXNUM(al));
+  al = TEXT_SIZE(a);
+  bl = TEXT_SIZE(b);
+  return al == bl && !memcmp(TEXT_DATA(a), TEXT_DATA(b), UNFIXNUM(al));
 }
 
 
@@ -239,12 +241,13 @@ RETURNS_VOID
 
 #define IS_TEXT(o) (GET_TAG(o) == T_CLOSURE && POOL_HANDLER(o) == b_text)
 
+
 BUILTIN2("text is",text_is,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(IS_TEXT(b) ? texts_equal(a,b) : 0))
 BUILTIN2("text isnt",text_isnt,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(IS_TEXT(b) ? !texts_equal(a,b) : 1))
 BUILTIN1("text size",text_size,C_ANY,o)
-RETURNS((uintptr_t)REF4(o,0))
+RETURNS(TEXT_SIZE(o))
 BUILTIN2("text {}",text_get,C_ANY,o,C_FIXNUM,index)
   void *r;
   char t[2];
@@ -597,7 +600,7 @@ BUILTIN_HANDLER("empty",empty,C_TEXT,x)
 RETURNS_VOID
 
 BUILTIN1("tag_of",tag_of,C_ANY,a)
-  ALLOC(E, FIXNUM(0), 1); // signal that we want meta-info
+  ALLOC(E, FIXNUM(0), 1); // signal that we want tag
   STORE(E, 0, k);
   CALL_TAGGED(a);
 RETURNS_VOID
@@ -776,8 +779,6 @@ BUILTIN_VARARGS("host",host)
   CALL_TAGGED(f);
 RETURNS_VOID
 
-
-
 static char *print_object_r(regs_t *regs, char *out, void *o) {
   int i;
   int tag = GET_TAG(o);
@@ -801,8 +802,8 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
       }
       out += sprintf(out, ")");
     } else if (handler == b_text) {
-      intptr_t size = UNFIXNUM(REF4(o,0));
-      char *p = (char*)&REF1(o,4);
+      int size = (int)TEXT_SIZE(o);
+      char *p = TEXT_DATA(o);
       while (size-- > 0) *out++ = *p++;
       *out = 0;
     } else if (handler == b_cons) {
@@ -843,16 +844,20 @@ static void bad_tag(regs_t *regs) {
   abort();
 }
 
-static void handle_args(regs_t *regs, intptr_t expected, void *tag, void *meta) {
+static void handle_args(regs_t *regs, intptr_t expected, int size, void *tag, void *meta) {
   intptr_t got = NARGS;
   void *k = getArg(0);
   if (got == FIXNUM(0)) { //request for tag
     CALL0(k, tag);
     return;
   } else if (got == FIXNUM(-1)) {
+    STORE(E, 0, (intptr_t)size);
+    return;
+  } else if (got == FIXNUM(-2)) {
     CALL0(k, meta);
     return;
   }
+
   if (meta != Empty) {
   }
   printf("bad number of arguments: got=%ld, expected=%ld\n", UNFIXNUM(got)-1, UNFIXNUM(expected)-1);
@@ -861,9 +866,80 @@ static void handle_args(regs_t *regs, intptr_t expected, void *tag, void *meta) 
 }
 
 
+static void *closure_size_result;
+static void **gc_heap;
+
+static void *gc_move(regs_t *regs, void *o) {
+  void *p, *q;
+  int i, size, tag = GET_TAG(o);
+
+  if (tag == T_FIXNUM || tag == T_FIXTEXT) return o;
+
+  // FIXME: check if outside reference is valid (static or unmanaged object)
+  if ((void**)o < gc_heap || (void**)o >= gc_heap+HEAP_SIZE) return o;
+
+  if (tag == T_CLOSURE) {
+    pfun handler = POOL_HANDLER(o);
+
+    // already moved?
+    if ((void**)handler >= H && (void**)handler < H+HEAP_SIZE) return handler;
+
+    if (IS_ARGLIST(o)) {
+      goto list_mover;
+    }
+
+    if (handler == b_view) {
+      uint32_t start = VIEW_START(o);
+      int size = (int)UNFIXNUM(VIEW_SIZE(o));
+      VIEW(p, 0, start, size);
+      STORE(o, -1, p);
+      q = ADD_TAG(&VIEW_REF(o,0,0), T_LIST);
+      STORE(p, 0, &REF(gc_move(regs, q), 0));
+    } else if (handler == b_text) {
+      TEXT(p, TEXT_DATA(o));
+      STORE(o, -1, p);
+    } else if (handler == b_cons) {
+      p = cons(regs, 0, 0);
+      STORE(o, -1, p);
+      CAR(p) = gc_move(regs, CAR(o));
+      CDR(p) = gc_move(regs, CDR(o));
+    } else {
+      MOVE(E, closure_size_result);
+      CALL(o);
+      size = UNFIXNUM(REF(closure_size_result, 0));
+      LIST(p, size);
+      for (i = 0; i < size; i++) {
+        STORE(p, i, gc_move(regs, REF(o,i)));
+      }
+    }
+  } else if (tag == T_LIST) {
+    o = LIST_FLIP(o);
+list_mover:
+    size = (int)UNFIXNUM(POOL_HANDLER(o));
+    LIST(p, size);
+    STORE(o, -1, p);
+    for (i = 0; i < size; i++) {
+      STORE(p, i, gc_move(regs, REF(o,i)));
+    }
+    p = ADD_TAG(DEL_TAG(p), tag);
+  } else {
+    printf("cant gc #(ufo %d %p)\n", tag, o);
+    abort();
+  }
+  return p;
+}
+
 static void gc(regs_t *regs) {
-  printf("implement GC\n");
-  abort();
+  void *sE=E, *sP=P, *sA=A, *sC=C, *sR=R;
+  void *gc_heap = heap0+HEAP_SIZE == HeapEnd ? heap0 : heap1;
+  H = gc_heap == heap0 ? heap1 : heap0;
+  HeapEnd = H + HEAP_SIZE;
+
+  E = gc_move(regs, sE);
+  P = gc_move(regs, sP);
+  A = gc_move(regs, sA);
+  C = gc_move(regs, sC);
+  R = gc_move(regs, sR);
 }
 
 static regs_t *new_regs() {
@@ -887,6 +963,9 @@ static regs_t *new_regs() {
 
 #define CLOSURE(dst,code) { ALLOC(dst, code, 0); }
 
+
+
+
 int main(int argc, char **argv) {
   int i;
   char *module;
@@ -901,13 +980,10 @@ int main(int argc, char **argv) {
 
   module = argv[1];
 
-  cur_heap = 0;
-  heap_ptr = heap0_base;
-  heap_end = heap_ptr + HEAP_SIZE;
-
   regs = new_regs();
-  H = heap_ptr;
-  HeapEnd = heap_end;
+
+  H = heapS;
+  HeapEnd = H+STATICS_SIZE;
 
   CLOSURE(Void, b_void);
   CLOSURE(Empty, b_empty);
@@ -915,6 +991,8 @@ int main(int argc, char **argv) {
   CLOSURE(run, b_run);
   CLOSURE(fin, b_fin);
   CLOSURE(host, b_host);
+
+  ALLOC(closure_size_result, FIXNUM(-1), 1); // signal that we want closure size
 
   for (i = 0; ; i++) {
     void *t;
@@ -968,6 +1046,9 @@ int main(int argc, char **argv) {
     printf("dlsym couldnt find symbol `entry` in %s\n", module);
     abort();
   }
+
+  H = heap0;
+  HeapEnd = H + HEAP_SIZE;
 
   entry(regs);
 

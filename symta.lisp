@@ -457,9 +457,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                       (cons (mapcar #'ssa-resolved args) *ssa-env*)
      ! *ssa-closure* = cons nil *ssa-closure*
      ! ssa 'label *ssa-ns*
+     ! size-var = format nil "~a_size" f
      ! if (stringp args)
-          (ssa 'check_varargs (get-meta o))
-          (ssa 'check_nargs (length args) (get-meta o))
+          (ssa 'check_varargs size-var (get-meta o))
+          (ssa 'check_nargs (length args) size-var (get-meta o))
      ! produce-ssa body
      ! push *ssa-out* *ssa-fns*
      ! setf cs (car *ssa-closure*)
@@ -661,6 +662,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''array place size) (to-c-emit "  LIST(~a, ~a);" place size))
          ((''closure place name size)
           (progn
+            (push (format nil "#define ~a_size ~a" name size) decls)
             ;;(push (format nil "static int ~a_pool;" name) decls)
             ;;(push (format nil "NEW_POOL(~a_pool);" name) inits)
             (to-c-emit "  ALLOC(~a, ~a, ~a);" place name size)))
@@ -680,8 +682,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (let ((name (ssa-name "s")))
             (to-c-emit "  MOVE(~a, ~a);" dst name))
           (abort))
-         ((''check_nargs expected meta) (to-c-emit "  CHECK_NARGS(~a, ~a);" expected (or meta "Empty")))
-         ((''check_varargs meta) (to-c-emit "  CHECK_VARARGS(~a);" (or meta "Empty")))
+         ((''check_nargs expected size meta)
+          (to-c-emit "  CHECK_NARGS(~a, ~a, ~a);" expected size (or meta "Empty")))
+         ((''check_varargs size meta) (to-c-emit "  CHECK_VARARGS(~a_size, ~a);" size (or meta "Empty")))
          (else (error "invalid ssa: ~a" x))))
     (to-c-emit "}~%")
     (to-c-emit "static void ~a(regs_t *regs) {" inits-name)

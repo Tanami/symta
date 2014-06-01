@@ -9,6 +9,8 @@
 #define TAG_BITS ((uintptr_t)3)
 #define TAG_MASK (((uintptr_t)1<<TAG_BITS)-1)
 #define GET_TAG(x) ((uintptr_t)(x)&TAG_MASK)
+#define ADD_TAG(src,tag) ((void*)((uintptr_t)(src) | (tag)))
+#define DEL_TAG(src) ((void*)((uintptr_t)(src) & ~TAG_MASK))
 
 #define SIGN_BIT ((uintptr_t)1<<(sizeof(uintptr_t)*8-1))
 
@@ -51,7 +53,7 @@ typedef struct regs_t {
 
   // runtime's C API
   void (*bad_tag)(struct regs_t *regs);
-  void (*handle_args)(struct regs_t *regs, intptr_t expected, void *tag, void *meta);
+  void (*handle_args)(struct regs_t *regs, intptr_t expected, int size, void *tag, void *meta);
   char* (*print_object_f)(struct regs_t *regs, void *object);
   void (*gc)(struct regs_t *regs);
   void *(*alloc_text)(struct regs_t *regs, char *s);
@@ -76,6 +78,7 @@ typedef void (*pfun)(regs_t *regs);
 #define run regs->run
 #define host regs->host
 
+//#define POOL_HANDLER(x) (((pfun*)((void**)((uintptr_t)(x)&~TAG_MASK)-1))[0])
 #define POOL_HANDLER(x) (((pfun*)((void**)((uintptr_t)(x)&~TAG_MASK)-1))[0])
 
 #define ALLOC(dst,code,count) \
@@ -108,8 +111,6 @@ typedef void (*pfun)(regs_t *regs);
 #define LIST(dst,size) ALLOC(dst,FIXNUM(size),size)
 #define LOAD_FIXNUM(dst,x) dst = (void*)((uintptr_t)(x)<<TAG_BITS)
 #define TEXT(dst,x) dst = regs->alloc_text(regs,(char*)(x))
-#define ADD_TAG(src,tag) ((void*)((uintptr_t)(src) | (tag)))
-#define DEL_TAG(src) ((void*)((uintptr_t)(src) & ~(TAG_MASK>>1)))
 #define BRANCH(cond,label) if ((cond) != FIXNUM(0)) { label(regs); return; }
 #define CALL(f) MOVE(P, f); POOL_HANDLER(f)(regs);
 #define CALL_TAGGED(f) \
@@ -133,14 +134,14 @@ typedef void (*pfun)(regs_t *regs);
 #define COPY(dst,dst_off,src,src_off) REF(dst,dst_off) = REF(src,src_off)
 #define MOVE(dst,src) dst = (void*)(src)
 
-#define CHECK_NARGS(expected,tag) \
+#define CHECK_NARGS(expected,size,tag) \
   if (NARGS != FIXNUM(expected)) { \
-    regs->handle_args(regs, FIXNUM(expected), tag, Empty); \
+    regs->handle_args(regs, FIXNUM(expected), size, tag, Empty); \
     return; \
   }
-#define CHECK_VARARGS(tag) \
+#define CHECK_VARARGS(size,tag) \
   if (NARGS < FIXNUM(1)) { \
-    regs->handle_args(regs, -1, tag, Empty); \
+    regs->handle_args(regs, FIXNUM(-1), size, tag, Empty); \
     return; \
   }
 
