@@ -35,11 +35,12 @@ static void bad_call(regs_t *regs, void *method) {
 #define CAR(x) ((void**)getVal(x))[0]
 #define CDR(x) ((void**)getVal(x))[1]
 static void *cons(regs_t *regs, void *a, void *b) {
-  void *t;
-  ALLOC(t, b_cons, 2);
-  STORE(t, 0, a);
-  STORE(t, 1, b);
-  return t;
+  A = a;
+  P = b;
+  ALLOC(R, b_cons, 2);
+  STORE(R, 0, A);
+  STORE(R, 1, P);
+  return R;
 }
 
 static char *print_object_r(regs_t *regs, char *out, void *o);
@@ -111,49 +112,51 @@ static char *text_to_cstring(void *o) {
 
 
 #define CALL0(f,k) \
-  LIST(E, 1); \
-  STORE(E, 0, k); \
+  LIST(A, 1); \
+  STORE(A, 0, k); \
+  MOVE(E, A); \
   CALL(f);
 
 #define CALL1(f,k,a) \
-  LIST(E, 2); \
-  STORE(E, 0, k); \
-  STORE(E, 1, a); \
+  LIST(A, 2); \
+  STORE(A, 0, k); \
+  STORE(A, 1, a); \
+  MOVE(E, A); \
   CALL(f);
 
 #define CALL2(f,k,a,b) \
-  LIST(E, 3); \
-  STORE(E, 0, k); \
-  STORE(E, 1, a); \
-  STORE(E, 2, b); \
+  LIST(A, 3); \
+  STORE(A, 0, k); \
+  STORE(A, 1, a); \
+  STORE(A, 2, b); \
+  MOVE(E, A); \
   CALL(f);
 
 #define BUILTIN0(sname, name) \
   static void b_##name(regs_t *regs) { \
-  void *k; \
   BUILTIN_CHECK_NARGS(1,0,sname); \
-  k = getArg(0);
+  C = getArg(0);
 #define BUILTIN1(sname,name,a_check,a) \
   static void b_##name(regs_t *regs) { \
-  void *k, *a; \
+  void *a; \
   BUILTIN_CHECK_NARGS(2,0,sname); \
-  k = getArg(0); \
+  C = getArg(0); \
   a = getArg(1); \
   a_check(a, 0, sname);
 #define BUILTIN2(sname,name,a_check,a,b_check,b) \
   static void b_##name(regs_t *regs) { \
-  void *k, *a, *b; \
+  void *a, *b; \
   BUILTIN_CHECK_NARGS(3,0,sname); \
-  k = getArg(0); \
+  C = getArg(0); \
   a = getArg(1); \
   a_check(a, 0, sname); \
   b = getArg(2); \
   b_check(b, 1, sname);
 #define BUILTIN3(sname,name,a_check,a,b_check,b,c_check,c) \
   static void b_##name(regs_t *regs) { \
-  void *k, *a, *b,*c; \
+  void *a, *b,*c; \
   BUILTIN_CHECK_NARGS(4,0,sname); \
-  k = getArg(0); \
+  C = getArg(0); \
   a = getArg(1); \
   a_check(a, 0, sname); \
   b = getArg(2); \
@@ -162,9 +165,8 @@ static char *text_to_cstring(void *o) {
   c_check(c, 1, sname);
 #define BUILTIN_VARARGS(sname,name) \
   static void b_##name(regs_t *regs) { \
-  void *k; \
   BUILTIN_CHECK_VARARGS(1,0,sname); \
-  k = getArg(0);
+  C = getArg(0);
 #define BUILTIN_HANDLER(sname,name,a_check,a) \
   static void b_##name(regs_t *regs) { \
   void *a; \
@@ -173,18 +175,18 @@ static char *text_to_cstring(void *o) {
   a_check(a, 0, sname);
 
 
-#define RETURNS(r) CALL0(k,(void*)(r)); }
+#define RETURNS(r) CALL0(C,(void*)(r)); }
 #define RETURNS_VOID }
 
 // E[0] = environment, E[1] = continuation, E[2] = function_name
 // run continuation recieves entry point into user specified program
 // which it runs with supplied host resolver, which resolves all builtin symbols
 BUILTIN0("run",run)
-  CALL1(k,fin,host);
+  CALL1(C,fin,host);
 RETURNS_VOID
 
 BUILTIN0("fin",fin)
-  R = k;
+  R = C;
 RETURNS_VOID
 
 
@@ -317,10 +319,9 @@ BUILTIN_HANDLER("text",fixtext,C_TEXT,x)
 RETURNS_VOID
 
 
-
-#define VIEW(dst,o,start,size) \
+#define VIEW(dst,base,start,size) \
   ALLOC(dst, b_view, (sizeof(void*) < 8 ? 3 : 2)); \
-  STORE(dst, 0, o); \
+  STORE(dst, 0, base); \
   REF4(dst,sizeof(void*)/4) = (uint32_t)(start); \
   REF4(dst,sizeof(void*)/4+1) = (uint32_t)(size);
 #define VIEW_START(o) REF4(o,sizeof(void*)/4)
@@ -338,8 +339,8 @@ BUILTIN2("view {}",view_get,C_ANY,o,C_FIXNUM,index)
   uint32_t size = VIEW_SIZE(o);
   if (size <= (uint32_t)(uintptr_t)index) {
     printf("index out of bounds\n");
-    TEXT(P, "{}");
-    bad_call(regs,P);
+    TEXT(R, "{}");
+    bad_call(regs,R);
   }
 RETURNS(VIEW_REF(o, start, UNFIXNUM(index)))
 BUILTIN3("view {!}",view_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
@@ -357,14 +358,14 @@ RETURNS(FIXNUM(0))
 BUILTIN1("view head",view_head,C_ANY,o)
 RETURNS(VIEW_REF(o, VIEW_START(o), 0))
 BUILTIN1("view tail",view_tail,C_ANY,o)
-  void *r;
   uint32_t size = UNFIXNUM(VIEW_SIZE(o));
-  if (size == 1) r = Empty;
+  if (size == 1) R = Empty;
   else {
     uint32_t start = VIEW_START(o);
-    VIEW(r, &VIEW_REF(o,0,0), start+1, FIXNUM(size-1));
+    A = o;
+    VIEW(R, &VIEW_REF(A,0,0), start+1, FIXNUM(size-1));
   }
-RETURNS(r)
+RETURNS(R)
 BUILTIN2("view add",view_add,C_ANY,o,C_ANY,x)
   void *r;
   void **p, **q;
@@ -388,10 +389,6 @@ BUILTIN_HANDLER("list",view,C_TEXT,x)
   else if (texts_equal(x,s_add)) b_view_add(regs);
   else bad_call(regs,x);
 RETURNS_VOID
-
-
-
-
 
 BUILTIN2("list is",list_is,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a == b))
@@ -422,25 +419,24 @@ BUILTIN1("list head",list_head,C_ANY,o)
   o = LIST_FLIP(o);
 RETURNS(REF(o,0))
 BUILTIN1("list tail",list_tail,C_ANY,o)
-  void *r;
   intptr_t size = UNFIXNUM(POOL_HANDLER(o));
-  if (size == 1) r = Empty;
+  if (size == 1) R = Empty;
   else {
-    o = LIST_FLIP(o);
-    VIEW(r, &REF(o,0), 1, FIXNUM(size-1));
+    A = o;
+    VIEW(R, &REF(LIST_FLIP(A),0), 1, FIXNUM(size-1));
   }
-RETURNS(r)
+RETURNS(R)
 BUILTIN2("list add",list_add,C_ANY,o,C_ANY,x)
-  void *r;
   void **p, **q;
   intptr_t s = UNFIXNUM(POOL_HANDLER(o));
-  LIST(r, s+1);
-  p = &REF(r,0);
-  *p++ = x;
+  A = x;
+  LIST(R, s+1);
+  p = &REF(R,0);
+  *p++ = A;
   o = LIST_FLIP(o);
   q = &REF(o,0);
   while(s-- > 0) *p++ = *q++;
-RETURNS(LIST_FLIP(r))
+RETURNS(LIST_FLIP(R))
 BUILTIN_HANDLER("list",list,C_TEXT,x)
   STORE(E, 1, P);
   if (texts_equal(x,s_get)) b_list_get(regs);
@@ -456,19 +452,18 @@ BUILTIN_HANDLER("list",list,C_TEXT,x)
 RETURNS_VOID
 
 BUILTIN_VARARGS("[list]",make_list)
-  void *r;
   void **p, **q;
   int size = (int)UNFIXNUM(NARGS)-1;
   int i;
-  if (size == 0) r = Empty;
+  if (size == 0) R = Empty;
   else {
-    LIST(r, size);
-    p = &REF(r,0);
+    LIST(R, size);
+    p = &REF(R,0);
     q = &REF(E,1);
     while (size-- > 0) *p++ = *q++;
-    r = LIST_FLIP(r);
+    R = LIST_FLIP(R);
   }
-RETURNS(r)
+RETURNS(R)
 
 BUILTIN1("integer neg",integer_neg,C_ANY,o)
 RETURNS(-(intptr_t)o)
@@ -505,20 +500,20 @@ RETURNS((intptr_t)a<<UNFIXNUM(b))
 BUILTIN2("integer shr",integer_shr,C_ANY,a,C_FIXNUM,b)
 RETURNS(((intptr_t)a>>UNFIXNUM(b))&~(TAG_MASK>>1))
 BUILTIN2("integer x",integer_x,C_ANY,size,C_ANY,init)
-  void *r;
   void **p;
   intptr_t s = UNFIXNUM(size);
   if (s < 0) {
     TEXT(R,"integer x");
     bad_call(regs, R);
-  } else if (s == 0) {
-    r = Empty;
+  } else if (size == 0) {
+    R = Empty;
   } else {
-    LIST(r,s);
-    p = &REF(r,0);
-    while(s-- > 0) *p++ = init;
+    A = init;
+    LIST(R,s);
+    p = &REF(R,0);
+    while(s-- > 0) *p++ = A;
   }
-RETURNS(LIST_FLIP(r))
+RETURNS(LIST_FLIP(R))
 BUILTIN1("integer end",integer_end,C_ANY,o)
 RETURNS(FIXNUM(1))
 BUILTIN1("integer text",integer_text,C_ANY,o)
@@ -562,7 +557,7 @@ RETURNS(FIXNUM(a != b))
 BUILTIN1("cons end",cons_end,C_ANY,o)
 RETURNS(FIXNUM(0))
 BUILTIN2("cons add",cons_add,C_ANY,o,C_ANY,head)
-RETURNS(cons(regs,head, o))
+RETURNS(cons(regs, head, o))
 BUILTIN_HANDLER("list",cons,C_TEXT,x)
   STORE(E, 1, P);
   if (texts_equal(x,s_head)) b_cons_head(regs);
@@ -582,10 +577,10 @@ RETURNS(FIXNUM(a != b))
 BUILTIN1("empty end",empty_end,C_ANY,o)
 RETURNS(FIXNUM(1))
 BUILTIN2("empty add",empty_add,C_ANY,o,C_ANY,head)
-  void *t;
-  LIST(t,1);
-  STORE(t,0,head);
-RETURNS(LIST_FLIP(t))
+  A = head;
+  LIST(R, 1);
+  STORE(R, 0, A);
+RETURNS(LIST_FLIP(R))
 BUILTIN_HANDLER("empty",empty,C_TEXT,x)
   STORE(E, 1, P);
   if (texts_equal(x,s_end)) b_empty_end(regs);
@@ -596,9 +591,11 @@ BUILTIN_HANDLER("empty",empty,C_TEXT,x)
 RETURNS_VOID
 
 BUILTIN1("tag_of",tag_of,C_ANY,a)
-  ALLOC(E, FIXNUM(0), 1); // signal that we want tag
-  STORE(E, 0, k);
-  CALL_TAGGED(a);
+  R = a;
+  ALLOC(A, FIXNUM(0), 1); // signal that we want tag
+  STORE(A, 0, C);
+  MOVE(E, A);
+  CALL_TAGGED(R);
 RETURNS_VOID
 
 BUILTIN0("halt",halt)
@@ -607,7 +604,7 @@ BUILTIN0("halt",halt)
 RETURNS_VOID
 
 BUILTIN1("log",log,C_ANY,a)
-  printf("log: %s\n", print_object(a));
+  fprintf(stderr, "log: %s\n", print_object(a));
 RETURNS(a)
 
 BUILTIN1("set_error_handler",set_error_handler,C_ANY,h)
@@ -662,15 +659,8 @@ static int text_immediate_decode(char *dst, void *r) {
   return p-(uint8_t*)dst;
 }
 
-
-// FIXME1: use different pool-descriptors to encode length
-// FIXME2: immediate encoding for text:
-//         one 7-bit char, then nine 6-bit chars (61 bit in total)
-//         7-bit char includes complete ASCII
-//         6-bit char includes all letters, all digits `_` and 0 (to indicate EOF)
 static void *alloc_text(regs_t *regs, char *s) {
   int l, a;
-  void *r;
   char buf[1024];
 
   if (is_unicode(s)) {
@@ -678,17 +668,15 @@ static void *alloc_text(regs_t *regs, char *s) {
     abort();
   }
 
-  r = text_immediate_encoding(s);
-  if (r) return r;
-  //text_immediate_decode(buf, r);
-  //printf("%p = `%s` = `%s`\n", r, s, buf);
+  R = text_immediate_encoding(s);
+  if (R) return R;
 
   l = strlen(s);
   a = (l+4+TAG_MASK)>>TAG_BITS;
-  ALLOC(r, b_text, a);
-  REF4(r,0) = (uint32_t)FIXNUM(l);
-  memcpy(&REF1(r,4), s, l);
-  return r;
+  ALLOC(R, b_text, a);
+  REF4(R,0) = (uint32_t)FIXNUM(l);
+  memcpy(&REF1(R,4), s, l);
+  return R;
 }
 
 static char *read_whole_file_as_string(char *input_file_name) {
@@ -707,16 +695,15 @@ static char *read_whole_file_as_string(char *input_file_name) {
 }
 
 BUILTIN1("read_file_as_text",read_file_as_text,C_TEXT,filename_text)
-  void *r;
   char *filename = text_to_cstring(filename_text);
   char *contents = read_whole_file_as_string(filename);
   if (contents) {
-    TEXT(r, contents);
+    TEXT(R, contents);
     free(contents);
   } else {
-    r = Void;
+    R = Void;
   }
-RETURNS(r)
+RETURNS(R)
 
 BUILTIN2("_apply",_apply,C_ANY,f,C_ANY,args)
   // NOTE: no typecheck, because this function should be hidden from user
@@ -755,7 +742,7 @@ BUILTIN_VARARGS("host",host)
 
   f = getArg(1);
   LIST(A, n);
-  STORE(A, 0, k);
+  STORE(A, 0, C);
   for (j = 1; j < n; j++) {
     void *name = getArg(j+1);
     C_TEXT(name, j, "host");
@@ -850,11 +837,9 @@ static void handle_args(regs_t *regs, intptr_t expected, intptr_t size, void *ta
     STORE(E, 0, (intptr_t)size);
     return;
   } else if (got == FIXNUM(-2)) {
-  abort();
     CALL0(k, meta);
     return;
   }
-  //printf("%ld\n", UNFIXNUM(expected));
 
   if (meta != Empty) {
   }
@@ -957,12 +942,6 @@ static void gc(regs_t *regs) {
   // ensure future GC wont get garbage in uninited arrays
   memset(H, 0, HEAP_SIZE*sizeof(void*));
 
-  /*fprintf(stderr, "%s\n", print_object(E));
-  fprintf(stderr, "%s\n", print_object(P));
-  fprintf(stderr, "%s\n", print_object(A));
-  fprintf(stderr, "%s\n", print_object(C));
-  fprintf(stderr, "%s\n", print_object(R));*/
-
   sE = gc_move(regs, sE);
   sP = gc_move(regs, sP);
   sA = gc_move(regs, sA);
@@ -974,12 +953,6 @@ static void gc(regs_t *regs) {
   A = sA;
   C = sC;
   R = sR;
-
-  /*fprintf(stderr, "%s\n", print_object(E));
-  fprintf(stderr, "%s\n", print_object(P));
-  fprintf(stderr, "%s\n", print_object(A));
-  fprintf(stderr, "%s\n", print_object(C));
-  fprintf(stderr, "%s\n", print_object(R));*/
 }
 
 static regs_t *new_regs() {

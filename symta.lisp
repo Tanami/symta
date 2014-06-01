@@ -653,7 +653,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (push (format nil "static void ~a(regs_t *regs);" label-name) decls)
           (to-c-emit "}~%")
           (to-c-emit "static void ~a(regs_t *regs) {" label-name)
-          ;;(to-c-emit "  D;")
+          ;(to-c-emit "  D;")
           )
          ((''branch cond label) (to-c-emit "  BRANCH(~a, ~a);" cond label))
          ((''call name) (to-c-emit "  CALL(~a);" name))

@@ -28,7 +28,7 @@
 #define FIXNUM(x) ASHL((intptr_t)(x),TAG_BITS)
 #define UNFIXNUM(x) ASHR((intptr_t)(x),TAG_BITS)
 
-#define HEAP_SIZE (32*1024*1024)
+#define HEAP_SIZE (4*1024)
 #define MAX_LIST_SIZE (HEAP_SIZE/2)
 
 typedef struct regs_t {
@@ -120,9 +120,9 @@ typedef void (*pfun)(regs_t *regs);
   } else if (GET_TAG(P) == T_FIXNUM) { \
     regs->fixnum(regs); \
   } else if (GET_TAG(P) == T_LIST) { \
-      regs->list(regs); \
+    regs->list(regs); \
   } else if (GET_TAG(P) == T_FIXTEXT) { \
-      regs->fixtext(regs); \
+    regs->fixtext(regs); \
   } else { \
     regs->bad_tag(regs); /*should never happen*/ \
   }
