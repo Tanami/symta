@@ -78,38 +78,34 @@ static char *text_to_cstring(void *o) {
 
 #define BUILTIN_CHECK_NARGS(expected,tag,name) \
   if (NARGS != FIXNUM(expected)) { \
-    static void *meta = 0; \
-    static void *ttag = 0; \
-    if (!meta) { \
-      void *t; \
-      LIST(meta, 1); \
-      TEXT(t, name); \
-      REF(meta,0) = t; \
-      if (tag) { \
-        TEXT(ttag, tag); \
-      } else { \
-        ttag = Void; \
-      } \
+    void *meta; \
+    void *ttag; \
+    void *t; \
+    LIST(meta, 1); \
+    TEXT(t, name); \
+    REF(meta,0) = t; \
+    if (tag) { \
+      TEXT(ttag, tag); \
+    } else { \
+      ttag = Void; \
     } \
-    regs->handle_args(regs, FIXNUM(expected), 0, ttag, meta); \
+    regs->handle_args(regs, FIXNUM(expected), FIXNUM(0), ttag, meta); \
     return; \
   }
 #define BUILTIN_CHECK_VARARGS(expected,tag,name) \
   if (NARGS < FIXNUM(expected)) { \
-    static void *meta = 0; \
-    static void *ttag = 0; \
-    if (!meta) { \
-      void *t; \
-      LIST(meta, 1); \
-      TEXT(t, name); \
-      REF(meta,0) = t; \
-      if (tag) { \
-        TEXT(ttag, tag); \
-      } else { \
-        ttag = Void; \
-      } \
+    void *meta; \
+    void *ttag; \
+    void *t; \
+    LIST(meta, 1); \
+    TEXT(t, name); \
+    REF(meta,0) = t; \
+    if (tag) { \
+      TEXT(ttag, tag); \
+    } else { \
+      ttag = Void; \
     } \
-    regs->handle_args(regs, FIXNUM(-1), 0, ttag, meta); \
+    regs->handle_args(regs, -FIXNUM(expected), FIXNUM(0), ttag, meta); \
     return; \
   }
 
@@ -790,8 +786,7 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
   } else if (tag == T_CLOSURE) {
     pfun handler = POOL_HANDLER(o);
     if (IS_ARGLIST(o)) {
-      printf("print_object got unescaped arglist.\n");
-      abort();
+      out += sprintf(out, "#(arglist %p)", o);
     } else if (handler == b_view) {
       uint32_t start = VIEW_START(o);
       int size = (int)UNFIXNUM(VIEW_SIZE(o));
@@ -844,9 +839,10 @@ static void bad_tag(regs_t *regs) {
   abort();
 }
 
-static void handle_args(regs_t *regs, intptr_t expected, int size, void *tag, void *meta) {
+static void handle_args(regs_t *regs, intptr_t expected, intptr_t size, void *tag, void *meta) {
   intptr_t got = NARGS;
   void *k = getArg(0);
+
   if (got == FIXNUM(0)) { //request for tag
     CALL0(k, tag);
     return;
@@ -854,41 +850,56 @@ static void handle_args(regs_t *regs, intptr_t expected, int size, void *tag, vo
     STORE(E, 0, (intptr_t)size);
     return;
   } else if (got == FIXNUM(-2)) {
+  abort();
     CALL0(k, meta);
     return;
   }
+  //printf("%ld\n", UNFIXNUM(expected));
 
   if (meta != Empty) {
   }
-  printf("bad number of arguments: got=%ld, expected=%ld\n", UNFIXNUM(got)-1, UNFIXNUM(expected)-1);
+  if (UNFIXNUM(expected) < 0) {
+    printf("bad number of arguments: got %ld, expected at least %ld\n",
+       UNFIXNUM(got)-1, -UNFIXNUM(expected)-1);
+  } else {
+    printf("bad number of arguments: got %ld, expected %ld\n", UNFIXNUM(got)-1, UNFIXNUM(expected)-1);
+  }
   printf("during call to `%s`\n", print_object(tag));
   abort();
 }
 
 
 static void *closure_size_result;
-static void **gc_heap;
+static void **gc_from, **gc_to;
 
 static void *gc_move(regs_t *regs, void *o) {
   void *p, *q;
   int i, size, tag = GET_TAG(o);
+  char buf[1024];
 
-  if (tag == T_FIXNUM || tag == T_FIXTEXT) return o;
+  //sprintf(buf, "%s", print_object(o));
 
-  // FIXME: check if outside reference is valid (static or unmanaged object)
-  if ((void**)o < gc_heap || (void**)o >= gc_heap+HEAP_SIZE) return o;
-
-  if (tag == T_CLOSURE) {
+  if (tag == T_FIXNUM || tag == T_FIXTEXT) {
+    p = o;
+  } else if (!(gc_from <= (void**)o && (void**)o < gc_from+HEAP_SIZE)) {
+    // FIXME: check if this external reference is valid
+    p = o;
+  } else if (tag == T_CLOSURE) {
     pfun handler = POOL_HANDLER(o);
 
-    // already moved?
-    if ((void**)handler >= H && (void**)handler < H+HEAP_SIZE) return handler;
-
-    if (IS_ARGLIST(o)) {
-      goto list_mover;
-    }
-
-    if (handler == b_view) {
+    if (gc_to <= (void**)handler && (void**)handler < gc_to+HEAP_SIZE) {
+      // already moved
+      p = handler;
+    } else if (IS_ARGLIST(o)) {
+      size = (int)UNFIXNUM(handler);
+      LIST(p, size);
+      STORE(o, -1, p);
+      for (i = 0; i < size; i++) {
+        q = REF(o,i);
+        q = gc_move(regs, q);
+        STORE(p, i, q);
+      }
+    } else if (handler == b_view) {
       uint32_t start = VIEW_START(o);
       int size = (int)UNFIXNUM(VIEW_SIZE(o));
       VIEW(p, 0, start, size);
@@ -900,46 +911,75 @@ static void *gc_move(regs_t *regs, void *o) {
       STORE(o, -1, p);
     } else if (handler == b_cons) {
       p = cons(regs, 0, 0);
-      STORE(o, -1, p);
       CAR(p) = gc_move(regs, CAR(o));
       CDR(p) = gc_move(regs, CDR(o));
     } else {
       MOVE(E, closure_size_result);
       CALL(o);
       size = UNFIXNUM(REF(closure_size_result, 0));
-      LIST(p, size);
+      ALLOC(p, handler, size);
+      STORE(o, -1, p);
       for (i = 0; i < size; i++) {
         STORE(p, i, gc_move(regs, REF(o,i)));
       }
     }
   } else if (tag == T_LIST) {
     o = LIST_FLIP(o);
-list_mover:
-    size = (int)UNFIXNUM(POOL_HANDLER(o));
-    LIST(p, size);
-    STORE(o, -1, p);
-    for (i = 0; i < size; i++) {
-      STORE(p, i, gc_move(regs, REF(o,i)));
+    p = POOL_HANDLER(o);
+    if (IS_ARGLIST(o)) { // still wasn't moved?
+      size = (int)UNFIXNUM(p);
+      LIST(p, size);
+      STORE(o, -1, p);
+      for (i = 0; i < size; i++) {
+        q = gc_move(regs, REF(o,i));
+        STORE(p, i, q);
+      }
+      p = LIST_FLIP(p);
     }
-    p = ADD_TAG(DEL_TAG(p), tag);
   } else {
     printf("cant gc #(ufo %d %p)\n", tag, o);
     abort();
   }
+
+  //fprintf(stderr, "%s: %p -> %p (%ld)\n", buf, o, p, (intptr_t)(p-o));
   return p;
 }
 
 static void gc(regs_t *regs) {
   void *sE=E, *sP=P, *sA=A, *sC=C, *sR=R;
-  void *gc_heap = heap0+HEAP_SIZE == HeapEnd ? heap0 : heap1;
-  H = gc_heap == heap0 ? heap1 : heap0;
+
+  gc_from = heap0+HEAP_SIZE == HeapEnd ? heap0 : heap1;
+  gc_to = gc_from == heap0 ? heap1 : heap0;
+
+  H = gc_to;
   HeapEnd = H + HEAP_SIZE;
 
-  E = gc_move(regs, sE);
-  P = gc_move(regs, sP);
-  A = gc_move(regs, sA);
-  C = gc_move(regs, sC);
-  R = gc_move(regs, sR);
+  // ensure future GC wont get garbage in uninited arrays
+  memset(H, 0, HEAP_SIZE*sizeof(void*));
+
+  /*fprintf(stderr, "%s\n", print_object(E));
+  fprintf(stderr, "%s\n", print_object(P));
+  fprintf(stderr, "%s\n", print_object(A));
+  fprintf(stderr, "%s\n", print_object(C));
+  fprintf(stderr, "%s\n", print_object(R));*/
+
+  sE = gc_move(regs, sE);
+  sP = gc_move(regs, sP);
+  sA = gc_move(regs, sA);
+  sC = gc_move(regs, sC);
+  sR = gc_move(regs, sR);
+
+  E = sE;
+  P = sP;
+  A = sA;
+  C = sC;
+  R = sR;
+
+  /*fprintf(stderr, "%s\n", print_object(E));
+  fprintf(stderr, "%s\n", print_object(P));
+  fprintf(stderr, "%s\n", print_object(A));
+  fprintf(stderr, "%s\n", print_object(C));
+  fprintf(stderr, "%s\n", print_object(R));*/
 }
 
 static regs_t *new_regs() {
@@ -1049,6 +1089,7 @@ int main(int argc, char **argv) {
 
   H = heap0;
   HeapEnd = H + HEAP_SIZE;
+
 
   entry(regs);
 

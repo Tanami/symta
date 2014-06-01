@@ -28,7 +28,7 @@
 #define FIXNUM(x) ASHL((intptr_t)(x),TAG_BITS)
 #define UNFIXNUM(x) ASHR((intptr_t)(x),TAG_BITS)
 
-#define HEAP_SIZE (1024*1024*32)
+#define HEAP_SIZE (32*1024*1024)
 #define MAX_LIST_SIZE (HEAP_SIZE/2)
 
 typedef struct regs_t {
@@ -53,7 +53,7 @@ typedef struct regs_t {
 
   // runtime's C API
   void (*bad_tag)(struct regs_t *regs);
-  void (*handle_args)(struct regs_t *regs, intptr_t expected, int size, void *tag, void *meta);
+  void (*handle_args)(struct regs_t *regs, intptr_t expected, intptr_t size, void *tag, void *meta);
   char* (*print_object_f)(struct regs_t *regs, void *object);
   void (*gc)(struct regs_t *regs);
   void *(*alloc_text)(struct regs_t *regs, char *s);
@@ -91,9 +91,9 @@ typedef void (*pfun)(regs_t *regs);
       dst = ADD_TAG(dst,T_CLOSURE); \
       break; \
     } \
+    dst = 0; \
     regs->gc(regs); \
   }
-
 
 #define LIST_SIZE(o) ((intptr_t)POOL_HANDLER(o))
 #define NARGS LIST_SIZE(E)
@@ -134,14 +134,14 @@ typedef void (*pfun)(regs_t *regs);
 #define COPY(dst,dst_off,src,src_off) REF(dst,dst_off) = REF(src,src_off)
 #define MOVE(dst,src) dst = (void*)(src)
 
-#define CHECK_NARGS(expected,size,tag) \
+#define CHECK_NARGS(expected,size,meta) \
   if (NARGS != FIXNUM(expected)) { \
-    regs->handle_args(regs, FIXNUM(expected), size, tag, Empty); \
+    regs->handle_args(regs, FIXNUM(expected), FIXNUM(size), Void, meta); \
     return; \
   }
-#define CHECK_VARARGS(size,tag) \
+#define CHECK_VARARGS(size,meta) \
   if (NARGS < FIXNUM(1)) { \
-    regs->handle_args(regs, FIXNUM(-1), size, tag, Empty); \
+    regs->handle_args(regs, FIXNUM(-1), FIXNUM(size), Void, meta); \
     return; \
   }
 
