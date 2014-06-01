@@ -28,7 +28,7 @@
 #define FIXNUM(x) ASHL((intptr_t)(x),TAG_BITS)
 #define UNFIXNUM(x) ASHR((intptr_t)(x),TAG_BITS)
 
-#define HEAP_SIZE (4*1024)
+#define HEAP_SIZE (32*1024*1024)
 #define MAX_LIST_SIZE (HEAP_SIZE/2)
 
 typedef struct regs_t {
@@ -55,7 +55,7 @@ typedef struct regs_t {
   void (*bad_tag)(struct regs_t *regs);
   void (*handle_args)(struct regs_t *regs, intptr_t expected, intptr_t size, void *tag, void *meta);
   char* (*print_object_f)(struct regs_t *regs, void *object);
-  void (*gc)(struct regs_t *regs);
+  void (*gc)(struct regs_t *regs, int size);
   void *(*alloc_text)(struct regs_t *regs, char *s);
   void (*fixnum)(struct regs_t *regs);
   void (*list)(struct regs_t *regs);
@@ -92,7 +92,7 @@ typedef void (*pfun)(regs_t *regs);
       break; \
     } \
     dst = 0; \
-    regs->gc(regs); \
+    regs->gc(regs, (count)); \
   }
 
 #define LIST_SIZE(o) ((intptr_t)POOL_HANDLER(o))

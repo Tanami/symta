@@ -930,8 +930,17 @@ static void *gc_move(regs_t *regs, void *o) {
   return p;
 }
 
-static void gc(regs_t *regs) {
+static int gc_in_progress;
+
+static void gc(regs_t *regs, int size) {
   void *sE=E, *sP=P, *sA=A, *sC=C, *sR=R;
+
+  if (gc_in_progress) {
+    printf("fatal error: recursive GC call.\n");
+    abort();
+  }
+
+  gc_in_progress = 1;
 
   gc_from = heap0+HEAP_SIZE == HeapEnd ? heap0 : heap1;
   gc_to = gc_from == heap0 ? heap1 : heap0;
@@ -953,6 +962,13 @@ static void gc(regs_t *regs) {
   A = sA;
   C = sC;
   R = sR;
+
+  gc_in_progress = 0;
+
+  if (H+size >= HeapEnd) {
+    printf("Couldn't allocate %ld bytes.\n", (intptr_t)size*sizeof(void*));
+    abort();
+  }
 }
 
 static regs_t *new_regs() {
