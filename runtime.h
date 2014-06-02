@@ -31,7 +31,11 @@
 #define HEAP_SIZE (32*1024*1024)
 #define MAX_LIST_SIZE (HEAP_SIZE/2)
 
-typedef struct regs_t {
+//#define DECL_REGS void *E; void *P; void *A; void *C; void *R
+#define ARGS_REGS void *E, void *P, void *A, void *C, void *R, struct api_t *api
+#define REGS *E, *P, *A, *C, *R, struct api_t *api
+
+typedef struct api_t {
   // registers array
   void *E; // current environment
   void *P; // parent environment
@@ -52,33 +56,36 @@ typedef struct regs_t {
   void *host; // called to resolve builtin functions (runtime API)
 
   // runtime's C API
-  void (*bad_tag)(struct regs_t *regs);
-  void (*handle_args)(struct regs_t *regs, intptr_t expected, intptr_t size, void *tag, void *meta);
-  char* (*print_object_f)(struct regs_t *regs, void *object);
-  void (*gc)(struct regs_t *regs, int size);
-  void *(*alloc_text)(struct regs_t *regs, char *s);
-  void (*fixnum)(struct regs_t *regs);
-  void (*list)(struct regs_t *regs);
-  void (*fixtext)(struct regs_t *regs);
-} regs_t;
+  void (*bad_tag)(struct api_t *api);
+  void (*handle_args)(struct api_t *api, intptr_t expected, intptr_t size, void *tag, void *meta);
+  char* (*print_object_f)(struct api_t *api, void *object);
+  void (*gc)(struct api_t *api, int size);
+  void *(*alloc_text)(struct api_t *api, char *s);
+  void (*fixnum)(struct api_t *api);
+  void (*list)(struct api_t *api);
+  void (*fixtext)(struct api_t *api);
+
+  void *heap[HEAP_SIZE];
+  void *heap_end;
+} api_t;
 
 
-typedef void (*pfun)(regs_t *regs);
+typedef void (*pfun)(api_t *api);
 
-#define E regs->E
-#define P regs->P
-#define A regs->A
-#define C regs->C
-#define R regs->R
-#define H regs->H
-#define HeapEnd regs->HeapEnd
-#define Void regs->Void
-#define Empty regs->Empty
-#define fin regs->fin
-#define run regs->run
-#define host regs->host
+#define E api->E
+#define P api->P
+#define A api->A
+#define C api->C
+#define R api->R
+#define H api->H
+#define HeapEnd api->HeapEnd
+#define Void api->Void
+#define Empty api->Empty
+#define fin api->fin
+#define run api->run
+#define host api->host
 
-//#define POOL_HANDLER(x) (((pfun*)((void**)((uintptr_t)(x)&~TAG_MASK)-1))[0])
+
 #define POOL_HANDLER(x) (((pfun*)((void**)((uintptr_t)(x)&~TAG_MASK)-1))[0])
 
 #define ALLOC(dst,code,count) \
@@ -92,7 +99,7 @@ typedef void (*pfun)(regs_t *regs);
       break; \
     } \
     dst = 0; \
-    regs->gc(regs, (count)); \
+    api->gc(api, (count)); \
   }
 
 #define LIST_SIZE(o) ((intptr_t)POOL_HANDLER(o))
@@ -104,27 +111,31 @@ typedef void (*pfun)(regs_t *regs);
 // FIXME: most of LIST_FLIP uses could be optimized out
 #define LIST_FLIP(o) ((void*)((uintptr_t)(o)^(T_CLOSURE|T_LIST)))
 
-#define print_object(object) regs->print_object_f(regs, object)
+#define print_object(object) api->print_object_f(api, object)
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
-
 
 #define LIST(dst,size) ALLOC(dst,FIXNUM(size),size)
 #define LOAD_FIXNUM(dst,x) dst = (void*)((uintptr_t)(x)<<TAG_BITS)
-#define TEXT(dst,x) dst = regs->alloc_text(regs,(char*)(x))
-#define BRANCH(cond,label) if ((cond) != FIXNUM(0)) { label(regs); return; }
-#define CALL(f) MOVE(P, f); POOL_HANDLER(f)(regs);
+#define TEXT(dst,x) dst = api->alloc_text(api,(char*)(x))
+#define ENTRY(name) void name(api_t *api) {
+#define DECL_LABEL(name) static void name(api_t *api);
+#define LABEL(name) } static void name(api_t *api) {
+#define END_OF_CODE }
+#define JMP(name) name(api)
+#define BRANCH(cond,label) if ((cond) != FIXNUM(0)) { label(api); return; }
+#define CALL(f) MOVE(P, f); POOL_HANDLER(f)(api);
 #define CALL_TAGGED(f) \
   MOVE(P, f); \
   if (GET_TAG(P) == T_CLOSURE) { \
-    POOL_HANDLER(P)(regs); \
+    POOL_HANDLER(P)(api); \
   } else if (GET_TAG(P) == T_FIXNUM) { \
-    regs->fixnum(regs); \
+    api->fixnum(api); \
   } else if (GET_TAG(P) == T_LIST) { \
-    regs->list(regs); \
+    api->list(api); \
   } else if (GET_TAG(P) == T_FIXTEXT) { \
-    regs->fixtext(regs); \
+    api->fixtext(api); \
   } else { \
-    regs->bad_tag(regs); /*should never happen*/ \
+    api->bad_tag(api); /*should never happen*/ \
   }
 #define REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-1)
 #define REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-1)
@@ -136,13 +147,13 @@ typedef void (*pfun)(regs_t *regs);
 
 #define CHECK_NARGS(expected,size,meta) \
   if (NARGS != FIXNUM(expected)) { \
-    regs->handle_args(regs, FIXNUM(expected), FIXNUM(size), Void, meta); \
+    api->handle_args(api, FIXNUM(expected), FIXNUM(size), Void, meta); \
     return; \
   }
 #define CHECK_VARARGS(size,meta) \
   if (NARGS < FIXNUM(1)) { \
-    regs->handle_args(regs, FIXNUM(-1), FIXNUM(size), Void, meta); \
+    api->handle_args(api, FIXNUM(-1), FIXNUM(size), Void, meta); \
     return; \
   }
 
-void entry(regs_t *regs);
+void entry(api_t *api);

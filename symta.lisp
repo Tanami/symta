@@ -640,21 +640,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         )
     (e x *ssa-inits* (to-c-emit "static void *~a;" (first x)))
     (e x *ssa-inits* (to-c-emit "~a" (second x)))
-    (to-c-emit "static void ~a(regs_t *regs);" inits-name)
-    (to-c-emit "void ~a(regs_t *regs) {" entry)
+    (to-c-emit "DECL_LABEL(~a)" inits-name)
+    (if (equal entry "entry")
+        (to-c-emit "ENTRY(~a)" entry)
+        (to-c-emit "static ENTRY(~a)" entry))
     (to-c-emit "  BRANCH(R, ~a);" inits-name)
     (e x xs
        (match x
          ((''label label-name)
-          (push (format nil "static void ~a(regs_t *regs);" label-name) decls)
-          (to-c-emit "}~%")
-          (to-c-emit "static void ~a(regs_t *regs) {" label-name)
+          (push (format nil "DECL_LABEL(~a)" label-name) decls)
+          (to-c-emit "LABEL(~a)" label-name)
           ;(to-c-emit "  D;")
           )
          ((''branch cond label) (to-c-emit "  BRANCH(~a, ~a);" cond label))
          ((''call name) (to-c-emit "  CALL(~a);" name))
          ((''call_tagged name) (to-c-emit "  CALL_TAGGED(~a);" name))
-         ((''goto name) (to-c-emit "  ~a(regs);" name))
          ((''array place size) (to-c-emit "  LIST(~a, ~a);" place size))
          ((''closure place name size)
           (progn
@@ -682,15 +682,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (to-c-emit "  CHECK_NARGS(~a, ~a, ~a);" expected size (or meta "Empty")))
          ((''check_varargs size meta) (to-c-emit "  CHECK_VARARGS(~a_size, ~a);" size (or meta "Empty")))
          (else (error "invalid ssa: ~a" x))))
-    (to-c-emit "}~%")
-    (to-c-emit "static void ~a(regs_t *regs) {" inits-name)
+    (to-c-emit "LABEL(~a)" inits-name)
     (when (or *ssa-inits* inits)
       (e i inits (to-c-emit "  ~a" i))
       (e x *ssa-inits*
          (progn
-           (to-c-emit "  init_~a(regs);" (first x))
+           (to-c-emit "  JMP(~a);" (first x))
            (to-c-emit "  LOAD(~a, E, 0);" (first x)))))
-    (to-c-emit "}~%")
+    (to-c-emit "END_OF_CODE~%")
     (format nil "~{~a~%~}" (reverse (append *compiled* decls)))))
 
 (to ssa-compile k entry fn-expr
