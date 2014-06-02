@@ -642,11 +642,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (e x *ssa-inits* (to-c-emit "~a" (second x)))
     (to-c-emit "static void ~a(regs_t *regs);" inits-name)
     (to-c-emit "void ~a(regs_t *regs) {" entry)
-    (to-c-emit "  static int done_init = 0;")
-    (to-c-emit "  if (done_init) goto skip_init;")
-    (to-c-emit "  ~a(regs);" inits-name)
-    (to-c-emit "  done_init = 1;")
-    (to-c-emit "  skip_init:;")
+    (to-c-emit "  BRANCH(R, ~a);" inits-name)
     (e x xs
        (match x
          ((''label label-name)

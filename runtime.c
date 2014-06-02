@@ -1,4 +1,5 @@
 #include <dlfcn.h>
+#include <stdarg.h>
 
 #include "runtime.h"
 
@@ -10,10 +11,19 @@ static void b_cons(regs_t*);
 #define getArg(i) REF(E,i)
 #define getVal(x) ((uintptr_t)(x)&~TAG_MASK)
 
-#define STATICS_SIZE (100*1024)
+#define STATICS_SIZE (1024*1024)
 static void *heapS[STATICS_SIZE]; // heap for static objects
 static void *heap0[HEAP_SIZE];
 static void *heap1[HEAP_SIZE];
+
+
+static void fatal(char *fmt, ...) {
+   va_list ap;
+   va_start(ap,fmt);
+   vfprintf(stderr, fmt, ap);
+   va_end(ap);
+   abort();
+}
 
 static void bad_type(regs_t *regs, char *expected, int arg_index, char *name) {
   int i, nargs = (int)UNFIXNUM(NARGS);
@@ -608,18 +618,15 @@ BUILTIN1("log",log,C_ANY,a)
 RETURNS(a)
 
 BUILTIN1("set_error_handler",set_error_handler,C_ANY,h)
-  printf("FIXME: implement set_error_handler\n");
-  abort();
+  fatal("FIXME: implement set_error_handler\n");
 RETURNS(Void)
 
 BUILTIN1("load_file",load_file,C_ANY,path)
-  printf("FIXME: implement load_file\n");
-  abort();
+  fatal("FIXME: implement load_file\n");
 RETURNS(Void)
 
 BUILTIN1("utf8_to_text",utf8_to_text,C_ANY,bytes)
-  printf("FIXME: implement utf8_to_text\n");
-  abort();
+  fatal("FIXME: implement utf8_to_text\n");
 RETURNS(Void)
 
 static int is_unicode(char *s) {
@@ -663,10 +670,7 @@ static void *alloc_text(regs_t *regs, char *s) {
   int l, a;
   char buf[1024];
 
-  if (is_unicode(s)) {
-    printf("FIXME: implement unicode\n");
-    abort();
-  }
+  if (is_unicode(s)) fatal("FIXME: implement unicode\n");
 
   R = text_immediate_encoding(s);
   if (R) return R;
@@ -748,9 +752,7 @@ BUILTIN_VARARGS("host",host)
     C_TEXT(name, j, "host");
     for (i = 0; ; i++) {
       if (!builtins[i].name) {
-        // FIXME: return void instead
-        printf("host doesn't provide `%s`\n", print_object(name));
-        abort();
+        fatal("host doesn't provide `%s`\n", print_object(name));
       }
       if (texts_equal(builtins[i].name, name)) {
         break;
@@ -822,8 +824,7 @@ static char *print_object_r(regs_t *regs, char *out, void *o) {
 }
 
 static void bad_tag(regs_t *regs) {
-  printf("bad tag = %d\n", (int)GET_TAG(P));
-  abort();
+  fatal("bad tag = %d\n", (int)GET_TAG(P));
 }
 
 static void handle_args(regs_t *regs, intptr_t expected, intptr_t size, void *tag, void *meta) {
@@ -849,8 +850,7 @@ static void handle_args(regs_t *regs, intptr_t expected, intptr_t size, void *ta
   } else {
     printf("bad number of arguments: got %ld, expected %ld\n", UNFIXNUM(got)-1, UNFIXNUM(expected)-1);
   }
-  printf("during call to `%s`\n", print_object(tag));
-  abort();
+  fatal("during call to `%s`\n", print_object(tag));
 }
 
 
@@ -965,10 +965,7 @@ static void gc(regs_t *regs, int size) {
 
   gc_in_progress = 0;
 
-  if (H+size >= HeapEnd) {
-    printf("Couldn't allocate %ld bytes.\n", (intptr_t)size*sizeof(void*));
-    abort();
-  }
+  if (H+size >= HeapEnd) fatal("Couldn't allocate %ld bytes.\n", (intptr_t)size*sizeof(void*));
 }
 
 static regs_t *new_regs() {
@@ -1065,21 +1062,19 @@ int main(int argc, char **argv) {
   TEXT(s_x, "x");
 
   lib = dlopen(module, RTLD_LAZY);
-  if (!lib) {
-    printf("dlopen couldnt load %s\n", module);
-    abort();
-  }
+  if (!lib) fatal("dlopen couldnt load %s\n", module);
 
   entry = (pfun)dlsym(lib, "entry");
-  if (!entry) {
-    printf("dlsym couldnt find symbol `entry` in %s\n", module);
-    abort();
-  }
+  if (!entry) fatal("dlsym couldnt find symbol `entry` in %s\n", module);
 
+  // init module's statics
+  MOVE(R, FIXNUM(1));
+  entry(regs);
+
+  // do real eval
   H = heap0;
   HeapEnd = H + HEAP_SIZE;
-
-
+  MOVE(R, FIXNUM(0));
   entry(regs);
 
   printf("%s\n", print_object(R));
