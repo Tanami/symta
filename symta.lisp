@@ -358,12 +358,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (defparameter *ssa-env* nil)
 (defparameter *ssa-out* nil) ; where resulting assembly code is stored
 (defparameter *ssa-ns*  nil) ; unique name of current function
-(defparameter *ssa-fns* nil)
-
-(defparameter *ssa-closure* nil) ; other lambdas', this lambda references
 (defparameter *ssa-inits* nil)
-
-
+(defparameter *ssa-raw-inits* nil)
+(defparameter *ssa-fns* nil)
+(defparameter *ssa-closure* nil) ; other lambdas', this lambda references
 (defparameter *compiler-meta-info* (make-hash-table :test 'eq))
 
 (to set-meta meta object
@@ -371,7 +369,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! object)
 
 (to get-meta object ! gethash object *compiler-meta-info*)
-
 
 (defun ssa-name (name) (symbol-name (gensym name)))
 
@@ -397,7 +394,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! when (eq es *ssa-env*) (ret (list p nil)) ; it is an argument of the current function
   ! list p (ssa-get-parent-index (cdr (nth p head))))
 
-(to ssa-symbol x value
+(to ssa-symbol k x value
   ! match (ssa-path-to-sym x *ssa-env*)
      ((pos parent)
       (! base = if parent 'r 'e
@@ -408,46 +405,40 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        ! when parent (ssa 'load 'r 'p parent) ; symbol resides in parent environment
        ! when (eql pos :all)
           (when value (error "can't set ~a" x))
-          (unless (eql base 'r) (ssa 'move 'r base))
-          (ssa 'list_flip 'r 'r)
+          (unless (eql base k) (ssa 'move k base))
+          (ssa 'list_flip k k)
           (ret nil)
        ! if value
             (ssa 'store base pos value)
-            (ssa 'load 'r base pos)))
+            (ssa 'load k base pos)))
      (else (error "undefined variable: ~a" x)))
-
-(to ssa-atom x
-  ! cond
-    ((integerp x) (ssa 'fixnum 'r x))
-    ((stringp x) (ssa-symbol x nil))
-    ((eql x 'run) (ssa 'move 'r "run"))
-    ((eql x :void) (ssa 'move 'r "Void"))
-    ((eql x :empty) (ssa 'move 'r "Empty"))
-    (t (error "unexpected ~a" x)))
 
 (to ssa-quote-list-rec xs
    ! `("list" ,@(m x xs (if (listp x) (ssa-quote-list-rec x) `("_quote" ,x)))))
 
-(to ssa-quote-list xs
+(to ssa-quote-list k xs
   ! name = ssa-name "list"
-  ! ssa 'move 'r name
+  ! ssa 'move k name
   ! push `(,name ,(ssa-quote-list-rec xs)) *ssa-inits*)
 
-(to ssa-quoted-symbol s
+(to ssa-quoted-symbol k s
+  ! bytes-name = ssa-name "b"
+  ! ssa 'bytes bytes-name `(,@(m c (coerce s 'list) (char-code c)) 0)
   ! name = ssa-name "s"
-  ! ssa 'text name s
-  ! ssa 'move 'r name)
+  ! ssa 'global name
+  ! push `(text ,name ,bytes-name) *ssa-raw-inits*
+  ! ssa 'move k name)
 
-(to ssa-quote x
+(to ssa-quote k x
   ! cond
-     ((stringp x) (ssa-quoted-symbol x))
-     ((integerp x) (ssa-atom x))
-     ((listp x) (ssa-quote-list x))
+     ((stringp x) (ssa-quoted-symbol k x))
+     ((integerp x) (ssa-atom k x))
+     ((listp x) (ssa-quote-list k x))
      (t (error "unsupported quoted value: ~a" x)))
 
 (to ssa-resolved name ! cons name *ssa-ns*)
 
-(to ssa-fn args body o
+(to ssa-fn name k args body o
   ! f = ssa-name "f"
   ! cs = nil
   ! (! *ssa-out* = nil
@@ -461,7 +452,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      ! if (stringp args)
           (ssa 'check_varargs size-var (get-meta o))
           (ssa 'check_nargs (length args) size-var (get-meta o))
-     ! produce-ssa body
+     ! result = ssa-name "result"
+     ! ssa 'var result
+     ! ssa-expr result body
+     ! ssa 'return result
      ! push *ssa-out* *ssa-fns*
      ! setf cs (car *ssa-closure*)
      )
@@ -470,31 +464,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ;; a single argument to a function could be passed in register, while a closure would be created if required
   ;; a single reference closure could be itself held in a register
   ;; for now we just capture required parent's closure
-  ! ssa 'closure 'r f nparents
+  ! ssa 'closure k f nparents
   ! i = -1
   ! e c cs (! if (equal c *ssa-ns*) ; self?
-                 (ssa 'store 'r (incf i) 'e)
-                 (ssa 'copy 'r (incf i) 'p (ssa-get-parent-index c)))
+                 (ssa 'store k (incf i) 'e)
+                 (ssa 'copy k (incf i) 'p (ssa-get-parent-index c)))
   ! ssa 'known_closure)
 
 (to ssa-if as
   ! ssa 'array 'a 1
   ! label = ssa-name "branch"
-  ! produce-ssa (first as)
+  ! ssa-expr (first as)
   ! ssa 'store 'a 0 'r
-  ! produce-ssa (second as)
+  ! ssa-expr (second as)
   ! ssa 'branch 'r label
-  ! produce-ssa (fourth as)
+  ! ssa-expr (fourth as)
   ! ssa 'move 'c 'r
   ! ssa 'move 'e 'a
   ! ssa 'call 'c
   ! ssa 'label label
-  ! produce-ssa (third as)
+  ! ssa-expr (third as)
   ! ssa 'move 'c 'r
   ! ssa 'move 'e 'a
   ! ssa 'call 'c)
 
-(to ssa-apply f as
+(to ssa-apply k f as
   ;; FIXME: if it is a lambda call, we don't have to change env or create a closure, just push env
   ! when (equal f "_call")
      (setf f (second as))
@@ -502,126 +496,90 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! when (eql f :if)
      (ssa-if as)
      (return-from ssa-apply)
-  ! produce-ssa f
   ! known-closure = eql (first (car *ssa-out*)) 'known_closure
-  ! ssa 'move 'c 'r
-  ! ssa 'array 'a (length as)
+  ! ssa 'move "NewBase" "Top"
+  ! h = ssa-name "head"
+  ! ssa 'var h
+  ! ssa-expr h f
+  ! e = ssa-name "env"
+  ! ssa 'var e
+  ! ssa 'array e (length as)
   ! i = -1
-  ! e a as (! produce-ssa a
-            ! ssa 'store 'a (incf i) 'r)
-  ! ssa 'move 'e 'a ; replace current frame with new environment
-  ! if known-closure (ssa 'call 'c) (ssa 'call_tagged 'c))
+  ! e a as (! tmp = ssa-name "tmp"
+            ! ssa-expr tmp a
+            ! ssa 'store e (incf i) tmp)
+  ! if known-closure (ssa 'call k h e) (ssa 'call_tagged k h e))
 
 (to ssa-set k place value
-  ! produce-ssa value
-  ! ssa 'move 'a 'r
-  ! ssa-symbol place 'a
-  ! produce-ssa `(,k ,value))
+  ! ssa-expr 'r value
+  ! ssa-symbol place 'r
+  ! when (not (eql k 'r)) (ssa 'move k 'r))
 
-(to ssa-form xs
+(to ssa-form k xs
   ! match xs
-    (("_fn" as body) (ssa-fn as body xs))
-    (("_quote" x) (ssa-quote x))
-    (("_set" k place value) (ssa-set k place value))
+    (("_fn" as body) (ssa-fn (ssa-name "n") k as body xs))
+    (("_kfn" name as body) (ssa-fn name k as body xs))
+    (("_if" cnd then else) (ssa-form k `(:if ,cnd ("_fn" () ,then) ("_fn" () ,else))))
+    (("_quote" x) (ssa-quote k x))
+    (("_set" place value) (ssa-set k place value))
     (("_move" dst src) (ssa 'move dst src))
-    ((f . as) (ssa-apply f as))
+    ((f . as) (ssa-apply k f as))
+    (() (ssa-atom k :void))
     (else (error "invalid CPS form: ~a" xs)))
 
-(to produce-ssa x ! if (listp x) (ssa-form x) (ssa-atom x))
+(to ssa-atom k x
+  ! cond
+    ((integerp x) (ssa 'fixnum k x))
+    ((stringp x) (ssa-symbol k x nil))
+    ((eql x :host) (ssa 'move k "Host"))
+    ((eql x :void) (ssa 'move k "Void"))
+    ((eql x :empty) (ssa 'move k "Empty"))
+    (t (error "unexpected ~a" x)))
 
-(to peephole-optimize xs
-  ! match xs
-    (((''move a ''r) (''move ''r c) . zs) `((move ,a ,c) ,@(peephole-optimize zs)))
-    (((''move a ''r) (''load ''r c d) . zs) `((load ,a ,c ,d) ,@(peephole-optimize zs)))
-    (((''store a b c) (''move c d) . zs) `((store ,a ,b ,d) ,@(peephole-optimize zs)))
-    (((''store a b ''r) (''load ''r d e) . zs) `((copy ,a ,b ,d ,e) ,@(peephole-optimize zs)))
-    (((''move a b) (''store b c d) (''known_closure) (''closure d x y) (''array b e) . zs)
-     `((store ,a ,c ,d) (closure ,d ,x ,y) (array ,a ,e) ,@(peephole-optimize zs)))
-    (((''move a b) (''known_closure) (''store b c d) (''closure b e f) . zs)
-     `((store ,a ,c ,d) (closure ,a ,e ,f) ,@(peephole-optimize zs)))
-    ((z . zs) (cons z (peephole-optimize zs)))
-    (nil nil))
+(to ssa-expr k x ! if (listp x) (ssa-form k x) (ssa-atom k x))
 
 (to host-deps expr deps ! `("_fn" ("host")
                                   ("host" ("_fn" ,deps ,expr)
                                           ,@(m d deps `("_quote" ,d)))))
 
-(to cps-to-ssa x
+(to produce-ssa entry expr
   ! *ssa-out* = nil
   ! *ssa-fns* = nil
-  ! produce-ssa x
+  ! *ssa-inits* = nil
+  ! *ssa-raw-inits* = nil
+  ! *ssa-closure* = nil
+  ! expr = `(,expr :host)
+  ! ssa 'entry entry
+  ! r = ssa-name "result"
+  ! ssa 'var r
+  ! ssa = ssa-expr r expr
+  ! ssa 'return r
+  ! init-labels = nil
   ! setf *ssa-inits*
      (m x *ssa-inits*
-        (! name = first x
-         ! expr = host-deps (second x) '("list")
-         ! list name (ssa-compile-entry "run" "init_{name}" expr)))
-  ! rs = apply #'concatenate 'list  `(,@(reverse *ssa-fns*) ,*ssa-out*)
-  ! rs = peephole-optimize rs
+        (;;! *ssa-out* = nil
+         ! *ssa-inits* = nil
+         ! *ssa-closure* = nil
+         ! name = first x
+         ! expr = `(,(host-deps (second x) '("list")) :host)
+         ! l = "init_{name}"
+         ! push l init-labels
+         ! ssa 'label l
+         ! ssa-expr name expr
+         ! ssa 'return_no_gc name))
+  ! ssa 'entry "setup"
+  ! when init-labels
+     (! dummy = ssa-name "d"
+      ! ssa 'var dummy
+      ! e l init-labels (ssa 'call dummy l 'e))
+  ! setf *ssa-out* (append *ssa-raw-inits* *ssa-out*)
+  ! rs = apply #'concatenate 'list `(,@(reverse *ssa-fns*) ,*ssa-out*)
+  ;;! rs = peephole-optimize rs
   ! nreverse rs)
 
-(to find-duplicates xs ys zs
-  ! unless xs (return-from find-duplicates ys)
-  ! x = car xs
-  ! xs = cdr xs
-  ! if (find x zs :test 'equal)
-       (find-duplicates xs (cons x ys) zs)
-       (find-duplicates xs ys (cons x zs)))
 
-(to cps-fn-nargs kk args body
-  ! args = `(,kk ,@args)
-  ! ds = find-duplicates args nil nil
-  ! when ds (error "duplicate symbols in arglist: ~a" args)
-  ! `("_fn" ,args ,(produce-cps kk body)))
+;;(test-ssa '("list" 1 2 3 4 5))
 
-(to cps-fn-varargs kk args body
-  ! m = ssa-name "m"
-  ! `("_fn" ,args
-       (,args ("_fn" (,m) (("_fn" (,kk) ,(produce-cps kk body)) ,m))
-              ("_quote" "{}")
-              0)))
-
-(to cps-fn kk k args body o
-  ! `(,k ,(set-meta (get-meta o)
-                    (if (stringp args)
-                        (cps-fn-varargs kk args body)
-                        (cps-fn-nargs kk args body)))))
-
-(to cps-const? x ! or (not (listp x)) (equal (first x) "_quote"))
-
-(to cps-apply k f as o
-  ! fas = `(,f ,@as)
-  ! (g . gs) = m a fas (if (cps-const? a) a (ssa-name "a"))
-  ! r = `(,g ,k ,@gs)
-  ! rgs = reverse `(,g ,@gs)
-  ! ras = reverse fas
-  ! while rgs
-      ;; treat quoted and _fn values as constants
-      (unless (cps-const? (car ras))
-        (setf r (produce-cps (set-meta (get-meta o) `("_fn" (,(car rgs)) ,r)) (car ras))))
-      (pop rgs)
-      (pop ras)
-  ! r)
-
-(to cps-set k place value o
-  ! unless (stringp place) (error "_set cant handle `{place}`")
-  ! unless (listp value) (ret `("_set" ,k ,place ,value))
-  ! v = ssa-name "value"
-  ! r = produce-cps (set-meta (get-meta o) `("_fn" (,v) ("_set" ,k ,place ,v))) value
-  ! r)
-
-(to cps-form k xs
-  ! match xs
-    (("_fn" as body) (cps-fn (ssa-name "k") k as body xs))
-    (("_kfn" kk as body) (cps-fn kk k as body xs))
-    (("_if" cnd then else) (cps-form k `(:if ,cnd ("_fn" () ,then) ("_fn" () ,else))))
-    (("_quote" x) `(,k ,xs))
-    (("_set" place value) (cps-set k place value xs))
-    ((f . as) (cps-apply k f as xs))
-    (else `(,k :void)))
-
-(to cps-atom k x ! `(,k ,x))
-
-(to produce-cps k x ! if (listp x) (cps-form k x) (cps-atom k x))
 
 (defparameter *compiled* nil)
 
@@ -629,32 +587,27 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (defparameter *pool-size* 64)
 
-(defun ssa-to-c (entry xs)
+(defun ssa-to-c (xs)
   (let ((*compiled* nil)
         (statics nil)
-        (decls nil)
-        (inits nil)
-        (data-name (ssa-name "data"))
-        (inits-name (ssa-name "inits"))
-        (data nil)
-        )
-    (e x *ssa-inits* (to-c-emit "static void *~a;" (first x)))
-    (e x *ssa-inits* (to-c-emit "~a" (second x)))
-    (to-c-emit "DECL_LABEL(~a)" inits-name)
-    (if (equal entry "entry")
-        (to-c-emit "ENTRY(~a)" entry)
-        (to-c-emit "static ENTRY(~a)" entry))
-    (to-c-emit "  BRANCH(R, ~a);" inits-name)
+        (decls nil))
+    (to-c-emit "BEGIN_CODE")
     (e x xs
        (match x
+         ((''entry label-name) (to-c-emit "ENTRY(~a)" label-name))
+         ((''var name) (to-c-emit "  VAR(~a);" name))
+         ((''return value) (to-c-emit "  RETURN(~a);" value))
+         ((''return_no_gc value) (to-c-emit "  RETURN_NO_GC(~a);" value))
          ((''label label-name)
           (push (format nil "DECL_LABEL(~a)" label-name) decls)
           (to-c-emit "LABEL(~a)" label-name)
           ;(to-c-emit "  D;")
           )
+         ((''global name) (push (format nil "static void *~a;" name) decls))
+         ((''gosub label-name) (to-c-emit "GOSUB(~a)" label-name))
          ((''branch cond label) (to-c-emit "  BRANCH(~a, ~a);" cond label))
-         ((''call name) (to-c-emit "  CALL(~a);" name))
-         ((''call_tagged name) (to-c-emit "  CALL_TAGGED(~a);" name))
+         ((''call k name env) (to-c-emit "  CALL(~a,~a,~a);" k name env))
+         ((''call_tagged k name env) (to-c-emit "  CALL_TAGGED(~a,~a,~a);" k name env))
          ((''array place size) (to-c-emit "  LIST(~a, ~a);" place size))
          ((''closure place name size)
           (progn
@@ -667,13 +620,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''copy dst p src q) (to-c-emit "  COPY(~a, ~a, ~a, ~a);" dst p src q))
          ((''move dst src) (to-c-emit "  MOVE(~a, ~a);" dst src))
          ((''list_flip dst src) (to-c-emit "  ~a = LIST_FLIP(~a);" dst src))
-         ((''known_closure) (to-c-emit "  /* known closure */"))
+         ((''known_closure) #|(to-c-emit "  /* known closure */")|#)
          ((''fixnum dst str) (to-c-emit "  LOAD_FIXNUM(~a, ~s);" dst str))
-         ((''text name str)
-          (let ((bytes `(,@(m c (coerce str 'list) (char-code c)) 0)))
-            (push (format nil "static uint8_t ~a_bytes[] = {~{~a~^,~}};" name bytes) decls)
-            (push (format nil "static void *~a;" name) decls)
-            (push (format nil "TEXT(~a, ~a_bytes);" name name) inits)))
+         ((''bytes name values)
+          (push (format nil "static uint8_t ~a_bytes[] = {~{~a~^,~}};" name values) decls))
+         ((''text name bytes) (to-c-emit "  TEXT(~a, ~a_bytes);" name name))
          ((''list dst xs)
           (let ((name (ssa-name "s")))
             (to-c-emit "  MOVE(~a, ~a);" dst name))
@@ -682,26 +633,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (to-c-emit "  CHECK_NARGS(~a, ~a, ~a);" expected size (or meta "Empty")))
          ((''check_varargs size meta) (to-c-emit "  CHECK_VARARGS(~a_size, ~a);" size (or meta "Empty")))
          (else (error "invalid ssa: ~a" x))))
-    (to-c-emit "LABEL(~a)" inits-name)
-    (when (or *ssa-inits* inits)
-      (e i inits (to-c-emit "  ~a" i))
-      (e x *ssa-inits*
-         (progn
-           (to-c-emit "  JMP(~a);" (first x))
-           (to-c-emit "  LOAD(~a, E, 0);" (first x)))))
-    (to-c-emit "END_OF_CODE~%")
+    (to-c-emit "END_CODE")
     (format nil "~{~a~%~}" (reverse (append *compiled* decls)))))
 
-(to ssa-compile k entry fn-expr
-  ! *ssa-inits* = nil
-  ! cps = produce-cps k fn-expr
-  ! ssa = cps-to-ssa cps
-  ! ssa-to-c entry ssa)
-
-(to ssa-compile-entry k entry expr ! ssa-compile `("_move" r ,k) entry expr)
-
 (to ssa-produce-file file src
-  ! text = ssa-compile-entry "run" "entry" src
+  ! ssa = produce-ssa "entry" src
+  ! text = ssa-to-c ssa
   ! header = "#include \"../runtime.h\""
   ! save-text-file file (format nil "~a~%~%~a" header text))
 
@@ -981,7 +918,3 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to symta filename
   ! text = load-text-file filename
   ! symta-eval text)
-
-
-
-;;(test-ssa '("list" 1 2 3 4 5))

@@ -3,19 +3,17 @@
 
 #include "runtime.h"
 
-static void b_list(api_t*);
-static void b_view(api_t*);
-static void b_text(api_t*);
-static void b_cons(api_t*);
+static void b_list(REGS);
+static void b_view(REGS);
+static void b_text(REGS);
+static void b_cons(REGS);
 
 #define getArg(i) REF(E,i)
 #define getVal(x) ((uintptr_t)(x)&~TAG_MASK)
 
-#define STATICS_SIZE (1024*1024)
-static void *heapS[STATICS_SIZE]; // heap for static objects
-static void *heap0[HEAP_SIZE];
-static void *heap1[HEAP_SIZE];
+#define NewBase api->top
 
+static void *heap[HEAP_SIZE*2];
 
 static void fatal(char *fmt, ...) {
    va_list ap;
@@ -25,33 +23,29 @@ static void fatal(char *fmt, ...) {
    abort();
 }
 
-static void bad_type(api_t *api, char *expected, int arg_index, char *name) {
+static void bad_type(REGS, char *expected, int arg_index, char *name) {
   int i, nargs = (int)UNFIXNUM(NARGS);
   printf("arg %d isnt %s, in: %s", arg_index, expected, name);
-  for (i = 1; i < nargs; i++) printf(" %s", print_object(getArg(i)));
+  for (i = 0; i < nargs; i++) printf(" %s", print_object(getArg(i)));
   printf("\n");
   abort();
 }
 
-static void bad_call(api_t *api, void *method) {
+static void bad_call(REGS, void *method) {
   int i, nargs = (int)UNFIXNUM(NARGS);
-  printf("bad call: %s", print_object(getArg(1)));
+  printf("bad call: %s", print_object(getArg(0)));
   printf(" %s", print_object(method));
-  for (i = 2; i < nargs; i++) printf(" %s", print_object(getArg(i)));
+  for (i = 1; i < nargs; i++) printf(" %s", print_object(getArg(i)));
   printf("\n");
   abort();
 }
 
 #define CAR(x) ((void**)getVal(x))[0]
 #define CDR(x) ((void**)getVal(x))[1]
-static void *cons(api_t *api, void *a, void *b) {
-  A = a;
-  P = b;
-  ALLOC(R, b_cons, 2);
-  STORE(R, 0, A);
-  STORE(R, 1, P);
-  return R;
-}
+#define CONS(a, b) \
+  ALLOC(R, b_cons, 2); \
+  STORE(R, 0, a); \
+  STORE(R, 1, b); \
 
 static char *print_object_r(api_t *api, char *out, void *o);
 
@@ -77,21 +71,19 @@ static char *text_to_cstring(void *o) {
 
 #define C_FIXNUM(o,arg_index,meta) \
   if (GET_TAG(o) != T_FIXNUM) \
-    bad_type(api, "integer", arg_index, meta)
+    bad_type(REGS_ARGS, "integer", arg_index, meta)
 
 #define C_TEXT(o,arg_index,meta) \
   if (GET_TAG(o) != T_FIXTEXT && (GET_TAG(o) != T_CLOSURE || POOL_HANDLER(o) != b_text)) \
-    bad_type(api, "text", arg_index, meta)
+    bad_type(REGS_ARGS, "text", arg_index, meta)
 
 #define C_CONS(o,arg_index,meta) \
   if (GET_TAG(o) != T_CLOSURE || POOL_HANDLER(o) != b_cons) \
-    bad_type(api, "cons", arg_index, meta)
+    bad_type(REGS_ARGS, "cons", arg_index, meta)
 
 #define BUILTIN_CHECK_NARGS(expected,tag,name) \
   if (NARGS != FIXNUM(expected)) { \
-    void *meta; \
-    void *ttag; \
-    void *t; \
+    void *meta, *ttag, *t; \
     LIST(meta, 1); \
     TEXT(t, name); \
     REF(meta,0) = t; \
@@ -100,14 +92,12 @@ static char *text_to_cstring(void *o) {
     } else { \
       ttag = Void; \
     } \
-    api->handle_args(api, FIXNUM(expected), FIXNUM(0), ttag, meta); \
+    api->handle_args(REGS_ARGS, FIXNUM(expected), FIXNUM(0), ttag, meta); \
     return; \
   }
 #define BUILTIN_CHECK_VARARGS(expected,tag,name) \
   if (NARGS < FIXNUM(expected)) { \
-    void *meta; \
-    void *ttag; \
-    void *t; \
+    void *meta, *ttag, *t; \
     LIST(meta, 1); \
     TEXT(t, name); \
     REF(meta,0) = t; \
@@ -116,88 +106,55 @@ static char *text_to_cstring(void *o) {
     } else { \
       ttag = Void; \
     } \
-    api->handle_args(api, -FIXNUM(expected), FIXNUM(0), ttag, meta); \
+    api->handle_args(REGS_ARGS, -FIXNUM(expected), FIXNUM(0), ttag, meta); \
     return; \
   }
 
-
-#define CALL0(f,k) \
-  LIST(A, 1); \
-  STORE(A, 0, k); \
-  MOVE(E, A); \
-  CALL(f);
-
-#define CALL1(f,k,a) \
-  LIST(A, 2); \
-  STORE(A, 0, k); \
-  STORE(A, 1, a); \
-  MOVE(E, A); \
-  CALL(f);
-
-#define CALL2(f,k,a,b) \
-  LIST(A, 3); \
-  STORE(A, 0, k); \
-  STORE(A, 1, a); \
-  STORE(A, 2, b); \
-  MOVE(E, A); \
-  CALL(f);
-
 #define BUILTIN0(sname, name) \
-  static void b_##name(api_t *api) { \
-  BUILTIN_CHECK_NARGS(1,0,sname); \
-  C = getArg(0);
+  static void *b_##name(REGS) { \
+  void *A, *E; \
+  BUILTIN_CHECK_NARGS(0,0,sname);
 #define BUILTIN1(sname,name,a_check,a) \
-  static void b_##name(api_t *api) { \
-  void *a; \
-  BUILTIN_CHECK_NARGS(2,0,sname); \
-  C = getArg(0); \
-  a = getArg(1); \
+  static void *b_##name(REGS) { \
+  void *A, *E, *a; \
+  BUILTIN_CHECK_NARGS(1,0,sname); \
+  a = getArg(0); \
   a_check(a, 0, sname);
 #define BUILTIN2(sname,name,a_check,a,b_check,b) \
-  static void b_##name(api_t *api) { \
-  void *a, *b; \
-  BUILTIN_CHECK_NARGS(3,0,sname); \
-  C = getArg(0); \
-  a = getArg(1); \
+  static void *b_##name(REGS) { \
+  void *A, *E, *a, *b; \
+  BUILTIN_CHECK_NARGS(2,0,sname); \
+  a = getArg(0); \
   a_check(a, 0, sname); \
-  b = getArg(2); \
+  b = getArg(1); \
   b_check(b, 1, sname);
 #define BUILTIN3(sname,name,a_check,a,b_check,b,c_check,c) \
-  static void b_##name(api_t *api) { \
-  void *a, *b,*c; \
-  BUILTIN_CHECK_NARGS(4,0,sname); \
-  C = getArg(0); \
-  a = getArg(1); \
+  static void *b_##name(REGS) { \
+  void *A, *E, *a, *b,*c; \
+  BUILTIN_CHECK_NARGS(3,0,sname); \
+  a = getArg(0); \
   a_check(a, 0, sname); \
-  b = getArg(2); \
+  b = getArg(1); \
   b_check(b, 1, sname); \
-  c = getArg(3); \
-  c_check(c, 1, sname);
+  c = getArg(2); \
+  c_check(c, 2, sname);
 #define BUILTIN_VARARGS(sname,name) \
-  static void b_##name(api_t *api) { \
+  static void *b_##name(REGS) { \
+  void *A, *E, 
   BUILTIN_CHECK_VARARGS(1,0,sname); \
-  C = getArg(0);
 #define BUILTIN_HANDLER(sname,name,a_check,a) \
-  static void b_##name(api_t *api) { \
-  void *a; \
+  static void *b_##name(REGS) { \
+  void *A, *E, *a; \
   BUILTIN_CHECK_VARARGS(2,sname,sname); \
-  a = getArg(1); \
+  a = getArg(0); \
   a_check(a, 0, sname);
 
 
-#define RETURNS(r) CALL0(C,(void*)(r)); }
+#define RETURNS(r) RETURN_NO_GC(r); }
 #define RETURNS_VOID }
 
-// E[0] = environment, E[1] = continuation, E[2] = function_name
-// run continuation recieves entry point into user specified program
-// which it runs with supplied host resolver, which resolves all builtin symbols
-BUILTIN0("run",run)
-  CALL1(C,fin,host);
-RETURNS_VOID
 
-BUILTIN0("fin",fin)
-  R = C;
-RETURNS_VOID
+static void *exec_result;
 
 
 static void *s_size, *s_get, *s_set, *s_hash;
@@ -240,11 +197,11 @@ BUILTIN2("void get",void_get,C_ANY,o,C_ANY,key)
 RETURNS(Void)
 BUILTIN_HANDLER("void",void,C_TEXT,x)
   STORE(E, 1, P);
-  if (texts_equal(x,s_is)) b_void_is(api);
-  else if (texts_equal(x,s_isnt)) b_void_isnt(api);
-  else if (texts_equal(x,s_end)) b_void_end(api);
-  else if (texts_equal(x,s_get)) b_void_get(api);
-  else bad_call(api,x);
+  if (texts_equal(x,s_is)) return b_void_is(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_isnt)) return b_void_isnt(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_end)) return b_void_end(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_get)) return b_void_get(REGS_ARGS(E,P));
+  else bad_call(REGS_ARGS(E,P),x);
 RETURNS_VOID
 
 #define IS_TEXT(o) (GET_TAG(o) == T_CLOSURE && POOL_HANDLER(o) == b_text)
@@ -257,30 +214,29 @@ RETURNS(FIXNUM(IS_TEXT(b) ? !texts_equal(a,b) : 1))
 BUILTIN1("text size",text_size,C_ANY,o)
 RETURNS(TEXT_SIZE(o))
 BUILTIN2("text {}",text_get,C_ANY,o,C_FIXNUM,index)
-  void *r;
   char t[2];
   if ((uintptr_t)REF4(o,0) <= (uintptr_t)index) {
     printf("index out of bounds\n");
     TEXT(P, "{}");
-    bad_call(api,P);
+    bad_call(REGS_ARGS,P);
   }
   t[0] = REF1(o,4+UNFIXNUM(index));
   t[1] = 0;
-  TEXT(r,t);
-RETURNS(r)
+  TEXT(R,t);
+RETURNS(R)
 BUILTIN1("text end",text_end,C_ANY,o)
 RETURNS(FIXNUM(1))
 BUILTIN1("text hash",text_hash,C_ANY,o)
 RETURNS(FIXNUM(hash((uint8_t*)o+4, *(int32_t*)o)))
 BUILTIN_HANDLER("text",text,C_TEXT,x)
   STORE(E, 1, P);
-  if (texts_equal(x,s_size)) b_text_size(api);
-  else if (texts_equal(x,s_get)) b_text_get(api);
-  else if (texts_equal(x,s_is)) b_text_is(api);
-  else if (texts_equal(x,s_isnt)) b_text_isnt(api);
-  else if (texts_equal(x,s_end)) b_text_end(api);
-  else if (texts_equal(x,s_hash)) b_text_hash(api);
-  else bad_call(api,x);
+  if (texts_equal(x,s_size)) return b_text_size(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_get)) return b_text_get(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_is)) return b_text_is(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_isnt)) return b_text_isnt(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_end)) return b_text_end(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_hash)) return b_text_hash(REGS_ARGS(E,P));
+  else bad_call(REGS_ARGS(E,P),x);
 RETURNS_VOID
 
 BUILTIN2("text is",fixtext_is,C_ANY,a,C_ANY,b)
@@ -305,7 +261,7 @@ BUILTIN2("text {}",fixtext_get,C_ANY,o,C_FIXNUM,index)
 bounds_error:
     printf("index out of bounds\n");
     TEXT(P, "{}");
-    bad_call(api,P);
+    bad_call(REGS_ARGS(E,P),P);
   }
   c = ((uint64_t)o>>(i*7))&(0x7F<<TAG_BITS);
   if (!c) goto bounds_error;
@@ -318,14 +274,14 @@ BUILTIN1("text code",fixtext_code,C_ANY,o)
 RETURNS(FIXNUM((uint64_t)o>>TAG_BITS))
 BUILTIN_HANDLER("text",fixtext,C_TEXT,x)
   STORE(E, 1, P);
-  if (texts_equal(x,s_size)) b_fixtext_size(api);
-  else if (texts_equal(x,s_get)) b_fixtext_get(api);
-  else if (texts_equal(x,s_is)) b_fixtext_is(api);
-  else if (texts_equal(x,s_isnt)) b_fixtext_isnt(api);
-  else if (texts_equal(x,s_end)) b_fixtext_end(api);
-  else if (texts_equal(x,s_hash)) b_fixtext_hash(api);
-  else if (texts_equal(x,s_code)) b_fixtext_code(api);
-  else bad_call(api,x);
+  if (texts_equal(x,s_size)) return b_fixtext_size(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_get)) return b_fixtext_get(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_is)) return b_fixtext_is(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_isnt)) return b_fixtext_isnt(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_end)) return b_fixtext_end(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_hash)) return b_fixtext_hash(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_code)) return b_fixtext_code(REGS_ARGS(E,P));
+  else bad_call(REGS_ARGS(E,P),x);
 RETURNS_VOID
 
 
@@ -350,7 +306,7 @@ BUILTIN2("view {}",view_get,C_ANY,o,C_FIXNUM,index)
   if (size <= (uint32_t)(uintptr_t)index) {
     printf("index out of bounds\n");
     TEXT(R, "{}");
-    bad_call(api,R);
+    bad_call(REGS_ARGS(E,P),R);
   }
 RETURNS(VIEW_REF(o, start, UNFIXNUM(index)))
 BUILTIN3("view {!}",view_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
@@ -359,7 +315,7 @@ BUILTIN3("view {!}",view_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   if (size <= (uint32_t)(uintptr_t)index) {
     printf("view {!}: index out of bounds\n");
     TEXT(P, "{!}");
-    bad_call(api,P);
+    bad_call(REGS_ARGS(E,P),P);
   }
   VIEW_REF(o, start, UNFIXNUM(index)) = value;
 RETURNS(Void)
@@ -388,16 +344,16 @@ BUILTIN2("view add",view_add,C_ANY,o,C_ANY,x)
 RETURNS(LIST_FLIP(r))
 BUILTIN_HANDLER("list",view,C_TEXT,x)
   STORE(E, 1, P);
-  if (texts_equal(x,s_get)) b_view_get(api);
-  else if (texts_equal(x,s_set)) b_view_set(api);
-  else if (texts_equal(x,s_size)) b_view_size(api);
-  else if (texts_equal(x,s_is)) b_view_is(api);
-  else if (texts_equal(x,s_isnt)) b_view_isnt(api);
-  else if (texts_equal(x,s_head)) b_view_head(api);
-  else if (texts_equal(x,s_tail)) b_view_tail(api);
-  else if (texts_equal(x,s_end)) b_view_end(api);
-  else if (texts_equal(x,s_add)) b_view_add(api);
-  else bad_call(api,x);
+  if (texts_equal(x,s_get)) return b_view_get(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_set)) return b_view_set(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_size)) return b_view_size(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_is)) return b_view_is(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_isnt)) return b_view_isnt(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_head)) return b_view_head(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_tail)) return b_view_tail(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_end)) return b_view_end(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_add)) return b_view_add(REGS_ARGS(E,P));
+  else bad_call(REGS_ARGS(E,P),x);
 RETURNS_VOID
 
 BUILTIN2("list is",list_is,C_ANY,a,C_ANY,b)
@@ -410,7 +366,7 @@ BUILTIN2("list {}",list_get,C_ANY,o,C_FIXNUM,index)
   if ((uintptr_t)POOL_HANDLER(o) <= (uintptr_t)index) {
     printf("index out of bounds\n");
     TEXT(P, "{}");
-    bad_call(api,P);
+    bad_call(REGS_ARGS(E,P),P);
   }
   o = LIST_FLIP(o);
 RETURNS(REF(o, UNFIXNUM(index)))
@@ -418,7 +374,7 @@ BUILTIN3("list {!}",list_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   if ((uintptr_t)POOL_HANDLER(o) <= (uintptr_t)index) {
     printf("list {!}: index out of bounds\n");
     TEXT(P, "{!}");
-    bad_call(api,P);
+    bad_call(REGS_ARGS(E,P),P);
   }
   o = LIST_FLIP(o);
   REF(o, UNFIXNUM(index)) = value;
@@ -449,16 +405,16 @@ BUILTIN2("list add",list_add,C_ANY,o,C_ANY,x)
 RETURNS(LIST_FLIP(R))
 BUILTIN_HANDLER("list",list,C_TEXT,x)
   STORE(E, 1, P);
-  if (texts_equal(x,s_get)) b_list_get(api);
-  else if (texts_equal(x,s_set)) b_list_set(api);
-  else if (texts_equal(x,s_size)) b_list_size(api);
-  else if (texts_equal(x,s_is)) b_list_is(api);
-  else if (texts_equal(x,s_isnt)) b_list_isnt(api);
-  else if (texts_equal(x,s_head)) b_list_head(api);
-  else if (texts_equal(x,s_tail)) b_list_tail(api);
-  else if (texts_equal(x,s_end)) b_list_end(api);
-  else if (texts_equal(x,s_add)) b_list_add(api);
-  else bad_call(api,x);
+  if (texts_equal(x,s_get)) return b_list_get(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_set)) return b_list_set(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_size)) return b_list_size(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_is)) return b_list_is(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_isnt)) return b_list_isnt(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_head)) return b_list_head(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_tail)) return b_list_tail(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_end)) return b_list_end(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_add)) return b_list_add(REGS_ARGS(E,P));
+  else bad_call(REGS_ARGS(E,P),x);
 RETURNS_VOID
 
 BUILTIN_VARARGS("[list]",make_list)
@@ -523,7 +479,7 @@ BUILTIN2("integer x",integer_x,C_ANY,size,C_ANY,init)
   intptr_t s = UNFIXNUM(size);
   if (s < 0) {
     TEXT(R,"integer x");
-    bad_call(api, R);
+    bad_call(REGS_ARGS(E,P), R);
   } else if (size == 0) {
     R = Empty;
   } else {
@@ -541,28 +497,28 @@ BUILTIN1("integer hash",integer_hash,C_ANY,o)
 RETURNS(o)
 BUILTIN_HANDLER("integer",fixnum,C_TEXT,x)
   STORE(E, 1, P);
-  if (texts_equal(x,s_plus)) b_integer_add(api);
-  else if (texts_equal(x,s_sub)) b_integer_sub(api);
-  else if (texts_equal(x,s_mul)) b_integer_mul(api);
-  else if (texts_equal(x,s_div)) b_integer_div(api);
-  else if (texts_equal(x,s_rem)) b_integer_rem(api);
-  else if (texts_equal(x,s_is)) b_integer_is(api);
-  else if (texts_equal(x,s_isnt)) b_integer_isnt(api);
-  else if (texts_equal(x,s_lt)) b_integer_lt(api);
-  else if (texts_equal(x,s_gt)) b_integer_gt(api);
-  else if (texts_equal(x,s_lte)) b_integer_lte(api);
-  else if (texts_equal(x,s_gte)) b_integer_gte(api);
-  else if (texts_equal(x,s_neg)) b_integer_neg(api);
-  else if (texts_equal(x,s_mask)) b_integer_mask(api);
-  else if (texts_equal(x,s_ior)) b_integer_ior(api);
-  else if (texts_equal(x,s_xor)) b_integer_xor(api);
-  else if (texts_equal(x,s_shl)) b_integer_shl(api);
-  else if (texts_equal(x,s_shr)) b_integer_shr(api);
-  else if (texts_equal(x,s_end)) b_integer_end(api);
-  else if (texts_equal(x,s_hash)) b_integer_hash(api);
-  else if (texts_equal(x,s_text)) b_integer_text(api);
-  else if (texts_equal(x,s_x)) b_integer_x(api);
-  else bad_call(api,x);
+  if (texts_equal(x,s_plus)) return b_integer_add(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_sub)) return b_integer_sub(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_mul)) return b_integer_mul(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_div)) return b_integer_div(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_rem)) return b_integer_rem(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_is)) return b_integer_is(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_isnt)) return b_integer_isnt(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_lt)) return b_integer_lt(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_gt)) return b_integer_gt(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_lte)) return b_integer_lte(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_gte)) return b_integer_gte(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_neg)) return b_integer_neg(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_mask)) return b_integer_mask(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_ior)) return b_integer_ior(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_xor)) return b_integer_xor(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_shl)) return b_integer_shl(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_shr)) return b_integer_shr(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_end)) return b_integer_end(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_hash)) return b_integer_hash(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_text)) return b_integer_text(REGS_ARGS(E,P));
+  else if (texts_equal(x,s_x)) return b_integer_x(REGS_ARGS(E,P));
+  else bad_call(REGS_ARGS(E,P),x);
 RETURNS_VOID
 
 BUILTIN1("cons head",cons_head,C_ANY,o)
@@ -576,16 +532,19 @@ RETURNS(FIXNUM(a != b))
 BUILTIN1("cons end",cons_end,C_ANY,o)
 RETURNS(FIXNUM(0))
 BUILTIN2("cons add",cons_add,C_ANY,o,C_ANY,head)
-RETURNS(cons(api, head, o))
+  A = head;
+  P = o;
+  CONS(A, P);
+RETURNS(R)
 BUILTIN_HANDLER("list",cons,C_TEXT,x)
   STORE(E, 1, P);
-  if (texts_equal(x,s_head)) b_cons_head(api);
-  else if (texts_equal(x,s_tail)) b_cons_tail(api);
-  else if (texts_equal(x,s_end)) b_cons_end(api);
-  else if (texts_equal(x,s_add)) b_cons_add(api);
-  else if (texts_equal(x,s_is)) b_cons_is(api);
-  else if (texts_equal(x,s_isnt)) b_cons_isnt(api);
-  else bad_call(api,x);
+  if (texts_equal(x,s_head)) return b_cons_head(REGS_ARGS);
+  else if (texts_equal(x,s_tail)) return b_cons_tail(REGS_ARGS);
+  else if (texts_equal(x,s_end)) return b_cons_end(REGS_ARGS);
+  else if (texts_equal(x,s_add)) return b_cons_add(REGS_ARGS);
+  else if (texts_equal(x,s_is)) return b_cons_is(REGS_ARGS);
+  else if (texts_equal(x,s_isnt)) return b_cons_isnt(REGS_ARGS);
+  else bad_call(REGS_ARGS,x);
 RETURNS_VOID
 
 
@@ -602,20 +561,18 @@ BUILTIN2("empty add",empty_add,C_ANY,o,C_ANY,head)
 RETURNS(LIST_FLIP(R))
 BUILTIN_HANDLER("empty",empty,C_TEXT,x)
   STORE(E, 1, P);
-  if (texts_equal(x,s_end)) b_empty_end(api);
-  else if (texts_equal(x,s_add)) b_empty_add(api);
-  else if (texts_equal(x,s_is)) b_empty_is(api);
-  else if (texts_equal(x,s_isnt)) b_empty_isnt(api);
-  else bad_call(api,x);
+  if (texts_equal(x,s_end)) return b_empty_end(REGS_ARGS);
+  else if (texts_equal(x,s_add)) return b_empty_add(REGS_ARGS);
+  else if (texts_equal(x,s_is)) return b_empty_is(REGS_ARGS);
+  else if (texts_equal(x,s_isnt)) return b_empty_isnt(REGS_ARGS);
+  else bad_call(REGS_ARGS,x);
 RETURNS_VOID
 
-BUILTIN1("tag_of",tag_of,C_ANY,a)
-  R = a;
-  ALLOC(A, FIXNUM(0), 1); // signal that we want tag
-  STORE(A, 0, C);
-  MOVE(E, A);
-  CALL_TAGGED(R);
-RETURNS_VOID
+BUILTIN1("tag_of",tag_of,C_ANY,o)
+  void *e,*r;
+  ALLOC(e, FIXNUM(-1), 1); // signal that we want tag
+  CALL_TAGGED(r,e);
+RETURNS(r)
 
 BUILTIN0("halt",halt)
   printf("halted.\n");
@@ -677,20 +634,22 @@ static int text_immediate_decode(char *dst, void *r) {
 
 static void *alloc_text(api_t *api, char *s) {
   int l, a;
+  void *r;
   char buf[1024];
 
   if (is_unicode(s)) fatal("FIXME: implement unicode\n");
 
-  R = text_immediate_encoding(s);
-  if (R) return R;
+  r = text_immediate_encoding(s);
+  if (r) return r;
 
   l = strlen(s);
   a = (l+4+TAG_MASK)>>TAG_BITS;
-  ALLOC(R, b_text, a);
-  REF4(R,0) = (uint32_t)FIXNUM(l);
-  memcpy(&REF1(R,4), s, l);
-  return R;
+  ALLOC(r, b_text, a);
+  REF4(r,0) = (uint32_t)FIXNUM(l);
+  memcpy(&REF1(r,4), s, l);
+  return r;
 }
+
 
 static char *read_whole_file_as_string(char *input_file_name) {
   char *file_contents;
@@ -729,7 +688,7 @@ RETURNS_VOID
 BUILTIN1("_no_method",_no_method,C_TEXT,name)
   printf("method not found: %s\n", print_object(name));
   STORE(E, 1, P);
-  bad_call(api, name);
+  bad_call(REGS_ARGS(E,P), name);
   abort();
 RETURNS(Void)
 
@@ -753,10 +712,9 @@ BUILTIN_VARARGS("host",host)
   int i,j, n = (int)UNFIXNUM(NARGS)-1;
   void *f;
 
-  f = getArg(1);
+  C = getArg(0);
   LIST(A, n);
-  STORE(A, 0, C);
-  for (j = 1; j < n; j++) {
+  for (j = 0; j < n; j++) {
     void *name = getArg(j+1);
     C_TEXT(name, j, "host");
     for (i = 0; ; i++) {
@@ -769,9 +727,8 @@ BUILTIN_VARARGS("host",host)
     }
     STORE(A, j, builtins[i].fun);
   }
-  MOVE(E, A);
-  CALL_TAGGED(f);
-RETURNS_VOID
+  CALL_TAGGED(R,C,A);
+RETURNS(R)
 
 static char *print_object_r(api_t *api, char *out, void *o) {
   int i;
@@ -832,23 +789,19 @@ static char *print_object_r(api_t *api, char *out, void *o) {
   return out;
 }
 
-static void bad_tag(api_t *api) {
+static void bad_tag(REGS) {
   fatal("bad tag = %d\n", (int)GET_TAG(P));
 }
 
-static void handle_args(api_t *api, intptr_t expected, intptr_t size, void *tag, void *meta) {
+static void *handle_args(REGS, intptr_t expected, intptr_t size, void *tag, void *meta) {
   intptr_t got = NARGS;
-  void *k = getArg(0);
 
-  if (got == FIXNUM(0)) { //request for tag
-    CALL0(k, tag);
-    return;
-  } else if (got == FIXNUM(-1)) {
-    STORE(E, 0, (intptr_t)size);
-    return;
+  if (got == FIXNUM(-1)) { //request for tag
+    RETURN_NO_GC(tag);
   } else if (got == FIXNUM(-2)) {
-    CALL0(k, meta);
-    return;
+    RETURN_NO_GC(size)
+  } else if (got == FIXNUM(-3)) {
+    RETURN_NO_GC(meta);
   }
 
   if (meta != Empty) {
@@ -863,25 +816,28 @@ static void handle_args(api_t *api, intptr_t expected, intptr_t size, void *tag,
 }
 
 
-static void *closure_size_result;
-static void **gc_from, **gc_to;
+static void *closure_size_request;
+
+static void *gc_base, *gc_end; // from-space
 
 static void *gc_move(api_t *api, void *o) {
   void *p, *q;
   int i, size, tag = GET_TAG(o);
+  void *E, *P, *A, *C, *R; // dummies
   char buf[1024];
 
   //sprintf(buf, "%s", print_object(o));
 
   if (tag == T_FIXNUM || tag == T_FIXTEXT) {
     p = o;
-  } else if (!(gc_from <= (void**)o && (void**)o < gc_from+HEAP_SIZE)) {
+  } else if (!(gc_base <= o && o < gc_end)) {
     // FIXME: check if this external reference is valid
     p = o;
   } else if (tag == T_CLOSURE) {
     pfun handler = POOL_HANDLER(o);
+    int in_heap = (heap <= (void*)handler && (void*)handler < heap+HEAP_SIZE);
 
-    if (gc_to <= (void**)handler && (void**)handler < gc_to+HEAP_SIZE) {
+    if (in_heap && !(gc_base <= (void*)handler && (void*)handler < gc_end)) {
       // already moved
       p = handler;
     } else if (IS_ARGLIST(o)) {
@@ -904,13 +860,14 @@ static void *gc_move(api_t *api, void *o) {
       TEXT(p, TEXT_DATA(o));
       STORE(o, -1, p);
     } else if (handler == b_cons) {
-      p = cons(api, 0, 0);
+      CONS(0, 0);
+      p = R;
       CAR(p) = gc_move(api, CAR(o));
       CDR(p) = gc_move(api, CDR(o));
     } else {
-      MOVE(E, closure_size_result);
-      CALL(o);
-      size = UNFIXNUM(REF(closure_size_result, 0));
+      void *fixed_size;
+      CALL(fixed_size,o,closure_size_request);
+      size = UNFIXNUM(fixed_size);
       ALLOC(p, handler, size);
       STORE(o, -1, p);
       for (i = 0; i < size; i++) {
@@ -939,42 +896,14 @@ static void *gc_move(api_t *api, void *o) {
   return p;
 }
 
-static int gc_in_progress;
-
-static void gc(api_t *api, int size) {
-  void *sE=E, *sP=P, *sA=A, *sC=C, *sR=R;
-
-  if (gc_in_progress) {
-    printf("fatal error: recursive GC call.\n");
-    abort();
-  }
-
-  gc_in_progress = 1;
-
-  gc_from = heap0+HEAP_SIZE == HeapEnd ? heap0 : heap1;
-  gc_to = gc_from == heap0 ? heap1 : heap0;
-
-  H = gc_to;
-  HeapEnd = H + HEAP_SIZE;
-
-  // ensure future GC wont get garbage in uninited arrays
-  memset(H, 0, HEAP_SIZE*sizeof(void*));
-
-  sE = gc_move(api, sE);
-  sP = gc_move(api, sP);
-  sA = gc_move(api, sA);
-  sC = gc_move(api, sC);
-  sR = gc_move(api, sR);
-
-  E = sE;
-  P = sP;
-  A = sA;
-  C = sC;
-  R = sR;
-
-  gc_in_progress = 0;
-
-  if (H+size >= HeapEnd) fatal("Couldn't allocate %ld bytes.\n", (intptr_t)size*sizeof(void*));
+static void *gc(void *api, void Prev, void *Base, void *root) {
+  gc_base = Base;
+  gc_end = api->top;
+  root = gc_move(api, root);
+  gc_base = gc_end;
+  gc_end = api->top;
+  api->top = Base;
+  return gc_move(api, root);
 }
 
 static api_t *new_api() {
@@ -995,16 +924,16 @@ static api_t *new_api() {
 }
 
 #define CLOSURE(dst,code) { ALLOC(dst, code, 0); }
-
-
-
-
 int main(int argc, char **argv) {
   int i;
   char *module;
   void *lib;
-  pfun entry;
+  pfun entry, setup;
   api_t *api;
+  void *Prev, *Base;
+
+  void *E = 0; // current environment
+  void *P = 0; // parent environment
 
   if (argc != 2) {
     printf("usage: %s <start_module>\n", argv[0]);
@@ -1015,17 +944,16 @@ int main(int argc, char **argv) {
 
   api = new_api();
 
-  H = heapS;
-  HeapEnd = H+STATICS_SIZE;
+  api->top = Base = Prev = heap;
 
   CLOSURE(Void, b_void);
   CLOSURE(Empty, b_empty);
+  CLOSURE(Host, b_host);
 
-  CLOSURE(run, b_run);
-  CLOSURE(fin, b_fin);
-  CLOSURE(host, b_host);
+  ALLOC(closure_size_request, FIXNUM(-2), 1); // signal that we want closure size
 
-  ALLOC(closure_size_result, FIXNUM(-1), 1); // signal that we want closure size
+  ALLOC(E,FIXNUM(0),0);
+  STORE(E,0,host);
 
   for (i = 0; ; i++) {
     void *t;
@@ -1074,15 +1002,15 @@ int main(int argc, char **argv) {
   entry = (pfun)dlsym(lib, "entry");
   if (!entry) fatal("dlsym couldnt find symbol `entry` in %s\n", module);
 
+  setup = (pfun)dlsym(lib, "setup");
+  if (!setup) fatal("dlsym couldnt find symbol `setup` in %s\n", module);
+
   // init module's statics
   MOVE(R, FIXNUM(1));
-  entry(api);
+  setup(REGS_ARGS(E,P));
 
-  // do real eval
-  H = heap0;
-  HeapEnd = H + HEAP_SIZE;
   MOVE(R, FIXNUM(0));
-  entry(api);
-
-  printf("%s\n", print_object(R));
+  entry(REGS_ARGS(E,P));
+  
+  printf("%s\n", print_object(exec_result));
 }
