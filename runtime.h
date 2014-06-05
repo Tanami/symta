@@ -106,8 +106,9 @@ typedef void *(*pfun)(REGS);
    } \
    return api->gc(api, Prev, Base, (void*)(value));
 #define RETURN_NO_GC(value) return (void*)(value);
-#define GOSUB(label) label(REGS_ARGS)
+#define GOSUB(label) label(E,P,api,Prev,Base);
 #define BRANCH(cond,label) if ((cond) != FIXNUM(0)) { label(REGS_ARGS); return; }
+#define CALL_RAW(k,f,e) k = ((pfun)f)(REGS_ARGS(e,Empty));
 #define CALL(k,f,e) k = POOL_HANDLER(f)(REGS_ARGS(e,f));
 #define CALL_TAGGED(k,f,e) \
   if (GET_TAG(f) == T_CLOSURE) { \

@@ -567,13 +567,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ! push l init-labels
          ! ssa 'label l
          ! ssa-expr name expr
-         ! ssa 'return_no_gc name))
+         ! ssa 'return_no_gc name
+         ! ssa 'global name))
   ! ssa 'entry "setup"
-  ! when init-labels
-     (! dummy = ssa-name "d"
-      ! ssa 'var dummy
-      ! e l init-labels (ssa 'call dummy l 'e))
   ! setf *ssa-out* (append *ssa-raw-inits* *ssa-out*)
+  ! when init-labels (e l init-labels (ssa 'gosub l))
   ! ssa 'return_no_gc 0
   ! rs = apply #'concatenate 'list `(,@(reverse *ssa-fns*) ,*ssa-out*)
   ;;! rs = peephole-optimize rs
@@ -606,7 +604,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           ;(to-c-emit "  D;")
           )
          ((''global name) (push (format nil "static void *~a;" name) decls))
-         ((''gosub label-name) (to-c-emit "GOSUB(~a)" label-name))
+         ((''gosub label-name) (to-c-emit "  GOSUB(~a);" label-name))
          ((''branch cond label) (to-c-emit "  BRANCH(~a, ~a);" cond label))
          ((''call k name env) (to-c-emit "  CALL(~a, ~a, ~a);" k name env))
          ((''call_tagged k name env) (to-c-emit "  CALL_TAGGED(~a, ~a, ~a);" k name env))
