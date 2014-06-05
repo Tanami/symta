@@ -397,12 +397,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to ssa-symbol k x value
   ! match (ssa-path-to-sym x *ssa-env*)
      ((pos parent)
-      (! base = if parent 'r 'e
+      (! r = ssa-name "r"
+       ! ssa 'var r
+       ! when parent (ssa 'load r 'p parent) ; symbol resides in parent environment
+       ! base = if parent r 'e
            #|(if parent
                (ssa 'store 'p parent value)
                (ssa 'copy 'e value))
            (ret nil)|#
-       ! when parent (ssa 'load 'r 'p parent) ; symbol resides in parent environment
        ! when (eql pos :all)
           (when value (error "can't set ~a" x))
           (unless (eql base k) (ssa 'move k base))
@@ -512,9 +514,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! if known-closure (ssa 'call k h e) (ssa 'call_tagged k h e))
 
 (to ssa-set k place value
-  ! ssa-expr 'r value
-  ! ssa-symbol place 'r
-  ! when (not (eql k 'r)) (ssa 'move k 'r))
+  ! r = ssa-name "r"
+  ! ssa 'var r
+  ! ssa-expr r value
+  ! ssa-symbol k place r
+  ! ssa 'move k r)
 
 (to ssa-form k xs
   ! match xs
@@ -612,8 +616,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''closure place name size)
           (progn
             (push (format nil "#define ~a_size ~a" name size) decls)
-            ;;(push (format nil "static int ~a_pool;" name) decls)
-            ;;(push (format nil "NEW_POOL(~a_pool);" name) inits)
             (to-c-emit "  ALLOC(~a, ~a, ~a);" place name size)))
          ((''load dst src off) (to-c-emit "  LOAD(~a, ~a, ~a);" dst src off))
          ((''store dst off src) (to-c-emit "  STORE(~a, ~a, ~a);" dst off src))
