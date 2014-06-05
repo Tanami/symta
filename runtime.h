@@ -48,6 +48,8 @@ typedef struct api_t {
   void *Empty;
   void *Host; // called to resolve builtin functions
 
+  //void *Goto; // goto token (TODO)
+
   // runtime's C API
   void (*bad_tag)(REGS);
   void* (*handle_args)(REGS, intptr_t expected, intptr_t size, void *tag, void *meta);
@@ -90,6 +92,7 @@ typedef void *(*pfun)(REGS);
 #define print_object(object) api->print_object_f(api, object)
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 
+#define LOCAL_ARRAY(dst,name,size) void *name[size]; dst = ADD_TAG((void*)name,T_CLOSURE)
 #define LOCAL_LABEL(name) name:;
 #define LOCAL_BRANCH(cnd,name) if (cnd) goto name;
 #define LOCAL_JMP(name) goto name;

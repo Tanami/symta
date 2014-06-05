@@ -397,14 +397,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to ssa-symbol k x value
   ! match (ssa-path-to-sym x *ssa-env*)
      ((pos parent)
-      (! r = ssa-name "r"
-       ! ssa 'var r
-       ! when parent (ssa 'load r 'p parent) ; symbol resides in parent environment
-       ! base = if parent r 'e
-           #|(if parent
-               (ssa 'store 'p parent value)
-               (ssa 'copy 'e value))
-           (ret nil)|#
+      (! base = if parent (ssa-name "b") 'e
+       ! when parent ; symbol resides in parent environment?
+          (ssa 'var base)
+          (ssa 'load base 'p parent)
        ! when (eql pos :all)
           (when value (error "can't set ~a" x))
           (unless (eql base k) (ssa 'move k base))
@@ -440,27 +436,32 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-resolved name ! cons name *ssa-ns*)
 
+(to ssa-fn-body k f args body o prologue epilogue
+  ! cs = nil
+  ! *ssa-out* = nil
+  ! *ssa-ns* = f
+  ! *ssa-env* = if (stringp args)
+                   (cons `(:all ,(ssa-resolved args)) *ssa-env*)
+                   (cons (mapcar #'ssa-resolved args) *ssa-env*)
+  ! *ssa-closure* = cons nil *ssa-closure*
+  ! when prologue (ssa 'label *ssa-ns*)
+  ! size-var = format nil "~a_size" f
+  ! when prologue
+      (if (stringp args)
+          (ssa 'check_varargs size-var (get-meta o))
+          (ssa 'check_nargs (length args) size-var (get-meta o)))
+  ! unless k
+     (setf k (ssa-name "result"))
+     (ssa 'var k)
+  ! ssa-expr k body
+  ! when epilogue (ssa 'return k)
+  ! list *ssa-out* (car *ssa-closure*)
+  )
+
 (to ssa-fn name k args body o
   ! f = ssa-name "f"
-  ! cs = nil
-  ! (! *ssa-out* = nil
-     ! *ssa-ns* = f
-     ! *ssa-env* = if (stringp args)
-                      (cons `(:all ,(ssa-resolved args)) *ssa-env*)
-                      (cons (mapcar #'ssa-resolved args) *ssa-env*)
-     ! *ssa-closure* = cons nil *ssa-closure*
-     ! ssa 'label *ssa-ns*
-     ! size-var = format nil "~a_size" f
-     ! if (stringp args)
-          (ssa 'check_varargs size-var (get-meta o))
-          (ssa 'check_nargs (length args) size-var (get-meta o))
-     ! result = ssa-name "result"
-     ! ssa 'var result
-     ! ssa-expr result body
-     ! ssa 'return result
-     ! push *ssa-out* *ssa-fns*
-     ! setf cs (car *ssa-closure*)
-     )
+  ! (body cs) = ssa-fn-body nil f args body o t t
+  ! push body *ssa-fns*
   ! nparents = length cs
   ;; check if we really need new closure here, because in some cases we can reuse parent's closure
   ;; a single argument to a function could be passed in register, while a closure would be created if required
@@ -513,6 +514,51 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa-symbol k place r
   ! ssa 'move k r)
 
+(to ssa-progn k xs
+  ! unless xs (setf xs '("Void"))
+  ! d = ssa-name "dummy"
+  ! ssa 'var d
+  ! while xs
+     (! unless (cdr xs) (setf d k)
+      ! ssa-expr d (car xs)
+      ! setf xs (cdr xs)))
+
+(to ssa-let k bs xs
+  ! args = m b bs (first b)
+  ! body = first xs ;;`("_progn" ,@xs)
+  ! f = ssa-name "f"
+  ! (ssa-body cs) = ssa-fn-body k f args body () nil nil
+  ! nparents = length cs
+  ! p = ssa-name "p" ;; parent environment
+  ! ssa 'var p
+  ! ssa 'local_array p nparents
+  ! i = -1
+  ! e c cs (! if (equal c *ssa-ns*) ; self?
+                 (ssa 'store k (incf i) 'e)
+                 (ssa 'copy k (incf i) 'p (ssa-get-parent-index c)))
+
+  ! e = ssa-name "env"
+  ! ssa 'var e
+  ! ssa 'local_array e (length bs)
+  ! i = -1
+  ! e b bs (! tmp = ssa-name "tmp"
+            ! ssa 'var tmp
+            ! ssa-expr tmp (second b)
+            ! ssa 'store e (incf i) tmp)
+
+  ! save-p = ssa-name "save_p"
+  ! ssa 'var save-p
+  ! ssa 'move save-p 'p
+  ! save-e = ssa-name "save_e"
+  ! ssa 'var save-e
+  ! ssa 'move save-e 'e
+  ! ssa 'move 'e e
+  ! ssa 'move 'p p
+  ! setf *ssa-out* `(,@ssa-body ,@*ssa-out*)
+  ! ssa 'move 'e save-e
+  ! ssa 'move 'p save-p
+  )
+
 (to ssa-form k xs
   ! match xs
     (("_fn" as body) (ssa-fn (ssa-name "n") k as body xs))
@@ -520,7 +566,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_if" cnd then else) (ssa-if k cnd then else))
     (("_quote" x) (ssa-quote k x))
     (("_set" place value) (ssa-set k place value))
-    (("_move" dst src) (ssa 'move dst src))
+    (("_progn" . xs) (ssa-progn k xs))
+    (("_let" bs . xs) (ssa-let k bs xs))
+    ;(("_label" name) (ssa 'user_label name))
+    ;(("_goto" name) (ssa 'user_goto name))
     ((f . as) (ssa-apply k f as))
     (() (ssa-atom k :void))
     (else (error "invalid CPS form: ~a" xs)))
@@ -555,8 +604,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! init-labels = nil
   ! setf *ssa-inits*
      (m x *ssa-inits*
-        (;;! *ssa-out* = nil
-         ! *ssa-inits* = nil
+        (! *ssa-inits* = nil
          ! *ssa-closure* = nil
          ! name = first x
          ! expr = `(,(host-deps (second x) '("list")) :host)
@@ -601,6 +649,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           ;(to-c-emit "  D;")
           )
          ((''global name) (push (format nil "static void *~a;" name) decls))
+         ((''local_array place size) (to-c-emit "  LOCAL_ARRAY(~a, ~a, ~a);" place (ssa-name "t") size))
          ((''local_label label-name) (to-c-emit "  LOCAL_LABEL(~a);" label-name))
          ((''local_branch cnd label-name) (to-c-emit "  LOCAL_BRANCH(~a, ~a);" cnd label-name))
          ((''local_jmp label-name) (to-c-emit "  LOCAL_JMP(~a);" label-name))
@@ -746,11 +795,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     `(("_kfn" ,b (,key) ("|" ,@ys ,(second (first ys))))
       ,keyform)))
 
-(to lambda-sequence xs
-  ! unless (cdr xs) (return-from lambda-sequence (car xs))
-  ! dummy = ssa-name "A"
-  ! `(("_fn" (,dummy) ,(lambda-sequence (cdr xs))) ,(car xs)))
-
 (to pattern-arg x ! not (stringp x))
 
 (to expand-block-item x
@@ -835,15 +879,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("_kfn" all as body)
          (return-from builtin-expander
            `("_kfn" ,all ,as ,(builtin-expander body))))
+        (("_let" bs . xs)
+         (return-from builtin-expander
+           `("_let" ,(m b bs `(,(first b) ,(builtin-expander (second b))))
+               ,@(m x xs (builtin-expander x)))))
         (("fn" as . body) `("_fn" ,as ("|" ,@body)))
         (("=>" as body) `("_fn" ,as ,body))
         (("set" dst src) `("_set" ,dst ,src))
         (("when" a body) `("_if" ,a ,body :void))
         (("unless" a body) `("_if" ,a :void ,body))
         (("let" bs . body)
-         (let ((body (if (= (length body) 1)
-                         (car body)
-                         (lambda-sequence body))))
+         (let ((body `("_progn" ,@body)))
            (if bs
                `(("_fn" ,(m b bs (first b)) ,body) ,@(m b bs (second b)))
                body)))
@@ -897,7 +943,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                        (or (equal (car ys) "_quote")
                            (equal (car ys) "_kfn")
                            (equal (car ys) "_fn")
-                           (equal (car ys) "_set")))
+                           (equal (car ys) "_set")
+                           (equal (car ys) "_let")
+                           ))
                   ys
                   (m x (cons (car ys) (m y (cdr ys) (normalize-symbol y)))
                      (normalize-ampersand x))))))))
