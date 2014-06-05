@@ -51,15 +51,15 @@ typedef struct api_t {
   // runtime's C API
   void (*bad_tag)(REGS);
   void* (*handle_args)(REGS, intptr_t expected, intptr_t size, void *tag, void *meta);
-  char* (*print_object_f)(api_t *api, void *object);
-  void (*gc)(void *api, void Prev, void *Base, void *root);
-  void *(*alloc_text)(api_t *api, char *s);
-  void (*fixnum)(REGS);
-  void (*list)(REGS);
-  void (*fixtext)(REGS);
+  char* (*print_object_f)(struct api_t *api, void *object);
+  void *(*gc)(struct api_t *api, void *Prev, void *Base, void *root);
+  void *(*alloc_text)(struct api_t *api, char *s);
+  void *(*fixnum)(REGS);
+  void *(*list)(REGS);
+  void *(*fixtext)(REGS);
 } api_t;
 
-typedef void (*pfun)(REGS);
+typedef void *(*pfun)(REGS);
 
 #define Void api->Void
 #define Empty api->Empty
@@ -73,7 +73,10 @@ typedef void (*pfun)(REGS);
 //       or GC may encounter find garbage
 #define ALLOC(dst,code,count) \
   dst = api->top; \
-  api->top = (void**)api->top + ((count)+1);
+  api->top = (void**)api->top + ((count)+1); \
+  *(void**)dst = (void*)(code); \
+  dst = (void**)dst + 1; \
+  dst = ADD_TAG(dst, T_CLOSURE);
 
 #define LIST_SIZE(o) ((intptr_t)POOL_HANDLER(o))
 #define NARGS LIST_SIZE(E)
@@ -92,9 +95,9 @@ typedef void (*pfun)(REGS);
 #define LIST(dst,size) ALLOC(dst,FIXNUM(size),size)
 #define LOAD_FIXNUM(dst,x) dst = (void*)((uintptr_t)(x)<<TAG_BITS)
 #define TEXT(dst,x) dst = api->alloc_text(api,(char*)(x))
-#define ENTRY(name) } void name(REGS) {void *NewBase;
-#define DECL_LABEL(name) static void name(REGS);
-#define LABEL(name) } static void name(REGS) {void *NewBase;
+#define ENTRY(name) } void *name(REGS) {void *NewBase;
+#define DECL_LABEL(name) static void *name(REGS);
+#define LABEL(name) } static void *name(REGS) {void *NewBase;
 #define VAR(name) void *name;
 #define RETURN(value) \
    if (GET_TAG(value) == T_FIXNUM || GET_TAG(value) == T_FIXTEXT) { \
@@ -107,16 +110,16 @@ typedef void (*pfun)(REGS);
 #define BRANCH(cond,label) if ((cond) != FIXNUM(0)) { label(REGS_ARGS); return; }
 #define CALL(k,f,e) k = POOL_HANDLER(f)(REGS_ARGS(e,f));
 #define CALL_TAGGED(k,f,e) \
-  if (GET_TAG(P) == T_CLOSURE) { \
-    k = POOL_HANDLER(P)(REGS_ARGS(e,f)); \
-  } else if (GET_TAG(P) == T_FIXNUM) { \
+  if (GET_TAG(f) == T_CLOSURE) { \
+    k = POOL_HANDLER(f)(REGS_ARGS(e,f)); \
+  } else if (GET_TAG(f) == T_FIXNUM) { \
     k = api->fixnum(REGS_ARGS(e,f)); \
-  } else if (GET_TAG(P) == T_LIST) { \
+  } else if (GET_TAG(f) == T_LIST) { \
     k = api->list(REGS_ARGS(e,f)); \
-  } else if (GET_TAG(P) == T_FIXTEXT) { \
+  } else if (GET_TAG(f) == T_FIXTEXT) { \
     k = api->fixtext(REGS_ARGS(e,f)); \
   } else { \
-    k = api->bad_tag(REGS_ARGS(e,f)); /*should never happen*/ \
+    api->bad_tag(REGS_ARGS(e,f)); /*should never happen*/ \
   }
 #define REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-1)
 #define REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-1)
@@ -128,11 +131,11 @@ typedef void (*pfun)(REGS);
 
 #define CHECK_NARGS(expected,size,meta) \
   if (NARGS != FIXNUM(expected)) { \
-    return api->handle_args(REGS_ARGS, FIXNUM(expected), FIXNUM(size), Void, meta); \
+    return api->handle_args(REGS_ARGS(E,P), FIXNUM(expected), FIXNUM(size), Void, meta); \
   }
 #define CHECK_VARARGS(size,meta) \
-  if (NARGS < FIXNUM(1)) { \
-    return api->handle_args(REGS_ARGS, FIXNUM(-1), FIXNUM(size), Void, meta); \
+  if (NARGS < FIXNUM(0)) { \
+    return api->handle_args(REGS_ARGS(E,P), FIXNUM(-1), FIXNUM(size), Void, meta); \
   }
 
-void entry(REGS);
+void *entry(REGS);

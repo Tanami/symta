@@ -506,6 +506,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'array e (length as)
   ! i = -1
   ! e a as (! tmp = ssa-name "tmp"
+            ! ssa 'var tmp
             ! ssa-expr tmp a
             ! ssa 'store e (incf i) tmp)
   ! if known-closure (ssa 'call k h e) (ssa 'call_tagged k h e))
@@ -573,6 +574,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       ! ssa 'var dummy
       ! e l init-labels (ssa 'call dummy l 'e))
   ! setf *ssa-out* (append *ssa-raw-inits* *ssa-out*)
+  ! ssa 'return_no_gc 0
   ! rs = apply #'concatenate 'list `(,@(reverse *ssa-fns*) ,*ssa-out*)
   ;;! rs = peephole-optimize rs
   ! nreverse rs)
@@ -606,8 +608,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''global name) (push (format nil "static void *~a;" name) decls))
          ((''gosub label-name) (to-c-emit "GOSUB(~a)" label-name))
          ((''branch cond label) (to-c-emit "  BRANCH(~a, ~a);" cond label))
-         ((''call k name env) (to-c-emit "  CALL(~a,~a,~a);" k name env))
-         ((''call_tagged k name env) (to-c-emit "  CALL_TAGGED(~a,~a,~a);" k name env))
+         ((''call k name env) (to-c-emit "  CALL(~a, ~a, ~a);" k name env))
+         ((''call_tagged k name env) (to-c-emit "  CALL_TAGGED(~a, ~a, ~a);" k name env))
          ((''array place size) (to-c-emit "  LIST(~a, ~a);" place size))
          ((''closure place name size)
           (progn
@@ -623,8 +625,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''known_closure) #|(to-c-emit "  /* known closure */")|#)
          ((''fixnum dst str) (to-c-emit "  LOAD_FIXNUM(~a, ~s);" dst str))
          ((''bytes name values)
-          (push (format nil "static uint8_t ~a_bytes[] = {~{~a~^,~}};" name values) decls))
-         ((''text name bytes) (to-c-emit "  TEXT(~a, ~a_bytes);" name name))
+          (push (format nil "static uint8_t ~a[] = {~{~a~^,~}};" name values) decls))
+         ((''text name bytes-name) (to-c-emit "  TEXT(~a, ~a);" name bytes-name))
          ((''list dst xs)
           (let ((name (ssa-name "s")))
             (to-c-emit "  MOVE(~a, ~a);" dst name))
