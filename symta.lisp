@@ -534,8 +534,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'local_array p nparents
   ! i = -1
   ! e c cs (! if (equal c *ssa-ns*) ; self?
-                 (ssa 'store k (incf i) 'e)
-                 (ssa 'copy k (incf i) 'p (ssa-get-parent-index c)))
+                 (ssa 'store p (incf i) 'e)
+                 (ssa 'copy p (incf i) 'p (ssa-get-parent-index c)))
 
   ! e = ssa-name "env"
   ! ssa 'var e
