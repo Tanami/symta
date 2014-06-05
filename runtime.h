@@ -90,6 +90,9 @@ typedef void *(*pfun)(REGS);
 #define print_object(object) api->print_object_f(api, object)
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 
+#define LOCAL_LABEL(name) name:;
+#define LOCAL_BRANCH(cnd,name) if (cnd) goto name;
+#define LOCAL_JMP(name) goto name;
 #define BEGIN_CODE static void __dummy___ () {
 #define END_CODE }
 #define LIST(dst,size) ALLOC(dst,FIXNUM(size),size)

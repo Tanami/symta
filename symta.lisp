@@ -473,31 +473,24 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                  (ssa 'copy k (incf i) 'p (ssa-get-parent-index c)))
   ! ssa 'known_closure)
 
-(to ssa-if as
-  ! ssa 'array 'a 1
-  ! label = ssa-name "branch"
-  ! ssa-expr (first as)
-  ! ssa 'store 'a 0 'r
-  ! ssa-expr (second as)
-  ! ssa 'branch 'r label
-  ! ssa-expr (fourth as)
-  ! ssa 'move 'c 'r
-  ! ssa 'move 'e 'a
-  ! ssa 'call 'c
-  ! ssa 'label label
-  ! ssa-expr (third as)
-  ! ssa 'move 'c 'r
-  ! ssa 'move 'e 'a
-  ! ssa 'call 'c)
+(to ssa-if k cnd then else
+  ! then-label = ssa-name "then"
+  ! end-label = ssa-name "endif"
+  ! c = ssa-name "cnd"
+  ! ssa 'var c
+  ! ssa-expr c cnd
+  ! ssa 'local_branch c then-label
+  ! ssa-expr k else
+  ! ssa 'local_jmp end-label
+  ! ssa 'local_label then-label
+  ! ssa-expr k then
+  ! ssa 'local_label end-label)
 
 (to ssa-apply k f as
   ;; FIXME: if it is a lambda call, we don't have to change env or create a closure, just push env
   ! when (equal f "_call")
      (setf f (second as))
      (setf as (cddr as))
-  ! when (eql f :if)
-     (ssa-if as)
-     (return-from ssa-apply)
   ! known-closure = eql (first (car *ssa-out*)) 'known_closure
   ! ssa 'move "NewBase" "Top"
   ! h = ssa-name "head"
@@ -524,7 +517,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! match xs
     (("_fn" as body) (ssa-fn (ssa-name "n") k as body xs))
     (("_kfn" name as body) (ssa-fn name k as body xs))
-    (("_if" cnd then else) (ssa-form k `(:if ,cnd ("_fn" () ,then) ("_fn" () ,else))))
+    (("_if" cnd then else) (ssa-if k cnd then else))
     (("_quote" x) (ssa-quote k x))
     (("_set" place value) (ssa-set k place value))
     (("_move" dst src) (ssa 'move dst src))
@@ -608,6 +601,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           ;(to-c-emit "  D;")
           )
          ((''global name) (push (format nil "static void *~a;" name) decls))
+         ((''local_label label-name) (to-c-emit "  LOCAL_LABEL(~a);" label-name))
+         ((''local_branch cnd label-name) (to-c-emit "  LOCAL_BRANCH(~a, ~a);" cnd label-name))
+         ((''local_jmp label-name) (to-c-emit "  LOCAL_JMP(~a);" label-name))
          ((''gosub label-name) (to-c-emit "  GOSUB(~a);" label-name))
          ((''branch cond label) (to-c-emit "  BRANCH(~a, ~a);" cond label))
          ((''call k name env) (to-c-emit "  CALL(~a, ~a, ~a);" k name env))
