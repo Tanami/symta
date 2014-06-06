@@ -493,7 +493,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (setf f (second as))
      (setf as (cddr as))
   ! known-closure = eql (first (car *ssa-out*)) 'known_closure
-  ! ssa 'move "NewBase" "Top"
+  ! top = ssa-name "top"
+  ! ssa 'var top
+  ! ssa 'move top "Top"
   ! h = ssa-name "head"
   ! ssa 'var h
   ! ssa-expr h f
@@ -506,6 +508,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
             ! ssa 'var tmp
             ! ssa-expr tmp a
             ! ssa 'store e (incf i) tmp)
+  ! ssa 'move "NewBase" top
   ! if known-closure (ssa 'call k h e) (ssa 'call_tagged k h e))
 
 (to ssa-set k place value
