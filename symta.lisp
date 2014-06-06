@@ -501,8 +501,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa-expr h f
   ! e = ssa-name "env"
   ! ssa 'var e
-  ;;! ssa 'array e (length as)
-  ! ssa 'local_array e (length as)
+  ! ssa 'array e (length as)
+  ;;! ssa 'local_array e (length as)
   ! i = -1
   ! e a as (! tmp = ssa-name "tmp"
             ! ssa 'var tmp
@@ -678,8 +678,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''closure place name size)
           (progn
             (push (format nil "#define ~a_size ~a" name size) decls)
-            ;;(to-c-emit "  ALLOC(~a, ~a, ~a);" place name size)
-            (to-c-emit "  LOCAL_ALLOC(~a, ~a, ~a, ~a);" place (ssa-name "t") name size)
+            (to-c-emit "  ALLOC(~a, ~a, ~a);" place name size)
+            ;;(to-c-emit "  LOCAL_ALLOC(~a, ~a, ~a, ~a);" place (ssa-name "t") name size)
             ))
          ((''load dst src off) (to-c-emit "  LOAD(~a, ~a, ~a);" dst src off))
          ((''store dst off src) (to-c-emit "  STORE(~a, ~a, ~a);" dst off src))

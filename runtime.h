@@ -106,7 +106,7 @@ typedef void *(*pfun)(REGS);
 #define LOCAL_ALLOC(dst,name,code,count) \
   void *name[(count)+1]; \
   name[0] = (void*)(code); \
-  dst = ADD_TAG((void*)((void**)name+1),T_CLOSURE)
+  dst = ADD_TAG((void*)((void**)name+1), T_CLOSURE);
 #define LOCAL_LIST(dst,name,count) LOCAL_ALLOC(dst,name,FIXNUM(count),count)
 #define LOCAL_LABEL(name) name:;
 #define LOCAL_BRANCH(cnd,name) if (cnd) goto name;
