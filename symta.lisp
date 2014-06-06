@@ -499,7 +499,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa-expr h f
   ! e = ssa-name "env"
   ! ssa 'var e
-  ! ssa 'array e (length as)
+  ;;! ssa 'array e (length as)
+  ! ssa 'local_array e (length as)
   ! i = -1
   ! e a as (! tmp = ssa-name "tmp"
             ! ssa 'var tmp
@@ -559,6 +560,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'move 'e save-e
   ! ssa 'move 'p save-p)
 
+(to ssa-fixed k op a b
+  ! av = ssa-name "a"
+  ! bv = ssa-name "b"
+  ! ssa 'var av
+  ! ssa 'var bv
+  ! ssa-expr av a
+  ! ssa-expr bv b
+  ! ssa op k av bv)
+
 (to ssa-form k xs
   ! match xs
     (("_fn" as body) (ssa-fn (ssa-name "n") k as body xs))
@@ -568,8 +578,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_set" place value) (ssa-set k place value))
     (("_progn" . xs) (ssa-progn k xs))
     (("_let" bs . xs) (ssa-let k bs xs))
-    ;(("_label" name) (ssa 'user_label name))
-    ;(("_goto" name) (ssa 'user_goto name))
+    (("_label" name) (ssa 'local_label name))
+    (("_goto" name) (ssa 'local_jmp name))
+    (("_add" a b) (ssa-fixed k 'fixed_add a b))
+    (("_sub" a b) (ssa-fixed k 'fixed_sub a b))
+    (("_lt" a b) (ssa-fixed k 'fixed_lt a b))
+    (("_gt" a b) (ssa-fixed k 'fixed_gt a b))
     ((f . as) (ssa-apply k f as))
     (() (ssa-atom k :void))
     (else (error "invalid CPS form: ~a" xs)))
@@ -649,7 +663,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           ;(to-c-emit "  D;")
           )
          ((''global name) (push (format nil "static void *~a;" name) decls))
-         ((''local_array place size) (to-c-emit "  LOCAL_ARRAY(~a, ~a, ~a);" place (ssa-name "t") size))
+         ((''local_array place size) (to-c-emit "  LOCAL_LIST(~a, ~a, ~a);" place (ssa-name "t") size))
          ((''local_label label-name) (to-c-emit "  LOCAL_LABEL(~a);" label-name))
          ((''local_branch cnd label-name) (to-c-emit "  LOCAL_BRANCH(~a, ~a);" cnd label-name))
          ((''local_jmp label-name) (to-c-emit "  LOCAL_JMP(~a);" label-name))
@@ -661,7 +675,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''closure place name size)
           (progn
             (push (format nil "#define ~a_size ~a" name size) decls)
-            (to-c-emit "  ALLOC(~a, ~a, ~a);" place name size)))
+            ;;(to-c-emit "  ALLOC(~a, ~a, ~a);" place name size)
+            (to-c-emit "  LOCAL_ALLOC(~a, ~a, ~a, ~a);" place (ssa-name "t") name size)
+            ))
          ((''load dst src off) (to-c-emit "  LOAD(~a, ~a, ~a);" dst src off))
          ((''store dst off src) (to-c-emit "  STORE(~a, ~a, ~a);" dst off src))
          ((''copy dst p src q) (to-c-emit "  COPY(~a, ~a, ~a, ~a);" dst p src q))
@@ -679,6 +695,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''check_nargs expected size meta)
           (to-c-emit "  CHECK_NARGS(~a, ~a, ~a);" expected size (or meta "Empty")))
          ((''check_varargs size meta) (to-c-emit "  CHECK_VARARGS(~a_size, ~a);" size (or meta "Empty")))
+         ((''fixed_add dst a b) (to-c-emit "  ~a = FIXNUM_ADD(~a, ~a);" dst a b))
+         ((''fixed_sub dst a b) (to-c-emit "  ~a = FIXNUM_SUB(~a, ~a);" dst a b))
+         ((''fixed_lt dst a b) (to-c-emit "  ~a = FIXNUM_LT(~a, ~a);" dst a b))
+         ((''fixed_gt dst a b) (to-c-emit "  ~a = FIXNUM_GT(~a, ~a);" dst a b))
          (else (error "invalid ssa: ~a" x))))
     (to-c-emit "END_CODE")
     (format nil "~{~a~%~}" (reverse (append *compiled* decls)))))
@@ -945,6 +965,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                            (equal (car ys) "_fn")
                            (equal (car ys) "_set")
                            (equal (car ys) "_let")
+                           (equal (car ys) "_label")
+                           (equal (car ys) "_goto")
                            ))
                   ys
                   (m x (cons (car ys) (m y (cdr ys) (normalize-symbol y)))

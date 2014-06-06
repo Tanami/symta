@@ -28,6 +28,17 @@
 #define FIXNUM(x) ASHL((intptr_t)(x),TAG_BITS)
 #define UNFIXNUM(x) ASHR((intptr_t)(x),TAG_BITS)
 
+#define FIXNUM_NEG(o) (void*)(-(intptr_t)(o))
+#define FIXNUM_ADD(a,b) (void*)((intptr_t)(a) + (intptr_t)(b))
+#define FIXNUM_SUB(a,b) (void*)((intptr_t)(a) - (intptr_t)(b))
+#define FIXNUM_MUL(a,b) (void*)(UNFIXNUM(a) * (intptr_t)(b))
+#define FIXNUM_DIV(a,b) (void*)(FIXNUM((intptr_t)(a) / (intptr_t)(b)))
+#define FIXNUM_REM(a,b) (void*)((intptr_t)(a) % (intptr_t)(b))
+#define FIXNUM_IS(a,b) (void*)FIXNUM((intptr_t)(a) == (intptr_t)(b))
+#define FIXNUM_ISNT(a,b) (void*)FIXNUM((intptr_t)(a) != (intptr_t)(b))
+#define FIXNUM_LT(a,b) (void*)FIXNUM((intptr_t)(a) < (intptr_t)(b))
+#define FIXNUM_GT(a,b) (void*)FIXNUM((intptr_t)(a) > (intptr_t)(b))
+
 #define HEAP_DEPTH 1024
 #define HEAP_SIZE (32*1024*1024)
 #define MAX_LIST_SIZE (HEAP_SIZE/2)
@@ -92,7 +103,11 @@ typedef void *(*pfun)(REGS);
 #define print_object(object) api->print_object_f(api, object)
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 
-#define LOCAL_ARRAY(dst,name,size) void *name[size]; dst = ADD_TAG((void*)name,T_CLOSURE)
+#define LOCAL_ALLOC(dst,name,code,count) \
+  void *name[(count)+1]; \
+  name[0] = (void*)(code); \
+  dst = ADD_TAG((void*)((void**)name+1),T_CLOSURE)
+#define LOCAL_LIST(dst,name,count) LOCAL_ALLOC(dst,name,FIXNUM(count),count)
 #define LOCAL_LABEL(name) name:;
 #define LOCAL_BRANCH(cnd,name) if (cnd) goto name;
 #define LOCAL_JMP(name) goto name;

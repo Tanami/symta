@@ -418,15 +418,6 @@ BUILTIN_VARARGS("[list]",make_list)
   }
 RETURNS(R)
 
-#define FIXNUM_NEG(o) (-(intptr_t)(o))
-#define FIXNUM_ADD(a,b) ((intptr_t)(a) + (intptr_t)(b))
-#define FIXNUM_SUB(a,b) ((intptr_t)(a) - (intptr_t)(b))
-#define FIXNUM_MUL(a,b) (UNFIXNUM(a) * (intptr_t)(b))
-#define FIXNUM_DIV(a,b) (FIXNUM((intptr_t)(a) / (intptr_t)(b)))
-#define FIXNUM_REM(a,b) ((intptr_t)(a) % (intptr_t)(b))
-#define FIXNUM_IS(a,b) FIXNUM((intptr_t)(a) == (intptr_t)(b))
-#define FIXNUM_ISNT(a,b) FIXNUM((intptr_t)(a) != (intptr_t)(b))
-
 BUILTIN1("integer neg",integer_neg,C_ANY,o)
 RETURNS(-(intptr_t)o)
 BUILTIN2("integer +",integer_add,C_ANY,a,C_FIXNUM,b)
