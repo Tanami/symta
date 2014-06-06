@@ -525,7 +525,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-let k bs xs
   ! args = m b bs (first b)
-  ! body = first xs ;;`("_progn" ,@xs)
+  ! body = `("_progn" ,@xs)
   ! f = ssa-name "f"
   ! (ssa-body cs) = ssa-fn-body k f args body () nil nil
   ! nparents = length cs
