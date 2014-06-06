@@ -515,7 +515,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'move k r)
 
 (to ssa-progn k xs
-  ! unless xs (setf xs '("Void"))
+  ! unless xs (setf xs '(()))
   ! d = ssa-name "dummy"
   ! ssa 'var d
   ! while xs
