@@ -526,6 +526,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to ssa-let k bs xs
   ! args = m b bs (first b)
   ! body = `("_progn" ,@xs)
+  ! unless bs
+      (ssa-expr k body)
+      (return-from ssa-let)
   ! f = ssa-name "f"
   ! (ssa-body cs) = ssa-fn-body k f args body () nil nil
   ! nparents = length cs
@@ -536,7 +539,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! e c cs (! if (equal c *ssa-ns*) ; self?
                  (ssa 'store p (incf i) 'e)
                  (ssa 'copy p (incf i) 'p (ssa-get-parent-index c)))
-
   ! e = ssa-name "env"
   ! ssa 'var e
   ! ssa 'local_array e (length bs)
@@ -545,7 +547,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
             ! ssa 'var tmp
             ! ssa-expr tmp (second b)
             ! ssa 'store e (incf i) tmp)
-
   ! save-p = ssa-name "save_p"
   ! ssa 'var save-p
   ! ssa 'move save-p 'p
@@ -556,8 +557,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'move 'p p
   ! setf *ssa-out* `(,@ssa-body ,@*ssa-out*)
   ! ssa 'move 'e save-e
-  ! ssa 'move 'p save-p
-  )
+  ! ssa 'move 'p save-p)
 
 (to ssa-form k xs
   ! match xs
