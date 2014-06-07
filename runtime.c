@@ -11,7 +11,7 @@ static void *b_cons(REGS);
 #define getArg(i) REF(E,i)
 #define getVal(x) ((uintptr_t)(x)&~TAG_MASK)
 
-#define NewBase api->top
+#define NewBase Top
 
 static void *heap[HEAP_SIZE*2];
 
@@ -874,17 +874,17 @@ static void *gc_move(api_t *api, void *o) {
 
 static void *gc(struct api_t *api, void *Base, void *root) {
   gc_base = Base;
-  gc_end = api->top;
+  gc_end = Top;
   root = gc_move(api, root);
   gc_base = gc_end;
-  gc_end = api->top;
-  api->top = Base;
+  gc_end = Top;
+  Top = Base;
   return gc_move(api, root);
 }
 
-static api_t *new_api() {
+static api_t *init_api(void *ptr) {
   int i;
-  api_t *api = (api_t*)malloc(sizeof(api_t));
+  api_t *api = (api_t*)ptr;
   memset(api, 0, sizeof(api_t));
 
   api->bad_tag = bad_tag;
@@ -918,9 +918,11 @@ int main(int argc, char **argv) {
 
   module = argv[1];
 
-  api = new_api();
+  api = init_api(heap);
+  api->other = init_api(heap+HEAP_SIZE);
+  api->other->other = api;
 
-  api->top = Base = heap;
+  Top = Base = api->heap;
 
   CLOSURE(Void, b_void);
   CLOSURE(Empty, b_empty);

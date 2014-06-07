@@ -47,7 +47,7 @@
 #define REGS_ARGS(E,P) E, P, api, NewBase
 
 typedef struct api_t {
-  void *top; // heap top
+  void *Top; // heap top
 
   struct api_t *other;
 
@@ -67,6 +67,8 @@ typedef struct api_t {
   void *(*fixnum)(REGS);
   void *(*list)(REGS);
   void *(*fixtext)(REGS);
+
+  void *heap[1];
 } api_t;
 
 typedef void *(*pfun)(REGS);
@@ -74,13 +76,12 @@ typedef void *(*pfun)(REGS);
 #define Void api->Void
 #define Empty api->Empty
 #define Host api->Host
-#define Top api->top
-
+#define Top api->Top
 
 #define POOL_HANDLER(x) (((pfun*)((void**)((uintptr_t)(x)&~TAG_MASK)-1))[0])
 
-// NOTE: for some GC uses, allocated memory must inited to 0
-//       or GC may encounter find garbage
+// NOTE: for some GC uses, allocated memory must be inited to 0
+//       or GC may encounter garbage
 #define ALLOC(dst,code,count) \
   dst = Top; \
   Top = (void**)Top + ((count)+1); \
