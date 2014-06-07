@@ -43,29 +43,26 @@
 #define HEAP_SIZE (32*1024*1024)
 #define MAX_LIST_SIZE (HEAP_SIZE/2)
 
-#define REGS void *E, void *P, struct api_t *api, void *Prev, void *Base
-#define REGS_ARGS(E,P) E, P, api, Base, NewBase
+#define REGS void *E, void *P, struct api_t *api, void *Base
+#define REGS_ARGS(E,P) E, P, api, NewBase
 
 typedef struct api_t {
   void *top; // heap top
 
-  void *to_base;
-  void *to_end;
-  void *from_base;
-  void *from_end;
+  struct api_t *other;
 
   // constants
   void *Void;
   void *Empty;
   void *Host; // called to resolve builtin functions
 
-  //void *Goto; // goto token (TODO)
+  //void *Goto; // nonlocal goto token (TODO)
 
   // runtime's C API
   void (*bad_tag)(REGS);
   void* (*handle_args)(REGS, intptr_t expected, intptr_t size, void *tag, void *meta);
   char* (*print_object_f)(struct api_t *api, void *object);
-  void *(*gc)(struct api_t *api, void *Prev, void *Base, void *root);
+  void *(*gc)(struct api_t *api, void *Base, void *root);
   void *(*alloc_text)(struct api_t *api, char *s);
   void *(*fixnum)(REGS);
   void *(*list)(REGS);
@@ -85,8 +82,8 @@ typedef void *(*pfun)(REGS);
 // NOTE: for some GC uses, allocated memory must inited to 0
 //       or GC may encounter find garbage
 #define ALLOC(dst,code,count) \
-  dst = api->top; \
-  api->top = (void**)api->top + ((count)+1); \
+  dst = Top; \
+  Top = (void**)Top + ((count)+1); \
   *(void**)dst = (void*)(code); \
   dst = (void**)dst + 1; \
   dst = ADD_TAG(dst, T_CLOSURE);
@@ -122,12 +119,12 @@ typedef void *(*pfun)(REGS);
 #define VAR(name) void *name;
 #define RETURN(value) \
    if (GET_TAG(value) == T_FIXNUM || GET_TAG(value) == T_FIXTEXT) { \
-     api->top = Base; \
+     Top = Base; \
      return (void*)(value); \
    } \
-   return api->gc(api, Prev, Base, (void*)(value));
+   return api->gc(api, Base, (void*)(value));
 #define RETURN_NO_GC(value) return (void*)(value);
-#define GOSUB(label) label(E,P,api,Prev,Base);
+#define GOSUB(label) label(E,P,api,Base);
 #define BRANCH(cond,label) if ((cond) != FIXNUM(0)) { label(REGS_ARGS); return; }
 #define CALL_RAW(k,f,e) k = ((pfun)f)(REGS_ARGS(e,Empty));
 #define CALL(k,f,e) k = POOL_HANDLER(f)(REGS_ARGS(e,f));

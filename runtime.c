@@ -872,7 +872,7 @@ static void *gc_move(api_t *api, void *o) {
   return p;
 }
 
-static void *gc(struct api_t *api, void *Prev, void *Base, void *root) {
+static void *gc(struct api_t *api, void *Base, void *root) {
   gc_base = Base;
   gc_end = api->top;
   root = gc_move(api, root);
@@ -906,7 +906,7 @@ int main(int argc, char **argv) {
   void *lib;
   pfun entry, setup;
   api_t *api;
-  void *R, *Prev, *Base;
+  void *R, *Base;
 
   void *E = 0; // current environment
   void *P = 0; // parent environment
@@ -920,7 +920,7 @@ int main(int argc, char **argv) {
 
   api = new_api();
 
-  api->top = Base = Prev = heap;
+  api->top = Base = heap;
 
   CLOSURE(Void, b_void);
   CLOSURE(Empty, b_empty);
