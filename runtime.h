@@ -68,7 +68,7 @@ typedef struct api_t {
   void *(*list)(REGS);
   void *(*fixtext)(REGS);
 
-  void *heap[1];
+  void *heap[HEAP_SIZE];
 } api_t;
 
 typedef void *(*pfun)(REGS);
@@ -80,11 +80,9 @@ typedef void *(*pfun)(REGS);
 
 #define POOL_HANDLER(x) (((pfun*)((void**)((uintptr_t)(x)&~TAG_MASK)-1))[0])
 
-// NOTE: for some GC uses, allocated memory must be inited to 0
-//       or GC may encounter garbage
 #define ALLOC(dst,code,count) \
+  Top = (void**)Top - ((count)+1); \
   dst = Top; \
-  Top = (void**)Top + ((count)+1); \
   *(void**)dst = (void*)(code); \
   dst = (void**)dst + 1; \
   dst = ADD_TAG(dst, T_CLOSURE);

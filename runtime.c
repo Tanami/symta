@@ -13,7 +13,9 @@ static void *b_cons(REGS);
 
 #define NewBase Top
 
-static void *heap[HEAP_SIZE*2];
+static api_t apis[2]; // one for each heap
+
+#define HEAP_OBJECT(o) ((void*)apis < (void*)(o) && (void*)(o) < (void*)(apis+2))
 
 static void fatal(char *fmt, ...) {
    va_list ap;
@@ -808,7 +810,7 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
     p = o;
   } else if (tag == T_CLOSURE) {
     pfun handler = POOL_HANDLER(o);
-    int in_heap = (heap <= (void**)handler && (void**)handler < heap+HEAP_SIZE*2);
+    int in_heap = HEAP_OBJECT(handler);
 
     if (in_heap && !(gc_base <= (void*)handler && (void*)handler < gc_end)) {
       // already moved
@@ -873,7 +875,6 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
 static api_t *init_api(void *ptr) {
   int i;
   api_t *api = (api_t*)ptr;
-  memset(api, 0, sizeof(api_t));
 
   api->bad_tag = bad_tag;
   api->handle_args = handle_args;
@@ -906,12 +907,12 @@ int main(int argc, char **argv) {
 
   module = argv[1];
 
-  api = init_api(heap);
-  api->other = init_api(heap+HEAP_SIZE);
+  api = init_api(apis);
+  api->other = init_api(apis+1);
   api->other->other = api;
 
-  api->top = api->heap;
-  api->other->top = api->other->heap;
+  api->top = api->heap+HEAP_SIZE;
+  api->other->top = api->other->heap+HEAP_SIZE;
 
   Base = Top;
 
