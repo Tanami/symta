@@ -47,7 +47,7 @@
 #define REGS_ARGS(E,P) E, P, api, NewBase
 
 typedef struct api_t {
-  void *Top; // heap top
+  void *top; // heap top
 
   struct api_t *other;
 
@@ -76,7 +76,7 @@ typedef void *(*pfun)(REGS);
 #define Void api->Void
 #define Empty api->Empty
 #define Host api->Host
-#define Top api->Top
+#define Top api->top
 
 #define POOL_HANDLER(x) (((pfun*)((void**)((uintptr_t)(x)&~TAG_MASK)-1))[0])
 
@@ -101,6 +101,7 @@ typedef void *(*pfun)(REGS);
 #define print_object(object) api->print_object_f(api, object)
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 
+#define FLIP_HEAP() api = api->other;
 #define LOCAL_ALLOC(dst,name,code,count) \
   void *name[(count)+1]; \
   name[0] = (void*)(code); \
@@ -127,7 +128,6 @@ typedef void *(*pfun)(REGS);
 #define RETURN_NO_GC(value) return (void*)(value);
 #define GOSUB(label) label(E,P,api,Base);
 #define BRANCH(cond,label) if ((cond) != FIXNUM(0)) { label(REGS_ARGS); return; }
-#define CALL_RAW(k,f,e) k = ((pfun)f)(REGS_ARGS(e,Empty));
 #define CALL(k,f,e) k = POOL_HANDLER(f)(REGS_ARGS(e,f));
 #define CALL_TAGGED(k,f,e) \
   if (GET_TAG(f) == T_CLOSURE) { \

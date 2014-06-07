@@ -810,7 +810,7 @@ static void *gc_move(api_t *api, void *o) {
     p = o;
   } else if (tag == T_CLOSURE) {
     pfun handler = POOL_HANDLER(o);
-    int in_heap = (heap <= (void**)handler && (void**)handler < heap+HEAP_SIZE);
+    int in_heap = (heap <= (void**)handler && (void**)handler < heap+HEAP_SIZE*2);
 
     if (in_heap && !(gc_base <= (void*)handler && (void*)handler < gc_end)) {
       // already moved
@@ -875,11 +875,7 @@ static void *gc_move(api_t *api, void *o) {
 static void *gc(struct api_t *api, void *Base, void *root) {
   gc_base = Base;
   gc_end = Top;
-  root = gc_move(api, root);
-  gc_base = gc_end;
-  gc_end = Top;
-  Top = Base;
-  return gc_move(api, root);
+  return gc_move(api->other, root);
 }
 
 static api_t *init_api(void *ptr) {
@@ -922,7 +918,10 @@ int main(int argc, char **argv) {
   api->other = init_api(heap+HEAP_SIZE);
   api->other->other = api;
 
-  Top = Base = api->heap;
+  api->top = api->heap;
+  api->other->top = api->other->heap;
+
+  Base = Top;
 
   CLOSURE(Void, b_void);
   CLOSURE(Empty, b_empty);
@@ -983,9 +982,13 @@ int main(int argc, char **argv) {
   if (!setup) fatal("dlsym couldnt find symbol `setup` in %s\n", module);
 
   Base = Top;
+  FLIP_HEAP();
   R = setup(REGS_ARGS(E,P)); // init module's statics
+  FLIP_HEAP();
   Base = Top;
+  FLIP_HEAP();
   R = entry(REGS_ARGS(E,P)); 
+  FLIP_HEAP();
 
   printf("%s\n", print_object(R));
 }

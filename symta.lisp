@@ -493,6 +493,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (setf f (second as))
      (setf as (cddr as))
   ! known-closure = eql (first (car *ssa-out*)) 'known_closure
+  ! ssa 'flip_heap
   ! top = ssa-name "top"
   ! ssa 'var top
   ! ssa 'move top "Top"
@@ -509,7 +510,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
             ! ssa-expr tmp a
             ! ssa 'store e (incf i) tmp)
   ! ssa 'move "NewBase" top
-  ! if known-closure (ssa 'call k h e) (ssa 'call_tagged k h e))
+  ! if known-closure (ssa 'call k h e) (ssa 'call_tagged k h e)
+  ! ssa 'flip_heap)
 
 (to ssa-set k place value
   ! r = ssa-name "r"
@@ -674,6 +676,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''branch cond label) (to-c-emit "  BRANCH(~a, ~a);" cond label))
          ((''call k name env) (to-c-emit "  CALL(~a, ~a, ~a);" k name env))
          ((''call_tagged k name env) (to-c-emit "  CALL_TAGGED(~a, ~a, ~a);" k name env))
+         ((''flip_heap) (to-c-emit "  FLIP_HEAP();"))
          ((''array place size) (to-c-emit "  LIST(~a, ~a);" place size))
          ((''closure place name size)
           (progn
