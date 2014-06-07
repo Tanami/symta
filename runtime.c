@@ -418,7 +418,7 @@ BUILTIN_VARARGS("[list]",make_list)
   else {
     R = LIST_FLIP(E);
   }
-RETURN(R) // have to, otherwise it will endup in on environment above
+RETURN(R) // have to, otherwise it will endup one environment above
 RETURNS(R)
 
 BUILTIN1("integer neg",integer_neg,C_ANY,o)
@@ -478,27 +478,27 @@ BUILTIN1("integer hash",integer_hash,C_ANY,o)
 RETURNS(o)
 BUILTIN_HANDLER("integer",fixnum,C_TEXT,x)
   STORE(E, 0, P);
-  if (texts_equal(x,s_plus)) return b_integer_add(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_sub)) return b_integer_sub(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_mul)) return b_integer_mul(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_div)) return b_integer_div(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_rem)) return b_integer_rem(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_is)) return b_integer_is(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_isnt)) return b_integer_isnt(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_lt)) return b_integer_lt(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_gt)) return b_integer_gt(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_lte)) return b_integer_lte(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_gte)) return b_integer_gte(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_neg)) return b_integer_neg(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_mask)) return b_integer_mask(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_ior)) return b_integer_ior(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_xor)) return b_integer_xor(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_shl)) return b_integer_shl(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_shr)) return b_integer_shr(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_end)) return b_integer_end(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_hash)) return b_integer_hash(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_text)) return b_integer_text(REGS_ARGS(E,P));
-  else if (texts_equal(x,s_x)) return b_integer_x(REGS_ARGS(E,P));
+  if (x == s_plus) return b_integer_add(REGS_ARGS(E,P));
+  else if (x == s_sub) return b_integer_sub(REGS_ARGS(E,P));
+  else if (x == s_lt) return b_integer_lt(REGS_ARGS(E,P));
+  else if (x == s_gt) return b_integer_gt(REGS_ARGS(E,P));
+  else if (x == s_mul) return b_integer_mul(REGS_ARGS(E,P));
+  else if (x == s_div) return b_integer_div(REGS_ARGS(E,P));
+  else if (x == s_rem) return b_integer_rem(REGS_ARGS(E,P));
+  else if (x == s_is) return b_integer_is(REGS_ARGS(E,P));
+  else if (x == s_isnt) return b_integer_isnt(REGS_ARGS(E,P));
+  else if (x == s_lte) return b_integer_lte(REGS_ARGS(E,P));
+  else if (x == s_gte) return b_integer_gte(REGS_ARGS(E,P));
+  else if (x == s_neg) return b_integer_neg(REGS_ARGS(E,P));
+  else if (x == s_mask) return b_integer_mask(REGS_ARGS(E,P));
+  else if (x == s_ior) return b_integer_ior(REGS_ARGS(E,P));
+  else if (x == s_xor) return b_integer_xor(REGS_ARGS(E,P));
+  else if (x == s_shl) return b_integer_shl(REGS_ARGS(E,P));
+  else if (x == s_shr) return b_integer_shr(REGS_ARGS(E,P));
+  else if (x == s_end) return b_integer_end(REGS_ARGS(E,P));
+  else if (x == s_hash) return b_integer_hash(REGS_ARGS(E,P));
+  else if (x == s_text) return b_integer_text(REGS_ARGS(E,P));
+  else if (x == s_x) return b_integer_x(REGS_ARGS(E,P));
   else bad_call(REGS_ARGS(E,P),x);
 RETURNS_VOID
 
@@ -920,6 +920,10 @@ int main(int argc, char **argv) {
   CLOSURE(Void, b_void);
   CLOSURE(Empty, b_empty);
   CLOSURE(Host, b_host);
+
+  api->other->void_ = api->void_;
+  api->other->empty_ = api->empty_;
+  api->other->host_ = api->host_;
 
   ALLOC(closure_size_request, FIXNUM(-2), 1); // signal that we want closure size
 

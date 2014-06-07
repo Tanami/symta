@@ -525,8 +525,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! d = ssa-name "dummy"
   ! ssa 'var d
   ! while xs
-     (! unless (cdr xs) (setf d k)
-      ! ssa-expr d (car xs)
+     (! x = car xs
+      ! unless (cdr xs) (setf d k)
+      ! ssa-expr d x
+      ! when (and (headed "_label" x) (not (cdr xs)))
+          (ssa 'move d "Void")
       ! setf xs (cdr xs)))
 
 (to ssa-let k bs xs
@@ -810,16 +813,24 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (defun expand-match (keyform cases default &key (keyvar nil))
   (let* ((key (or keyvar (ssa-name "Key")))
-         (b (ssa-name "B"))
+         (e (ssa-name "end"))
+         (d (ssa-name "default"))
+         (r (ssa-name "R"))
          (ys (reduce (lambda (next case)
                        (let* ((name (ssa-name "c"))
-                              (miss (if next (second (first next)) `("_call" ,b ,default)))
-                              (hit `("_call" ,b ("|" ,@(cdr case)))))
-                         `(("=" (,name) ,(expand-hole key (car case) hit miss) )
-                           ,@next)))
+                              (next-label (when next (second (first next))))
+                              (miss (if next-label `("_goto" ,next-label) `("_goto" ,d)))
+                              (hit `("_progn" ("_set" ,r ("_progn" ,@(cdr case)))
+                                              ("_goto" ,e))))
+                         `(("_label" ,name) ,(expand-hole key (car case) hit miss) ,@next)))
                      (cons nil (reverse cases)))))
-    `(("_kfn" ,b (,key) ("|" ,@ys ,(second (first ys))))
-      ,keyform)))
+    `("let" ((,key ,keyform)
+             (,r 0))
+       ,@(cdr ys)
+       ("_label" ,d)
+       ("_set" ,r ,default)
+       ("_label" ,e)
+       ,r)))
 
 (to pattern-arg x ! not (stringp x))
 

@@ -52,9 +52,9 @@ typedef struct api_t {
   struct api_t *other;
 
   // constants
-  void *Void;
-  void *Empty;
-  void *Host; // called to resolve builtin functions
+  void *void_;
+  void *empty_;
+  void *host_; // called to resolve builtin functions
 
   //void *Goto; // nonlocal goto token (TODO)
 
@@ -73,9 +73,9 @@ typedef struct api_t {
 
 typedef void *(*pfun)(REGS);
 
-#define Void api->Void
-#define Empty api->Empty
-#define Host api->Host
+#define Void api->void_
+#define Empty api->empty_
+#define Host api->host_
 #define Top api->top
 
 #define POOL_HANDLER(x) (((pfun*)((void**)((uintptr_t)(x)&~TAG_MASK)-1))[0])
