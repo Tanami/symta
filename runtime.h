@@ -62,7 +62,7 @@ typedef struct api_t {
   void (*bad_tag)(REGS);
   void* (*handle_args)(REGS, intptr_t expected, intptr_t size, void *tag, void *meta);
   char* (*print_object_f)(struct api_t *api, void *object);
-  void *(*gc)(struct api_t *api, void *Base, void *root);
+  void *(*gc)(struct api_t *api, void *base, void *end, void *root);
   void *(*alloc_text)(struct api_t *api, char *s);
   void *(*fixnum)(REGS);
   void *(*list)(REGS);
@@ -124,7 +124,9 @@ typedef void *(*pfun)(REGS);
      Top = Base; \
      return (void*)(value); \
    } \
-   return api->gc(api, Base, (void*)(value));
+   value = api->gc(api->other, Base, Top, (void*)(value)); \
+   Top = Base; \
+   return (void*)(value);
 #define RETURN_NO_GC(value) return (void*)(value);
 #define GOSUB(label) label(E,P,api,Base);
 #define BRANCH(cond,label) if ((cond) != FIXNUM(0)) { label(REGS_ARGS); return; }

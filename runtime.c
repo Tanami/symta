@@ -793,9 +793,7 @@ static void *handle_args(REGS, intptr_t expected, intptr_t size, void *tag, void
 
 static void *closure_size_request;
 
-static void *gc_base, *gc_end; // from-space
-
-static void *gc_move(api_t *api, void *o) {
+static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
   void *p, *q;
   int i, size, tag = GET_TAG(o);
   void *E, *P, *A, *C, *R; // dummies
@@ -821,7 +819,7 @@ static void *gc_move(api_t *api, void *o) {
       STORE(o, -1, p);
       for (i = 0; i < size; i++) {
         q = REF(o,i);
-        q = gc_move(api, q);
+        q = gc(api, gc_base, gc_end, q);
         STORE(p, i, q);
       }
     } else if (handler == b_view) {
@@ -830,15 +828,15 @@ static void *gc_move(api_t *api, void *o) {
       VIEW(p, 0, start, size);
       STORE(o, -1, p);
       q = ADD_TAG(&VIEW_REF(o,0,0), T_LIST);
-      STORE(p, 0, &REF(gc_move(api, q), 0));
+      STORE(p, 0, &REF(gc(api, gc_base, gc_end, q), 0));
     } else if (handler == b_text) {
       TEXT(p, TEXT_DATA(o));
       STORE(o, -1, p);
     } else if (handler == b_cons) {
       CONS(0, 0);
       p = R;
-      CAR(p) = gc_move(api, CAR(o));
-      CDR(p) = gc_move(api, CDR(o));
+      CAR(p) = gc(api, gc_base, gc_end, CAR(o));
+      CDR(p) = gc(api, gc_base, gc_end, CDR(o));
     } else {
       void *fixed_size;
       void *Base = Top;
@@ -847,7 +845,7 @@ static void *gc_move(api_t *api, void *o) {
       ALLOC(p, handler, size);
       STORE(o, -1, p);
       for (i = 0; i < size; i++) {
-        STORE(p, i, gc_move(api, REF(o,i)));
+        STORE(p, i, gc(api, gc_base, gc_end, REF(o,i)));
       }
     }
   } else if (tag == T_LIST) {
@@ -858,7 +856,7 @@ static void *gc_move(api_t *api, void *o) {
       LIST(p, size);
       STORE(o, -1, p);
       for (i = 0; i < size; i++) {
-        q = gc_move(api, REF(o,i));
+        q = gc(api, gc_base, gc_end, REF(o,i));
         STORE(p, i, q);
       }
       p = LIST_FLIP(p);
@@ -870,12 +868,6 @@ static void *gc_move(api_t *api, void *o) {
 
   //fprintf(stderr, "%s: %p -> %p (%ld)\n", buf, o, p, (intptr_t)(p-o));
   return p;
-}
-
-static void *gc(struct api_t *api, void *Base, void *root) {
-  gc_base = Base;
-  gc_end = Top;
-  return gc_move(api->other, root);
 }
 
 static api_t *init_api(void *ptr) {
