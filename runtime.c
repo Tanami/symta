@@ -418,6 +418,7 @@ BUILTIN_VARARGS("[list]",make_list)
   else {
     R = LIST_FLIP(E);
   }
+RETURN(R) // have to, otherwise it will endup in on environment above
 RETURNS(R)
 
 BUILTIN1("integer neg",integer_neg,C_ANY,o)
@@ -984,4 +985,6 @@ int main(int argc, char **argv) {
   FLIP_HEAP();
 
   printf("%s\n", print_object(R));
+
+  return 0;
 }

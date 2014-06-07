@@ -122,7 +122,7 @@ typedef void *(*pfun)(REGS);
      Top = Base; \
      return (void*)(value); \
    } \
-   value = api->gc(api->other, Base, Top, (void*)(value)); \
+   value = api->gc(api->other, Top, Base, (void*)(value)); \
    Top = Base; \
    return (void*)(value);
 #define RETURN_NO_GC(value) return (void*)(value);
