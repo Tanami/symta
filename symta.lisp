@@ -487,11 +487,56 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa-expr k then
   ! ssa 'local_label end-label)
 
+(to ssa-hoist-decls expr hoist ; C/C++ style declaration hoisting
+  ! when (atom expr) (return-from ssa-hoist-decls expr)
+  ! match expr
+     (("_fn" . xs) expr)
+     ((("_fn" as . xs) . vs)
+      (funcall hoist as)
+      `("_progn" ,@(m a as `("_set" ,a ,(pop vs)))
+                 ,@(m x xs (ssa-hoist-decls x hoist))))
+     (xs (m x xs (ssa-hoist-decls x hoist))))
+
+(to ssa-let k args vals xs
+  ! body = ssa-hoist-decls `("_progn" ,@xs)
+             (fn hs ! setf args (append args hs)
+                    ! setf vals (append vals (m h hs 0)))
+  ! unless args
+      (ssa-expr k body)
+      (return-from ssa-let)
+  ! f = ssa-name "f"
+  ! (ssa-body cs) = ssa-fn-body k f args body () nil nil
+  ! nparents = length cs
+  ! p = ssa-name "p" ;; parent environment
+  ! ssa 'var p
+  ! ssa 'local_array p nparents
+  ! i = -1
+  ! e c cs (! if (equal c *ssa-ns*) ; self?
+                 (ssa 'store p (incf i) 'e)
+                 (ssa 'copy p (incf i) 'p (ssa-get-parent-index c)))
+  ! e = ssa-name "env"
+  ! ssa 'var e
+  ! ssa 'local_array e (length args)
+  ! i = -1
+  ! e v vals (! tmp = ssa-name "tmp"
+              ! ssa 'var tmp
+              ! ssa-expr tmp v
+              ! ssa 'store e (incf i) tmp)
+  ! save-p = ssa-name "save_p"
+  ! save-e = ssa-name "save_e"
+  ! ssa 'var save-p
+  ! ssa 'var save-e
+  ! ssa 'move save-p 'p
+  ! ssa 'move save-e 'e
+  ! ssa 'move 'e e
+  ! ssa 'move 'p p
+  ! setf *ssa-out* `(,@ssa-body ,@*ssa-out*)
+  ! ssa 'move 'p save-p
+  ! ssa 'move 'e save-e
+  )
+
 (to ssa-apply k f as
-  ;; FIXME: if it is a lambda call, we don't have to change env or create a closure, just push env
-  ! when (equal f "_call")
-     (setf f (second as))
-     (setf as (cddr as))
+  ! match f (("_fn" bs . body) (return-from ssa-apply (ssa-let k bs as body)))
   ! known-closure = eql (first (car *ssa-out*)) 'known_closure
   ! ssa 'flip_heap
   ! top = ssa-name "top"
@@ -532,41 +577,48 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (ssa 'move d "Void")
       ! setf xs (cdr xs)))
 
-(to ssa-let k bs xs
-  ! args = m b bs (first b)
-  ! body = `("_progn" ,@xs)
-  ! unless bs
-      (ssa-expr k body)
-      (return-from ssa-let)
-  ! f = ssa-name "f"
-  ! (ssa-body cs) = ssa-fn-body k f args body () nil nil
-  ! nparents = length cs
-  ! p = ssa-name "p" ;; parent environment
-  ! ssa 'var p
-  ! ssa 'local_array p nparents
-  ! i = -1
-  ! e c cs (! if (equal c *ssa-ns*) ; self?
-                 (ssa 'store p (incf i) 'e)
-                 (ssa 'copy p (incf i) 'p (ssa-get-parent-index c)))
-  ! e = ssa-name "env"
-  ! ssa 'var e
-  ! ssa 'local_array e (length bs)
-  ! i = -1
-  ! e b bs (! tmp = ssa-name "tmp"
-            ! ssa 'var tmp
-            ! ssa-expr tmp (second b)
-            ! ssa 'store e (incf i) tmp)
-  ! save-p = ssa-name "save_p"
-  ! ssa 'var save-p
-  ! ssa 'move save-p 'p
-  ! save-e = ssa-name "save_e"
-  ! ssa 'var save-e
-  ! ssa 'move save-e 'e
-  ! ssa 'move 'e e
-  ! ssa 'move 'p p
-  ! setf *ssa-out* `(,@ssa-body ,@*ssa-out*)
-  ! ssa 'move 'e save-e
-  ! ssa 'move 'p save-p)
+(defparameter *uniquify-stack* nil)
+
+(to uniquify-form expr
+  ! match expr
+     (("_fn" bs . body)
+      (! rs = m b bs (list b (ssa-name b))
+       ! *uniquify-stack* = cons rs *uniquify-stack*
+       ! `("_fn" ,(m r rs (second r)) ,@(m x body (uniquify-expr x)))))
+     (("_quote" x) expr)
+     (("_label" x) expr)
+     (("_goto" x) expr)
+     (xs
+      (match xs
+        ((("_fn" as . body) . vs)
+         (unless (= (length as) (length vs))
+           (error "invalid number of arguments in ~a" expr))))
+      (m x xs (uniquify-expr x))))
+
+(to uniquify-name s
+  ! e closure *uniquify-stack*
+     (e x closure
+        (when (equal (first x) s)
+          (return-from uniquify-name (second x)))))
+
+(to special-sym? x ! and (stringp x) (> (length x) 0) (eql (aref x 0) #\_))
+
+(to uniquify-atom expr
+  ! unless (stringp expr) (return-from uniquify-atom expr)
+  ! when (special-sym? expr) (return-from uniquify-atom expr)
+  ! renamed = uniquify-name expr
+  ! unless renamed (error "undefined variable: ~a" expr)
+  ! renamed)
+
+(to uniquify-expr expr
+  ! if (listp expr)
+       (uniquify-form expr)
+       (uniquify-atom expr))
+
+;; give symbols unique names: allows non-local references
+(to uniquify expr
+  ! *uniquify-stack* = nil
+  ! uniquify-expr expr)
 
 (to ssa-fixed k op a b
   ! av = ssa-name "a"
@@ -580,12 +632,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to ssa-form k xs
   ! match xs
     (("_fn" as body) (ssa-fn (ssa-name "n") k as body xs))
-    (("_kfn" name as body) (ssa-fn name k as body xs))
     (("_if" cnd then else) (ssa-if k cnd then else))
     (("_quote" x) (ssa-quote k x))
     (("_set" place value) (ssa-set k place value))
     (("_progn" . xs) (ssa-progn k xs))
-    (("_let" bs . xs) (ssa-let k bs xs))
     (("_label" name) (ssa 'local_label name))
     (("_goto" name) (ssa 'local_jmp name))
     (("_add" a b) (ssa-fixed k 'fixed_add a b))
@@ -621,6 +671,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'entry entry
   ! r = ssa-name "result"
   ! ssa 'var r
+  ! expr = uniquify expr
   ! ssa = ssa-expr r expr
   ! ssa 'return r
   ! init-labels = nil
@@ -633,6 +684,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ! l = "init_{name}"
          ! push l init-labels
          ! ssa 'label l
+         ! expr = uniquify expr
          ! ssa-expr name expr
          ! ssa 'return_no_gc name
          ! ssa 'global name))
@@ -759,8 +811,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
             (hit (expand-list-hole key (cdr hole) hit miss)))
     `("if" (,key "end")
            ,miss
-           ("let" ((,h (,key "head"))
-                   (,key (,key "tail")))
+           ("_let" ((,h (,key "head"))
+                    (,key (,key "tail")))
              ,(expand-hole h (car hole) hit miss)))))
 
 (defun expand-hole (key hole hit miss)
@@ -770,8 +822,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       (if (equal hole "_")
           hit
           (if (var-sym? hole)
-              `("let" ((,hole ,key))
-                      ,hit)
+              `("_let" ((,hole ,key))
+                        ,hit)
               `("if" (,hole "is" ,key)
                      ,hit
                      ,miss)))))
@@ -791,11 +843,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   (when (equal (car hole) "bind")
     (return-from expand-hole
       (let ((g (ssa-name "G")))
-        `("let" ((,g (,(second hole) ,key)))
+        `("_let" ((,g (,(second hole) ,key)))
            ,(expand-hole g (third hole) hit miss)))))
   (when (equal (car hole) "fn")
     (return-from expand-hole
-      `("let" ((,(second hole) ,key))
+      `("_let" ((,(second hole) ,key))
          ("if" ("|" ,@(cddr hole))
              ,hit
              ,miss))))
@@ -824,7 +876,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                                               ("_goto" ,e))))
                          `(("_label" ,name) ,(expand-hole key (car case) hit miss) ,@next)))
                      (cons nil (reverse cases)))))
-    `("let" ((,key ,keyform)
+    `("_let" ((,key ,keyform)
              (,r 0))
        ,@(cdr ys)
        ("_label" ,d)
@@ -851,7 +903,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                 ;; FIXME: value gets duplicated - potentially exponential code growth
                 (e g gs (setf value (expand-match g `((,(pop args) ,value)) default)))
                 (setf args gs)))
-            (list name `("_kfn" ,kname ,args ,value)))))
+            (list name `("_fn" ,args ,value)))))
      (else (list nil x)))
 
 (to make-multimethod xs
@@ -913,23 +965,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("_fn" as body)
          (return-from builtin-expander
            `("_fn" ,as ,(builtin-expander body))))
-        (("_kfn" all as body)
-         (return-from builtin-expander
-           `("_kfn" ,all ,as ,(builtin-expander body))))
-        (("_let" bs . xs)
-         (return-from builtin-expander
-           `("_let" ,(m b bs `(,(first b) ,(builtin-expander (second b))))
-               ,@(m x xs (builtin-expander x)))))
+        (("_let" bs . xs) `(("_fn" ,(m b bs (first b)) ,`("_progn" ,@xs))
+                            ,@(m b bs (second b))))
         (("fn" as . body) `("_fn" ,as ("|" ,@body)))
         (("=>" as body) `("_fn" ,as ,body))
         (("set" dst src) `("_set" ,dst ,src))
         (("when" a body) `("_if" ,a ,body :void))
         (("unless" a body) `("_if" ,a :void ,body))
-        (("let" bs . body)
-         (let ((body `("_progn" ,@body)))
-           (if bs
-               `(("_fn" ,(m b bs (first b)) ,body) ,@(m b bs (second b)))
-               body)))
+        (("let" bs . body) `("_let" ,bs ,@body))
         (("|" . xs) (expand-block xs))
         (("[]" . as) `("list" ,@as))
         (("." a b) `(,a ,b))
@@ -978,7 +1021,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
             (let ((ys (m x xs (builtin-expander x))))
               (if (and (consp ys)
                        (or (equal (car ys) "_quote")
-                           (equal (car ys) "_kfn")
                            (equal (car ys) "_fn")
                            (equal (car ys) "_set")
                            (equal (car ys) "_let")
