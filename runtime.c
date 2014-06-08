@@ -866,7 +866,7 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
     if (IS_ARGLIST(o)) { // still wasn't moved?
       size = (int)UNFIXNUM(p);
       LIST(p, size);
-      STORE(o, -1, p);
+      STORE(o, -1, LIST_FLIP(p));
       for (i = 0; i < size; i++) {
         q = gc(api, gc_base, gc_end, REF(o,i));
         STORE(p, i, q);
