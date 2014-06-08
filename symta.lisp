@@ -471,8 +471,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! i = -1
   ! e c cs (! if (equal c *ssa-ns*) ; self?
                  (ssa 'store k (incf i) 'e)
-                 (ssa 'copy k (incf i) 'p (ssa-get-parent-index c)))
-  ! ssa 'known_closure)
+                 (ssa 'copy k (incf i) 'p (ssa-get-parent-index c))))
 
 (to ssa-if k cnd then else
   ! then-label = ssa-name "then"
@@ -537,7 +536,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-apply k f as
   ! match f (("_fn" bs . body) (return-from ssa-apply (ssa-let k bs as body)))
-  ! known-closure = eql (first (car *ssa-out*)) 'known_closure
   ! ssa 'flip_heap
   ! top = ssa-name "top"
   ! ssa 'var top
@@ -555,7 +553,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
             ! ssa-expr tmp a
             ! ssa 'store e (incf i) tmp)
   ! ssa 'move "NewBase" top
-  ! if known-closure (ssa 'call k h e) (ssa 'call_tagged k h e)
+  ! ssa 'call_tagged k h e
   ! ssa 'flip_heap)
 
 (to ssa-set k place value
@@ -744,7 +742,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''copy dst p src q) (to-c-emit "  COPY(~a, ~a, ~a, ~a);" dst p src q))
          ((''move dst src) (to-c-emit "  MOVE(~a, ~a);" dst src))
          ((''list_flip dst src) (to-c-emit "  ~a = LIST_FLIP(~a);" dst src))
-         ((''known_closure) #|(to-c-emit "  /* known closure */")|#)
          ((''fixnum dst str) (to-c-emit "  LOAD_FIXNUM(~a, ~s);" dst str))
          ((''bytes name values)
           (push (format nil "static uint8_t ~a[] = {~{~a~^,~}};" name values) decls))
@@ -859,8 +856,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   (when (equal (car hole) "[]")
     (return-from expand-hole
       `("if" (("_quote" "list") "is" ("tag_of" ,key))
-             ,miss
-             ,(expand-list-hole key (cdr hole) hit miss))))
+             ,(expand-list-hole key (cdr hole) hit miss)
+             ,miss)))
   (error "bad hole: ~a" hole))
 
 (defun expand-match (keyform cases default &key (keyvar nil))

@@ -326,7 +326,8 @@ BUILTIN1("view tail",view_tail,C_ANY,o)
     A = o;
     VIEW(R, &VIEW_REF(A,0,0), start+1, FIXNUM(size-1));
   }
-RETURNS(R)
+RETURN(R)
+RETURNS(0)
 BUILTIN2("view add",view_add,C_ANY,o,C_ANY,x)
   void *r;
   void **p, **q;
@@ -386,7 +387,8 @@ BUILTIN1("list tail",list_tail,C_ANY,o)
     A = o;
     VIEW(R, &REF(LIST_FLIP(A),0), 1, FIXNUM(size-1));
   }
-RETURNS(R)
+RETURN(R)
+RETURNS(0)
 BUILTIN2("list add",list_add,C_ANY,o,C_ANY,x)
   void **p, **q;
   intptr_t s = UNFIXNUM(POOL_HANDLER(o));
@@ -464,12 +466,14 @@ BUILTIN2("integer x",integer_x,C_ANY,size,C_ANY,init)
   } else if (size == 0) {
     R = Empty;
   } else {
-    A = init;
+    // FIXME: alloc in parent environment
     LIST(R,s);
     p = &REF(R,0);
-    while(s-- > 0) *p++ = A;
+    while(s-- > 0) *p++ = init;
+    R = LIST_FLIP(R);
   }
-RETURNS(LIST_FLIP(R))
+RETURN(R)
+RETURNS(0)
 BUILTIN1("integer end",integer_end,C_ANY,o)
 RETURNS(FIXNUM(1))
 BUILTIN1("integer text",integer_text,C_ANY,o)
@@ -561,6 +565,7 @@ RETURNS_VOID
 
 BUILTIN1("log",log,C_ANY,a)
   fprintf(stderr, "log: %s\n", print_object(a));
+RETURN(a)
 RETURNS(a)
 
 BUILTIN1("set_error_handler",set_error_handler,C_ANY,h)
@@ -803,11 +808,13 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
   char buf[1024];
 
   //sprintf(buf, "%s", print_object(o));
+  //fprintf(stderr, "%p: %s\n", o, print_object(o));
 
   if (tag == T_FIXNUM || tag == T_FIXTEXT) {
     p = o;
   } else if (!(gc_base <= o && o < gc_end)) {
     // FIXME: check if this external reference is valid
+    //fprintf(stderr, "external: %p\n", o);
     p = o;
   } else if (tag == T_CLOSURE) {
     pfun handler = POOL_HANDLER(o);
@@ -827,11 +834,13 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
       }
     } else if (handler == b_view) {
       uint32_t start = VIEW_START(o);
-      int size = (int)UNFIXNUM(VIEW_SIZE(o));
+      uint32_t size = VIEW_SIZE(o);
       VIEW(p, 0, start, size);
       STORE(o, -1, p);
       q = ADD_TAG(&VIEW_REF(o,0,0), T_LIST);
-      STORE(p, 0, &REF(gc(api, gc_base, gc_end, q), 0));
+      q = gc(api, gc_base, gc_end, q);
+      q = LIST_FLIP(q);
+      STORE(p, 0, &REF(q, 0));
     } else if (handler == b_text) {
       TEXT(p, TEXT_DATA(o));
       STORE(o, -1, p);
@@ -869,7 +878,7 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
     abort();
   }
 
-  //fprintf(stderr, "%s: %p -> %p (%ld)\n", buf, o, p, (intptr_t)(p-o));
+  //fprintf(stderr, "%s: %p -> %p (%ld)\n", ""/*buf*/, o, p, (intptr_t)(p-o));
   return p;
 }
 

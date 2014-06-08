@@ -122,6 +122,7 @@ typedef void *(*pfun)(REGS);
      Top = Base; \
      return (void*)(value); \
    } \
+   /*D; fprintf(stderr, "GC %p:%p -> %p\n", Top, Base, api->other->top);*/ \
    value = api->gc(api->other, Top, Base, (void*)(value)); \
    Top = Base; \
    return (void*)(value);
