@@ -553,7 +553,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
             ! ssa-expr tmp a
             ! ssa 'store e (incf i) tmp)
   ! ssa 'move "NewBase" top
-  ! ssa 'call_tagged k h e
+  ! if (fn-sym? f) (ssa 'call k h e) (ssa 'call_tagged k h e)
   ! ssa 'flip_heap)
 
 (to ssa-set k place value
@@ -656,8 +656,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to ssa-expr k x ! if (listp x) (ssa-form k x) (ssa-atom k x))
 
 (to host-deps expr deps ! `("_fn" ("host")
-                                  ("host" ("_fn" ,deps ,expr)
-                                          ,@(m d deps `("_quote" ,d)))))
+                                  (("_fn" ,deps ,expr)
+                                   ,@(m d deps `("host" ("_quote" ,d))))))
 
 (to produce-ssa entry expr
   ! *ssa-out* = nil

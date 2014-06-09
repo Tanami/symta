@@ -148,8 +148,8 @@ static char *text_to_cstring(void *o) {
   BUILTIN_CHECK_VARARGS(1,sname,sname); \
   a = getArg(0); \
   a_check(a, 0, sname);
-#define RETURNS(r) RETURN_NO_GC(r); }
-#define RETURNS_VOID }
+#define RETURNS(r) Top = Base; return (void*)(r); }
+#define RETURNS_VOID Top = Base; }
 
 
 static void *s_size, *s_get, *s_set, *s_hash;
@@ -693,24 +693,17 @@ static struct {
   {0, 0}
 };
 
-BUILTIN_VARARGS("host",host)
-  int i,j, n = (int)UNFIXNUM(NARGS);
-  void *f = getArg(0);
-  LIST(A, n-1);
-  for (j = 1; j < n; j++) {
-    void *name = getArg(j);
-    C_TEXT(name, j, "host");
-    for (i = 0; ; i++) {
-      if (!builtins[i].name) {
-        fatal("host doesn't provide `%s`\n", print_object(name));
-      }
-      if (texts_equal(builtins[i].name, name)) {
-        break;
-      }
+BUILTIN1("host",host,C_TEXT,name)
+  int i;
+  for (i = 0; ; i++) {
+    if (!builtins[i].name) {
+      fatal("host doesn't provide `%s`\n", print_object(name));
     }
-    STORE(A, j-1, builtins[i].fun);
+    if (texts_equal(builtins[i].name, name)) {
+      R = builtins[i].fun;
+      break;
+    }
   }
-  CALL_TAGGED(R,f,A);
 RETURNS(R)
 
 static char *print_object_r(api_t *api, char *out, void *o) {
