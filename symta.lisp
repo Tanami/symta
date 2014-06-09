@@ -586,6 +586,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (("_quote" x) expr)
      (("_label" x) expr)
      (("_goto" x) expr)
+     (("_call" . xs) (uniquify-form xs))
      (xs
       (match xs
         ((("_fn" as . body) . vs)
@@ -881,6 +882,35 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        ("_label" ,e)
        ,r)))
 
+(to mangle-name name
+  ! cs = coerce name 'list
+  ! with-output-to-string (out)
+    (format out "_")
+    (e c cs
+       (let ((n (char-code c)))
+         (if (or (and (<= (char-code #\a) n) (<= n (char-code #\z)))
+                 (and (<= (char-code #\A) n) (<= n (char-code #\Z)))
+                 (and (<= (char-code #\0) n) (<= n (char-code #\9))))
+             (format out "~a" (string c))
+             (format out "_~2,'0x" n)))))
+
+(to result-and-label name
+  ! mangled = mangle-name name
+  ! list (concatenate 'string "ReturnOf" mangled "_")
+         (concatenate 'string "end_of" mangled "_"))
+
+(to expand-named name body
+  ! (r end) = result-and-label name
+  ! `("_let" ((,r 0))
+       ("_set" ,r ("_progn",@body))
+       ("_label" ,end)
+       ,r))
+
+(to expand-leave name value
+  ! (r end) = result-and-label name
+  ! `("_progn" ("_set" ,r ,value)
+               ("_goto" ,end)))
+
 (to pattern-arg x ! not (stringp x))
 
 (to expand-block-item x
@@ -900,6 +930,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                 ;; FIXME: value gets duplicated - potentially exponential code growth
                 (e g gs (setf value (expand-match g `((,(pop args) ,value)) default)))
                 (setf args gs)))
+            (setf value (expand-named name value))
             (list name `("_fn" ,args ,value)))))
      (else (list nil x)))
 
@@ -918,8 +949,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                        ,expr))))
   ! key = ssa-name "K"
   ! sel = expand-match `(,all "{}" 1) cases `("_no_method" ,key) :keyvar key
-  ! `("_fn" ,all ("_apply" ,sel ,all))
-  )
+  ! `("_fn" ,all ("_apply" ,sel ,all)))
 
 (to expand-block xs
   ! when (and (= (length xs) 1)
@@ -962,11 +992,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("_fn" as body)
          (return-from builtin-expander
            `("_fn" ,as ,(builtin-expander body))))
-        (("_let" bs . xs) `(("_fn" ,(m b bs (first b)) ,`("_progn" ,@xs))
+        (("_let" bs . xs) `("_call"
+                            ("_fn" ,(m b bs (first b)) ,`("_progn" ,@xs))
                             ,@(m b bs (second b))))
+        (("_set" place value)
+         (return-from builtin-expander
+           `("_set" ,place ,(if (fn-sym? value)
+                                `("_quote" ,value)
+                                (builtin-expander value)))))
         (("fn" as . body) `("_fn" ,as ("|" ,@body)))
         (("=>" as body) `("_fn" ,as ,body))
-        (("set" dst src) `("_set" ,dst ,src))
         (("when" a body) `("_if" ,a ,body :void))
         (("unless" a body) `("_if" ,a :void ,body))
         (("let" bs . body) `("_let" ,bs ,@body))
@@ -1002,9 +1037,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("and" a b) `("if" ,a ,b 0))
         (("or" a b) (let ((n (ssa-name "T")))
                       `("let" ((,n ,a)) ("if" ,n ,n ,b))))
-        (("leave" from value)
-         (let ((kname (concatenate 'string "_k_" from)))
-           `("_call" ,kname ,value)))
+        (("named" name . body) (expand-named name body))
+        (("leave" name value) (expand-leave name value))
         (("!!" . as)
          (let* ((ys (copy-list as))
                 (v nil)
@@ -1019,7 +1053,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
               (if (and (consp ys)
                        (or (equal (car ys) "_quote")
                            (equal (car ys) "_fn")
-                           (equal (car ys) "_set")
                            (equal (car ys) "_let")
                            (equal (car ys) "_label")
                            (equal (car ys) "_goto")
