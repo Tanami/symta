@@ -43,10 +43,13 @@
 #define HEAP_SIZE (32*1024*1024)
 #define MAX_LIST_SIZE (HEAP_SIZE/2)
 
-#define REGS void *E, void *P, struct api_t *api, void *Base
-#define REGS_ARGS(E,P) E, P, api, NewBase
+#define REGS void *E, void *P, struct api_t *api
+#define REGS_ARGS(E,P) E, P, api
+
+#define MAX_LIFTS 1024*1024
 
 typedef struct api_t {
+  void *base;
   void *top; // heap top
 
   struct api_t *other;
@@ -54,7 +57,7 @@ typedef struct api_t {
   // constants
   void *void_;
   void *empty_;
-  void *host_; // called to resolve builtin functions
+  void *host_;
 
   //void *Goto; // nonlocal goto token (TODO)
 
@@ -69,6 +72,8 @@ typedef struct api_t {
   void *(*fixtext)(REGS);
 
   void *heap[HEAP_SIZE];
+  void **lift[MAX_LIFTS];
+  int lifts_used;
 } api_t;
 
 typedef void *(*pfun)(REGS);
@@ -77,6 +82,7 @@ typedef void *(*pfun)(REGS);
 #define Empty api->empty_
 #define Host api->host_
 #define Top api->top
+#define Base api->base
 
 #define POOL_HANDLER(x) (((pfun*)((void**)((uintptr_t)(x)&~TAG_MASK)-1))[0])
 
@@ -99,7 +105,6 @@ typedef void *(*pfun)(REGS);
 #define print_object(object) api->print_object_f(api, object)
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 
-#define FLIP_HEAP() api = api->other;
 #define LOCAL_ALLOC(dst,name,code,count) \
   void *name[(count)+1]; \
   name[0] = (void*)(code); \
@@ -113,23 +118,24 @@ typedef void *(*pfun)(REGS);
 #define LIST(dst,size) ALLOC(dst,FIXNUM(size),size)
 #define LOAD_FIXNUM(dst,x) dst = (void*)((uintptr_t)(x)<<TAG_BITS)
 #define TEXT(dst,x) dst = api->alloc_text(api,(char*)(x))
-#define ENTRY(name) } void *name(REGS) {void *NewBase;
+#define ENTRY(name) } void *name(REGS) {
 #define DECL_LABEL(name) static void *name(REGS);
-#define LABEL(name) } static void *name(REGS) {void *NewBase;
+#define LABEL(name) } static void *name(REGS) {
 #define VAR(name) void *name;
 #define RETURN(value) \
    if (GET_TAG(value) == T_FIXNUM || GET_TAG(value) == T_FIXTEXT) { \
-     Top = Base; \
      return (void*)(value); \
    } \
    /*D; fprintf(stderr, "GC %p:%p -> %p\n", Top, Base, api->other->top);*/ \
    value = api->gc(api->other, Top, Base, (void*)(value)); \
-   Top = Base; \
    return (void*)(value);
 #define RETURN_NO_GC(value) return (void*)(value);
-#define GOSUB(label) label(E,P,api,Base);
-#define BRANCH(cond,label) if ((cond) != FIXNUM(0)) { label(REGS_ARGS); return; }
-#define CALL(k,f,e) k = POOL_HANDLER(f)(REGS_ARGS(e,f));
+#define GOSUB(label) label(REGS_ARGS(E,P));
+#define BRANCH(cond,label) if ((cond) != FIXNUM(0)) { label(REGS_ARGS(E,P)); return; }
+#define HEAP_FLIP() api = api->other;
+#define PUSH_BASE() HEAP_FLIP(); Top = (void**)Top-1; *(void**)Top = Base; Base = Top;
+#define POP_BASE() Top = (void**)Base+1; Base = *(void**)Base; HEAP_FLIP();
+#define CALL(k,f,e) k = POOL_HANDLER(f)(REGS_ARGS(e,f)); POP_BASE()
 #define CALL_TAGGED(k,f,e) \
   if (GET_TAG(f) == T_CLOSURE) { \
     k = POOL_HANDLER(f)(REGS_ARGS(e,f)); \
@@ -141,7 +147,8 @@ typedef void *(*pfun)(REGS);
     k = api->fixtext(REGS_ARGS(e,f)); \
   } else { \
     api->bad_tag(REGS_ARGS(e,f)); /*should never happen*/ \
-  }
+  } \
+  POP_BASE();
 #define REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-1)
 #define REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-1)
 #define REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-1)

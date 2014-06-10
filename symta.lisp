@@ -536,25 +536,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-apply k f as
   ! match f (("_fn" bs . body) (return-from ssa-apply (ssa-let k bs as body)))
-  ! ssa 'flip_heap
-  ! top = ssa-name "top"
-  ! ssa 'var top
-  ! ssa 'move top "Top"
+  ! ssa 'push_base
   ! h = ssa-name "head"
   ! ssa 'var h
   ! ssa-expr h f
   ! e = ssa-name "env"
   ! ssa 'var e
   ! ssa 'array e (length as)
-  ;;! ssa 'local_array e (length as)
   ! i = -1
   ! e a as (! tmp = ssa-name "tmp"
             ! ssa 'var tmp
             ! ssa-expr tmp a
             ! ssa 'store e (incf i) tmp)
-  ! ssa 'move "NewBase" top
-  ! if (fn-sym? f) (ssa 'call k h e) (ssa 'call_tagged k h e)
-  ! ssa 'flip_heap)
+  ! if (fn-sym? f) (ssa 'call k h e) (ssa 'call_tagged k h e))
 
 (to ssa-set k place value
   ! r = ssa-name "r"
@@ -728,9 +722,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''local_jmp label-name) (to-c-emit "  LOCAL_JMP(~a);" label-name))
          ((''gosub label-name) (to-c-emit "  GOSUB(~a);" label-name))
          ((''branch cond label) (to-c-emit "  BRANCH(~a, ~a);" cond label))
+         ((''push_base) (to-c-emit "  PUSH_BASE();"))
          ((''call k name env) (to-c-emit "  CALL(~a, ~a, ~a);" k name env))
          ((''call_tagged k name env) (to-c-emit "  CALL_TAGGED(~a, ~a, ~a);" k name env))
-         ((''flip_heap) (to-c-emit "  FLIP_HEAP();"))
          ((''array place size) (to-c-emit "  LIST(~a, ~a);" place size))
          ((''closure place name size)
           (progn

@@ -11,8 +11,6 @@ static void *b_cons(REGS);
 #define getArg(i) REF(E,i)
 #define getVal(x) ((uintptr_t)(x)&~TAG_MASK)
 
-#define NewBase Top
-
 static api_t apis[2]; // one for each heap
 
 #define HEAP_OBJECT(o) ((void*)apis < (void*)(o) && (void*)(o) < (void*)(apis+2))
@@ -311,6 +309,8 @@ BUILTIN3("view {!}",view_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
     printf("view {!}: index out of bounds\n");
     TEXT(P, "{!}");
     bad_call(REGS_ARGS(E,P),P);
+  }
+  if (GET_TAG(value) != T_FIXNUM && GET_TAG(value) != T_FIXTEXT) {
   }
   VIEW_REF(o, start, UNFIXNUM(index)) = value;
 RETURNS(Void)
@@ -794,6 +794,8 @@ static void *handle_args(REGS, intptr_t expected, intptr_t size, void *tag, void
 
 static void *closure_size_request;
 
+#define NEEDS_GC(o) (gc_base <= (void*)(o) && (void*)(o) < gc_end)
+
 static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
   void *p, *q;
   int i, size, tag = GET_TAG(o);
@@ -805,15 +807,15 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
 
   if (tag == T_FIXNUM || tag == T_FIXTEXT) {
     p = o;
-  } else if (!(gc_base <= o && o < gc_end)) {
-    // FIXME: check if this external reference is valid
+  } else if (!NEEDS_GC(o)) {
+    // FIXME: validate this external reference (safe-check we haven't damaged anything)
     //fprintf(stderr, "external: %p\n", o);
     p = o;
   } else if (tag == T_CLOSURE) {
     pfun handler = POOL_HANDLER(o);
     int in_heap = HEAP_OBJECT(handler);
 
-    if (in_heap && !(gc_base <= (void*)handler && (void*)handler < gc_end)) {
+    if (in_heap && !NEEDS_GC(o)) {
       // already moved
       p = handler;
     } else if (IS_ARGLIST(o)) {
@@ -844,7 +846,6 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
       CDR(p) = gc(api, gc_base, gc_end, CDR(o));
     } else {
       void *fixed_size;
-      void *Base = Top;
       CALL(fixed_size,o,closure_size_request);
       size = UNFIXNUM(fixed_size);
       ALLOC(p, handler, size);
@@ -875,6 +876,19 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
   return p;
 }
 
+static void *gc_entry(api_t *api, void *gc_base, void *gc_end, void *o) {
+  int i;
+  api_t *other = api->other;
+  other->lifts_used = 0;
+  /*while (api->lifts_used) {
+    void **p = api->lifts[--api->lifts_used];
+    NEEDS_GC(*p) 
+    if (NEEDS_GC(*p)) *p = gc(api, gc_base, gc_end, *p);
+    other->lifts[other->lifts_used++] = p;
+  }*/
+  return gc(api, gc_base, gc_end, o);
+}
+
 static api_t *init_api(void *ptr) {
   int i;
   api_t *api = (api_t*)ptr;
@@ -898,7 +912,7 @@ int main(int argc, char **argv) {
   void *lib;
   pfun entry, setup;
   api_t *api;
-  void *R, *Base;
+  void *R;
 
   void *E = 0; // current environment
   void *P = 0; // parent environment
@@ -914,10 +928,8 @@ int main(int argc, char **argv) {
   api->other = init_api(apis+1);
   api->other->other = api;
 
-  api->top = api->heap+HEAP_SIZE;
-  api->other->top = api->other->heap+HEAP_SIZE;
-
-  Base = Top;
+  api->base = api->top = api->heap+HEAP_SIZE;
+  api->other->base = api->other->top = api->other->heap+HEAP_SIZE;
 
   CLOSURE(Void, b_void);
   CLOSURE(Empty, b_empty);
@@ -982,13 +994,13 @@ int main(int argc, char **argv) {
   if (!setup) fatal("dlsym couldnt find symbol `setup` in %s\n", module);
 
   Base = Top;
-  FLIP_HEAP();
+  HEAP_FLIP();
   R = setup(REGS_ARGS(E,P)); // init module's statics
-  FLIP_HEAP();
+  HEAP_FLIP();
   Base = Top;
-  FLIP_HEAP();
+  HEAP_FLIP();
   R = entry(REGS_ARGS(E,P)); 
-  FLIP_HEAP();
+  HEAP_FLIP();
 
   printf("%s\n", print_object(R));
 
