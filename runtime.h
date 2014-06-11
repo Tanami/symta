@@ -11,6 +11,8 @@
 #define GET_TAG(x) ((uintptr_t)(x)&TAG_MASK)
 #define ADD_TAG(src,tag) ((void*)((uintptr_t)(src) | (tag)))
 #define DEL_TAG(src) ((void*)((uintptr_t)(src) & ~TAG_MASK))
+#define IMMEDIATE(x) (GET_TAG(x) == T_FIXNUM || GET_TAG(x) == T_FIXTEXT)
+
 
 #define SIGN_BIT ((uintptr_t)1<<(sizeof(uintptr_t)*8-1))
 
@@ -42,17 +44,18 @@
 #define HEAP_DEPTH 1024
 #define HEAP_SIZE (32*1024*1024)
 #define MAX_LIST_SIZE (HEAP_SIZE/2)
+#define BASE_HEAD_SIZE 2
 
 #define REGS void *E, void *P, struct api_t *api
 #define REGS_ARGS(E,P) E, P, api
-
-#define MAX_LIFTS 1024*1024
 
 typedef struct api_t {
   void *base;
   void *top; // heap top
 
   struct api_t *other;
+
+  intptr_t level;
 
   // constants
   void *void_;
@@ -72,8 +75,6 @@ typedef struct api_t {
   void *(*fixtext)(REGS);
 
   void *heap[HEAP_SIZE];
-  void **lift[MAX_LIFTS];
-  int lifts_used;
 } api_t;
 
 typedef void *(*pfun)(REGS);
@@ -83,15 +84,17 @@ typedef void *(*pfun)(REGS);
 #define Host api->host_
 #define Top api->top
 #define Base api->base
+#define Level api->level
 
 #define POOL_HANDLER(x) (((pfun*)((void**)((uintptr_t)(x)&~TAG_MASK)-1))[0])
+#define OBJECT_LEVEL(x) (intptr_t)(((pfun*)((void**)((uintptr_t)(x)&~TAG_MASK)-2))[0])
+#define ON_CURRENT_LEVEL(x) (Top <= (void*)(x) && (void*)(x) < Base)
 
 #define ALLOC(dst,code,count) \
-  Top = (void**)Top - ((count)+1); \
-  dst = Top; \
-  *(void**)dst = (void*)(code); \
-  dst = (void**)dst + 1; \
-  dst = ADD_TAG(dst, T_CLOSURE);
+  Top = (void**)Top - ((count)+2); \
+  dst = ADD_TAG(((void**)Top+2), T_CLOSURE); \
+  *((void**)Top+0) = (void*)Level; \
+  *((void**)Top+1) = (void*)(code);
 
 #define LIST_SIZE(o) ((intptr_t)POOL_HANDLER(o))
 #define NARGS LIST_SIZE(E)
@@ -105,11 +108,6 @@ typedef void *(*pfun)(REGS);
 #define print_object(object) api->print_object_f(api, object)
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 
-#define LOCAL_ALLOC(dst,name,code,count) \
-  void *name[(count)+1]; \
-  name[0] = (void*)(code); \
-  dst = ADD_TAG((void*)((void**)name+1), T_CLOSURE);
-#define LOCAL_LIST(dst,name,count) LOCAL_ALLOC(dst,name,FIXNUM(count),count)
 #define LOCAL_LABEL(name) name:;
 #define LOCAL_BRANCH(cnd,name) if (cnd) goto name;
 #define LOCAL_JMP(name) goto name;
@@ -123,7 +121,7 @@ typedef void *(*pfun)(REGS);
 #define LABEL(name) } static void *name(REGS) {
 #define VAR(name) void *name;
 #define RETURN(value) \
-   if (GET_TAG(value) == T_FIXNUM || GET_TAG(value) == T_FIXTEXT) { \
+   if (IMMEDIATE(value) && !LIFTS_LIST(Base)) { \
      return (void*)(value); \
    } \
    /*D; fprintf(stderr, "GC %p:%p -> %p\n", Top, Base, api->other->top);*/ \
@@ -132,9 +130,33 @@ typedef void *(*pfun)(REGS);
 #define RETURN_NO_GC(value) return (void*)(value);
 #define GOSUB(label) label(REGS_ARGS(E,P));
 #define BRANCH(cond,label) if ((cond) != FIXNUM(0)) { label(REGS_ARGS(E,P)); return; }
+#define LIFTS_CONS(dst,head,tail) \
+  Top=(void**)Top-2; \
+  *((void**)Top+0) = (head); \
+  *((void**)Top+1) = (tail); \
+  dst = Top;
+#define LIFTS_HEAD(xs) (*((void**)(xs)+0))
+#define LIFTS_TAIL(xs) (*((void**)(xs)+1))
+#define LIFTS_LIST(base) (*((void**)(base)+1))
+#define LIFT(base,pos,value) \
+  if (!IMMEDIATE(value) && OBJECT_LEVEL(base) < OBJECT_LEVEL(value)) { \
+    LIFTS_CONS(LIFTS_LIST(Base), &REF(base,pos), LIFTS_LIST(Base)); \
+  }
 #define HEAP_FLIP() api = api->other;
-#define PUSH_BASE() HEAP_FLIP(); Top = (void**)Top-1; *(void**)Top = Base; Base = Top;
-#define POP_BASE() Top = (void**)Base+1; Base = *(void**)Base; HEAP_FLIP();
+#define PUSH_BASE() \
+  HEAP_FLIP(); \
+  Level += 2; \
+  /*printf("Entering %ld\n", Level);*/ \
+  Top = (void**)Top-BASE_HEAD_SIZE; \
+  *((void**)Top+0) = Base; \
+  LIFTS_LIST(Top) = 0; \
+  Base = Top;
+#define POP_BASE() \
+  /*printf("Leaving %ld\n", Level);*/ \
+  Top = (void**)Base+BASE_HEAD_SIZE; \
+  Base = *(void**)Base; \
+  Level -= 2; \
+  HEAP_FLIP();
 #define CALL(k,f,e) k = POOL_HANDLER(f)(REGS_ARGS(e,f)); POP_BASE()
 #define CALL_TAGGED(k,f,e) \
   if (GET_TAG(f) == T_CLOSURE) { \

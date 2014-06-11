@@ -796,6 +796,8 @@ static void *closure_size_request;
 
 #define NEEDS_GC(o) (gc_base <= (void*)(o) && (void*)(o) < gc_end)
 
+#define OBJECT_HEAP(o) ((void*)&apis[1] <= (void*)(o) && (void*)(o) < (void*)&apis[2])
+
 static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
   void *p, *q;
   int i, size, tag = GET_TAG(o);
@@ -805,13 +807,13 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
   //sprintf(buf, "%s", print_object(o));
   //fprintf(stderr, "%p: %s\n", o, print_object(o));
 
-  if (tag == T_FIXNUM || tag == T_FIXTEXT) {
+  if (IMMEDIATE(o)) {
     p = o;
   } else if (!NEEDS_GC(o)) {
     // FIXME: validate this external reference (safe-check we haven't damaged anything)
     //fprintf(stderr, "external: %p\n", o);
     p = o;
-  } else if (tag == T_CLOSURE) {
+  } else if (GET_TAG(o) == T_CLOSURE) {
     pfun handler = POOL_HANDLER(o);
     int in_heap = HEAP_OBJECT(handler);
 
@@ -854,7 +856,7 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
         STORE(p, i, gc(api, gc_base, gc_end, REF(o,i)));
       }
     }
-  } else if (tag == T_LIST) {
+  } else if (GET_TAG(o) == T_LIST) {
     o = LIST_FLIP(o);
     p = POOL_HANDLER(o);
     if (IS_ARGLIST(o)) { // still wasn't moved?
@@ -868,7 +870,7 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
       p = LIST_FLIP(p);
     }
   } else {
-    printf("cant gc #(ufo %d %p)\n", tag, o);
+    printf("cant gc #(ufo %d %p)\n", (int)GET_TAG(o), o);
     abort();
   }
 
@@ -876,16 +878,27 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
   return p;
 }
 
+
 static void *gc_entry(api_t *api, void *gc_base, void *gc_end, void *o) {
   int i;
   api_t *other = api->other;
-  other->lifts_used = 0;
-  /*while (api->lifts_used) {
-    void **p = api->lifts[--api->lifts_used];
-    NEEDS_GC(*p) 
-    if (NEEDS_GC(*p)) *p = gc(api, gc_base, gc_end, *p);
-    other->lifts[other->lifts_used++] = p;
-  }*/
+  void *xs = LIFTS_LIST(gc_end);
+  if (xs) {
+    void *ys = LIFTS_LIST(Base);
+    while (xs) {
+      void **x = (void**)LIFTS_HEAD(xs);
+      *x = gc(api, gc_base, gc_end, *x);
+      if (ON_CURRENT_LEVEL(x)) {
+        // object got lifted to the level of it's holder
+        //fprintf(stderr, "lifted!\n");
+      } else { // needs future lifting
+        LIFTS_CONS(ys, x, ys);
+      }
+      xs = LIFTS_TAIL(xs);
+    }
+    LIFTS_LIST(Base) = ys;
+  }
+
   return gc(api, gc_base, gc_end, o);
 }
 
@@ -896,7 +909,7 @@ static api_t *init_api(void *ptr) {
   api->bad_tag = bad_tag;
   api->handle_args = handle_args;
   api->print_object_f = print_object_f;
-  api->gc = gc;
+  api->gc = gc_entry;
   api->alloc_text = alloc_text;
   api->fixnum = b_fixnum;
   api->list = b_list;
@@ -928,8 +941,11 @@ int main(int argc, char **argv) {
   api->other = init_api(apis+1);
   api->other->other = api;
 
-  api->base = api->top = api->heap+HEAP_SIZE;
-  api->other->base = api->other->top = api->other->heap+HEAP_SIZE;
+  api->base = api->top = api->heap+HEAP_SIZE-BASE_HEAD_SIZE;
+  api->other->base = api->other->top = api->other->heap+HEAP_SIZE-BASE_HEAD_SIZE;
+
+  api->level = 0;
+  api->other->level = 1;
 
   CLOSURE(Void, b_void);
   CLOSURE(Empty, b_empty);

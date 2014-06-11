@@ -406,9 +406,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (unless (eql base k) (ssa 'move k base))
           (ssa 'list_flip k k)
           (ret nil)
-       ! if value
-            (ssa 'store base pos value)
-            (ssa 'load k base pos)))
+       ! unless value (return-from ssa-symbol (ssa 'load k base pos))
+       ! ssa 'store base pos value
+       ! unless (eql base 'e) (ssa 'lift base pos value)
+       ))
      (else (error "undefined variable: ~a" x)))
 
 (to ssa-quote-list-rec xs
@@ -508,14 +509,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! nparents = length cs
   ! p = ssa-name "p" ;; parent environment
   ! ssa 'var p
-  ! ssa 'local_array p nparents
+  ! ssa 'array p nparents
   ! i = -1
   ! e c cs (! if (equal c *ssa-ns*) ; self?
                  (ssa 'store p (incf i) 'e)
                  (ssa 'copy p (incf i) 'p (ssa-get-parent-index c)))
   ! e = ssa-name "env"
   ! ssa 'var e
-  ! ssa 'local_array e (length args)
+  ! ssa 'array e (length args)
   ! i = -1
   ! e v vals (! tmp = ssa-name "tmp"
               ! ssa 'var tmp
@@ -554,7 +555,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! r = ssa-name "r"
   ! ssa 'var r
   ! ssa-expr r value
-  ! ssa-symbol k place r
+  ! ssa-symbol nil place r
   ! ssa 'move k r)
 
 (to ssa-progn k xs
@@ -716,7 +717,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           ;(to-c-emit "  D;")
           )
          ((''global name) (push (format nil "static void *~a;" name) decls))
-         ((''local_array place size) (to-c-emit "  LOCAL_LIST(~a, ~a, ~a);" place (ssa-name "t") size))
          ((''local_label label-name) (to-c-emit "  LOCAL_LABEL(~a);" label-name))
          ((''local_branch cnd label-name) (to-c-emit "  LOCAL_BRANCH(~a, ~a);" cnd label-name))
          ((''local_jmp label-name) (to-c-emit "  LOCAL_JMP(~a);" label-name))
@@ -726,11 +726,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''call k name env) (to-c-emit "  CALL(~a, ~a, ~a);" k name env))
          ((''call_tagged k name env) (to-c-emit "  CALL_TAGGED(~a, ~a, ~a);" k name env))
          ((''array place size) (to-c-emit "  LIST(~a, ~a);" place size))
+         ((''lift base pos value) (to-c-emit "  LIFT(~a,~a,~a);" base pos value))
          ((''closure place name size)
           (progn
             (push (format nil "#define ~a_size ~a" name size) decls)
             (to-c-emit "  ALLOC(~a, ~a, ~a);" place name size)
-            ;;(to-c-emit "  LOCAL_ALLOC(~a, ~a, ~a, ~a);" place (ssa-name "t") name size)
             ))
          ((''load dst src off) (to-c-emit "  LOAD(~a, ~a, ~a);" dst src off))
          ((''store dst off src) (to-c-emit "  STORE(~a, ~a, ~a);" dst off src))
