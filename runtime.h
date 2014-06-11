@@ -46,8 +46,8 @@
 #define MAX_LIST_SIZE (HEAP_SIZE/2)
 #define BASE_HEAD_SIZE 2
 
-#define REGS void *E, void *P, struct api_t *api
-#define REGS_ARGS(E,P) E, P, api
+#define REGS void *P, struct api_t *api
+#define REGS_ARGS(P) P, api
 
 typedef struct api_t {
   void *base;
@@ -116,9 +116,10 @@ typedef void *(*pfun)(REGS);
 #define LIST(dst,size) ALLOC(dst,FIXNUM(size),size)
 #define LOAD_FIXNUM(dst,x) dst = (void*)((uintptr_t)(x)<<TAG_BITS)
 #define TEXT(dst,x) dst = api->alloc_text(api,(char*)(x))
-#define ENTRY(name) } void *name(REGS) {
 #define DECL_LABEL(name) static void *name(REGS);
-#define LABEL(name) } static void *name(REGS) {
+#define PROLOGUE void *E = ADD_TAG((void**)Top+2,T_CLOSURE);
+#define ENTRY(name) } void *name(REGS) {PROLOGUE;
+#define LABEL(name) } static void *name(REGS) {PROLOGUE;
 #define VAR(name) void *name;
 #define RETURN(value) \
    if (IMMEDIATE(value) && !LIFTS_LIST(Base)) { \
@@ -128,8 +129,8 @@ typedef void *(*pfun)(REGS);
    value = api->gc(api->other, Top, Base, (void*)(value)); \
    return (void*)(value);
 #define RETURN_NO_GC(value) return (void*)(value);
-#define GOSUB(label) label(REGS_ARGS(E,P));
-#define BRANCH(cond,label) if ((cond) != FIXNUM(0)) { label(REGS_ARGS(E,P)); return; }
+#define GOSUB(label) label(REGS_ARGS(P));
+#define BRANCH(cond,label) if ((cond) != FIXNUM(0)) { label(REGS_ARGS(P)); return; }
 #define LIFTS_CONS(dst,head,tail) \
   Top=(void**)Top-2; \
   *((void**)Top+0) = (head); \
@@ -157,18 +158,18 @@ typedef void *(*pfun)(REGS);
   Base = *(void**)Base; \
   Level -= 2; \
   HEAP_FLIP();
-#define CALL(k,f,e) k = POOL_HANDLER(f)(REGS_ARGS(e,f)); POP_BASE()
-#define CALL_TAGGED(k,f,e) \
+#define CALL(k,f) k = POOL_HANDLER(f)(REGS_ARGS(f)); POP_BASE()
+#define CALL_TAGGED(k,f) \
   if (GET_TAG(f) == T_CLOSURE) { \
-    k = POOL_HANDLER(f)(REGS_ARGS(e,f)); \
+    k = POOL_HANDLER(f)(REGS_ARGS(f)); \
   } else if (GET_TAG(f) == T_FIXNUM) { \
-    k = api->fixnum(REGS_ARGS(e,f)); \
+    k = api->fixnum(REGS_ARGS(f)); \
   } else if (GET_TAG(f) == T_LIST) { \
-    k = api->list(REGS_ARGS(e,f)); \
+    k = api->list(REGS_ARGS(f)); \
   } else if (GET_TAG(f) == T_FIXTEXT) { \
-    k = api->fixtext(REGS_ARGS(e,f)); \
+    k = api->fixtext(REGS_ARGS(f)); \
   } else { \
-    api->bad_tag(REGS_ARGS(e,f)); /*should never happen*/ \
+    api->bad_tag(REGS_ARGS(f)); /*should never happen*/ \
   } \
   POP_BASE();
 #define REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-1)
@@ -181,11 +182,11 @@ typedef void *(*pfun)(REGS);
 
 #define CHECK_NARGS(expected,size,meta) \
   if (NARGS != FIXNUM(expected)) { \
-    return api->handle_args(REGS_ARGS(E,P), FIXNUM(expected), FIXNUM(size), Void, meta); \
+    return api->handle_args(REGS_ARGS(P), FIXNUM(expected), FIXNUM(size), Void, meta); \
   }
 #define CHECK_VARARGS(size,meta) \
   if (NARGS < FIXNUM(0)) { \
-    return api->handle_args(REGS_ARGS(E,P), FIXNUM(-1), FIXNUM(size), Void, meta); \
+    return api->handle_args(REGS_ARGS(P), FIXNUM(-1), FIXNUM(size), Void, meta); \
   }
 
 void *entry(REGS);

@@ -542,14 +542,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'var h
   ! ssa-expr h f
   ! e = ssa-name "env"
+  ! vs = m a as
+        (! v = ssa-name "a"
+         ! ssa 'var v
+         ! ssa-expr v a
+         ! v)
   ! ssa 'var e
   ! ssa 'array e (length as)
   ! i = -1
-  ! e a as (! tmp = ssa-name "tmp"
-            ! ssa 'var tmp
-            ! ssa-expr tmp a
-            ! ssa 'store e (incf i) tmp)
-  ! if (fn-sym? f) (ssa 'call k h e) (ssa 'call_tagged k h e))
+  ! e v vs (ssa 'store e (incf i) v)
+  ! if (fn-sym? f) (ssa 'call k h) (ssa 'call_tagged k h))
 
 (to ssa-set k place value
   ! r = ssa-name "r"
@@ -723,8 +725,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''gosub label-name) (to-c-emit "  GOSUB(~a);" label-name))
          ((''branch cond label) (to-c-emit "  BRANCH(~a, ~a);" cond label))
          ((''push_base) (to-c-emit "  PUSH_BASE();"))
-         ((''call k name env) (to-c-emit "  CALL(~a, ~a, ~a);" k name env))
-         ((''call_tagged k name env) (to-c-emit "  CALL_TAGGED(~a, ~a, ~a);" k name env))
+         ((''call k name) (to-c-emit "  CALL(~a, ~a);" k name))
+         ((''call_tagged k name) (to-c-emit "  CALL_TAGGED(~a, ~a);" k name))
          ((''array place size) (to-c-emit "  LIST(~a, ~a);" place size))
          ((''lift base pos value) (to-c-emit "  LIFT(~a,~a,~a);" base pos value))
          ((''closure place name size)
