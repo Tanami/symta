@@ -152,7 +152,8 @@ static char *text_to_cstring(void *o) {
   void *A, *R, *a; \
   BUILTIN_CHECK_VARARGS(1,sname,sname); \
   a = getArg(0); \
-  a_check(a, 0, sname);
+  a_check(a, 0, sname); \
+  ARG_STORE(E, 0, P);
 #define RETURNS(r) Top = Base; return (void*)(r); }
 #define RETURNS_VOID Top = Base; }
 
@@ -196,7 +197,6 @@ RETURNS(FIXNUM(1))
 BUILTIN2("void get",void_get,C_ANY,o,C_ANY,key)
 RETURNS(Void)
 BUILTIN_HANDLER("void",void,C_TEXT,x)
-  STORE(E, 0, P);
   if (texts_equal(x,s_is)) return b_void_is(REGS_ARGS(P));
   else if (texts_equal(x,s_isnt)) return b_void_isnt(REGS_ARGS(P));
   else if (texts_equal(x,s_end)) return b_void_end(REGS_ARGS(P));
@@ -229,7 +229,6 @@ RETURNS(FIXNUM(1))
 BUILTIN1("text hash",text_hash,C_ANY,o)
 RETURNS(FIXNUM(hash((uint8_t*)o+4, *(int32_t*)o)))
 BUILTIN_HANDLER("text",text,C_TEXT,x)
-  STORE(E, 0, P);
   if (texts_equal(x,s_size)) return b_text_size(REGS_ARGS(P));
   else if (texts_equal(x,s_get)) return b_text_get(REGS_ARGS(P));
   else if (texts_equal(x,s_is)) return b_text_is(REGS_ARGS(P));
@@ -273,7 +272,6 @@ RETURNS(FIXNUM(((uint64_t)o&(((uint64_t)1<<32)-1))^((uint64_t)o>>32)))
 BUILTIN1("text code",fixtext_code,C_ANY,o)
 RETURNS(FIXNUM((uint64_t)o>>TAG_BITS))
 BUILTIN_HANDLER("text",fixtext,C_TEXT,x)
-  STORE(E, 0, P);
   if (texts_equal(x,s_size)) return b_fixtext_size(REGS_ARGS(P));
   else if (texts_equal(x,s_get)) return b_fixtext_get(REGS_ARGS(P));
   else if (texts_equal(x,s_is)) return b_fixtext_is(REGS_ARGS(P));
@@ -317,8 +315,6 @@ BUILTIN3("view {!}",view_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
     TEXT(P, "{!}");
     bad_call(REGS_ARGS(P),P);
   }
-  if (GET_TAG(value) != T_FIXNUM && GET_TAG(value) != T_FIXTEXT) {
-  }
   VIEW_REF(o, start, UNFIXNUM(index)) = value;
 RETURNS(Void)
 BUILTIN1("view end",view_end,C_ANY,o)
@@ -346,7 +342,6 @@ BUILTIN2("view add",view_add,C_ANY,o,C_ANY,x)
   while(size-- > 0) *p++ = *q++;
 RETURNS(LIST_FLIP(r))
 BUILTIN_HANDLER("list",view,C_TEXT,x)
-  STORE(E, 0, P);
   if (texts_equal(x,s_get)) return b_view_get(REGS_ARGS(P));
   else if (texts_equal(x,s_set)) return b_view_set(REGS_ARGS(P));
   else if (texts_equal(x,s_size)) return b_view_size(REGS_ARGS(P));
@@ -408,7 +403,6 @@ BUILTIN2("list add",list_add,C_ANY,o,C_ANY,x)
   while(s-- > 0) *p++ = *q++;
 RETURNS(LIST_FLIP(R))
 BUILTIN_HANDLER("list",list,C_TEXT,x)
-  STORE(E, 0, P);
   if (texts_equal(x,s_get)) return b_list_get(REGS_ARGS(P));
   else if (texts_equal(x,s_set)) return b_list_set(REGS_ARGS(P));
   else if (texts_equal(x,s_size)) return b_list_size(REGS_ARGS(P));
@@ -495,7 +489,6 @@ RETURNS(ADD_TAG((uint64_t)o&~TAG_MASK,T_FIXTEXT))
 BUILTIN1("integer hash",integer_hash,C_ANY,o)
 RETURNS(o)
 BUILTIN_HANDLER("integer",fixnum,C_TEXT,x)
-  STORE(E, 0, P);
   if (x == s_plus) return b_integer_add(REGS_ARGS(P));
   else if (x == s_sub) return b_integer_sub(REGS_ARGS(P));
   else if (x == s_lt) return b_integer_lt(REGS_ARGS(P));
@@ -536,7 +529,6 @@ BUILTIN2("cons add",cons_add,C_ANY,o,C_ANY,head)
   CONS(A, P);
 RETURNS(R)
 BUILTIN_HANDLER("list",cons,C_TEXT,x)
-  STORE(E, 0, P);
   if (texts_equal(x,s_head)) return b_cons_head(REGS_ARGS(P));
   else if (texts_equal(x,s_tail)) return b_cons_tail(REGS_ARGS(P));
   else if (texts_equal(x,s_end)) return b_cons_end(REGS_ARGS(P));
@@ -559,7 +551,6 @@ BUILTIN2("empty add",empty_add,C_ANY,o,C_ANY,head)
   STORE(R, 0, A);
 RETURNS(LIST_FLIP(R))
 BUILTIN_HANDLER("empty",empty,C_TEXT,x)
-  STORE(E, 0, P);
   if (texts_equal(x,s_end)) return b_empty_end(REGS_ARGS(P));
   else if (texts_equal(x,s_add)) return b_empty_add(REGS_ARGS(P));
   else if (texts_equal(x,s_is)) return b_empty_is(REGS_ARGS(P));
