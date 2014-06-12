@@ -403,8 +403,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (ssa 'load base 'p parent)
        ! when (eql pos :all)
           (when value (error "can't set ~a" x))
-          (unless (eql base k) (ssa 'move k base))
-          (ssa 'list_flip k k)
+          (ssa 'add_tag k base 'T_LIST)
           (ret nil)
        ! unless value (return-from ssa-symbol (ssa 'arg_load k base pos))
        ! ssa 'arg_store base pos value
@@ -415,7 +414,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (else (error "undefined variable: ~a" x)))
 
 (to ssa-quote-list-rec xs
-   ! `("list" ,@(m x xs (if (listp x) (ssa-quote-list-rec x) `("_quote" ,x)))))
+   ! `("_list" ,@(m x xs (if (listp x) (ssa-quote-list-rec x) `("_quote" ,x)))))
 
 (to ssa-quote-list k xs
   ! name = ssa-name "list"
@@ -494,9 +493,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! match expr
      (("_fn" . xs) expr)
      ((("_fn" as . xs) . vs)
-      (funcall hoist as)
-      `("_progn" ,@(m a as `("_set" ,a ,(pop vs)))
-                 ,@(m x xs (ssa-hoist-decls x hoist))))
+      (if (stringp as)
+          (progn (funcall hoist `(,as))
+                 `("_progn" ("_set" ,as ("_list" ,@vs))
+                            ,@(m x xs (ssa-hoist-decls x hoist))))
+          (progn (funcall hoist as)
+                 `("_progn" ,@(m a as `("_set" ,a ,(pop vs)))
+                            ,@(m x xs (ssa-hoist-decls x hoist))))))
      (xs (m x xs (ssa-hoist-decls x hoist))))
 
 (to ssa-let k args vals xs
@@ -578,10 +581,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to uniquify-form expr
   ! match expr
-     (("_fn" bs . body)
-      (! rs = m b bs (list b (ssa-name b))
+     (("_fn" as . body)
+      (! bs = if (stringp as) `(,as) as
+       ! rs = m b bs (list b (ssa-name b))
        ! *uniquify-stack* = cons rs *uniquify-stack*
-       ! `("_fn" ,(m r rs (second r)) ,@(m x body (uniquify-expr x)))))
+       ! bs = m r rs (second r)
+       ! bs = if (stringp as) (first bs) bs
+       ! `("_fn" ,bs ,@(m x body (uniquify-expr x)))))
      (("_quote" x) expr)
      (("_label" x) expr)
      (("_goto" x) expr)
@@ -589,7 +595,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (xs
       (match xs
         ((("_fn" as . body) . vs)
-         (unless (= (length as) (length vs))
+         (when (and (not (stringp as)) (/= (length as) (length vs)))
            (error "invalid number of arguments in ~a" expr))))
       (m x xs (uniquify-expr x))))
 
@@ -627,6 +633,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa-expr bv b
   ! ssa op k av bv)
 
+(to ssa-list k xs
+  ! l = ssa-name "l"
+  ! ssa 'var l
+  ! ssa 'arglist l (length xs)
+  ! i = -1
+  ! e x xs (! r = ssa-name "r"
+            ! ssa 'var r
+            ! ssa-expr r x
+            ! ssa 'arg_store l (incf i) r)
+  ! ssa 'add_tag k l 'T_LIST)
+
 (to ssa-form k xs
   ! match xs
     (("_fn" as body) (ssa-fn (ssa-name "n") k as body xs))
@@ -636,10 +653,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_progn" . xs) (ssa-progn k xs))
     (("_label" name) (ssa 'local_label name))
     (("_goto" name) (ssa 'local_jmp name))
-    (("_add" a b) (ssa-fixed k 'fixed_add a b))
+    (("_list" . xs) (ssa-list k xs))
+    #|(("_add" a b) (ssa-fixed k 'fixed_add a b))
     (("_sub" a b) (ssa-fixed k 'fixed_sub a b))
     (("_lt" a b) (ssa-fixed k 'fixed_lt a b))
-    (("_gt" a b) (ssa-fixed k 'fixed_gt a b))
+    (("_gt" a b) (ssa-fixed k 'fixed_gt a b))|#
     ((f . as) (ssa-apply k f as))
     (() (ssa-atom k :void))
     (else (error "invalid CPS form: ~a" xs)))
@@ -678,7 +696,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (! *ssa-inits* = nil
          ! *ssa-closure* = nil
          ! name = first x
-         ! expr = `(,(host-deps (second x) '("list")) :host)
+         ! expr = second x
          ! l = "init_{name}"
          ! push l init-labels
          ! ssa 'label l
@@ -732,6 +750,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''array place size) (to-c-emit "  LIST(~a, ~a);" place size))
          ((''arglist place size) (to-c-emit "  ARGLIST(~a, ~a);" place size))
          ((''lift base pos value) (to-c-emit "  LIFT(~a,~a,~a);" base pos value))
+         ((''add_tag dst src tag) (to-c-emit "  ~a = ADD_TAG(~a,~a);" dst src tag))
          ((''closure place name size)
           (progn
             (push (format nil "#define ~a_size ~a" name size) decls)
@@ -754,7 +773,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (abort))
          ((''check_nargs expected size meta)
           (to-c-emit "  CHECK_NARGS(~a, ~a, ~a);" expected size (or meta "Empty")))
-         ((''check_varargs size meta) (to-c-emit "  CHECK_VARARGS(~a_size, ~a);" size (or meta "Empty")))
+         ((''check_varargs size meta) (to-c-emit "  CHECK_VARARGS(~a, ~a);" size (or meta "Empty")))
          ((''fixed_add dst a b) (to-c-emit "  ~a = FIXNUM_ADD(~a, ~a);" dst a b))
          ((''fixed_sub dst a b) (to-c-emit "  ~a = FIXNUM_SUB(~a, ~a);" dst a b))
          ((''fixed_lt dst a b) (to-c-emit "  ~a = FIXNUM_LT(~a, ~a);" dst a b))

@@ -345,7 +345,9 @@ BUILTIN2("view add",view_add,C_ANY,o,C_ANY,x)
   *p++ = x;
   q = &VIEW_REF(o,VIEW_START(o),0);
   while(size-- > 0) *p++ = *q++;
-RETURNS(LIST_FLIP(r))
+  R = LIST_FLIP(r);
+RETURN(R)
+RETURNS(0)
 BUILTIN_HANDLER("list",view,C_TEXT,x)
   if (texts_equal(x,s_get)) return b_view_get(REGS_ARGS(P));
   else if (texts_equal(x,s_set)) return b_view_set(REGS_ARGS(P));
