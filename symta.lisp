@@ -406,8 +406,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (unless (eql base k) (ssa 'move k base))
           (ssa 'list_flip k k)
           (ret nil)
-       ! unless value (return-from ssa-symbol (ssa 'load k base pos))
-       ! ssa 'store base pos value
+       ! unless value (return-from ssa-symbol (ssa 'arg_load k base pos))
+       ! ssa 'arg_store base pos value
        ! unless (eql base 'e) (ssa 'lift base pos value)
        ))
      (else (error "undefined variable: ~a" x)))
@@ -516,12 +516,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                  (ssa 'copy p (incf i) 'p (ssa-get-parent-index c)))
   ! e = ssa-name "env"
   ! ssa 'var e
-  ! ssa 'array e (length args)
+  ! ssa 'arglist e (length args)
   ! i = -1
   ! e v vals (! tmp = ssa-name "tmp"
               ! ssa 'var tmp
               ! ssa-expr tmp v
-              ! ssa 'store e (incf i) tmp)
+              ! ssa 'arg_store e (incf i) tmp)
   ! save-p = ssa-name "save_p"
   ! save-e = ssa-name "save_e"
   ! ssa 'var save-p
@@ -548,9 +548,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ! ssa-expr v a
          ! v)
   ! ssa 'var e
-  ! ssa 'array e (length as)
+  ! ssa 'arglist e (length as)
   ! i = -1
-  ! e v vs (ssa 'store e (incf i) v)
+  ! e v vs (ssa 'arg_store e (incf i) v)
   ! if (fn-sym? f) (ssa 'call k h) (ssa 'call_tagged k h))
 
 (to ssa-set k place value
@@ -728,12 +728,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''call k name) (to-c-emit "  CALL(~a, ~a);" k name))
          ((''call_tagged k name) (to-c-emit "  CALL_TAGGED(~a, ~a);" k name))
          ((''array place size) (to-c-emit "  LIST(~a, ~a);" place size))
+         ((''arglist place size) (to-c-emit "  ARGLIST(~a, ~a);" place size))
          ((''lift base pos value) (to-c-emit "  LIFT(~a,~a,~a);" base pos value))
          ((''closure place name size)
           (progn
             (push (format nil "#define ~a_size ~a" name size) decls)
             (to-c-emit "  ALLOC(~a, ~a, ~a);" place name size)
             ))
+         ((''arg_load dst src off) (to-c-emit "  ARG_LOAD(~a, ~a, ~a);" dst src off))
+         ((''arg_store dst off src) (to-c-emit "  ARG_STORE(~a, ~a, ~a);" dst off src))
          ((''load dst src off) (to-c-emit "  LOAD(~a, ~a, ~a);" dst src off))
          ((''store dst off src) (to-c-emit "  STORE(~a, ~a, ~a);" dst off src))
          ((''copy dst p src q) (to-c-emit "  COPY(~a, ~a, ~a, ~a);" dst p src q))

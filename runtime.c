@@ -8,7 +8,6 @@ static void *b_view(REGS);
 static void *b_text(REGS);
 static void *b_cons(REGS);
 
-#define getArg(i) REF(E,i)
 #define getVal(x) ((uintptr_t)(x)&~TAG_MASK)
 
 static api_t apis[2]; // one for each heap
@@ -25,7 +24,7 @@ static void fatal(char *fmt, ...) {
 
 static void bad_type(REGS, char *expected, int arg_index, char *name) {
   PROLOGUE;
-  int i, nargs = (int)UNFIXNUM(NARGS);
+  int i, nargs = (int)UNFIXNUM(NARGS(E));
   printf("arg %d isnt %s, in: %s", arg_index, expected, name);
   for (i = 0; i < nargs; i++) printf(" %s", print_object(getArg(i)));
   printf("\n");
@@ -34,7 +33,7 @@ static void bad_type(REGS, char *expected, int arg_index, char *name) {
 
 static void bad_call(REGS, void *method) {
   PROLOGUE;
-  int i, nargs = (int)UNFIXNUM(NARGS);
+  int i, nargs = (int)UNFIXNUM(NARGS(E));
   printf("bad call: %s", print_object(getArg(0)));
   printf(" %s", print_object(method));
   for (i = 1; i < nargs; i++) printf(" %s", print_object(getArg(i)));
@@ -84,7 +83,7 @@ static char *text_to_cstring(void *o) {
     bad_type(REGS_ARGS(P), "cons", arg_index, meta)
 
 #define BUILTIN_CHECK_NARGS(expected,tag,name) \
-  if (NARGS != FIXNUM(expected)) { \
+  if (NARGS(E) != FIXNUM(expected)) { \
     void *meta, *ttag, *t; \
     LIST(meta, 1); \
     TEXT(t, name); \
@@ -97,7 +96,7 @@ static char *text_to_cstring(void *o) {
     return api->handle_args(REGS_ARGS(P), FIXNUM(expected), FIXNUM(0), ttag, meta); \
   }
 #define BUILTIN_CHECK_VARARGS(expected,tag,name) \
-  if (NARGS < FIXNUM(expected)) { \
+  if (NARGS(E) < FIXNUM(expected)) { \
     void *meta, *ttag, *t; \
     LIST(meta, 1); \
     TEXT(t, name); \
@@ -423,12 +422,19 @@ BUILTIN_HANDLER("list",list,C_TEXT,x)
 RETURNS_VOID
 
 BUILTIN_VARARGS("[list]",make_list)
-  int size = (int)UNFIXNUM(NARGS);
+  int size = (int)UNFIXNUM(NARGS(E));
   if (size == 0) R = Empty;
-  else {
-    R = LIST_FLIP(E);
+  else { //FIXME: gc() it right now into parent's level
+    int i;
+    void *p;
+    LIST(R, size);
+    for (i = 0; i < size; i++) {
+      ARG_LOAD(p, E, i);
+      STORE(R, i, p);
+    }
+    R = LIST_FLIP(R);
   }
-RETURN(R) // have to, otherwise it will endup one environment above
+RETURN(R)
 RETURNS(R)
 
 BUILTIN1("integer neg",integer_neg,C_ANY,o)
@@ -722,9 +728,7 @@ static char *print_object_r(api_t *api, char *out, void *o) {
     out += sprintf(out, "Void");
   } else if (tag == T_CLOSURE) {
     pfun handler = POOL_HANDLER(o);
-    if (IS_ARGLIST(o)) {
-      out += sprintf(out, "#(arglist %p)", o);
-    } else if (handler == b_view) {
+    if (handler == b_view) {
       uint32_t start = VIEW_START(o);
       int size = (int)UNFIXNUM(VIEW_SIZE(o));
       out += sprintf(out, "(");
@@ -777,7 +781,7 @@ static void bad_tag(REGS) {
 
 static void *handle_args(REGS, intptr_t expected, intptr_t size, void *tag, void *meta) {
   PROLOGUE;
-  intptr_t got = NARGS;
+  intptr_t got = NARGS(E);
 
   if (got == FIXNUM(-1)) { //request for tag
     RETURN_NO_GC(tag);
@@ -802,9 +806,33 @@ static void *handle_args(REGS, intptr_t expected, intptr_t size, void *tag, void
 
 #define OBJECT_HEAP(o) ((void*)&apis[1] <= (void*)(o) && (void*)(o) < (void*)&apis[2])
 
-static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
+static void *gc(api_t *api, void *gc_base, void *gc_end, void *o);
+
+static void *gc_arglist(api_t *api, void *gc_base, void *gc_end, void *o) {
   void *p, *q;
-  int i, size, tag = GET_TAG(o);
+  uintptr_t i;
+  uintptr_t size = NARGS(o);
+
+  if (!NEEDS_GC(o)) return o;
+
+  if ((uintptr_t)size > (uintptr_t)FIXNUM(MAX_LIST_SIZE)) {
+    // already moved
+    return (void*)size;
+  }
+
+  ARGLIST(p, size);
+  ARG_STORE(o, -1, p);
+  for (i = 0; i < size; i++) {
+    ARG_LOAD(q,o,i);
+    q = gc(api, gc_base, gc_end, q);
+    ARG_STORE(p, i, q);
+  }
+  return p;
+}
+
+static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
+  void *p, *q, *e;
+  int i, j, size, tag = GET_TAG(o);
   void *E, *P, *A, *C, *R; // dummies
   char buf[1024];
 
@@ -824,15 +852,6 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
     if (in_heap && !NEEDS_GC(o)) {
       // already moved
       p = handler;
-    } else if (IS_ARGLIST(o)) {
-      size = (int)UNFIXNUM(handler);
-      LIST(p, size);
-      STORE(o, -1, p);
-      for (i = 0; i < size; i++) {
-        q = REF(o,i);
-        q = gc(api, gc_base, gc_end, q);
-        STORE(p, i, q);
-      }
     } else if (handler == b_view) {
       uint32_t start = VIEW_START(o);
       uint32_t size = VIEW_SIZE(o);
@@ -859,13 +878,13 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
       ALLOC(p, handler, size);
       STORE(o, -1, p);
       for (i = 0; i < size; i++) {
-        STORE(p, i, gc(api, gc_base, gc_end, REF(o,i)));
+        STORE(p, i, gc_arglist(api, gc_base, gc_end, REF(o,i)));
       }
     }
   } else if (GET_TAG(o) == T_LIST) {
     o = LIST_FLIP(o);
     p = POOL_HANDLER(o);
-    if (IS_ARGLIST(o)) { // still wasn't moved?
+    if ((uintptr_t)p < (uintptr_t)FIXNUM(MAX_LIST_SIZE)) { // still wasn't moved?
       size = (int)UNFIXNUM(p);
       LIST(p, size);
       STORE(o, -1, LIST_FLIP(p));
@@ -883,7 +902,6 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
   //fprintf(stderr, "%s: %p -> %p (%ld)\n", ""/*buf*/, o, p, (intptr_t)(p-o));
   return p;
 }
-
 
 static void *gc_entry(api_t *api, void *gc_base, void *gc_end, void *o) {
   int i;
@@ -1015,12 +1033,12 @@ int main(int argc, char **argv) {
 
   Base = Top;
   HEAP_FLIP();
-  LIST(E,0);
+  ARGLIST(E,0);
   R = setup(REGS_ARGS(P)); // init module's statics
   HEAP_FLIP();
   Base = Top;
   HEAP_FLIP();
-  LIST(E,0);
+  ARGLIST(E,0);
   R = entry(REGS_ARGS(P)); 
   HEAP_FLIP();
 

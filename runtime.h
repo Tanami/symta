@@ -45,6 +45,7 @@
 #define HEAP_SIZE (32*1024*1024)
 #define MAX_LIST_SIZE (HEAP_SIZE/2)
 #define BASE_HEAD_SIZE 2
+#define OBJ_HEAD_SIZE 2
 
 #define REGS void *P, struct api_t *api
 #define REGS_ARGS(P) P, api
@@ -87,20 +88,20 @@ typedef void *(*pfun)(REGS);
 #define Level api->level
 
 #define POOL_HANDLER(x) (((pfun*)((void**)((uintptr_t)(x)&~TAG_MASK)-1))[0])
-#define OBJECT_LEVEL(x) (intptr_t)(((pfun*)((void**)((uintptr_t)(x)&~TAG_MASK)-2))[0])
+#define OBJECT_LEVEL(x) ((uintptr_t)(((void**)((uintptr_t)(x)&~TAG_MASK)-2)[0]))
 #define ON_CURRENT_LEVEL(x) (Top <= (void*)(x) && (void*)(x) < Base)
 
-#define ALLOC(dst,code,count) \
-  Top = (void**)Top - ((count)+2); \
-  dst = ADD_TAG(((void**)Top+2), T_CLOSURE); \
+#define ALLOC_BASIC(dst,code,count) \
+  Top = (void**)Top - ((count)+OBJ_HEAD_SIZE); \
   *((void**)Top+0) = (void*)Level; \
-  *((void**)Top+1) = (void*)(code);
+  *((void**)Top+1) = (void*)(code); \
+  dst = (void**)Top+OBJ_HEAD_SIZE;
 
-#define LIST_SIZE(o) ((intptr_t)POOL_HANDLER(o))
-#define NARGS LIST_SIZE(E)
+#define ALLOC(dst,code,count) \
+  ALLOC_BASIC(dst,code,count); \
+  dst = ADD_TAG(dst, T_CLOSURE);
 
 #define IS_LIST(o) (GET_TAG(o) == T_LIST)
-#define IS_ARGLIST(o) (LIST_SIZE(o) < FIXNUM(MAX_LIST_SIZE))
 
 // FIXME: most of LIST_FLIP uses could be optimized out
 #define LIST_FLIP(o) ((void*)((uintptr_t)(o)^(T_CLOSURE|T_LIST)))
@@ -117,7 +118,10 @@ typedef void *(*pfun)(REGS);
 #define LOAD_FIXNUM(dst,x) dst = (void*)((uintptr_t)(x)<<TAG_BITS)
 #define TEXT(dst,x) dst = api->alloc_text(api,(char*)(x))
 #define DECL_LABEL(name) static void *name(REGS);
-#define PROLOGUE void *E = ADD_TAG((void**)Top+2,T_CLOSURE);
+#define ARGLIST(dst,size) ALLOC_BASIC(dst,FIXNUM(size),size)
+#define NARGS(e) ((intptr_t)*((void**)(e)-1))
+#define getArg(i) (*((void**)E+(i)))
+#define PROLOGUE void *E = (void**)Top+OBJ_HEAD_SIZE;
 #define ENTRY(name) } void *name(REGS) {PROLOGUE;
 #define LABEL(name) } static void *name(REGS) {PROLOGUE;
 #define VAR(name) void *name;
@@ -141,7 +145,7 @@ typedef void *(*pfun)(REGS);
 #define LIFTS_LIST(base) (*((void**)(base)+1))
 #define LIFT(base,pos,value) \
   if (!IMMEDIATE(value) && OBJECT_LEVEL(base) < OBJECT_LEVEL(value)) { \
-    LIFTS_CONS(LIFTS_LIST(Base), &REF(base,pos), LIFTS_LIST(Base)); \
+    LIFTS_CONS(LIFTS_LIST(Base), (void**)(base)+(pos), LIFTS_LIST(Base)); \
   }
 #define HEAP_FLIP() api = api->other;
 #define PUSH_BASE() \
@@ -175,17 +179,19 @@ typedef void *(*pfun)(REGS);
 #define REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-1)
 #define REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-1)
 #define REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-1)
+#define ARG_LOAD(dst,src,src_off) dst = *((void**)(src)+(src_off))
+#define ARG_STORE(dst,dst_off,src) *((void**)(dst)+(dst_off)) = (void*)(src)
 #define LOAD(dst,src,src_off) dst = REF(src,src_off)
 #define STORE(dst,dst_off,src) REF(dst,dst_off) = (void*)(src)
 #define COPY(dst,dst_off,src,src_off) REF(dst,dst_off) = REF(src,src_off)
 #define MOVE(dst,src) dst = (void*)(src)
 
 #define CHECK_NARGS(expected,size,meta) \
-  if (NARGS != FIXNUM(expected)) { \
+  if (NARGS(E) != FIXNUM(expected)) { \
     return api->handle_args(REGS_ARGS(P), FIXNUM(expected), FIXNUM(size), Void, meta); \
   }
 #define CHECK_VARARGS(size,meta) \
-  if (NARGS < FIXNUM(0)) { \
+  if (NARGS(E) < FIXNUM(0)) { \
     return api->handle_args(REGS_ARGS(P), FIXNUM(-1), FIXNUM(size), Void, meta); \
   }
 
