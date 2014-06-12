@@ -408,7 +408,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (ret nil)
        ! unless value (return-from ssa-symbol (ssa 'arg_load k base pos))
        ! ssa 'arg_store base pos value
-       ! unless (eql base 'e) (ssa 'lift base pos value)
+       ! if (eql base 'e)
+            (ssa 'arg_store base pos value)
+            (ssa 'lift base pos value)
        ))
      (else (error "undefined variable: ~a" x)))
 

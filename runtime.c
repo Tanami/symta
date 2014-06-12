@@ -310,12 +310,17 @@ RETURNS(VIEW_REF(o, start, UNFIXNUM(index)))
 BUILTIN3("view {!}",view_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   uint32_t start = VIEW_START(o);
   uint32_t size = VIEW_SIZE(o);
+  void *p;
   if (size <= (uint32_t)(uintptr_t)index) {
     printf("view {!}: index out of bounds\n");
     TEXT(P, "{!}");
     bad_call(REGS_ARGS(P),P);
   }
-  VIEW_REF(o, start, UNFIXNUM(index)) = value;
+  start += UNFIXNUM(index);
+  p = &VIEW_REF(o, 0, 0);
+  LIFT(p,start,value);
+  R = 0;
+RETURN(R)
 RETURNS(Void)
 BUILTIN1("view end",view_end,C_ANY,o)
 RETURNS(FIXNUM(0))
@@ -369,13 +374,17 @@ BUILTIN2("list {}",list_get,C_ANY,o,C_FIXNUM,index)
   o = LIST_FLIP(o);
 RETURNS(REF(o, UNFIXNUM(index)))
 BUILTIN3("list {!}",list_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
+  void **p;
+  intptr_t i;
   if ((uintptr_t)POOL_HANDLER(o) <= (uintptr_t)index) {
     printf("list {!}: index out of bounds\n");
     TEXT(P, "{!}");
     bad_call(REGS_ARGS(P),P);
   }
-  o = LIST_FLIP(o);
-  REF(o, UNFIXNUM(index)) = value;
+  p = (void*)((uintptr_t)o - T_LIST);
+  LIFT(p,UNFIXNUM(index),value);
+  R = 0;
+RETURN(R)
 RETURNS(Void)
 BUILTIN1("list end",list_end,C_ANY,o)
 RETURNS(FIXNUM(0))
