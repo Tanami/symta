@@ -514,7 +514,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! nparents = length cs
   ! p = ssa-name "p" ;; parent environment
   ! ssa 'var p
-  ! ssa 'array p nparents
+  ! ssa 'local_closure p nparents
   ! i = -1
   ! e c cs (! if (equal c *ssa-ns*) ; self?
                  (ssa 'store p (incf i) 'e)
@@ -747,14 +747,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''push_base) (to-c-emit "  PUSH_BASE();"))
          ((''call k name) (to-c-emit "  CALL(~a, ~a);" k name))
          ((''call_tagged k name) (to-c-emit "  CALL_TAGGED(~a, ~a);" k name))
-         ((''array place size) (to-c-emit "  LIST(~a, ~a);" place size))
          ((''arglist place size) (to-c-emit "  ARGLIST(~a, ~a);" place size))
          ((''lift base pos value) (to-c-emit "  LIFT(~a,~a,~a);" base pos value))
          ((''add_tag dst src tag) (to-c-emit "  ~a = ADD_TAG(~a,~a);" dst src tag))
+         ((''local_closure place size) (to-c-emit "  LOCAL_CLOSURE(~a, ~a);" place size))
          ((''closure place name size)
           (progn
             (push (format nil "#define ~a_size ~a" name size) decls)
-            (to-c-emit "  ALLOC(~a, ~a, ~a);" place name size)
+            (to-c-emit "  ALLOC_CLOSURE(~a, ~a, ~a);" place name size)
             ))
          ((''arg_load dst src off) (to-c-emit "  ARG_LOAD(~a, ~a, ~a);" dst src off))
          ((''arg_store dst off src) (to-c-emit "  ARG_STORE(~a, ~a, ~a);" dst off src))
@@ -1026,7 +1026,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("unless" a body) `("_if" ,a :void ,body))
         (("let" bs . body) `("_let" ,bs ,@body))
         (("|" . xs) (expand-block xs))
-        (("[]" . as) `("list" ,@as))
+        (("[]" . as) `("_list" ,@as))
         (("." a b) `(,a ,b))
         (("^" a b) `(,b ,a))
         (("{}" ("." a b) . as) `(,a ,b ,@as))
@@ -1067,7 +1067,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                (setf (nth p ys) v)
                (error "!!: no ! in ~a" as))
            `("_set" ,v ,ys)))
-        (("match" keyform . cases) (expand-match keyform cases :empty))
+        (("match" keyform . cases) (print (expand-match keyform cases :empty)))
     (else (return-from builtin-expander
             (let ((ys (m x xs (builtin-expander x))))
               (if (and (consp ys)
@@ -1085,7 +1085,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to symta-eval text
   ! (/init-tokenizer)
   ! expr = /read text
-  ! deps = list "tag_of" "halt" "log" "list" "_apply" "_no_method" "read_file_as_text"
+  ! deps = list "tag_of" "halt" "log" "_apply" "_no_method" "read_file_as_text"
   ! normalized-expr = match expr (("|" . as) expr)
                                   (x `("|" ,x))
   ! expr-with-deps = host-deps normalized-expr deps
@@ -1095,3 +1095,5 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to symta filename
   ! text = load-text-file filename
   ! symta-eval text)
+
+

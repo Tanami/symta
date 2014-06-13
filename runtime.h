@@ -67,7 +67,7 @@ typedef struct api_t {
 
   // runtime's C API
   void (*bad_tag)(REGS);
-  void* (*handle_args)(REGS, intptr_t expected, intptr_t size, void *tag, void *meta);
+  void* (*handle_args)(REGS, void *E, intptr_t expected, intptr_t size, void *tag, void *meta);
   char* (*print_object_f)(struct api_t *api, void *object);
   void *(*gc)(struct api_t *api, void *base, void *end, void *root);
   void *(*alloc_text)(struct api_t *api, char *s);
@@ -97,7 +97,7 @@ typedef void *(*pfun)(REGS);
   *((void**)Top+1) = (void*)(code); \
   dst = (void**)Top+OBJ_HEAD_SIZE;
 
-#define ALLOC(dst,code,count) \
+#define ALLOC_CLOSURE(dst,code,count) \
   ALLOC_BASIC(dst,code,count); \
   dst = ADD_TAG(dst, T_CLOSURE);
 
@@ -112,13 +112,16 @@ typedef void *(*pfun)(REGS);
 #define LOCAL_LABEL(name) name:;
 #define LOCAL_BRANCH(cnd,name) if (cnd) goto name;
 #define LOCAL_JMP(name) goto name;
+#define LOCAL_CLOSURE(dst,size) ALLOC_CLOSURE(dst,FIXNUM(size),size)
 #define BEGIN_CODE static void __dummy___ () {
 #define END_CODE }
-#define LIST(dst,size) ALLOC(dst,FIXNUM(size),size)
 #define LOAD_FIXNUM(dst,x) dst = (void*)((uintptr_t)(x)<<TAG_BITS)
 #define TEXT(dst,x) dst = api->alloc_text(api,(char*)(x))
 #define DECL_LABEL(name) static void *name(REGS);
 #define ARGLIST(dst,size) ALLOC_BASIC(dst,FIXNUM(size),size)
+#define LIST_ALLOC(dst,size) \
+  ARGLIST(dst,size); \
+  dst = ADD_TAG(dst, T_LIST);
 #define NARGS(e) ((intptr_t)*((void**)(e)-1))
 #define getArg(i) (*((void**)E+(i)))
 #define PROLOGUE void *E = (void**)Top+OBJ_HEAD_SIZE;
@@ -163,8 +166,9 @@ typedef void *(*pfun)(REGS);
   Base = *(void**)Base; \
   Level -= 2; \
   HEAP_FLIP();
-#define CALL(k,f) k = POOL_HANDLER(f)(REGS_ARGS(f)); POP_BASE()
-#define CALL_TAGGED(k,f) \
+#define CALL_NO_POP(k,f) k = POOL_HANDLER(f)(REGS_ARGS(f));
+#define CALL(k,f) CALL_NO_POP(k,f) POP_BASE();
+#define CALL_TAGGED_NO_POP(k,f) \
   if (GET_TAG(f) == T_CLOSURE) { \
     k = POOL_HANDLER(f)(REGS_ARGS(f)); \
   } else if (GET_TAG(f) == T_FIXNUM) { \
@@ -175,16 +179,17 @@ typedef void *(*pfun)(REGS);
     k = api->fixtext(REGS_ARGS(f)); \
   } else { \
     api->bad_tag(REGS_ARGS(f)); /*should never happen*/ \
-  } \
-  POP_BASE();
-#define REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-1)
-#define REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-1)
-#define REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-1)
+  }
+#define CALL_TAGGED(k,f) CALL_TAGGED_NO_POP(k,f) POP_BASE();
+#define CLOSURE_REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-T_CLOSURE)
+#define CLOSURE_REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-T_CLOSURE)
+#define CLOSURE_REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-T_CLOSURE)
+#define LIST_REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-T_LIST)
 #define ARG_LOAD(dst,src,src_off) dst = *((void**)(src)+(src_off))
 #define ARG_STORE(dst,dst_off,src) *((void**)(dst)+(dst_off)) = (void*)(src)
-#define LOAD(dst,src,src_off) dst = REF(src,src_off)
-#define STORE(dst,dst_off,src) REF(dst,dst_off) = (void*)(src)
-#define COPY(dst,dst_off,src,src_off) REF(dst,dst_off) = REF(src,src_off)
+#define LOAD(dst,src,src_off) dst = CLOSURE_REF(src,src_off)
+#define STORE(dst,dst_off,src) CLOSURE_REF(dst,dst_off) = (void*)(src)
+#define COPY(dst,dst_off,src,src_off) CLOSURE_REF(dst,dst_off) = CLOSURE_REF(src,src_off)
 #define MOVE(dst,src) dst = (void*)(src)
 
 #define CHECK_NARGS(expected,size,meta) \
