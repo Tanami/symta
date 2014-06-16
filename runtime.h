@@ -13,7 +13,6 @@
 #define DEL_TAG(src) ((void*)((uintptr_t)(src) & ~TAG_MASK))
 #define IMMEDIATE(x) (GET_TAG(x) == T_FIXNUM || GET_TAG(x) == T_FIXTEXT)
 
-
 #define SIGN_BIT ((uintptr_t)1<<(sizeof(uintptr_t)*8-1))
 
 #define T_FIXNUM  0
@@ -23,7 +22,9 @@
 #define T_VIEW    4
 #define T_PTR     5
 #define T_FIXTEXT 6 /* immediate text */
-#define T_CONS    7
+#define T_DATA    7
+#define T_TEXT    8
+#define T_CONS    9
 
 #define T_INTEGER T_FIXNUM
 
@@ -91,9 +92,9 @@ typedef void *(*pfun)(REGS);
 #define Base api->base
 #define Level api->level
 
-#define POOL_HANDLER(x) (((pfun*)((void**)((uintptr_t)(x)&~TAG_MASK)-1))[0])
+#define OBJECT_CODE(x) (((pfun*)((void**)((uintptr_t)(x)&~TAG_MASK)-1))[0])
+#define DATA_TAG(o) ((uintptr_t)OBJECT_CODE(o)&0xFFFFFFFF)
 #define OBJECT_LEVEL(x) ((uintptr_t)(((void**)((uintptr_t)(x)&~TAG_MASK)-2)[0]))
-#define ON_CURRENT_LEVEL(x) (Top <= (void*)(x) && (void*)(x) < Base)
 
 #define ALLOC_BASIC(dst,code,count) \
   Top = (void**)Top - ((count)+OBJ_HEAD_SIZE); \
@@ -105,10 +106,11 @@ typedef void *(*pfun)(REGS);
   ALLOC_BASIC(dst,code,count); \
   dst = ADD_TAG(dst, T_CLOSURE);
 
-#define IS_LIST(o) (GET_TAG(o) == T_LIST)
+#define ALLOC_DATA(dst,code,count) \
+  ALLOC_BASIC(dst,(void*)(code),count); \
+  dst = ADD_TAG(dst, T_DATA);
 
-// FIXME: most of LIST_FLIP uses could be optimized out
-#define LIST_FLIP(o) ((void*)((uintptr_t)(o)^(T_CLOSURE|T_LIST)))
+#define IS_LIST(o) (GET_TAG(o) == T_LIST)
 
 #define print_object(object) api->print_object_f(api, object)
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -171,29 +173,42 @@ typedef void *(*pfun)(REGS);
   Base = *(void**)Base; \
   Level -= 2; \
   HEAP_FLIP();
-#define CALL_NO_POP(k,f) k = POOL_HANDLER(f)(REGS_ARGS(f));
+#define CALL_NO_POP(k,f) k = OBJECT_CODE(f)(REGS_ARGS(f));
 #define CALL(k,f) CALL_NO_POP(k,f); POP_BASE();
+
 #define CALL_TAGGED_NO_POP(k,o,m) \
-  if (GET_TAG(o) == T_CLOSURE) { \
-    k = POOL_HANDLER(o)(REGS_ARGS(o)); \
-  } else { \
-    ARG_LOAD(api->method, Top, 2); \
-    ARG_STORE(Top, 2, o); \
-    k = POOL_HANDLER(((void**)(m))[GET_TAG(o)])(REGS_ARGS(o)); \
+  { \
+    uintptr_t tag = (uintptr_t)GET_TAG(o); \
+    if (tag == T_CLOSURE) { \
+      k = OBJECT_CODE(o)(REGS_ARGS(o)); \
+    } else { \
+      ARG_LOAD(api->method, Top, 2); \
+      ARG_STORE(Top, 2, o); \
+      if (tag == T_DATA) { \
+        tag = DATA_TAG(o); \
+      } \
+      k = OBJECT_CODE(((void**)(m))[tag])(REGS_ARGS(o)); \
+    } \
   }
 #define CALL_TAGGED(k,o,m) CALL_TAGGED_NO_POP(k,o,m); POP_BASE();
 #define CALL_TAGGED_DYNAMIC_NO_POP(k,o) \
   if (GET_TAG(o) == T_CLOSURE) { \
-    k = POOL_HANDLER(o)(REGS_ARGS(o)); \
+    k = OBJECT_CODE(o)(REGS_ARGS(o)); \
   } else { \
     api->fatal("FIXME: resolve method at runtime\n"); \
   }
 #define CALL_TAGGED_DYNAMIC(k,o) CALL_TAGGED_DYNAMIC_NO_POP(k,o,f); POP_BASE();
 
-
+//FIXME: refactor these
+#define VIEW_REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-T_VIEW)
+#define VIEW_REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-T_VIEW)
+#define VIEW_GET(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-T_VIEW)
 #define CLOSURE_REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-T_CLOSURE)
 #define CLOSURE_REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-T_CLOSURE)
 #define CLOSURE_REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-T_CLOSURE)
+#define DATA_REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-T_DATA)
+#define DATA_REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-T_DATA)
+#define DATA_REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-T_DATA)
 #define LIST_REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-T_LIST)
 #define ARG_LOAD(dst,src,src_off) dst = *((void**)(src)+(src_off))
 #define ARG_STORE(dst,dst_off,src) *((void**)(dst)+(dst_off)) = (void*)(src)
