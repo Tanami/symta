@@ -421,9 +421,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'move k name
   ! push `(,name ,(ssa-quote-list-rec xs)) *ssa-inits*)
 
-(to ssa-quoted-symbol k s
+(to cstring s ! `(,@(m c (coerce s 'list) (char-code c)) 0))
+
+(to ssa-text k s
   ! bytes-name = ssa-name "b"
-  ! ssa 'bytes bytes-name `(,@(m c (coerce s 'list) (char-code c)) 0)
+  ! ssa 'bytes bytes-name (cstring s)
   ! name = ssa-name "s"
   ! ssa 'global name
   ! push `(text ,name ,bytes-name) *ssa-raw-inits*
@@ -431,9 +433,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-quote k x
   ! cond
-     ((stringp x) (ssa-quoted-symbol k x))
-     ((integerp x) (ssa-atom k x))
+     ((stringp x) (ssa-text k x))
      ((listp x) (ssa-quote-list k x))
+     ((integerp x) (ssa-atom k x))
      (t (error "unsupported quoted value: ~a" x)))
 
 (to ssa-resolved name ! cons name *ssa-ns*)
@@ -481,9 +483,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! c = ssa-name "cnd"
   ! ssa 'var c
   ! ssa-expr c cnd
-  ! ssa 'local_branch c then-label
+  ! ssa 'branch c then-label
   ! ssa-expr k else
-  ! ssa 'local_jmp end-label
+  ! ssa 'jmp end-label
   ! ssa 'local_label then-label
   ! ssa-expr k then
   ! ssa 'local_label end-label)
@@ -540,23 +542,36 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'move 'e save-e
   )
 
+
+(to ssa-var &optional (n "t")
+  ! v = ssa-name n
+  ! ssa 'var v
+  ! v)
+
 (to ssa-apply k f as
   ! match f (("_fn" bs . body) (return-from ssa-apply (ssa-let k bs as body)))
   ! ssa 'push_base
-  ! h = ssa-name "head"
-  ! ssa 'var h
+  ! h = ssa-var "head"
   ! ssa-expr h f
-  ! e = ssa-name "env"
   ! vs = m a as
-        (! v = ssa-name "a"
-         ! ssa 'var v
+        (! v = ssa-var "a"
          ! ssa-expr v a
          ! v)
-  ! ssa 'var e
-  ! ssa 'arglist e (length as)
+  ! e = ssa-var "env"
+  ! nargs = length as
+  ! ssa 'arglist e nargs
   ! i = -1
   ! e v vs (ssa 'arg_store e (incf i) v)
-  ! if (fn-sym? f) (ssa 'call k h) (ssa 'call_tagged k h))
+  ! when (fn-sym? f) (return-from ssa-apply (ssa 'call k h))
+  ! method-name = and (> nargs 0)
+                      (match as ((("_quote" x . renamed) . xs) (and (stringp x) x)))
+  ! unless method-name (return-from ssa-apply (ssa 'call_tagged_dynamic k h))
+  ! bytes-name = ssa-name "mb"
+  ! ssa 'bytes bytes-name (cstring method-name)
+  ! m = ssa-name "m"
+  ! ssa 'global m
+  ! push `(resolve_method ,m ,bytes-name) *ssa-raw-inits*
+  ! ssa 'call_tagged k h m)
 
 (to ssa-set k place value
   ! r = ssa-name "r"
@@ -579,6 +594,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (defparameter *uniquify-stack* nil)
 
+(to uniquify-name s
+  ! e closure *uniquify-stack*
+     (e x closure
+        (when (equal (first x) s)
+          (return-from uniquify-name (second x)))))
+
 (to uniquify-form expr
   ! match expr
      (("_fn" as . body)
@@ -598,12 +619,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          (when (and (not (stringp as)) (/= (length as) (length vs)))
            (error "invalid number of arguments in ~a" expr))))
       (m x xs (uniquify-expr x))))
-
-(to uniquify-name s
-  ! e closure *uniquify-stack*
-     (e x closure
-        (when (equal (first x) s)
-          (return-from uniquify-name (second x)))))
 
 (to special-sym? x ! and (stringp x) (> (length x) 0) (eql (aref x 0) #\_))
 
@@ -648,11 +663,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! match xs
     (("_fn" as body) (ssa-fn (ssa-name "n") k as body xs))
     (("_if" cnd then else) (ssa-if k cnd then else))
-    (("_quote" x) (ssa-quote k x))
+    (("_quote" x . xs) (ssa-quote k x))
     (("_set" place value) (ssa-set k place value))
     (("_progn" . xs) (ssa-progn k xs))
     (("_label" name) (ssa 'local_label name))
-    (("_goto" name) (ssa 'local_jmp name))
+    (("_goto" name) (ssa 'jmp name))
     (("_list" . xs) (ssa-list k xs))
     #|(("_add" a b) (ssa-fixed k 'fixed_add a b))
     (("_sub" a b) (ssa-fixed k 'fixed_sub a b))
@@ -740,15 +755,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           )
          ((''global name) (push (format nil "static void *~a;" name) decls))
          ((''local_label label-name) (to-c-emit "  LOCAL_LABEL(~a);" label-name))
-         ((''local_branch cnd label-name) (to-c-emit "  LOCAL_BRANCH(~a, ~a);" cnd label-name))
-         ((''local_jmp label-name) (to-c-emit "  LOCAL_JMP(~a);" label-name))
+         ((''branch cnd label-name) (to-c-emit "  BRANCH(~a, ~a);" cnd label-name))
+         ((''zbranch cnd label-name) (to-c-emit "  ZBRANCH(~a, ~a);" cnd label-name))
+         ((''jmp label-name) (to-c-emit "  JMP(~a);" label-name))
          ((''gosub label-name) (to-c-emit "  GOSUB(~a);" label-name))
          ((''branch cond label) (to-c-emit "  BRANCH(~a, ~a);" cond label))
          ((''push_base) (to-c-emit "  PUSH_BASE();"))
          ((''call k name) (to-c-emit "  CALL(~a, ~a);" k name))
-         ((''call_tagged k name) (to-c-emit "  CALL_TAGGED(~a, ~a);" k name))
+         ((''call_tagged k obj method) (to-c-emit "  CALL_TAGGED(~a, ~a, ~a);" k obj method))
+         ((''call_tagged_dyanamic k obj) (to-c-emit "  CALL_TAGGED_DYNAMIC(~a, ~a);" k obj))
          ((''arglist place size) (to-c-emit "  ARGLIST(~a, ~a);" place size))
          ((''lift base pos value) (to-c-emit "  LIFT(~a,~a,~a);" base pos value))
+         ((''get_tag dst src) (to-c-emit "  ~a = (void*)GET_TAG(~a);" dst src))
          ((''add_tag dst src tag) (to-c-emit "  ~a = ADD_TAG(~a,~a);" dst src tag))
          ((''local_closure place size) (to-c-emit "  LOCAL_CLOSURE(~a, ~a);" place size))
          ((''closure place name size)
@@ -764,9 +782,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''move dst src) (to-c-emit "  MOVE(~a, ~a);" dst src))
          ((''list_flip dst src) (to-c-emit "  ~a = LIST_FLIP(~a);" dst src))
          ((''fixnum dst str) (to-c-emit "  LOAD_FIXNUM(~a, ~s);" dst str))
+         ((''resolve_method dst name) (to-c-emit "  RESOLVE_METHOD(~a, ~a);" dst name))
          ((''bytes name values)
           (push (format nil "static uint8_t ~a[] = {~{~a~^,~}};" name values) decls))
          ((''text name bytes-name) (to-c-emit "  TEXT(~a, ~a);" name bytes-name))
+         ((''fatal msg) (to-c-emit "  api->fatal(api, ~a);" msg))
          ((''list dst xs)
           (let ((name (ssa-name "s")))
             (to-c-emit "  MOVE(~a, ~a);" dst name))
@@ -1081,11 +1101,55 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                   (m x (cons (car ys) (m y (cdr ys) (normalize-symbol y)))
                      (normalize-ampersand x))))))))
     (builtin-expander ys)))
-      
+
 (to symta-eval text
   ! (/init-tokenizer)
   ! expr = /read text
-  ! deps = list "tag_of" "halt" "log" "_apply" "_no_method" "read_file_as_text"
+  ! deps = list "tag_of"
+                "halt"
+                "log"
+                "_apply"
+                "_no_method"
+                "read_file_as_text"
+                "integer _"
+                "integer neg"
+                "integer +"
+                "integer -"
+                "integer *"
+                "integer /"
+                "integer %"
+                "integer is"
+                "integer isnt"
+                "integer <"
+                "integer >"
+                "integer <<"
+                "integer >>"
+                "integer mask"
+                "integer ior"
+                "integer xor"
+                "integer shl"
+                "integer shr"
+                "integer x"
+                "integer char"
+                "integer hash"
+                "list _"
+                "list is"
+                "list isnt"
+                "list size"
+                '"list {}"
+                '"list {!}"
+                "list end"
+                "list head"
+                "list tail"
+                "list add"
+                "fixtext _"
+                "fixtext is"
+                "fixtext isnt"
+                "fixtext size"
+                '"fixtext {}"
+                "fixtext end"
+                "fixtext hash"
+                "fixtext code"
   ! normalized-expr = match expr (("|" . as) expr)
                                   (x `("|" ,x))
   ! expr-with-deps = host-deps normalized-expr deps
@@ -1095,5 +1159,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to symta filename
   ! text = load-text-file filename
   ! symta-eval text)
+
+
+
 
 

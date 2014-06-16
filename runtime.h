@@ -20,9 +20,12 @@
 #define T_CLOSURE 1
 #define T_LIST    2
 #define T_FLOAT   3
-#define T_PTR     4
-#define T_TAIL    5 /* list without head */
+#define T_VIEW    4
+#define T_PTR     5
 #define T_FIXTEXT 6 /* immediate text */
+#define T_CONS    7
+
+#define T_INTEGER T_FIXNUM
 
 // sign preserving shifts
 #define ASHL(x,count) ((x)*(1<<(count)))
@@ -63,17 +66,18 @@ typedef struct api_t {
   void *empty_;
   void *host_;
 
+  void *method;
+
   //void *Goto; // nonlocal goto token (TODO)
 
   // runtime's C API
-  void (*bad_tag)(REGS);
   void* (*handle_args)(REGS, void *E, intptr_t expected, intptr_t size, void *tag, void *meta);
   char* (*print_object_f)(struct api_t *api, void *object);
   void *(*gc)(struct api_t *api, void *base, void *end, void *root);
   void *(*alloc_text)(struct api_t *api, char *s);
-  void *(*fixnum)(REGS);
-  void *(*list)(REGS);
-  void *(*fixtext)(REGS);
+  void (*fatal)(struct api_t *api, char *msg);
+  void **(*resolve_method)(struct api_t *api, char *name);
+  int (*resolve_type)(struct api_t *api, char *name);
 
   void *heap[HEAP_SIZE];
 } api_t;
@@ -110,13 +114,15 @@ typedef void *(*pfun)(REGS);
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 
 #define LOCAL_LABEL(name) name:;
-#define LOCAL_BRANCH(cnd,name) if (cnd) goto name;
-#define LOCAL_JMP(name) goto name;
+#define BRANCH(cnd,name) if (cnd) goto name;
+#define ZBRANCH(cnd,name) if (!(cnd)) goto name;
+#define JMP(name) goto name;
 #define LOCAL_CLOSURE(dst,size) ALLOC_CLOSURE(dst,FIXNUM(size),size)
 #define BEGIN_CODE static void __dummy___ () {
 #define END_CODE }
 #define LOAD_FIXNUM(dst,x) dst = (void*)((uintptr_t)(x)<<TAG_BITS)
 #define TEXT(dst,x) dst = api->alloc_text(api,(char*)(x))
+#define RESOLVE_METHOD(dst,name) dst = api->resolve_method(api, name);
 #define DECL_LABEL(name) static void *name(REGS);
 #define ARGLIST(dst,size) ALLOC_BASIC(dst,FIXNUM(size),size)
 #define LIST_ALLOC(dst,size) \
@@ -137,7 +143,6 @@ typedef void *(*pfun)(REGS);
    return (void*)(value);
 #define RETURN_NO_GC(value) return (void*)(value);
 #define GOSUB(label) label(REGS_ARGS(P));
-#define BRANCH(cond,label) if ((cond) != FIXNUM(0)) { label(REGS_ARGS(P)); return; }
 #define LIFTS_CONS(dst,head,tail) \
   Top=(void**)Top-2; \
   *((void**)Top+0) = (head); \
@@ -167,20 +172,25 @@ typedef void *(*pfun)(REGS);
   Level -= 2; \
   HEAP_FLIP();
 #define CALL_NO_POP(k,f) k = POOL_HANDLER(f)(REGS_ARGS(f));
-#define CALL(k,f) CALL_NO_POP(k,f) POP_BASE();
-#define CALL_TAGGED_NO_POP(k,f) \
-  if (GET_TAG(f) == T_CLOSURE) { \
-    k = POOL_HANDLER(f)(REGS_ARGS(f)); \
-  } else if (GET_TAG(f) == T_FIXNUM) { \
-    k = api->fixnum(REGS_ARGS(f)); \
-  } else if (GET_TAG(f) == T_LIST) { \
-    k = api->list(REGS_ARGS(f)); \
-  } else if (GET_TAG(f) == T_FIXTEXT) { \
-    k = api->fixtext(REGS_ARGS(f)); \
+#define CALL(k,f) CALL_NO_POP(k,f); POP_BASE();
+#define CALL_TAGGED_NO_POP(k,o,m) \
+  if (GET_TAG(o) == T_CLOSURE) { \
+    k = POOL_HANDLER(o)(REGS_ARGS(o)); \
   } else { \
-    api->bad_tag(REGS_ARGS(f)); /*should never happen*/ \
+    ARG_LOAD(api->method, Top, 2); \
+    ARG_STORE(Top, 2, o); \
+    k = POOL_HANDLER(((void**)(m))[GET_TAG(o)])(REGS_ARGS(o)); \
   }
-#define CALL_TAGGED(k,f) CALL_TAGGED_NO_POP(k,f) POP_BASE();
+#define CALL_TAGGED(k,o,m) CALL_TAGGED_NO_POP(k,o,m); POP_BASE();
+#define CALL_TAGGED_DYNAMIC_NO_POP(k,o) \
+  if (GET_TAG(o) == T_CLOSURE) { \
+    k = POOL_HANDLER(o)(REGS_ARGS(o)); \
+  } else { \
+    api->fatal("FIXME: resolve method at runtime\n"); \
+  }
+#define CALL_TAGGED_DYNAMIC(k,o) CALL_TAGGED_DYNAMIC_NO_POP(k,o,f); POP_BASE();
+
+
 #define CLOSURE_REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-T_CLOSURE)
 #define CLOSURE_REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-T_CLOSURE)
 #define CLOSURE_REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-T_CLOSURE)

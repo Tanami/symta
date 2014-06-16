@@ -3,16 +3,56 @@
 
 #include "runtime.h"
 
-static void *b_list(REGS);
 static void *b_view(REGS);
 static void *b_text(REGS);
 static void *b_cons(REGS);
 
 #define getVal(x) ((uintptr_t)(x)&~TAG_MASK)
 
+#define MAX_TYPES (1024)
+#define MAX_METHODS (8*1024)
+
 static api_t apis[2]; // one for each heap
 
-#define HEAP_OBJECT(o) ((void*)apis < (void*)(o) && (void*)(o) < (void*)(apis+2))
+typedef struct {
+  char *name;
+  void *types[MAX_TYPES];
+} method_t;
+
+static int methods_used;
+static method_t methods[MAX_METHODS];
+static int types_used;
+static char *typenames[MAX_TYPES];
+
+static void **resolve_method(api_t *api, char *name) {
+  int i;
+  for (i = 0; i < methods_used; i++) {
+    if (!strcmp(methods[i].name, name)) {
+      return methods[i].types;
+    }
+  }
+  if (methods_used == MAX_METHODS) {
+    fprintf(stderr, "methods table overflow\n");
+    abort();
+  }
+  ++methods_used;
+  methods[i].name = strdup(name);
+  return methods[i].types;
+}
+
+static int resolve_type(api_t *api, char *name) {
+  int i;
+  for (i = 0; i < types_used; i++)
+    if (!strcmp(typenames[i], name))
+      return i;
+  if (types_used == MAX_TYPES) {
+    fprintf(stderr, "typenames table overflow\n");
+    abort();
+  }
+  ++types_used;
+  typenames[i] = strdup(name);
+  return i;
+}
 
 static void fatal(char *fmt, ...) {
    va_list ap;
@@ -271,15 +311,9 @@ BUILTIN1("text hash",fixtext_hash,C_ANY,o)
 RETURNS(FIXNUM(((uint64_t)o&(((uint64_t)1<<32)-1))^((uint64_t)o>>32)))
 BUILTIN1("text code",fixtext_code,C_ANY,o)
 RETURNS(FIXNUM((uint64_t)o>>TAG_BITS))
-BUILTIN_HANDLER("text",fixtext,C_TEXT,x)
-  if (texts_equal(x,s_size)) return b_fixtext_size(REGS_ARGS(P));
-  else if (texts_equal(x,s_get)) return b_fixtext_get(REGS_ARGS(P));
-  else if (texts_equal(x,s_is)) return b_fixtext_is(REGS_ARGS(P));
-  else if (texts_equal(x,s_isnt)) return b_fixtext_isnt(REGS_ARGS(P));
-  else if (texts_equal(x,s_end)) return b_fixtext_end(REGS_ARGS(P));
-  else if (texts_equal(x,s_hash)) return b_fixtext_hash(REGS_ARGS(P));
-  else if (texts_equal(x,s_code)) return b_fixtext_code(REGS_ARGS(P));
-  else bad_call(REGS_ARGS(P),x);
+BUILTIN_VARARGS("text _",fixtext)
+  fprintf(stderr, "FIXME: fixtext _\n");
+  abort();
 RETURNS_VOID
 
 
@@ -360,6 +394,8 @@ BUILTIN_HANDLER("list",view,C_TEXT,x)
 RETURNS_VOID
 
 BUILTIN2("list is",list_is,C_ANY,a,C_ANY,b)
+  intptr_t size = UNFIXNUM(POOL_HANDLER(a));
+  //if (TAG_OF(b))
 RETURNS(FIXNUM(a == b))
 BUILTIN2("list isnt",list_isnt,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a != b))
@@ -408,17 +444,9 @@ BUILTIN2("list add",list_add,C_ANY,o,C_ANY,x)
   while(s-- > 0) *p++ = *q++;
 RETURN(R)
 RETURNS(0)
-BUILTIN_HANDLER("list",list,C_TEXT,x)
-  if (texts_equal(x,s_get)) return b_list_get(REGS_ARGS(P));
-  else if (texts_equal(x,s_set)) return b_list_set(REGS_ARGS(P));
-  else if (texts_equal(x,s_size)) return b_list_size(REGS_ARGS(P));
-  else if (texts_equal(x,s_is)) return b_list_is(REGS_ARGS(P));
-  else if (texts_equal(x,s_isnt)) return b_list_isnt(REGS_ARGS(P));
-  else if (texts_equal(x,s_head)) return b_list_head(REGS_ARGS(P));
-  else if (texts_equal(x,s_tail)) return b_list_tail(REGS_ARGS(P));
-  else if (texts_equal(x,s_end)) return b_list_end(REGS_ARGS(P));
-  else if (texts_equal(x,s_add)) return b_list_add(REGS_ARGS(P));
-  else bad_call(REGS_ARGS(P),x);
+BUILTIN_VARARGS("list _",list)
+  fprintf(stderr, "FIXME: list _\n");
+  abort();
 RETURNS_VOID
 
 BUILTIN1("integer neg",integer_neg,C_ANY,o)
@@ -473,33 +501,13 @@ RETURN(R)
 RETURNS(0)
 BUILTIN1("integer end",integer_end,C_ANY,o)
 RETURNS(FIXNUM(1))
-BUILTIN1("integer text",integer_text,C_ANY,o)
+BUILTIN1("integer char",integer_char,C_ANY,o)
 RETURNS(ADD_TAG((uint64_t)o&~TAG_MASK,T_FIXTEXT))
 BUILTIN1("integer hash",integer_hash,C_ANY,o)
 RETURNS(o)
-BUILTIN_HANDLER("integer",fixnum,C_TEXT,x)
-  if (x == s_plus) return b_integer_add(REGS_ARGS(P));
-  else if (x == s_sub) return b_integer_sub(REGS_ARGS(P));
-  else if (x == s_lt) return b_integer_lt(REGS_ARGS(P));
-  else if (x == s_gt) return b_integer_gt(REGS_ARGS(P));
-  else if (x == s_mul) return b_integer_mul(REGS_ARGS(P));
-  else if (x == s_div) return b_integer_div(REGS_ARGS(P));
-  else if (x == s_rem) return b_integer_rem(REGS_ARGS(P));
-  else if (x == s_is) return b_integer_is(REGS_ARGS(P));
-  else if (x == s_isnt) return b_integer_isnt(REGS_ARGS(P));
-  else if (x == s_lte) return b_integer_lte(REGS_ARGS(P));
-  else if (x == s_gte) return b_integer_gte(REGS_ARGS(P));
-  else if (x == s_neg) return b_integer_neg(REGS_ARGS(P));
-  else if (x == s_mask) return b_integer_mask(REGS_ARGS(P));
-  else if (x == s_ior) return b_integer_ior(REGS_ARGS(P));
-  else if (x == s_xor) return b_integer_xor(REGS_ARGS(P));
-  else if (x == s_shl) return b_integer_shl(REGS_ARGS(P));
-  else if (x == s_shr) return b_integer_shr(REGS_ARGS(P));
-  else if (x == s_end) return b_integer_end(REGS_ARGS(P));
-  else if (x == s_hash) return b_integer_hash(REGS_ARGS(P));
-  else if (x == s_text) return b_integer_text(REGS_ARGS(P));
-  else if (x == s_x) return b_integer_x(REGS_ARGS(P));
-  else bad_call(REGS_ARGS(P),x);
+BUILTIN_VARARGS("integer _",integer)
+  fprintf(stderr, "FIXME: integer _\n");
+  abort();
 RETURNS_VOID
 
 BUILTIN1("cons head",cons_head,C_ANY,o)
@@ -528,9 +536,11 @@ BUILTIN_HANDLER("list",cons,C_TEXT,x)
 RETURNS_VOID
 
 BUILTIN1("tag_of",tag_of,C_ANY,o)
-  PUSH_BASE();
   ALLOC_BASIC(E, FIXNUM(-1), 1); // signal that we want tag
-  CALL_TAGGED_NO_POP(R,o);
+  fprintf(stderr, "FIXME\n");
+  abort();
+  //CALL_TAGGED_NO_POP(R,o);
+  RETURN(R)
 RETURNS(R)
 
 BUILTIN0("halt",halt)
@@ -650,6 +660,11 @@ BUILTIN1("_no_method",_no_method,C_TEXT,name)
   abort();
 RETURNS(Void)
 
+BUILTIN_VARARGS("undefined",undefined)
+  fprintf(stderr, "undefined method `%s`\n", print_object(api->method));
+  bad_call(REGS_ARGS(P), api->method);
+  abort();
+RETURNS(0)
 
 static struct {
   char *name;
@@ -661,6 +676,46 @@ static struct {
   {"_apply", b__apply},
   {"_no_method", b__no_method},
   {"read_file_as_text", b_read_file_as_text},
+  {"integer _", b_integer},
+  {"integer neg", b_integer_add},
+  {"integer +", b_integer_add},
+  {"integer -", b_integer_sub},
+  {"integer *", b_integer_mul},
+  {"integer /", b_integer_div},
+  {"integer %", b_integer_rem},
+  {"integer is", b_integer_is},
+  {"integer isnt", b_integer_isnt},
+  {"integer <", b_integer_lt},
+  {"integer >", b_integer_gt},
+  {"integer <<", b_integer_lte},
+  {"integer >>", b_integer_gte},
+  {"integer mask", b_integer_mask},
+  {"integer ior", b_integer_ior},
+  {"integer xor", b_integer_xor},
+  {"integer shl", b_integer_shl},
+  {"integer shr", b_integer_shr},
+  {"integer x", b_integer_x},
+  {"integer char", b_integer_char},
+  {"integer hash", b_integer_hash},
+  {"list _", b_list},
+  {"list is", b_list_is},
+  {"list isnt", b_list_isnt},
+  {"list size", b_list_size},
+  {"list {}", b_list_get},
+  {"list {!}", b_list_set},
+  {"list end", b_list_end},
+  {"list head", b_list_head},
+  {"list tail", b_list_tail},
+  {"list add", b_list_add},
+  {"fixtext _", b_fixtext},
+  {"fixtext is", b_fixtext_is},
+  {"fixtext isnt", b_fixtext_isnt},
+  {"fixtext size", b_fixtext_size},
+  {"fixtext{}", b_fixtext_get},
+  {"fixtext end", b_fixtext_end},
+  {"fixtext hash", b_fixtext_hash},
+  {"fixtext code", b_fixtext_code},
+
   //{"save_string_as_file", b_save_text_as_file},
   {0, 0}
 };
@@ -734,10 +789,6 @@ static char *print_object_r(api_t *api, char *out, void *o) {
   return out;
 }
 
-static void bad_tag(REGS) {
-  fatal("bad tag = %d\n", (int)GET_TAG(P));
-}
-
 //FIXME: if callee wouldnt have messed Top, we could have used it instead of passing E
 static void *handle_args(REGS, void *E, intptr_t expected, intptr_t size, void *tag, void *meta) {
   intptr_t got = NARGS(E);
@@ -788,6 +839,8 @@ static void *gc_arglist(api_t *api, void *gc_base, void *gc_end, void *o) {
   }
   return p;
 }
+
+#define HEAP_OBJECT(o) ((void*)apis < (void*)(o) && (void*)(o) < (void*)(apis+2))
 
 static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
   void *p, *q, *e;
@@ -881,31 +934,42 @@ static void *gc_entry(api_t *api, void *gc_base, void *gc_end, void *o) {
   return gc(api, gc_base, gc_end, o);
 }
 
+static void fatal_error(api_t *api, char *msg) {
+  fprintf(stderr, "%s\n", msg);
+  abort();
+}
+
 static api_t *init_api(void *ptr) {
   int i;
   api_t *api = (api_t*)ptr;
 
-  api->bad_tag = bad_tag;
   api->handle_args = handle_args;
   api->print_object_f = print_object_f;
   api->gc = gc_entry;
   api->alloc_text = alloc_text;
-  api->fixnum = b_fixnum;
-  api->list = b_list;
-  api->fixtext = b_fixtext;
+  api->fatal = fatal_error;
+  api->resolve_method = resolve_method;
+  api->resolve_type = resolve_type;
   
   return api;
 }
 
+#define ADD_METHOD(name, m_int, m_list, m_fixtext) \
+  multi = api->resolve_method(api, name); \
+  if (m_int) {BUILTIN_CLOSURE(multi[T_INTEGER], m_int);}\
+  if (m_list) {BUILTIN_CLOSURE(multi[T_LIST], m_list);} \
+  if (m_fixtext) {BUILTIN_CLOSURE(multi[T_FIXTEXT], m_fixtext);}
 
 #define BUILTIN_CLOSURE(dst,code) { ALLOC_CLOSURE(dst, code, 0); }
 int main(int argc, char **argv) {
-  int i;
+  int i, j;
   char *module;
   void *lib;
   pfun entry, setup;
   api_t *api;
   void *R;
+  void *undefined;
+  void **multi;
 
   void *E = 0; // current environment
   void *P = 0; // parent environment
@@ -930,7 +994,7 @@ int main(int argc, char **argv) {
   BUILTIN_CLOSURE(Void, b_void);
   LIST_ALLOC(Empty, 0);
   BUILTIN_CLOSURE(Host, b_host);
-
+  BUILTIN_CLOSURE(undefined, b_undefined);
 
   api->other->void_ = api->void_;
   api->other->empty_ = api->empty_;
@@ -944,38 +1008,43 @@ int main(int argc, char **argv) {
     builtins[i].fun = t;
   }
 
-  TEXT(s_neg, "neg");
-  TEXT(s_plus, "+");
-  TEXT(s_sub, "-");
-  TEXT(s_mul, "*");
-  TEXT(s_div, "/");
-  TEXT(s_rem, "%");
-  TEXT(s_is, "is");
-  TEXT(s_isnt, "isnt");
-  TEXT(s_lt, "<");
-  TEXT(s_gt, ">");
-  TEXT(s_lte, "<<");
-  TEXT(s_gte, ">>");
+  api->resolve_type(api, "integer");
+  api->resolve_type(api, "closure");
+  api->resolve_type(api, "list");
+  api->resolve_type(api, "float");
+  api->resolve_type(api, "view");
+  api->resolve_type(api, "ptr");
+  api->resolve_type(api, "fixtext");
+  api->resolve_type(api, "cons");
 
-  TEXT(s_mask, "mask");
-  TEXT(s_ior, "ior");
-  TEXT(s_xor, "xor");
-  TEXT(s_shl, "shl");
-  TEXT(s_shr, "shr");
-
-  TEXT(s_head, "head");
-  TEXT(s_tail, "tail");
-  TEXT(s_add, "add");
-  TEXT(s_end, "end");
-
-  TEXT(s_size, "size");
-  TEXT(s_get, "{}");
-  TEXT(s_set, "{!}");
-  TEXT(s_hash, "hash");
-  TEXT(s_code, "code");
-  TEXT(s_text, "text");
-
-  TEXT(s_x, "x");
+  ADD_METHOD("neg", b_integer_neg, 0, 0);
+  ADD_METHOD("+", b_integer_add, 0, 0);
+  ADD_METHOD("-", b_integer_sub, 0, 0);
+  ADD_METHOD("*", b_integer_mul, 0, 0);
+  ADD_METHOD("/", b_integer_div, 0, 0);
+  ADD_METHOD("%", b_integer_rem, 0, 0);
+  ADD_METHOD("is", b_integer_is, b_list_is, b_fixtext_is);
+  ADD_METHOD("isnt", b_integer_isnt, b_list_isnt, b_fixtext_isnt);
+  ADD_METHOD("<", b_integer_lt, 0, 0);
+  ADD_METHOD(">", b_integer_gt, 0, 0);
+  ADD_METHOD("<<", b_integer_lte, 0, 0);
+  ADD_METHOD(">>", b_integer_gte, 0, 0);
+  ADD_METHOD("mask", b_integer_mask, 0, 0);
+  ADD_METHOD("ior", b_integer_ior, 0, 0);
+  ADD_METHOD("xor", b_integer_xor, 0, 0);
+  ADD_METHOD("shl", b_integer_shl, 0, 0);
+  ADD_METHOD("shr", b_integer_shr, 0, 0);
+  ADD_METHOD("x", b_integer_char, 0, 0);
+  ADD_METHOD("head", 0, b_list_head, 0);
+  ADD_METHOD("tail", 0, b_list_tail, 0);
+  ADD_METHOD("add", 0, b_list_add, 0);
+  ADD_METHOD("end", 0, b_list_end, 0);
+  ADD_METHOD("size", 0, b_list_size, b_fixtext_size);
+  ADD_METHOD("{}", 0, b_list_get, b_fixtext_get);
+  ADD_METHOD("{!}", 0, b_list_set, 0);
+  ADD_METHOD("hash", b_integer_hash, 0, b_fixtext_hash);
+  ADD_METHOD("code", 0, 0, b_fixtext_code);
+  ADD_METHOD("char", b_integer_char, 0, 0);
 
   lib = dlopen(module, RTLD_LAZY);
   if (!lib) fatal("dlopen couldnt load %s\n", module);
@@ -991,6 +1060,14 @@ int main(int argc, char **argv) {
   ARGLIST(E,0);
   R = setup(REGS_ARGS(P)); // init module's statics
   HEAP_FLIP();
+
+  for (i = 0; i < methods_used; i++) {
+    for (j = 0; j < types_used; j++) {
+      if (methods[i].types[j]) continue;
+      methods[i].types[j] = undefined;
+    }
+  }
+
   Base = Top;
   HEAP_FLIP();
   ARGLIST(E,0);
