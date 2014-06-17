@@ -842,16 +842,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (defun expand-list-hole (key hole hit miss)
   (match hole
-    (() (return-from expand-list-hole (expand-hole key :empty hit miss)))
+    (() (return-from expand-list-hole
+          `("if" (,key "end")
+                 ,hit
+                 ,miss)))
+        ;;(return-from expand-list-hole (expand-hole key :empty hit miss)))
     ((("@" zs)) (return-from expand-list-hole (expand-hole key zs hit miss)))
     ((("@" zs) . more) (error "@ in the middle isn't supported")))
-     (let* ((h (ssa-name "X"))
-            (hit (expand-list-hole key (cdr hole) hit miss)))
+  (let* ((h (ssa-name "X"))
+         (hit (expand-list-hole key (cdr hole) hit miss)))
     `("if" (,key "end")
            ,miss
            ("_let" ((,h (,key "head"))
                     (,key (,key "tail")))
-             ,(expand-hole h (car hole) hit miss)))))
+               ,(expand-hole h (car hole) hit miss)))))
 
 (defun expand-hole (key hole hit miss)
   (unless (consp hole)
@@ -1087,7 +1091,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                (setf (nth p ys) v)
                (error "!!: no ! in ~a" as))
            `("_set" ,v ,ys)))
-        (("match" keyform . cases) (print (expand-match keyform cases :empty)))
+        (("match" keyform . cases) (expand-match keyform cases :empty))
     (else (return-from builtin-expander
             (let ((ys (m x xs (builtin-expander x))))
               (if (and (consp ys)

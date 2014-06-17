@@ -277,10 +277,10 @@ RETURNS_VOID
 #define VIEW(dst,base,start,size) \
   ALLOC_BASIC(dst, base, 1); \
   dst = ADD_TAG(dst, T_VIEW); \
-  VIEW_REF4(dst,sizeof(void*)/4) = (uint32_t)(start); \
-  VIEW_REF4(dst,sizeof(void*)/4+1) = (uint32_t)(size);
-#define VIEW_START(o) VIEW_REF4(o,sizeof(void*)/4)
-#define VIEW_SIZE(o) VIEW_REF4(o,sizeof(void*)/4+1)
+  VIEW_REF4(dst,0) = (uint32_t)(start); \
+  VIEW_REF4(dst,1) = (uint32_t)(size);
+#define VIEW_START(o) VIEW_REF4(o,0)
+#define VIEW_SIZE(o) VIEW_REF4(o,1)
 #define VIEW_REF(o,start,i) *((void**)VIEW_GET(o,-1) + start + (i))
 
 BUILTIN2("view is",view_is,C_ANY,a,C_ANY,b)
@@ -366,7 +366,7 @@ BUILTIN3("list {!}",list_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
 RETURN(R)
 RETURNS(Void)
 BUILTIN1("list end",list_end,C_ANY,o)
-RETURNS(FIXNUM(0))
+RETURNS(FIXNUM(OBJECT_CODE(P) == 0))
 BUILTIN1("list head",list_head,C_ANY,o)
 RETURNS(LIST_REF(o,0))
 BUILTIN1("list tail",list_tail,C_ANY,o)
@@ -768,7 +768,6 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
     p = o;
     goto end;
   }
-
   level = OBJECT_LEVEL(o);
   if (level > HEAP_SIZE) {
     // already moved
