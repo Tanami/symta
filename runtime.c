@@ -20,6 +20,8 @@ static method_t methods[MAX_METHODS];
 static int types_used;
 static char *typenames[MAX_TYPES];
 
+#define DATA_SIZE(o) ((uintptr_t)methods[0].types[DATA_TAG(o)])
+
 static void **resolve_method(api_t *api, char *name) {
   int i;
   for (i = 0; i < methods_used; i++) {
@@ -180,13 +182,6 @@ static char *text_to_cstring(void *o) {
 #define RETURNS(r) Top = Base; return (void*)(r); }
 #define RETURNS_VOID Top = Base; }
 
-static void *s_size, *s_get, *s_set, *s_hash;
-static void *s_neg, *s_plus, *s_sub, *s_mul, *s_div, *s_rem, *s_is, *s_isnt, *s_lt, *s_gt, *s_lte, *s_gte;
-static void *s_mask, *s_ior, *s_xor; //NOTE: ~X can be implemented as X^0xFFFFFFFF
-static void *s_shl, *s_shr;
-static void *s_head, *s_tail, *s_add, *s_end, *s_code, *s_text;
-static void *s_x; //duplicate
-
 #define TEXT_SIZE(o) UNFIXNUM(DATA_REF4(o,0))
 #define TEXT_DATA(o) ((char*)&DATA_REF1(o,4))
 
@@ -345,7 +340,6 @@ RETURNS(0)
 
 BUILTIN2("list is",list_is,C_ANY,a,C_ANY,b)
   intptr_t size = UNFIXNUM(OBJECT_CODE(a));
-  //if (TAG_OF(b))
 RETURNS(FIXNUM(a == b))
 BUILTIN2("list isnt",list_isnt,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a != b))
@@ -483,11 +477,12 @@ RETURN(R)
 RETURNS(0)
 
 BUILTIN1("tag_of",tag_of,C_ANY,o)
-  ALLOC_BASIC(E, FIXNUM(-1), 1); // signal that we want tag
-  fprintf(stderr, "FIXME\n");
-  abort();
-  //CALL_TAGGED_NO_POP(R,o);
-  RETURN(R)
+  uintptr_t tag = GET_TAG(o);
+  if (tag == T_DATA) {
+    tag = DATA_TAG(o);
+  }
+  R = methods[3].types[tag];
+  RETURN(R);
 RETURNS(R)
 
 BUILTIN0("halt",halt)
@@ -752,8 +747,6 @@ static void *gc_arglist(api_t *api, void *gc_base, void *gc_end, void *o) {
   return p;
 }
 
-#define DATA_SIZE(o) ((uintptr_t)methods[0].types[DATA_TAG(o)])
-
 static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
   void *p, *q, *e;
   int i, j, size, tag = GET_TAG(o);
@@ -884,7 +877,7 @@ static api_t *init_api(void *ptr) {
   return api;
 }
 
-#define ADD_METHOD(name, m_int, m_list, m_fixtext, m_text, m_view, m_cons, m_void) \
+#define METHOD_FN(name, m_int, m_list, m_fixtext, m_text, m_view, m_cons, m_void) \
   multi = api->resolve_method(api, name); \
   if (m_int) {BUILTIN_CLOSURE(multi[T_INTEGER], m_int);}\
   if (m_list) {BUILTIN_CLOSURE(multi[T_LIST], m_list);} \
@@ -893,6 +886,16 @@ static api_t *init_api(void *ptr) {
   if (m_view) {BUILTIN_CLOSURE(multi[T_VIEW], m_view);} \
   if (m_cons) {BUILTIN_CLOSURE(multi[T_CONS], m_cons);} \
   if (m_void) {BUILTIN_CLOSURE(multi[T_VOID], m_void);}
+
+#define METHOD_VAL(name, m_int, m_list, m_fixtext, m_text, m_view, m_cons, m_void) \
+  multi = api->resolve_method(api, name); \
+  multi[T_INTEGER] = m_int;\
+  multi[T_LIST] = m_list; \
+  multi[T_FIXTEXT] = m_fixtext; \
+  multi[T_TEXT] = m_text; \
+  multi[T_VIEW] = m_view; \
+  multi[T_CONS] = m_cons; \
+  multi[T_VOID] = m_void;
 
 #define BUILTIN_CLOSURE(dst,code) { ALLOC_CLOSURE(dst, code, 0); }
 int main(int argc, char **argv) {
@@ -904,6 +907,7 @@ int main(int argc, char **argv) {
   void *R;
   void *undefined;
   void **multi;
+  void *n_int, *n_list, *n_text, *n_void; // typenames
 
   void *E = 0; // current environment
   void *P = 0; // parent environment
@@ -942,6 +946,11 @@ int main(int argc, char **argv) {
     builtins[i].fun = t;
   }
 
+  TEXT(n_int, "int");
+  TEXT(n_list, "list");
+  TEXT(n_text, "text");
+  TEXT(n_void, "void");
+
   api->resolve_type(api, "integer");
   api->resolve_type(api, "closure");
   api->resolve_type(api, "list");
@@ -954,37 +963,38 @@ int main(int argc, char **argv) {
   api->resolve_type(api, "cons");
   api->resolve_type(api, "void");
 
-  ADD_METHOD("_size", 0, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD("_gc", 0, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD("_print", 0, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD("neg", b_integer_neg, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD("+", b_integer_add, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD("-", b_integer_sub, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD("*", b_integer_mul, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD("/", b_integer_div, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD("%", b_integer_rem, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD("is", b_integer_is, b_list_is, b_fixtext_is, b_text_is, b_view_is, b_cons_is, b_void_is);
-  ADD_METHOD("isnt", b_integer_isnt, b_list_isnt, b_fixtext_isnt, b_text_isnt, b_view_isnt, b_cons_isnt, b_void_isnt);
-  ADD_METHOD("<", b_integer_lt, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD(">", b_integer_gt, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD("<<", b_integer_lte, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD(">>", b_integer_gte, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD("mask", b_integer_mask, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD("ior", b_integer_ior, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD("xor", b_integer_xor, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD("shl", b_integer_shl, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD("shr", b_integer_shr, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD("x", b_integer_char, 0, 0, 0, 0, 0, 0);
-  ADD_METHOD("head", 0, b_list_head, 0, 0, b_view_head, b_cons_head, 0);
-  ADD_METHOD("tail", 0, b_list_tail, 0, 0, b_view_tail, b_cons_tail, 0);
-  ADD_METHOD("add", 0, b_list_add, 0, 0, b_view_add, b_cons_add, 0);
-  ADD_METHOD("end", 0, b_list_end, 0, 0, b_view_end, b_cons_end, b_void_end);
-  ADD_METHOD("size", 0, b_list_size, b_fixtext_size, b_text_size, b_view_size, 0, 0);
-  ADD_METHOD("{}", 0, b_list_get, b_fixtext_get, b_text_get, b_view_get, 0, b_void_get);
-  ADD_METHOD("{!}", 0, b_list_set, 0, 0, b_view_set, 0, 0);
-  ADD_METHOD("hash", b_integer_hash, 0, b_fixtext_hash, b_text_hash, 0, 0, 0);
-  ADD_METHOD("code", 0, 0, b_fixtext_code, 0, 0, 0, 0);
-  ADD_METHOD("char", b_integer_char, 0, 0, 0, 0, 0, 0);
+  METHOD_VAL("_size", 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("_gc", 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("_print", 0, 0, 0, 0, 0, 0, 0);
+  METHOD_VAL("_name", n_int, n_list, n_text, n_text, n_list, n_list, n_void);
+  METHOD_FN("neg", b_integer_neg, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("+", b_integer_add, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("-", b_integer_sub, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("*", b_integer_mul, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("/", b_integer_div, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("%", b_integer_rem, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("is", b_integer_is, b_list_is, b_fixtext_is, b_text_is, b_view_is, b_cons_is, b_void_is);
+  METHOD_FN("isnt", b_integer_isnt, b_list_isnt, b_fixtext_isnt, b_text_isnt, b_view_isnt, b_cons_isnt, b_void_isnt);
+  METHOD_FN("<", b_integer_lt, 0, 0, 0, 0, 0, 0);
+  METHOD_FN(">", b_integer_gt, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("<<", b_integer_lte, 0, 0, 0, 0, 0, 0);
+  METHOD_FN(">>", b_integer_gte, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("mask", b_integer_mask, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("ior", b_integer_ior, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("xor", b_integer_xor, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("shl", b_integer_shl, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("shr", b_integer_shr, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("x", b_integer_char, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("head", 0, b_list_head, 0, 0, b_view_head, b_cons_head, 0);
+  METHOD_FN("tail", 0, b_list_tail, 0, 0, b_view_tail, b_cons_tail, 0);
+  METHOD_FN("add", 0, b_list_add, 0, 0, b_view_add, b_cons_add, 0);
+  METHOD_FN("end", 0, b_list_end, 0, 0, b_view_end, b_cons_end, b_void_end);
+  METHOD_FN("size", 0, b_list_size, b_fixtext_size, b_text_size, b_view_size, 0, 0);
+  METHOD_FN("{}", 0, b_list_get, b_fixtext_get, b_text_get, b_view_get, 0, b_void_get);
+  METHOD_FN("{!}", 0, b_list_set, 0, 0, b_view_set, 0, 0);
+  METHOD_FN("hash", b_integer_hash, 0, b_fixtext_hash, b_text_hash, 0, 0, 0);
+  METHOD_FN("code", 0, 0, b_fixtext_code, 0, 0, 0, 0);
+  METHOD_FN("char", b_integer_char, 0, 0, 0, 0, 0, 0);
 
   lib = dlopen(module, RTLD_LAZY);
   if (!lib) fatal("dlopen couldnt load %s\n", module);
