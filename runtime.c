@@ -77,13 +77,6 @@ static void bad_call(REGS, void *method) {
   abort();
 }
 
-#define CAR(x) ((void**)getVal(x))[0]
-#define CDR(x) ((void**)getVal(x))[1]
-#define CONS(a, b) \
-  ALLOC_DATA(R, T_CONS, 2); \
-  DATA_REF(R,0) = a; \
-  DATA_REF(R,1) = b;
-
 static char *print_object_r(api_t *api, char *out, void *o);
 
 // FIXME: use heap instead
@@ -184,14 +177,6 @@ static char *text_to_cstring(void *o) {
   PROLOGUE; \
   void *A, *R; \
   BUILTIN_CHECK_VARARGS(0,0,sname);
-#define BUILTIN_HANDLER(sname,name,a_check,a) \
-  static void *b_##name(REGS) { \
-  PROLOGUE; \
-  void *A, *R, *a; \
-  BUILTIN_CHECK_VARARGS(1,sname,sname); \
-  a = getArg(0); \
-  a_check(a, 0, sname); \
-  ARG_STORE(E, 0, P);
 #define RETURNS(r) Top = Base; return (void*)(r); }
 #define RETURNS_VOID Top = Base; }
 
@@ -232,14 +217,6 @@ BUILTIN1("void end",void_end,C_ANY,o)
 RETURNS(FIXNUM(1))
 BUILTIN2("void get",void_get,C_ANY,o,C_ANY,key)
 RETURNS(Void)
-BUILTIN_HANDLER("void",void,C_TEXT,x)
-  if (texts_equal(x,s_is)) return b_void_is(REGS_ARGS(P));
-  else if (texts_equal(x,s_isnt)) return b_void_isnt(REGS_ARGS(P));
-  else if (texts_equal(x,s_end)) return b_void_end(REGS_ARGS(P));
-  else if (texts_equal(x,s_get)) return b_void_get(REGS_ARGS(P));
-  else bad_call(REGS_ARGS(P),x);
-RETURNS_VOID
-
 
 BUILTIN2("text is",text_is,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(IS_TEXT(b) ? texts_equal(a,b) : 0))
@@ -483,6 +460,13 @@ BUILTIN_VARARGS("integer _",integer)
   abort();
 RETURNS_VOID
 
+
+#define CAR(x) ((void**)getVal(x))[0]
+#define CDR(x) ((void**)getVal(x))[1]
+#define CONS(a, b) \
+  ALLOC_DATA(R, T_CONS, 2); \
+  DATA_REF(R,0) = a; \
+  DATA_REF(R,1) = b;
 BUILTIN1("cons head",cons_head,C_ANY,o)
 RETURNS(CAR(o))
 BUILTIN1("cons tail",cons_tail,C_ANY,o)
@@ -494,10 +478,9 @@ RETURNS(FIXNUM(a != b))
 BUILTIN1("cons end",cons_end,C_ANY,o)
 RETURNS(FIXNUM(0))
 BUILTIN2("cons add",cons_add,C_ANY,o,C_ANY,head)
-  A = head;
-  P = o;
-  CONS(A, P);
-RETURNS(R)
+  R = CONS(head, o);
+RETURN(R)
+RETURNS(0)
 
 BUILTIN1("tag_of",tag_of,C_ANY,o)
   ALLOC_BASIC(E, FIXNUM(-1), 1); // signal that we want tag
@@ -693,12 +676,13 @@ static char *print_object_r(api_t *api, char *out, void *o) {
   } else if (tag == T_FIXTEXT) {
     out += text_immediate_decode(out, o);
   } else if (tag == T_DATA) {
-    if (DATA_TAG(o) == T_TEXT) {
+    uintptr_t dtag = DATA_TAG(o);
+    if (dtag == T_TEXT) {
       int size = (int)TEXT_SIZE(o);
       char *p = TEXT_DATA(o);
       while (size-- > 0) *out++ = *p++;
       *out = 0;
-    } else if (DATA_TAG(o) == T_CONS) {
+    } else if (dtag == T_CONS) {
       out += sprintf(out, "(");
       for (;;) {
         out = print_object_r(api, out, CAR(o));
@@ -708,8 +692,7 @@ static char *print_object_r(api_t *api, char *out, void *o) {
       }
       out += sprintf(out, ")");
     } else {
-      fprintf(stderr, "FIXME: print T_DATA\n");
-      abort();
+      out += sprintf(out, "#(data %ld %p)", dtag, o);
     }
   } else {
     out += sprintf(out, "#(ufo %d %p)", tag, o);
@@ -769,6 +752,8 @@ static void *gc_arglist(api_t *api, void *gc_base, void *gc_end, void *o) {
   return p;
 }
 
+#define DATA_SIZE(o) ((uintptr_t)methods[0].types[DATA_TAG(o)])
+
 static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
   void *p, *q, *e;
   int i, j, size, tag = GET_TAG(o);
@@ -804,6 +789,7 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
     ALLOC_CLOSURE(dummy, FIXNUM(-2), 1); // signal that we want closure size
     CALL_NO_POP(fixed_size,o);
     size = UNFIXNUM(fixed_size);
+    Top = savedTop;
     ALLOC_CLOSURE(p, OBJECT_CODE(o), size);
     STORE(o, -2, p);
     for (i = 0; i < size; i++) {
@@ -837,8 +823,12 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
       CAR(p) = gc(api, gc_base, gc_end, CAR(o));
       CDR(p) = gc(api, gc_base, gc_end, CDR(o));
     } else {
-      fprintf(stderr, "FIXME: gc T_DATA\n");
-      abort();
+      size = DATA_SIZE(o);
+      ALLOC_DATA(p, OBJECT_CODE(o), size);
+      DATA_REF(o,-2) = p;
+      for (i = 0; i < size; i++) {
+        DATA_REF(p,i) = gc(api, gc_base, gc_end, DATA_REF(o,i));
+      }
     }
   } else {
     printf("cant gc #(ufo %d %p)\n", (int)GET_TAG(o), o);
@@ -894,14 +884,15 @@ static api_t *init_api(void *ptr) {
   return api;
 }
 
-#define ADD_METHOD(name, m_int, m_list, m_fixtext, m_text, m_view, m_cons) \
+#define ADD_METHOD(name, m_int, m_list, m_fixtext, m_text, m_view, m_cons, m_void) \
   multi = api->resolve_method(api, name); \
   if (m_int) {BUILTIN_CLOSURE(multi[T_INTEGER], m_int);}\
   if (m_list) {BUILTIN_CLOSURE(multi[T_LIST], m_list);} \
   if (m_fixtext) {BUILTIN_CLOSURE(multi[T_FIXTEXT], m_fixtext);} \
   if (m_text) {BUILTIN_CLOSURE(multi[T_TEXT], m_text);} \
   if (m_view) {BUILTIN_CLOSURE(multi[T_VIEW], m_view);} \
-  if (m_cons) {BUILTIN_CLOSURE(multi[T_CONS], m_cons);}
+  if (m_cons) {BUILTIN_CLOSURE(multi[T_CONS], m_cons);} \
+  if (m_void) {BUILTIN_CLOSURE(multi[T_VOID], m_void);}
 
 #define BUILTIN_CLOSURE(dst,code) { ALLOC_CLOSURE(dst, code, 0); }
 int main(int argc, char **argv) {
@@ -934,7 +925,7 @@ int main(int argc, char **argv) {
   api->level = 0;
   api->other->level = 1;
 
-  BUILTIN_CLOSURE(Void, b_void);
+  ALLOC_DATA(Void, T_VOID, 0);
   LIST_ALLOC(Empty, 0);
   BUILTIN_CLOSURE(Host, b_host);
   BUILTIN_CLOSURE(undefined, b_undefined);
@@ -961,35 +952,39 @@ int main(int argc, char **argv) {
   api->resolve_type(api, "_data_");
   api->resolve_type(api, "text");
   api->resolve_type(api, "cons");
+  api->resolve_type(api, "void");
 
-  ADD_METHOD("neg", b_integer_neg, 0, 0, 0, 0, 0);
-  ADD_METHOD("+", b_integer_add, 0, 0, 0, 0, 0);
-  ADD_METHOD("-", b_integer_sub, 0, 0, 0, 0, 0);
-  ADD_METHOD("*", b_integer_mul, 0, 0, 0, 0, 0);
-  ADD_METHOD("/", b_integer_div, 0, 0, 0, 0, 0);
-  ADD_METHOD("%", b_integer_rem, 0, 0, 0, 0, 0);
-  ADD_METHOD("is", b_integer_is, b_list_is, b_fixtext_is, b_text_is, b_view_is, b_cons_is);
-  ADD_METHOD("isnt", b_integer_isnt, b_list_isnt, b_fixtext_isnt, b_text_isnt, b_view_isnt, b_cons_isnt);
-  ADD_METHOD("<", b_integer_lt, 0, 0, 0, 0, 0);
-  ADD_METHOD(">", b_integer_gt, 0, 0, 0, 0, 0);
-  ADD_METHOD("<<", b_integer_lte, 0, 0, 0, 0, 0);
-  ADD_METHOD(">>", b_integer_gte, 0, 0, 0, 0, 0);
-  ADD_METHOD("mask", b_integer_mask, 0, 0, 0, 0, 0);
-  ADD_METHOD("ior", b_integer_ior, 0, 0, 0, 0, 0);
-  ADD_METHOD("xor", b_integer_xor, 0, 0, 0, 0, 0);
-  ADD_METHOD("shl", b_integer_shl, 0, 0, 0, 0, 0);
-  ADD_METHOD("shr", b_integer_shr, 0, 0, 0, 0, 0);
-  ADD_METHOD("x", b_integer_char, 0, 0, 0, 0, 0);
-  ADD_METHOD("head", 0, b_list_head, 0, 0, b_view_head, b_cons_head);
-  ADD_METHOD("tail", 0, b_list_tail, 0, 0, b_view_tail, b_cons_tail);
-  ADD_METHOD("add", 0, b_list_add, 0, 0, b_view_add, b_cons_add);
-  ADD_METHOD("end", 0, b_list_end, 0, 0, b_view_end, b_cons_end);
-  ADD_METHOD("size", 0, b_list_size, b_fixtext_size, b_text_size, b_view_size, 0);
-  ADD_METHOD("{}", 0, b_list_get, b_fixtext_get, b_text_get, b_view_get, 0);
-  ADD_METHOD("{!}", 0, b_list_set, 0, 0, b_view_set, 0);
-  ADD_METHOD("hash", b_integer_hash, 0, b_fixtext_hash, b_text_hash, 0, 0);
-  ADD_METHOD("code", 0, 0, b_fixtext_code, 0, 0, 0);
-  ADD_METHOD("char", b_integer_char, 0, 0, 0, 0, 0);
+  ADD_METHOD("_size", 0, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD("_gc", 0, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD("_print", 0, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD("neg", b_integer_neg, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD("+", b_integer_add, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD("-", b_integer_sub, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD("*", b_integer_mul, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD("/", b_integer_div, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD("%", b_integer_rem, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD("is", b_integer_is, b_list_is, b_fixtext_is, b_text_is, b_view_is, b_cons_is, b_void_is);
+  ADD_METHOD("isnt", b_integer_isnt, b_list_isnt, b_fixtext_isnt, b_text_isnt, b_view_isnt, b_cons_isnt, b_void_isnt);
+  ADD_METHOD("<", b_integer_lt, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD(">", b_integer_gt, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD("<<", b_integer_lte, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD(">>", b_integer_gte, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD("mask", b_integer_mask, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD("ior", b_integer_ior, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD("xor", b_integer_xor, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD("shl", b_integer_shl, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD("shr", b_integer_shr, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD("x", b_integer_char, 0, 0, 0, 0, 0, 0);
+  ADD_METHOD("head", 0, b_list_head, 0, 0, b_view_head, b_cons_head, 0);
+  ADD_METHOD("tail", 0, b_list_tail, 0, 0, b_view_tail, b_cons_tail, 0);
+  ADD_METHOD("add", 0, b_list_add, 0, 0, b_view_add, b_cons_add, 0);
+  ADD_METHOD("end", 0, b_list_end, 0, 0, b_view_end, b_cons_end, b_void_end);
+  ADD_METHOD("size", 0, b_list_size, b_fixtext_size, b_text_size, b_view_size, 0, 0);
+  ADD_METHOD("{}", 0, b_list_get, b_fixtext_get, b_text_get, b_view_get, 0, b_void_get);
+  ADD_METHOD("{!}", 0, b_list_set, 0, 0, b_view_set, 0, 0);
+  ADD_METHOD("hash", b_integer_hash, 0, b_fixtext_hash, b_text_hash, 0, 0, 0);
+  ADD_METHOD("code", 0, 0, b_fixtext_code, 0, 0, 0, 0);
+  ADD_METHOD("char", b_integer_char, 0, 0, 0, 0, 0, 0);
 
   lib = dlopen(module, RTLD_LAZY);
   if (!lib) fatal("dlopen couldnt load %s\n", module);
@@ -1008,7 +1003,7 @@ int main(int argc, char **argv) {
 
   for (i = 0; i < methods_used; i++) {
     for (j = 0; j < types_used; j++) {
-      if (methods[i].types[j]) continue;
+      if (methods[i].types[j] || i == 0) continue;
       methods[i].types[j] = undefined;
     }
   }

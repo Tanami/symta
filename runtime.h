@@ -25,6 +25,7 @@
 #define T_DATA    7
 #define T_TEXT    8
 #define T_CONS    9
+#define T_VOID    10
 
 #define T_INTEGER T_FIXNUM
 
