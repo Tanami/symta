@@ -220,11 +220,11 @@ typedef void *(*pfun)(REGS);
 
 #define CHECK_NARGS(expected,size,meta) \
   if (NARGS(E) != FIXNUM(expected)) { \
-    return api->handle_args(REGS_ARGS(P), FIXNUM(expected), FIXNUM(size), Void, meta); \
+    return api->handle_args(REGS_ARGS(P), E, FIXNUM(expected), FIXNUM(size), Void, meta); \
   }
 #define CHECK_VARARGS(size,meta) \
   if (NARGS(E) < FIXNUM(0)) { \
-    return api->handle_args(REGS_ARGS(P), FIXNUM(-1), FIXNUM(size), Void, meta); \
+    return api->handle_args(REGS_ARGS(P), E, FIXNUM(-1), FIXNUM(size), Void, meta); \
   }
 
 void *entry(REGS);

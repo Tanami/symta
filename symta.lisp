@@ -946,7 +946,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to expand-named name body
   ! (r end) = result-and-label name
   ! `("_let" ((,r 0))
-       ("_set" ,r ("_progn",@body))
+       ("_set" ,r ,body)
        ("_label" ,end)
        ,r))
 
@@ -1036,9 +1036,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("_fn" as body)
          (return-from builtin-expander
            `("_fn" ,as ,(builtin-expander body))))
-        (("_let" bs . xs) `("_call"
-                            ("_fn" ,(m b bs (first b)) ,`("_progn" ,@xs))
-                            ,@(m b bs (second b))))
+        (("_let" bs . xs)
+         (builtin-expander
+           `("_call"
+             ("_fn" ,(m b bs (first b)) ,`("_progn" ,@xs))
+             ,@(m b bs (second b)))))
         (("_set" place value)
          (return-from builtin-expander
            `("_set" ,place ,(if (fn-sym? value)
@@ -1081,7 +1083,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("and" a b) `("if" ,a ,b 0))
         (("or" a b) (let ((n (ssa-name "T")))
                       `("let" ((,n ,a)) ("if" ,n ,n ,b))))
-        (("named" name . body) (expand-named name body))
+        (("named" name . body) (expand-named name `("_progn" ,@body)))
         (("leave" name value) (expand-leave name value))
         (("!!" . as)
          (let* ((ys (copy-list as))
