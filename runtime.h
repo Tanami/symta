@@ -13,8 +13,6 @@
 #define DEL_TAG(src) ((void*)((uintptr_t)(src) & ~TAG_MASK))
 #define IMMEDIATE(x) (GET_TAG(x) == T_FIXNUM || GET_TAG(x) == T_FIXTEXT)
 
-#define SIGN_BIT ((uintptr_t)1<<(sizeof(uintptr_t)*8-1))
-
 #define T_FIXNUM  0
 #define T_CLOSURE 1
 #define T_LIST    2
@@ -80,6 +78,7 @@ typedef struct api_t {
   void (*fatal)(struct api_t *api, char *msg);
   void **(*resolve_method)(struct api_t *api, char *name);
   int (*resolve_type)(struct api_t *api, char *name);
+  void (*set_type_size_and_name)(struct api_t *api, intptr_t tag, intptr_t size, void *name);
 
   void *heap[HEAP_SIZE];
 } api_t;
@@ -110,6 +109,12 @@ typedef void *(*pfun)(REGS);
 #define ALLOC_DATA(dst,code,count) \
   ALLOC_BASIC(dst,(void*)(code),count); \
   dst = ADD_TAG(dst, T_DATA);
+
+#define DECLARE_TYPE(dst,name) \
+  dst = (void*)(intptr_t)api->resolve_type(api, (char*)(name));
+
+#define SET_TYPE_SIZE_AND_NAME(tag,size,name) \
+  api->set_type_size_and_name(api,tag,size,name);
 
 #define IS_LIST(o) (GET_TAG(o) == T_LIST)
 

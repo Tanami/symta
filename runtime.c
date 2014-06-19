@@ -22,8 +22,10 @@ static char *typenames[MAX_TYPES];
 
 #define DATA_SIZE(o) ((uintptr_t)methods[0].types[DATA_TAG(o)])
 
+static void *undefined;
+
 static void **resolve_method(api_t *api, char *name) {
-  int i;
+  int i, j;
   for (i = 0; i < methods_used; i++) {
     if (!strcmp(methods[i].name, name)) {
       return methods[i].types;
@@ -34,12 +36,15 @@ static void **resolve_method(api_t *api, char *name) {
     abort();
   }
   ++methods_used;
+
+  for (j = 0; j < types_used; j++) methods[i].types[j] = undefined;
+
   methods[i].name = strdup(name);
   return methods[i].types;
 }
 
 static int resolve_type(api_t *api, char *name) {
-  int i;
+  int i, j;
   for (i = 0; i < types_used; i++)
     if (!strcmp(typenames[i], name))
       return i;
@@ -49,7 +54,15 @@ static int resolve_type(api_t *api, char *name) {
   }
   ++types_used;
   typenames[i] = strdup(name);
+
+  for (j = 0; j < methods_used; j++) methods[j].types[i] = undefined;
+
   return i;
+}
+
+static void set_type_size_and_name(struct api_t *api, intptr_t tag, intptr_t size, void *name) {
+  methods[0].types[tag] = (void*)size;
+  methods[1].types[tag] = name;
 }
 
 static void fatal(char *fmt, ...) {
@@ -481,7 +494,7 @@ BUILTIN1("tag_of",tag_of,C_ANY,o)
   if (tag == T_DATA) {
     tag = DATA_TAG(o);
   }
-  R = methods[3].types[tag];
+  R = methods[1].types[tag];
   RETURN(R);
 RETURNS(R)
 
@@ -872,7 +885,7 @@ static api_t *init_api(void *ptr) {
   api->fatal = fatal_error;
   api->resolve_method = resolve_method;
   api->resolve_type = resolve_type;
-  
+  api->set_type_size_and_name = set_type_size_and_name;
   return api;
 }
 
@@ -904,7 +917,6 @@ int main(int argc, char **argv) {
   pfun entry, setup;
   api_t *api;
   void *R;
-  void *undefined;
   void **multi;
   void *n_int, *n_list, *n_text, *n_void; // typenames
 
@@ -928,10 +940,10 @@ int main(int argc, char **argv) {
   api->level = 0;
   api->other->level = 1;
 
+  BUILTIN_CLOSURE(undefined, b_undefined);
   ALLOC_DATA(Void, T_VOID, 0);
   LIST_ALLOC(Empty, 0);
   BUILTIN_CLOSURE(Host, b_host);
-  BUILTIN_CLOSURE(undefined, b_undefined);
 
   api->other->void_ = api->void_;
   api->other->empty_ = api->empty_;
@@ -950,7 +962,7 @@ int main(int argc, char **argv) {
   TEXT(n_text, "text");
   TEXT(n_void, "void");
 
-  api->resolve_type(api, "integer");
+  api->resolve_type(api, "int");
   api->resolve_type(api, "closure");
   api->resolve_type(api, "list");
   api->resolve_type(api, "float");
@@ -963,9 +975,9 @@ int main(int argc, char **argv) {
   api->resolve_type(api, "void");
 
   METHOD_VAL("_size", 0, 0, 0, 0, 0, 0, 0);
+  METHOD_VAL("_name", n_int, n_list, n_text, n_text, n_list, n_list, n_void);
   METHOD_FN("_gc", 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("_print", 0, 0, 0, 0, 0, 0, 0);
-  METHOD_VAL("_name", n_int, n_list, n_text, n_text, n_list, n_list, n_void);
   METHOD_FN("neg", b_integer_neg, 0, 0, 0, 0, 0, 0);
   METHOD_FN("+", b_integer_add, 0, 0, 0, 0, 0, 0);
   METHOD_FN("-", b_integer_sub, 0, 0, 0, 0, 0, 0);
@@ -1009,13 +1021,6 @@ int main(int argc, char **argv) {
   ARGLIST(E,0);
   R = setup(REGS_ARGS(P)); // init module's statics
   HEAP_FLIP();
-
-  for (i = 0; i < methods_used; i++) {
-    for (j = 0; j < types_used; j++) {
-      if (methods[i].types[j] || i == 0) continue;
-      methods[i].types[j] = undefined;
-    }
-  }
 
   Base = Top;
   HEAP_FLIP();

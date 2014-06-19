@@ -659,6 +659,34 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
             ! ssa 'arg_store l (incf i) r)
   ! ssa 'add_tag k l 'T_LIST)
 
+(to ssa-data k type xs
+  ! size = length xs
+  ! bytes-name = ssa-name "b"
+  ! ssa 'bytes bytes-name (cstring (second type))
+  ! type-var = ssa-name "t"
+  ! ssa 'global type-var
+  ! (! *ssa-out* = nil
+     ! ssa 'type type-var bytes-name bytes-name size
+     ! setf *ssa-raw-inits* (append *ssa-out* *ssa-raw-inits*))
+  ! ssa 'data k type-var size
+  ! tmp = ssa-var "v"
+  ! i = -1
+  ! e x xs (! ssa-expr tmp x
+            ! ssa 'dset k (incf i) tmp))
+
+(to ssa-dget k src off
+  ! unless (integerp off) (error "dget: offset must be integer")
+  ! s = ssa-var "s"
+  ! ssa-expr s src
+  ! ssa 'dget k s off)
+
+(to ssa-dset k dst off value
+  ! unless (integerp off) (error "dset: offset must be integer")
+  ! d = ssa-var "d"
+  ! ssa-expr d dst
+  ! ssa-expr k value
+  ! ssa 'dset d off k)
+
 (to ssa-form k xs
   ! match xs
     (("_fn" as body) (ssa-fn (ssa-name "n") k as body xs))
@@ -668,6 +696,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_progn" . xs) (ssa-progn k xs))
     (("_label" name) (ssa 'local_label name))
     (("_goto" name) (ssa 'jmp name))
+    (("_data" type . xs) (ssa-data k type xs))
+    (("_dget" src index) (ssa-dget k src index))
+    (("_dset" dst index value) (ssa-dset k dst index value))
     (("_list" . xs) (ssa-list k xs))
     #|(("_add" a b) (ssa-fixed k 'fixed_add a b))
     (("_sub" a b) (ssa-fixed k 'fixed_sub a b))
@@ -770,10 +801,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''add_tag dst src tag) (to-c-emit "  ~a = ADD_TAG(~a,~a);" dst src tag))
          ((''local_closure place size) (to-c-emit "  LOCAL_CLOSURE(~a, ~a);" place size))
          ((''closure place name size)
-          (progn
-            (push (format nil "#define ~a_size ~a" name size) decls)
-            (to-c-emit "  ALLOC_CLOSURE(~a, ~a, ~a);" place name size)
+          (push (format nil "#define ~a_size ~a" name size) decls)
+          (to-c-emit "  ALLOC_CLOSURE(~a, ~a, ~a);" place name size))
+         ((''data place type size) (to-c-emit "  ALLOC_DATA(~a, ~a, ~a);" place type size))
+         ((''type place name tagname size)
+          (let ((tname (ssa-name "n")))
+            (to-c-emit "  DECLARE_TYPE(~a, ~a);" place name)
+            (to-c-emit "  VAR(~a);" tname)
+            (to-c-emit "  TEXT(~a, ~a);" tname tagname)
+            (to-c-emit "  SET_TYPE_SIZE_AND_NAME((intptr_t)~a, ~a, ~a);" place size tname)
             ))
+         ((''dget dst src off) (to-c-emit "  ~a = DATA_REF(~a, ~a);" dst src off))
+         ((''dset dst off src) (to-c-emit "  DATA_REF(~a, ~a) = ~a;" dst off src))
          ((''arg_load dst src off) (to-c-emit "  ARG_LOAD(~a, ~a, ~a);" dst src off))
          ((''arg_store dst off src) (to-c-emit "  ARG_STORE(~a, ~a, ~a);" dst off src))
          ((''load dst src off) (to-c-emit "  LOAD(~a, ~a, ~a);" dst src off))
@@ -787,10 +826,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (push (format nil "static uint8_t ~a[] = {~{~a~^,~}};" name values) decls))
          ((''text name bytes-name) (to-c-emit "  TEXT(~a, ~a);" name bytes-name))
          ((''fatal msg) (to-c-emit "  api->fatal(api, ~a);" msg))
-         ((''list dst xs)
-          (let ((name (ssa-name "s")))
-            (to-c-emit "  MOVE(~a, ~a);" dst name))
-          (abort))
          ((''check_nargs expected size meta)
           (to-c-emit "  CHECK_NARGS(~a, ~a, ~a);" expected size (or meta "Empty")))
          ((''check_varargs size meta) (to-c-emit "  CHECK_VARARGS(~a, ~a);" size (or meta "Empty")))
