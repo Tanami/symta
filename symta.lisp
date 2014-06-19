@@ -672,7 +672,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! tmp = ssa-var "v"
   ! i = -1
   ! e x xs (! ssa-expr tmp x
-            ! ssa 'dset k (incf i) tmp))
+            ! ssa 'dinit k (incf i) tmp))
 
 (to ssa-dget k src off
   ! unless (integerp off) (error "dget: offset must be integer")
@@ -687,6 +687,22 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa-expr k value
   ! ssa 'dset d off k)
 
+(to ssa-dmet k method-name type-name handler
+  ! method-name-bytes = ssa-name "mb"
+  ! ssa 'bytes method-name-bytes (cstring (second method-name))
+  ! method-var = ssa-name "m"
+  ! ssa 'global method-var
+  ! push `(resolve_method ,method-var ,method-name-bytes) *ssa-raw-inits*
+  ! type-name-bytes = ssa-name "tb"
+  ! ssa 'bytes type-name-bytes (cstring (second type-name))
+  ! type-var = ssa-name "t"
+  ! ssa 'global type-var
+  ! push `(resolve_type ,type-var ,type-name-bytes) *ssa-raw-inits*
+  ! h = ssa-var "h"
+  ! ssa-expr h handler
+  ! ssa 'dmet method-var type-var h
+  ! ssa 'move k 0)
+
 (to ssa-form k xs
   ! match xs
     (("_fn" as body) (ssa-fn (ssa-name "n") k as body xs))
@@ -699,6 +715,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_data" type . xs) (ssa-data k type xs))
     (("_dget" src index) (ssa-dget k src index))
     (("_dset" dst index value) (ssa-dset k dst index value))
+    (("_dmet" method type handler) (ssa-dmet k method type handler))
     (("_list" . xs) (ssa-list k xs))
     #|(("_add" a b) (ssa-fixed k 'fixed_add a b))
     (("_sub" a b) (ssa-fixed k 'fixed_sub a b))
@@ -806,13 +823,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''data place type size) (to-c-emit "  ALLOC_DATA(~a, ~a, ~a);" place type size))
          ((''type place name tagname size)
           (let ((tname (ssa-name "n")))
-            (to-c-emit "  DECLARE_TYPE(~a, ~a);" place name)
+            (to-c-emit "  RESOLVE_TYPE(~a, ~a);" place name)
             (to-c-emit "  VAR(~a);" tname)
             (to-c-emit "  TEXT(~a, ~a);" tname tagname)
-            (to-c-emit "  SET_TYPE_SIZE_AND_NAME((intptr_t)~a, ~a, ~a);" place size tname)
-            ))
+            (to-c-emit "  SET_TYPE_SIZE_AND_NAME((intptr_t)~a, ~a, ~a);" place size tname)))
          ((''dget dst src off) (to-c-emit "  ~a = DATA_REF(~a, ~a);" dst src off))
-         ((''dset dst off src) (to-c-emit "  DATA_REF(~a, ~a) = ~a;" dst off src))
+         ((''dset dst off src) (to-c-emit "  DATA_SET(~a, ~a, ~a);" dst off src))
+         ((''dinit dst off src) (to-c-emit "  DATA_REF(~a, ~a) = ~a;" dst off src))
+         ((''resolve_type place name) (to-c-emit "  RESOLVE_TYPE(~a, ~a);" place name))
+         ((''resolve_method place name) (to-c-emit "  RESOLVE_METHOD(~a, ~a);" place name))
+         ((''dmet method type handler) (to-c-emit "  DATA_METHOD(~a, ~a, ~a);" method type handler))
          ((''arg_load dst src off) (to-c-emit "  ARG_LOAD(~a, ~a, ~a);" dst src off))
          ((''arg_store dst off src) (to-c-emit "  ARG_STORE(~a, ~a, ~a);" dst off src))
          ((''load dst src off) (to-c-emit "  LOAD(~a, ~a, ~a);" dst src off))
@@ -821,7 +841,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''move dst src) (to-c-emit "  MOVE(~a, ~a);" dst src))
          ((''list_flip dst src) (to-c-emit "  ~a = LIST_FLIP(~a);" dst src))
          ((''fixnum dst str) (to-c-emit "  LOAD_FIXNUM(~a, ~s);" dst str))
-         ((''resolve_method dst name) (to-c-emit "  RESOLVE_METHOD(~a, ~a);" dst name))
          ((''bytes name values)
           (push (format nil "static uint8_t ~a[] = {~{~a~^,~}};" name values) decls))
          ((''text name bytes-name) (to-c-emit "  TEXT(~a, ~a);" name bytes-name))
@@ -1048,23 +1067,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                       `("_set" ,(first x) ,(second x))
                       (second x)))))
 
-(to normalize-ampersand x ! match x (("&" y) y) (else x))
-
-(to normalize-symbol s
-  ! unless (stringp s) (return-from normalize-symbol s)
-  ! if (var-sym? s) s `("_quote" ,s))
-
 (to normalize-matryoshka o
   ! match o ((x) (if (fn-sym? x)
                      o
                      (normalize-matryoshka x)))
             (x x))
 
-(defun builtin-expander (xs)
+(defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
   (let ((xs (normalize-matryoshka xs))
         (ys nil))
-    (when (atom xs) (return-from builtin-expander xs))
+    (when (atom xs)
+      (return-from builtin-expander
+        (if (and (fn-sym? xs) (not head))
+            `("_quote" ,xs)
+            xs)))
     (setf ys
       (match xs
         (("if" a b c) `("_if" ,a ,b ,c))
@@ -1072,15 +1089,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          (return-from builtin-expander
            `("_fn" ,as ,(builtin-expander body))))
         (("_let" bs . xs)
-         (builtin-expander
-           `("_call"
-             ("_fn" ,(m b bs (first b)) ,`("_progn" ,@xs))
-             ,@(m b bs (second b)))))
+         `("_call"
+           ("_fn" ,(m b bs (first b)) ,`("_progn" ,@xs))
+           ,@(m b bs (second b))))
         (("_set" place value)
          (return-from builtin-expander
            `("_set" ,place ,(if (fn-sym? value)
                                 `("_quote" ,value)
                                 (builtin-expander value)))))
+        (("_label" name) (return-from builtin-expander xs))
+        (("_goto" name) (return-from builtin-expander xs))
+        (("_quote" x) (return-from builtin-expander xs))
         (("fn" as . body) `("_fn" ,as ("|" ,@body)))
         (("=>" as body) `("_fn" ,as ,body))
         (("when" a body) `("_if" ,a ,body :void))
@@ -1112,9 +1131,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("is" a b) `(,a "is" ,b))
         (("isnt" a b) `(,a  "isnt" ,b))
         (("&" o) (return-from builtin-expander
-                   (if (fn-sym? o)
-                       `("&" ,o)
-                       `(,(builtin-expander o)))))
+                   (if (fn-sym? o) o `(,(builtin-expander o)))))
         (("and" a b) `("if" ,a ,b 0))
         (("or" a b) (let ((n (ssa-name "T")))
                       `("let" ((,n ,a)) ("if" ,n ,n ,b))))
@@ -1129,18 +1146,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                (error "!!: no ! in ~a" as))
            `("_set" ,v ,ys)))
         (("match" keyform . cases) (expand-match keyform cases :empty))
-    (else (return-from builtin-expander
-            (let ((ys (m x xs (builtin-expander x))))
-              (if (and (consp ys)
-                       (or (equal (car ys) "_quote")
-                           (equal (car ys) "_fn")
-                           (equal (car ys) "_let")
-                           (equal (car ys) "_label")
-                           (equal (car ys) "_goto")
-                           ))
-                  ys
-                  (m x (cons (car ys) (m y (cdr ys) (normalize-symbol y)))
-                     (normalize-ampersand x))))))))
+        (else (return-from builtin-expander
+                (cons (builtin-expander (car xs) t)
+                      (m x (cdr xs) (builtin-expander x)))))))
     (builtin-expander ys)))
 
 (to symta-eval text
@@ -1161,8 +1169,3 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to symta filename
   ! text = load-text-file filename
   ! symta-eval text)
-
-
-
-
-

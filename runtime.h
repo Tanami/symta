@@ -79,6 +79,7 @@ typedef struct api_t {
   void **(*resolve_method)(struct api_t *api, char *name);
   int (*resolve_type)(struct api_t *api, char *name);
   void (*set_type_size_and_name)(struct api_t *api, intptr_t tag, intptr_t size, void *name);
+  void (*set_method)(struct api_t *api, void *method, void *type, void *handler);
 
   void *heap[HEAP_SIZE];
 } api_t;
@@ -110,11 +111,11 @@ typedef void *(*pfun)(REGS);
   ALLOC_BASIC(dst,(void*)(code),count); \
   dst = ADD_TAG(dst, T_DATA);
 
-#define DECLARE_TYPE(dst,name) \
+#define RESOLVE_TYPE(dst,name) \
   dst = (void*)(intptr_t)api->resolve_type(api, (char*)(name));
-
-#define SET_TYPE_SIZE_AND_NAME(tag,size,name) \
-  api->set_type_size_and_name(api,tag,size,name);
+#define RESOLVE_METHOD(dst,name) dst = api->resolve_method(api, name);
+#define SET_TYPE_SIZE_AND_NAME(tag,size,name) api->set_type_size_and_name(api,tag,size,name);
+#define DATA_METHOD(method,type,handler) api->set_method(api,method,type,handler);
 
 #define IS_LIST(o) (GET_TAG(o) == T_LIST)
 
@@ -130,7 +131,6 @@ typedef void *(*pfun)(REGS);
 #define END_CODE }
 #define LOAD_FIXNUM(dst,x) dst = (void*)((uintptr_t)(x)<<TAG_BITS)
 #define TEXT(dst,x) dst = api->alloc_text(api,(char*)(x))
-#define RESOLVE_METHOD(dst,name) dst = api->resolve_method(api, name);
 #define DECL_LABEL(name) static void *name(REGS);
 #define ARGLIST(dst,size) ALLOC_BASIC(dst,FIXNUM(size),size)
 #define LIST_ALLOC(dst,size) \
@@ -215,6 +215,7 @@ typedef void *(*pfun)(REGS);
 #define DATA_REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-T_DATA)
 #define DATA_REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-T_DATA)
 #define DATA_REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-T_DATA)
+#define DATA_SET(dst,dst_off,src) LIFT(&DATA_REF(dst,0),dst_off,src)
 #define LIST_REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-T_LIST)
 #define ARG_LOAD(dst,src,src_off) dst = *((void**)(src)+(src_off))
 #define ARG_STORE(dst,dst_off,src) *((void**)(dst)+(dst_off)) = (void*)(src)

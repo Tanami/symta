@@ -12,7 +12,7 @@ static api_t apis[2]; // one for each heap
 
 typedef struct {
   char *name;
-  void *types[MAX_TYPES];
+  void **types;
 } method_t;
 
 static int methods_used;
@@ -58,6 +58,10 @@ static int resolve_type(api_t *api, char *name) {
   for (j = 0; j < methods_used; j++) methods[j].types[i] = undefined;
 
   return i;
+}
+
+static void set_method(api_t *api, void *method, void *type, void *handler) {
+  LIFT(method,(uintptr_t)(type),handler);
 }
 
 static void set_type_size_and_name(struct api_t *api, intptr_t tag, intptr_t size, void *name) {
@@ -874,6 +878,7 @@ static void fatal_error(api_t *api, char *msg) {
   abort();
 }
 
+
 static api_t *init_api(void *ptr) {
   int i;
   api_t *api = (api_t*)ptr;
@@ -886,6 +891,8 @@ static api_t *init_api(void *ptr) {
   api->resolve_method = resolve_method;
   api->resolve_type = resolve_type;
   api->set_type_size_and_name = set_type_size_and_name;
+  api->set_method = set_method;
+
   return api;
 }
 
@@ -948,6 +955,12 @@ int main(int argc, char **argv) {
   api->other->void_ = api->void_;
   api->other->empty_ = api->empty_;
   api->other->host_ = api->host_;
+
+  for (i = 0; i < MAX_METHODS; i++) {
+    ALLOC_BASIC(methods[i].types, 0, MAX_TYPES);
+  }
+
+  //[MAX_TYPES]
 
   for (i = 0; ; i++) {
     void *t;
