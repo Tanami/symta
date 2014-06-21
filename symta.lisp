@@ -1011,26 +1011,45 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to pattern-arg x ! not (stringp x))
 
+(to expand-block-item-data name fields
+  ! gs = m f fields (ssa-name "A")
+  ! d = ssa-name "D"
+  ! i = -1
+  ! j = -1
+  ! `(("=" (,name ,@gs) ("_data" ,name ,@gs))
+      ,@(m f fields `("=" (("." ,name ,d) ,f) ("_dget" ,d ,(incf j))))))
+
+(to expand-block-item-fn name args value
+  ! kname = concatenate 'string "_k_" name
+  ! default = match args
+               ((("&" default) . tail)
+                (setf args tail)
+                default)
+               (else :empty)
+  ! when (find-if #'pattern-arg args)
+      (! gs = m a args (ssa-name "A")
+       ;; FIXME: value gets duplicated - potentially exponential code growth
+       ! e g gs (setf value (expand-match g `((,(pop args) ,value)) default))
+       ! setf args gs)
+  ! setf value (expand-named name value)
+  ! list name `("_fn" ,args ,value))
+
 (to expand-block-item x
-  ! match x
+  ! y = match x
+     (("data" name . fields)
+      (return-from expand-block-item
+        (apply #'concatenate 'list
+               (m x (expand-block-item-data name fields)
+                  (expand-block-item x)))))
      (("=" ("!!" ("!" name)) value) `(nil ("_set" ,name ,value)))
+     (("=" (("." type var) method . args) value)
+      (list nil `("_dmet" ,method ,type ("_fn" (,var ,@args) ,value))))
      (("=" (name . args) value)
       (if (var-sym? name)
           (list name value) ;; FIXME: check that args are empty
-          (let ((kname (concatenate 'string "_k_" name))
-                (default (match args
-                           ((("&" default) . tail)
-                            (setf args tail)
-                            default)
-                           (else :empty))))
-            (when (find-if #'pattern-arg args)
-              (let ((gs (m a args (ssa-name "A"))))
-                ;; FIXME: value gets duplicated - potentially exponential code growth
-                (e g gs (setf value (expand-match g `((,(pop args) ,value)) default)))
-                (setf args gs)))
-            (setf value (expand-named name value))
-            (list name `("_fn" ,args ,value)))))
-     (else (list nil x)))
+          (expand-block-item-fn name args value)))
+     (else (list nil x))
+  ! list y)
 
 (to make-multimethod xs
   ! when (match xs ((("=>" as expr)) (or (not as) (var-sym? (first as)))))
@@ -1062,6 +1081,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! when ms (push (make-multimethod (reverse ms)) ys)
   ! xs = reverse ys
   ! xs = m x xs (expand-block-item x)
+  ! xs = apply #'concatenate 'list xs
   ! `("let" ,(m x (remove-if-not #'car xs) `(,(first x) :void))
         ,@(m x xs (if (first x)
                       `("_set" ,(first x) ,(second x))
