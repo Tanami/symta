@@ -188,12 +188,14 @@ typedef void *(*pfun)(REGS);
     if (tag == T_CLOSURE) { \
       k = OBJECT_CODE(o)(REGS_ARGS(o)); \
     } else { \
+      void *p; \
       ARG_LOAD(api->method, Top, 2); \
       ARG_STORE(Top, 2, o); \
       if (tag == T_DATA) { \
         tag = DATA_TAG(o); \
       } \
-      k = OBJECT_CODE(((void**)(m))[tag])(REGS_ARGS(o)); \
+      p = ((void**)(m))[tag]; \
+      k = OBJECT_CODE(p)(REGS_ARGS(p)); \
     } \
   }
 #define CALL_TAGGED(k,o,m) CALL_TAGGED_NO_POP(k,o,m); POP_BASE();

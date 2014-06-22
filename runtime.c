@@ -69,6 +69,14 @@ static void set_type_size_and_name(struct api_t *api, intptr_t tag, intptr_t siz
   methods[1].types[tag] = name;
 }
 
+static void *tag_of(void *o) {
+  uintptr_t tag = GET_TAG(o);
+  if (tag == T_DATA) {
+    tag = DATA_TAG(o);
+  }
+  return methods[1].types[tag];
+}
+
 static void fatal(char *fmt, ...) {
    va_list ap;
    va_start(ap,fmt);
@@ -494,13 +502,9 @@ RETURN(R)
 RETURNS(0)
 
 BUILTIN1("tag_of",tag_of,C_ANY,o)
-  uintptr_t tag = GET_TAG(o);
-  if (tag == T_DATA) {
-    tag = DATA_TAG(o);
-  }
-  R = methods[1].types[tag];
+  R = tag_of(o);
   RETURN(R);
-RETURNS(R)
+RETURNS(0)
 
 BUILTIN0("halt",halt)
   printf("halted.\n");
@@ -620,7 +624,8 @@ BUILTIN1("_no_method",_no_method,C_TEXT,name)
 RETURNS(Void)
 
 BUILTIN_VARARGS("undefined",undefined)
-  fprintf(stderr, "undefined method `%s`\n", print_object(api->method));
+  fprintf(stderr, "`%s` has no method ", print_object(tag_of(getArg(0))));
+  fprintf(stderr, "`%s`\n", print_object(api->method));
   bad_call(REGS_ARGS(P), api->method);
   abort();
 RETURNS(0)
