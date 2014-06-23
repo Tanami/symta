@@ -203,9 +203,9 @@ typedef void *(*pfun)(REGS);
   if (GET_TAG(o) == T_CLOSURE) { \
     k = OBJECT_CODE(o)(REGS_ARGS(o)); \
   } else { \
-    api->fatal("FIXME: resolve method at runtime\n"); \
+    api->fatal(api, "FIXME: resolve method at runtime\n"); \
   }
-#define CALL_TAGGED_DYNAMIC(k,o) CALL_TAGGED_DYNAMIC_NO_POP(k,o,f); POP_BASE();
+#define CALL_TAGGED_DYNAMIC(k,o) CALL_TAGGED_DYNAMIC_NO_POP(k,o); POP_BASE();
 
 //FIXME: refactor these
 #define VIEW_REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-T_VIEW)
