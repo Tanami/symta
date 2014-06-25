@@ -98,7 +98,13 @@ static int resolve_type(api_t *api, char *name) {
 }
 
 static void set_method(api_t *api, void *method, void *type, void *handler) {
+  uintptr_t id = (uintptr_t)(type);
   LIFT(method,(uintptr_t)(type),handler);
+  if (id == T_LIST) {
+    LIFT(method,(uintptr_t)(T_VIEW),handler);
+  } else if (id == T_TEXT) {
+    LIFT(method,(uintptr_t)(T_FIXTEXT),handler);
+  }
 }
 
 static void set_type_size_and_name(struct api_t *api, intptr_t tag, intptr_t size, void *name) {
@@ -1103,7 +1109,7 @@ int main(int argc, char **argv) {
   METHOD_FN("xor", b_integer_xor, 0, 0, 0, 0, 0, 0);
   METHOD_FN("shl", b_integer_shl, 0, 0, 0, 0, 0, 0);
   METHOD_FN("shr", b_integer_shr, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("x", b_integer_char, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("x", b_integer_x, 0, 0, 0, 0, 0, 0);
   METHOD_FN("head", 0, b_list_head, 0, 0, b_view_head, b_cons_head, 0);
   METHOD_FN("tail", 0, b_list_tail, 0, 0, b_view_tail, b_cons_tail, 0);
   METHOD_FN("add", 0, b_list_add, 0, 0, b_view_add, b_cons_add, 0);

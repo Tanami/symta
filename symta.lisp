@@ -374,7 +374,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to get-meta object ! gethash object *compiler-meta-info*)
 
-(defun ssa-name (name) (symbol-name (gensym name)))
+(to ssa-name name ! symbol-name (gensym name))
 
 (to ssa name &rest args ! push `(,name ,@args) *ssa-out*)
 
@@ -811,13 +811,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (defparameter *pool-size* 64)
 
-(defun ssa-to-c (xs)
-  (let ((*compiled* nil)
-        (statics nil)
-        (decls nil)
-        (imports (make-hash-table :test 'equal)))
-    (to-c-emit "BEGIN_CODE")
-    (e x xs
+(to ssa-to-c xs
+  ! *compiled* = nil
+  ! statics = nil
+  ! decls = nil
+  ! imports = make-hash-table :test 'equal
+  ! to-c-emit "BEGIN_CODE"
+  ! e x xs
        (match x
          ((''entry label-name) (to-c-emit "ENTRY(~a)" label-name))
          ((''var name) (to-c-emit "  VAR(~a);" name))
@@ -896,9 +896,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''fixed_sub dst a b) (to-c-emit "  ~a = FIXNUM_SUB(~a, ~a);" dst a b))
          ((''fixed_lt dst a b) (to-c-emit "  ~a = FIXNUM_LT(~a, ~a);" dst a b))
          ((''fixed_gt dst a b) (to-c-emit "  ~a = FIXNUM_GT(~a, ~a);" dst a b))
-         (else (error "invalid ssa: ~a" x))))
-    (to-c-emit "END_CODE")
-    (format nil '"~{~a~%~}" (reverse (append *compiled* decls)))))
+         (else (error "invalid ssa: ~a" x))
+         )
+  ! to-c-emit "END_CODE"
+  ! format nil '"~{~a~%~}" (reverse (append *compiled* decls)))
 
 (to ssa-produce-file file src
   ! ssa = produce-ssa "entry" src
@@ -1112,6 +1113,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to expand-export xs ! `("_list" ,(m x xs `("_list" ("_quote" ,x) ("&" ,x)))))
 
+
+(to expand-while head body
+  ! l = ssa-name "l"
+  ! `("_progn" ("_label" ,l)
+               ("_if" ,head
+                      ("_progn" ,@body ("_goto" ,l))
+                      ())))
+
+
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
   (let ((xs (normalize-matryoshka xs))
@@ -1143,6 +1153,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("=>" as body) `("_fn" ,as ,body))
         (("when" a body) `("_if" ,a ,body :void))
         (("unless" a body) `("_if" ,a :void ,body))
+        (("while" head . body) (expand-while head body))
         (("let" bs . body) `("_let" ,bs ,@body))
         (("|" . xs) (expand-block xs))
         (("[]" . as) `("_list" ,@as))
@@ -1197,12 +1208,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       (e l (split #\Newline result) (format t "~a~%" l)))
 
 (to add-imports expr deps
+  ! unless deps (return-from add-imports expr)
   ! `(("_fn" ,(m d deps (second d)) ,expr)
       ,@(m d deps `("_import" ("_quote" ,(first d))
                               ("_quote" ,(second d))))))
 
 (to symta-compile-expr dst expr
-  ! uses = nil
+  ! uses = list "core"
   ! expr = match expr
              (("|" ("use" . us) . xs)
               (setf uses `(,@uses ,@us))
