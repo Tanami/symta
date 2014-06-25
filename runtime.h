@@ -46,7 +46,6 @@
 
 #define HEAP_DEPTH 1024
 #define HEAP_SIZE (32*1024*1024)
-#define MAX_LIST_SIZE (HEAP_SIZE/2)
 #define BASE_HEAD_SIZE 2
 #define OBJ_HEAD_SIZE 2
 
@@ -64,13 +63,12 @@ typedef struct api_t {
   // constants
   void *void_;
   void *empty_;
-  void *host_;
+  void *resolve_;
 
   void *method;
 
-  //void *Goto; // nonlocal goto token (TODO)
-
   // runtime's C API
+  void (*bad_type)(REGS, char *expected, int arg_index, char *name);
   void* (*handle_args)(REGS, void *E, intptr_t expected, intptr_t size, void *tag, void *meta);
   char* (*print_object_f)(struct api_t *api, void *object);
   void *(*gc)(struct api_t *api, void *base, void *end, void *root);
@@ -80,6 +78,8 @@ typedef struct api_t {
   int (*resolve_type)(struct api_t *api, char *name);
   void (*set_type_size_and_name)(struct api_t *api, intptr_t tag, intptr_t size, void *name);
   void (*set_method)(struct api_t *api, void *method, void *type, void *handler);
+  void *(*find_export)(struct api_t *api, void *name, void *exports);
+  void *(*load_lib)(struct api_t *api, char *name);
 
   void *heap[HEAP_SIZE];
 } api_t;
@@ -88,7 +88,7 @@ typedef void *(*pfun)(REGS);
 
 #define Void api->void_
 #define Empty api->empty_
-#define Host api->host_
+#define Resolve api->resolve_
 #define Top api->top
 #define Base api->base
 #define Level api->level

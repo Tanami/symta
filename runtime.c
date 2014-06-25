@@ -3,10 +3,49 @@
 
 #include "runtime.h"
 
+#define VIEW(dst,base,start,size) \
+  ALLOC_BASIC(dst, base, 1); \
+  dst = ADD_TAG(dst, T_VIEW); \
+  VIEW_REF4(dst,0) = (uint32_t)(start); \
+  VIEW_REF4(dst,1) = (uint32_t)(size);
+#define VIEW_START(o) VIEW_REF4(o,0)
+#define VIEW_SIZE(o) VIEW_REF4(o,1)
+#define VIEW_REF(o,start,i) *((void**)VIEW_GET(o,-1) + start + (i))
+
+#define LIST_SIZE(o) OBJECT_CODE(o)
+
+#define IS_TEXT(o) (GET_TAG(o) == T_DATA && DATA_TAG(o) == T_TEXT)
+#define TEXT_SIZE(o) UNFIXNUM(DATA_REF4(o,0))
+#define TEXT_DATA(o) ((char*)&DATA_REF1(o,4))
+
+#define DATA_SIZE(o) ((uintptr_t)methods[0].types[DATA_TAG(o)])
+
+#define C_ANY(o,arg_index,meta)
+
+#define C_FIXNUM(o,arg_index,meta) \
+  if (GET_TAG(o) != T_FIXNUM) \
+    api->bad_type(REGS_ARGS(P), "integer", arg_index, meta)
+
+#define C_TEXT(o,arg_index,meta) \
+  if (GET_TAG(o) != T_FIXTEXT && !IS_TEXT(o)) \
+    api->bad_type(REGS_ARGS(P), "text", arg_index, meta)
+
+#define C_LIST(o,arg_index,meta) \
+  if (GET_TAG(o) != T_LIST) \
+    api->bad_type(REGS_ARGS(P), "cons", arg_index, meta)
+
+#define C_CONS(o,arg_index,meta) \
+  if (GET_TAG(o) != T_DATA || DATA_TAG(o) != T_CONS) \
+    api->bad_type(REGS_ARGS(P), "cons", arg_index, meta)
+
+
+#define BUILTIN_CLOSURE(dst,code) { ALLOC_CLOSURE(dst, code, 0); }
 #define getVal(x) ((uintptr_t)(x)&~TAG_MASK)
 
 #define MAX_TYPES (1024)
 #define MAX_METHODS (8*1024)
+
+static char *lib_path;
 
 static api_t apis[2]; // one for each heap
 
@@ -19,8 +58,6 @@ static int methods_used;
 static method_t methods[MAX_METHODS];
 static int types_used;
 static char *typenames[MAX_TYPES];
-
-#define DATA_SIZE(o) ((uintptr_t)methods[0].types[DATA_TAG(o)])
 
 static void *undefined;
 
@@ -113,32 +150,17 @@ char* print_object_f(api_t *api, void *object) {
   return print_buffer;
 }
 
-static char *text_to_cstring(void *o) {
-  int i;
-  int l = UNFIXNUM(*(uint32_t*)o);
-  char *p = (char*)o + 4;
-  char *out = print_buffer;
-  for (i = 0; i < l; i++) *out++ = *p++;
-  *out = 0;
-  return print_buffer;
+
+#define MOD_ADLER 65521
+uint32_t hash(uint8_t *data, int len) {
+  uint32_t a = 1, b = 0;
+  int index;
+  for (index = 0; index < len; ++index) {
+    a = (a + data[index]) % MOD_ADLER;
+    b = (b + a) % MOD_ADLER;
+  } 
+  return (b << 16) | a;
 }
-
-
-#define IS_TEXT(o) (GET_TAG(o) == T_DATA && DATA_TAG(o) == T_TEXT)
-
-#define C_ANY(o,arg_index,meta)
-
-#define C_FIXNUM(o,arg_index,meta) \
-  if (GET_TAG(o) != T_FIXNUM) \
-    bad_type(REGS_ARGS(P), "integer", arg_index, meta)
-
-#define C_TEXT(o,arg_index,meta) \
-  if (GET_TAG(o) != T_FIXTEXT && !IS_TEXT(o)) \
-    bad_type(REGS_ARGS(P), "text", arg_index, meta)
-
-#define C_CONS(o,arg_index,meta) \
-  if (GET_TAG(o) != T_DATA || DATA_TAG(o) != T_CONS) \
-    bad_type(REGS_ARGS(P), "cons", arg_index, meta)
 
 #define BUILTIN_CHECK_NARGS(expected,tag,name) \
   if (NARGS(E) != FIXNUM(expected)) { \
@@ -207,26 +229,12 @@ static char *text_to_cstring(void *o) {
 #define RETURNS(r) Top = Base; return (void*)(r); }
 #define RETURNS_VOID Top = Base; }
 
-#define TEXT_SIZE(o) UNFIXNUM(DATA_REF4(o,0))
-#define TEXT_DATA(o) ((char*)&DATA_REF1(o,4))
-
 static int texts_equal(void *a, void *b) {
   intptr_t al, bl;
   if (GET_TAG(a) == T_FIXTEXT || GET_TAG(b) == T_FIXTEXT) return a == b;
   al = TEXT_SIZE(a);
   bl = TEXT_SIZE(b);
   return al == bl && !memcmp(TEXT_DATA(a), TEXT_DATA(b), UNFIXNUM(al));
-}
-
-#define MOD_ADLER 65521
-uint32_t hash(uint8_t *data, int len) {
-  uint32_t a = 1, b = 0;
-  int index;
-  for (index = 0; index < len; ++index) {
-    a = (a + data[index]) % MOD_ADLER;
-    b = (b + a) % MOD_ADLER;
-  } 
-  return (b << 16) | a;
 }
 
 BUILTIN2("void is",void_is,C_ANY,a,C_ANY,b)
@@ -273,7 +281,6 @@ BUILTIN1("text size",fixtext_size,C_ANY,o)
     l++;
   }
 RETURNS(FIXNUM(l))
-#define GET_CHAR()
 BUILTIN2("text {}",fixtext_get,C_ANY,o,C_FIXNUM,index)
   char t[20];
   uint64_t c;
@@ -297,16 +304,6 @@ BUILTIN_VARARGS("text _",fixtext)
   fprintf(stderr, "FIXME: fixtext _\n");
   abort();
 RETURNS_VOID
-
-
-#define VIEW(dst,base,start,size) \
-  ALLOC_BASIC(dst, base, 1); \
-  dst = ADD_TAG(dst, T_VIEW); \
-  VIEW_REF4(dst,0) = (uint32_t)(start); \
-  VIEW_REF4(dst,1) = (uint32_t)(size);
-#define VIEW_START(o) VIEW_REF4(o,0)
-#define VIEW_SIZE(o) VIEW_REF4(o,1)
-#define VIEW_REF(o,start,i) *((void**)VIEW_GET(o,-1) + start + (i))
 
 BUILTIN2("view is",view_is,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a == b))
@@ -364,14 +361,14 @@ RETURN(R)
 RETURNS(0)
 
 BUILTIN2("list is",list_is,C_ANY,a,C_ANY,b)
-  intptr_t size = UNFIXNUM(OBJECT_CODE(a));
+  intptr_t size = UNFIXNUM(LIST_SIZE(a));
 RETURNS(FIXNUM(a == b))
 BUILTIN2("list isnt",list_isnt,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a != b))
 BUILTIN1("list size",list_size,C_ANY,o)
-RETURNS(OBJECT_CODE(o))
+RETURNS(LIST_SIZE(o))
 BUILTIN2("list {}",list_get,C_ANY,o,C_FIXNUM,index)
-  if ((uintptr_t)OBJECT_CODE(o) <= (uintptr_t)index) {
+  if ((uintptr_t)LIST_SIZE(o) <= (uintptr_t)index) {
     printf("index out of bounds\n");
     TEXT(P, "{}");
     bad_call(REGS_ARGS(P),P);
@@ -380,7 +377,7 @@ RETURNS(LIST_REF(o, UNFIXNUM(index)))
 BUILTIN3("list {!}",list_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   void **p;
   intptr_t i;
-  if ((uintptr_t)OBJECT_CODE(o) <= (uintptr_t)index) {
+  if ((uintptr_t)LIST_SIZE(o) <= (uintptr_t)index) {
     printf("list {!}: index out of bounds\n");
     TEXT(P, "{!}");
     bad_call(REGS_ARGS(P),P);
@@ -391,11 +388,11 @@ BUILTIN3("list {!}",list_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
 RETURN(R)
 RETURNS(Void)
 BUILTIN1("list end",list_end,C_ANY,o)
-RETURNS(FIXNUM(OBJECT_CODE(o) == 0))
+RETURNS(FIXNUM(LIST_SIZE(o) == 0))
 BUILTIN1("list head",list_head,C_ANY,o)
 RETURNS(LIST_REF(o,0))
 BUILTIN1("list tail",list_tail,C_ANY,o)
-  intptr_t size = UNFIXNUM(OBJECT_CODE(o));
+  intptr_t size = UNFIXNUM(LIST_SIZE(o));
   if (size == 1) R = Empty;
   else {
     VIEW(R, &LIST_REF(o,0), 1, FIXNUM(size-1));
@@ -404,7 +401,7 @@ RETURN(R)
 RETURNS(0)
 BUILTIN2("list add",list_add,C_ANY,o,C_ANY,x)
   void **p, **q;
-  intptr_t s = UNFIXNUM(OBJECT_CODE(o));
+  intptr_t s = UNFIXNUM(LIST_SIZE(o));
   A = x;
   LIST_ALLOC(R, s+1);
   p = &LIST_REF(R,0);
@@ -599,6 +596,16 @@ static char *read_whole_file_as_string(char *input_file_name) {
   return file_contents;
 }
 
+static char *text_to_cstring(void *o) {
+  int i;
+  int l = UNFIXNUM(*(uint32_t*)o);
+  char *p = (char*)o + 4;
+  char *out = print_buffer;
+  for (i = 0; i < l; i++) *out++ = *p++;
+  *out = 0;
+  return print_buffer;
+}
+
 BUILTIN1("read_file_as_text",read_file_as_text,C_TEXT,filename_text)
   char *filename = text_to_cstring(filename_text);
   char *contents = read_whole_file_as_string(filename);
@@ -645,19 +652,6 @@ static struct {
   {0, 0}
 };
 
-BUILTIN1("host",host,C_TEXT,name)
-  int i;
-  for (i = 0; ; i++) {
-    if (!builtins[i].name) {
-      fatal("host doesn't provide `%s`\n", print_object(name));
-    }
-    if (texts_equal(builtins[i].name, name)) {
-      R = builtins[i].fun;
-      break;
-    }
-  }
-RETURNS(R)
-
 static char *print_object_r(api_t *api, char *out, void *o) {
   int i;
   int tag = GET_TAG(o);
@@ -674,7 +668,7 @@ static char *print_object_r(api_t *api, char *out, void *o) {
     // FIXME: this relies on the fact that shift preserves sign
     out += sprintf(out, "%ld", (intptr_t)o>>TAG_BITS);
   } else if (tag == T_LIST) {
-    int size = (int)UNFIXNUM(OBJECT_CODE(o));
+    int size = (int)UNFIXNUM(LIST_SIZE(o));
     out += sprintf(out, "(");
     for (i = 0; i < size; i++) {
       if (i) out += sprintf(out, " ");
@@ -810,7 +804,7 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
       STORE(p, i, gc_arglist(api, gc_base, gc_end, CLOSURE_REF(o,i)));
     }
   } else if (GET_TAG(o) == T_LIST) {
-    size = (int)UNFIXNUM(OBJECT_CODE(o));
+    size = (int)UNFIXNUM(LIST_SIZE(o));
     LIST_ALLOC(p, size);
     LIST_REF(o,-2) = p;
     for (i = 0; i < size; i++) {
@@ -884,10 +878,94 @@ static void fatal_error(api_t *api, char *msg) {
 }
 
 
+
+static void *find_export(struct api_t *api, void *name, void *exports) {
+  intptr_t i;
+  int nexports = UNFIXNUM(LIST_SIZE(exports));
+
+  for (i = 0; i < nexports; i++) {
+    void *pair = LIST_REF(exports,i);
+    if (GET_TAG(pair) != T_LIST || LIST_SIZE(pair) != (void*)FIXNUM(2)) {
+      fatal("bad export: %s", print_object(pair));
+    }
+    void *export_name = LIST_REF(pair,0);
+    if (GET_TAG(export_name) != T_FIXTEXT && !IS_TEXT(export_name)) {
+      fatal("bad export: %s", print_object(pair));
+    }
+    if (texts_equal(name, export_name)) {
+      return LIST_REF(pair,1);
+    }
+  }
+
+  fatal("Couldn't resolve `%s`\n", print_object(name));
+}
+
+static void *exec_module(struct api_t *api, void *path) {
+  void *lib;
+  pfun entry, setup;
+  void *R, *P=0, *E=0;
+
+  lib = dlopen(path, RTLD_LAZY);
+  if (!lib) fatal("dlopen couldnt load %s\n", path);
+
+  entry = (pfun)dlsym(lib, "entry");
+  if (!entry) fatal("dlsym couldnt find symbol `entry` in %s\n", path);
+
+  setup = (pfun)dlsym(lib, "setup");
+  if (!setup) fatal("dlsym couldnt find symbol `setup` in %s\n", path);
+
+  //Base = Top;
+  HEAP_FLIP();
+  ARGLIST(E,0);
+  R = setup(REGS_ARGS(P)); // init module's statics
+  HEAP_FLIP();
+
+  //Base = Top;
+  HEAP_FLIP();
+  ARGLIST(E,0);
+  R = entry(REGS_ARGS(P)); 
+  HEAP_FLIP();
+
+  return R;
+}
+
+
+#define MAX_LIBS 1024
+
+typedef struct {
+  char *name;
+  void *exports;
+} lib_t;
+
+static int libs_used;
+static lib_t libs[MAX_LIBS];
+
+static void *load_lib(struct api_t *api, char *name) {
+  int i;
+  char path[1024];
+
+  for (i = 0; i < libs_used; i++) {
+    if (strcmp(libs[i].name, name)) continue;
+    return libs[i].exports;
+  }
+
+  if (libs_used == MAX_LIBS) {
+    fprintf(stderr, "module table overflow\n");
+    abort();
+  }
+
+  sprintf(path, "%s/%s", lib_path, name);
+  libs[libs_used].name = name;
+  libs[libs_used].exports = exec_module(api, path);
+
+  return libs[libs_used++].exports;
+}
+
 static api_t *init_api(void *ptr) {
   int i;
   api_t *api = (api_t*)ptr;
 
+  api->bad_type = bad_type;
   api->handle_args = handle_args;
   api->print_object_f = print_object_f;
   api->gc = gc_entry;
@@ -897,6 +975,8 @@ static api_t *init_api(void *ptr) {
   api->resolve_type = resolve_type;
   api->set_type_size_and_name = set_type_size_and_name;
   api->set_method = set_method;
+  api->find_export = find_export;
+  api->load_lib = load_lib;
 
   return api;
 }
@@ -921,7 +1001,6 @@ static api_t *init_api(void *ptr) {
   multi[T_CONS] = m_cons; \
   multi[T_VOID] = m_void;
 
-#define BUILTIN_CLOSURE(dst,code) { ALLOC_CLOSURE(dst, code, 0); }
 int main(int argc, char **argv) {
   int i, j;
   char *module;
@@ -931,16 +1010,18 @@ int main(int argc, char **argv) {
   void *R;
   void **multi;
   void *n_int, *n_list, *n_text, *n_void; // typenames
+  void *core;
 
   void *E = 0; // current environment
   void *P = 0; // parent environment
 
-  if (argc != 2) {
-    printf("usage: %s <start_module>\n", argv[0]);
+  if (argc != 3) {
+    printf("usage: %s <lib_path> <start_module>\n", argv[0]);
     abort();
   }
 
-  module = argv[1];
+  lib_path = argv[1];
+  module = argv[2];
 
   api = init_api(apis);
   api->other = init_api(apis+1);
@@ -955,24 +1036,33 @@ int main(int argc, char **argv) {
   BUILTIN_CLOSURE(undefined, b_undefined);
   ALLOC_DATA(Void, T_VOID, 0);
   LIST_ALLOC(Empty, 0);
-  BUILTIN_CLOSURE(Host, b_host);
 
   api->other->void_ = api->void_;
   api->other->empty_ = api->empty_;
-  api->other->host_ = api->host_;
 
-  for (i = 0; i < MAX_METHODS; i++) {
-    ALLOC_BASIC(methods[i].types, 0, MAX_TYPES);
-  }
-
-  //[MAX_TYPES]
-
-  for (i = 0; ; i++) {
+  for (i = 0; builtins[i].name; i++) {
     void *t;
-    if (!builtins[i].name) break;
     TEXT(builtins[i].name, builtins[i].name);
     BUILTIN_CLOSURE(t, builtins[i].fun);
     builtins[i].fun = t;
+  }
+
+  LIST_ALLOC(core, i);
+  for (i = 0; builtins[i].name; i++) {
+    void *pair;
+    LIST_ALLOC(pair, 2);
+    LIST_REF(pair,0) = builtins[i].name;
+    LIST_REF(pair,1) = builtins[i].fun;
+    LIST_REF(core,i) = pair;
+  }
+
+  libs[libs_used].name = "core";
+  libs[libs_used].exports = core;
+  ++libs_used;
+
+  for (i = 0; i < MAX_METHODS; i++) {
+    //FIXME: flip api->other here to balance allocation
+    ALLOC_BASIC(methods[i].types, 0, MAX_TYPES);
   }
 
   TEXT(n_int, "int");
@@ -1025,26 +1115,7 @@ int main(int argc, char **argv) {
   METHOD_FN("code", 0, 0, b_fixtext_code, 0, 0, 0, 0);
   METHOD_FN("char", b_integer_char, 0, 0, 0, 0, 0, 0);
 
-  lib = dlopen(module, RTLD_LAZY);
-  if (!lib) fatal("dlopen couldnt load %s\n", module);
-
-  entry = (pfun)dlsym(lib, "entry");
-  if (!entry) fatal("dlsym couldnt find symbol `entry` in %s\n", module);
-
-  setup = (pfun)dlsym(lib, "setup");
-  if (!setup) fatal("dlsym couldnt find symbol `setup` in %s\n", module);
-
-  Base = Top;
-  HEAP_FLIP();
-  ARGLIST(E,0);
-  R = setup(REGS_ARGS(P)); // init module's statics
-  HEAP_FLIP();
-
-  Base = Top;
-  HEAP_FLIP();
-  ARGLIST(E,0);
-  R = entry(REGS_ARGS(P)); 
-  HEAP_FLIP();
+  R = exec_module(api, module);
 
   printf("%s\n", print_object(R));
 

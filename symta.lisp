@@ -350,6 +350,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to /read-toplevel input
   ! r = first (/strip (/parse (/tokenize (new-input input))))
   ! match r ((_ s) s) (r r))
+
+(to /normalize expr ! match expr (("|" . as) expr)
+                                 (x `("|" ,x)))
+
 (to /read xs ! /read-toplevel xs)
 
 
@@ -423,11 +427,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to cstring s ! `(,@(m c (coerce s 'list) (char-code c)) 0))
 
+(to ssa-cstring src
+  ! name = ssa-name "b"
+  ! ssa 'bytes name (cstring src)
+  ! name)
+
+(to ssa-global name
+  ! var-name = ssa-name name
+  ! ssa 'global var-name
+  ! var-name)
+
 (to ssa-text k s
-  ! bytes-name = ssa-name "b"
-  ! ssa 'bytes bytes-name (cstring s)
-  ! name = ssa-name "s"
-  ! ssa 'global name
+  ! bytes-name = ssa-cstring s
+  ! name = ssa-global "s"
   ! push `(text ,name ,bytes-name) *ssa-raw-inits*
   ! ssa 'move k name)
 
@@ -566,11 +578,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! method-name = and (> nargs 0)
                       (match as ((("_quote" x . renamed) . xs) (and (stringp x) x)))
   ! unless method-name (return-from ssa-apply (ssa 'call_tagged_dynamic k h))
-  ! bytes-name = ssa-name "mb"
-  ! ssa 'bytes bytes-name (cstring method-name)
-  ! m = ssa-name "m"
-  ! ssa 'global m
-  ! push `(resolve_method ,m ,bytes-name) *ssa-raw-inits*
+  ! method-name-bytes = ssa-cstring method-name
+  ! m = ssa-global "m"
+  ! push `(resolve_method ,m ,method-name-bytes) *ssa-raw-inits*
   ! ssa 'call_tagged k h m)
 
 (to ssa-set k place value
@@ -661,10 +671,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-data k type xs
   ! size = length xs
-  ! bytes-name = ssa-name "b"
-  ! ssa 'bytes bytes-name (cstring (second type))
-  ! type-var = ssa-name "t"
-  ! ssa 'global type-var
+  ! bytes-name = ssa-cstring (second type)
+  ! type-var = ssa-global "t"
   ! (! *ssa-out* = nil
      ! ssa 'type type-var bytes-name bytes-name size
      ! setf *ssa-raw-inits* (append *ssa-out* *ssa-raw-inits*))
@@ -688,20 +696,23 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'dset d off k)
 
 (to ssa-dmet k method-name type-name handler
-  ! method-name-bytes = ssa-name "mb"
-  ! ssa 'bytes method-name-bytes (cstring (second method-name))
-  ! method-var = ssa-name "m"
-  ! ssa 'global method-var
+  ! method-name-bytes = ssa-cstring (second method-name)
+  ! method-var = ssa-global "m"
   ! push `(resolve_method ,method-var ,method-name-bytes) *ssa-raw-inits*
-  ! type-name-bytes = ssa-name "tb"
-  ! ssa 'bytes type-name-bytes (cstring (second type-name))
-  ! type-var = ssa-name "t"
-  ! ssa 'global type-var
+  ! type-name-bytes = ssa-cstring (second type-name)
+  ! type-var = ssa-global "t"
   ! push `(resolve_type ,type-var ,type-name-bytes) *ssa-raw-inits*
   ! h = ssa-var "h"
   ! ssa-expr h handler
   ! ssa 'dmet method-var type-var h
   ! ssa 'move k 0)
+
+(to ssa-import k lib symbol
+  ! lib = second lib
+  ! symbol = second symbol
+  ! g = ssa-global "i"
+  ! push `(import ,g ,lib ,symbol ,(ssa-cstring lib) ,(ssa-cstring symbol)) *ssa-raw-inits*
+  ! ssa 'move k g)
 
 (to ssa-form k xs
   ! match xs
@@ -717,6 +728,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_dset" dst index value) (ssa-dset k dst index value))
     (("_dmet" method type handler) (ssa-dmet k method type handler))
     (("_list" . xs) (ssa-list k xs))
+    (("_import" lib symbol) (ssa-import k lib symbol))
     #|(("_add" a b) (ssa-fixed k 'fixed_add a b))
     (("_sub" a b) (ssa-fixed k 'fixed_sub a b))
     (("_lt" a b) (ssa-fixed k 'fixed_lt a b))
@@ -729,16 +741,34 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! cond
     ((integerp x) (ssa 'fixnum k x))
     ((stringp x) (ssa-symbol k x nil))
-    ((eql x :host) (ssa 'move k "Host"))
     ((eql x :void) (ssa 'move k "Void"))
     ((eql x :empty) (ssa 'move k "Empty"))
     (t (error "unexpected ~a" x)))
 
 (to ssa-expr k x ! if (listp x) (ssa-form k x) (ssa-atom k x))
 
-(to host-deps expr deps ! `("_fn" ("host")
-                                  (("_fn" ,deps ,expr)
-                                   ,@(m d deps `("host" ("_quote" ,d))))))
+
+(to shell command &rest args
+  ! s = (make-string-output-stream)
+  ! sb-ext:run-program command args :output s :search t :wait t
+  ! get-output-stream-string s)
+
+(to c-runtime-compiler dst src ! shell "gcc" "-O1" "-g" #|"-DNDEBUG"|# "-o" dst src)
+(to c-compiler dst src ! shell "gcc" "-O1" "-g" #|"-DNDEBUG"|# "-fpic" "-shared" "-o" dst src)
+
+(defparameter *root-folder* "/Users/nikita/Documents/prj/symta/libs/symta/")
+
+(defparameter *exports-cache* (make-hash-table :test 'equal))
+
+;; FIXME: do caching
+(to get-lib-exports lib-name
+  ! lib-folder = "{*root-folder*}lib/"
+  ! lib-file = "{lib-folder}{lib-name}.s"
+  ! text = load-text-file lib-file
+  ! expr = /normalize (/read text)
+  ! match (first (last expr))
+     (("export" . xs) xs)
+     (_ nil))
 
 (to produce-ssa entry expr
   ! *ssa-out* = nil
@@ -746,7 +776,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! *ssa-inits* = nil
   ! *ssa-raw-inits* = nil
   ! *ssa-closure* = nil
-  ! expr = `(,expr :host)
   ! ssa 'entry entry
   ! r = ssa-name "result"
   ! ssa 'var r
@@ -776,9 +805,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! nreverse rs)
 
 
-;;(test-ssa '("list" 1 2 3 4 5))
-
-
 (defparameter *compiled* nil)
 
 (to to-c-emit &rest args ! (push (apply #'format nil args) *compiled*))
@@ -788,7 +814,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (defun ssa-to-c (xs)
   (let ((*compiled* nil)
         (statics nil)
-        (decls nil))
+        (decls nil)
+        (imports (make-hash-table :test 'equal)))
     (to-c-emit "BEGIN_CODE")
     (e x xs
        (match x
@@ -833,6 +860,23 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''resolve_type place name) (to-c-emit "  RESOLVE_TYPE(~a, ~a);" place name))
          ((''resolve_method place name) (to-c-emit "  RESOLVE_METHOD(~a, ~a);" place name))
          ((''dmet method type handler) (to-c-emit "  DATA_METHOD(~a, ~a, ~a);" method type handler))
+         ((''import dst lib symbol lib-cstr symbol-cstr)
+          (let* ((key (concatenate 'string lib "::" symbol))
+                 (import (gethash key imports))
+                 (lib-exports (gethash lib imports)))
+            (if import
+                (to-c-emit "  MOVE(~a, ~a);" dst import)
+                (progn
+                  (unless lib-exports
+                    (setf lib-exports (ssa-name "n"))
+                    (to-c-emit "  void *~a = api->load_lib(api,(char*)(~a));" lib-exports lib-cstr)
+                    (setf (gethash lib imports) lib-exports))
+                  (let ((symbol-text (ssa-name "s")))
+                    (to-c-emit "  VAR(~a);" symbol-text)
+                    (to-c-emit "  TEXT(~a, ~a);" symbol-text symbol-cstr)
+                    (to-c-emit "  ~a = api->find_export(api, ~a, ~a);" dst symbol-text lib-exports))
+                  (setf (gethash key imports) dst)
+                  ))))
          ((''arg_load dst src off) (to-c-emit "  ARG_LOAD(~a, ~a, ~a);" dst src off))
          ((''arg_store dst off src) (to-c-emit "  ARG_STORE(~a, ~a, ~a);" dst off src))
          ((''load dst src off) (to-c-emit "  LOAD(~a, ~a, ~a);" dst src off))
@@ -862,34 +906,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! header = "#include \"../runtime.h\""
   ! save-text-file file (format nil "~a~%~%~a" header text))
 
-(defparameter *native-files-folder* "/Users/nikita/Documents/prj/symta/libs/symta/native/")
 
-(to shell command &rest args
-  ! s = (make-string-output-stream)
-  ! sb-ext:run-program command args :output s :search t :wait t
-  ! get-output-stream-string s)
-
-(to c-runtime-compiler dst src ! shell "gcc" "-O1" "-g" #|"-DNDEBUG"|# "-o" dst src)
-(to c-compiler dst src ! shell "gcc" "-O1" "-g" #|"-DNDEBUG"|# "-fpic" "-shared" "-o" dst src)
-
-(to compile-runtime main-file
-  ! src-file = "{*native-files-folder*}../runtime.c"
-  ! result = c-runtime-compiler main-file src-file
-  ! when (string/= result "")
-      (e l (split #\Newline result) (format t "~a~%" l)))
-
-(to test-ssa src
-  ! main-file = "{*native-files-folder*}/runtime"
-  ! compile-runtime main-file
-  ! c-file = "{*native-files-folder*}test.c"
-  ! exe-file = "{c-file}.bin"
-  ! ssa-produce-file c-file src
-  ! result = c-compiler exe-file c-file
-  ! when (string/= result "")
-     (e l (split #\Newline result) (format t "~a~%" l))
-  ! result = shell main-file exe-file
-  ! e l (butlast (split #\Newline result)) (format t "~a~%" l)
-  )
 
 (defun var-sym? (s) (and (stringp s) (string/= s "") (upper-case-p (aref s 0))))
 (defun fn-sym? (s) (and (stringp s) (not (var-sym? s))))
@@ -1171,18 +1188,46 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                       (m x (cdr xs) (builtin-expander x)))))))
     (builtin-expander ys)))
 
+
+(to compile-runtime src-file dst-file
+  ! result = c-runtime-compiler dst-file src-file
+  ! when (string/= result "")
+      (e l (split #\Newline result) (format t "~a~%" l)))
+
+(to test-ssa src
+  ! native-folder = "{*root-folder*}native/"
+  ! runtime-src = "{*root-folder*}runtime.c"
+  ! runtime-path = "{native-folder}runtime"
+  ! lib-path = "{native-folder}lib/"
+  ! compile-runtime runtime-src runtime-path
+  ! c-file = "{native-folder}test.c"
+  ! exe-file = "{c-file}.bin"
+  ! ssa-produce-file c-file src
+  ! result = c-compiler exe-file c-file
+  ! when (string/= result "")
+     (e l (split #\Newline result) (format t "~a~%" l))
+  ! result = shell runtime-path lib-path exe-file
+  ! e l (butlast (split #\Newline result)) (format t "~a~%" l)
+  )
+
+(to add-imports expr deps
+  ! `(("_fn" ,(m d deps (second d)) ,expr)
+      ,@(m d deps `("_import" ("_quote" ,(first d))
+                              ("_quote" ,(second d))))))
+
 (to symta-eval text
   ! (/init-tokenizer)
-  ! expr = /read text
-  ! deps = list "tag_of"
-                "halt"
-                "log"
-                "_apply"
-                "_no_method"
-                "read_file_as_text"
-  ! normalized-expr = match expr (("|" . as) expr)
-                                  (x `("|" ,x))
-  ! expr-with-deps = host-deps normalized-expr deps
+  ! expr = /normalize (/read text)
+  ! uses = nil
+  ! expr = match expr
+             (("|" ("use" . us) . xs)
+              (setf uses `(,@uses ,@us))
+              `("|" ,@xs))
+             (else expr)
+  ! imports = apply #'concatenate 'list (m u uses
+                                           (m e (get-lib-exports u)
+                                              (list u e)))
+  ! expr-with-deps = add-imports expr imports
   ! expanded-expr = builtin-expander expr-with-deps
   ! test-ssa expanded-expr)
 
