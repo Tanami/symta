@@ -753,10 +753,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! sb-ext:run-program command args :output s :search t :wait t
   ! get-output-stream-string s)
 
-(to c-runtime-compiler dst src ! shell "gcc" "-O1" "-g" #|"-DNDEBUG"|# "-o" dst src)
-(to c-compiler dst src ! shell "gcc" "-O1" "-g" #|"-DNDEBUG"|# "-fpic" "-shared" "-o" dst src)
-
 (defparameter *root-folder* "/Users/nikita/Documents/prj/symta/libs/symta/")
+
+(to c-runtime-compiler dst src ! shell "gcc" "-O1" "-I" *root-folder* "-g" #|"-DNDEBUG"|# "-o" dst src)
+(to c-compiler dst src ! shell "gcc" "-O1" "-I" *root-folder* "-g" #|"-DNDEBUG"|# "-fpic" "-shared" "-o" dst src)
 
 (defparameter *exports-cache* (make-hash-table :test 'equal))
 
@@ -886,7 +886,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''list_flip dst src) (to-c-emit "  ~a = LIST_FLIP(~a);" dst src))
          ((''fixnum dst str) (to-c-emit "  LOAD_FIXNUM(~a, ~s);" dst str))
          ((''bytes name values)
-          (push (format nil "static uint8_t ~a[] = {~{~a~^,~}};" name values) decls))
+          (push (format nil '"static uint8_t ~a[] = {~{~a~^,~}};" name values) decls))
          ((''text name bytes-name) (to-c-emit "  TEXT(~a, ~a);" name bytes-name))
          ((''fatal msg) (to-c-emit "  api->fatal(api, ~a);" msg))
          ((''check_nargs expected size meta)
@@ -898,12 +898,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''fixed_gt dst a b) (to-c-emit "  ~a = FIXNUM_GT(~a, ~a);" dst a b))
          (else (error "invalid ssa: ~a" x))))
     (to-c-emit "END_CODE")
-    (format nil "~{~a~%~}" (reverse (append *compiled* decls)))))
+    (format nil '"~{~a~%~}" (reverse (append *compiled* decls)))))
 
 (to ssa-produce-file file src
   ! ssa = produce-ssa "entry" src
   ! text = ssa-to-c ssa
-  ! header = "#include \"../runtime.h\""
+  ! header = "#include \"runtime.h\""
   ! save-text-file file (format nil "~a~%~%~a" header text))
 
 
@@ -1110,6 +1110,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                      (normalize-matryoshka x)))
             (x x))
 
+(to expand-export xs ! `("_list" ,(m x xs `("_list" ("_quote" ,x) ("&" ,x)))))
+
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
   (let ((xs (normalize-matryoshka xs))
@@ -1183,41 +1185,23 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                (error "!!: no ! in ~a" as))
            `("_set" ,v ,ys)))
         (("match" keyform . cases) (expand-match keyform cases :empty))
+        (("export" . xs) (expand-export xs))
         (else (return-from builtin-expander
                 (cons (builtin-expander (car xs) t)
                       (m x (cdr xs) (builtin-expander x)))))))
     (builtin-expander ys)))
-
 
 (to compile-runtime src-file dst-file
   ! result = c-runtime-compiler dst-file src-file
   ! when (string/= result "")
       (e l (split #\Newline result) (format t "~a~%" l)))
 
-(to test-ssa src
-  ! native-folder = "{*root-folder*}native/"
-  ! runtime-src = "{*root-folder*}runtime.c"
-  ! runtime-path = "{native-folder}runtime"
-  ! lib-path = "{native-folder}lib/"
-  ! compile-runtime runtime-src runtime-path
-  ! c-file = "{native-folder}test.c"
-  ! exe-file = "{c-file}.bin"
-  ! ssa-produce-file c-file src
-  ! result = c-compiler exe-file c-file
-  ! when (string/= result "")
-     (e l (split #\Newline result) (format t "~a~%" l))
-  ! result = shell runtime-path lib-path exe-file
-  ! e l (butlast (split #\Newline result)) (format t "~a~%" l)
-  )
-
 (to add-imports expr deps
   ! `(("_fn" ,(m d deps (second d)) ,expr)
       ,@(m d deps `("_import" ("_quote" ,(first d))
                               ("_quote" ,(second d))))))
 
-(to symta-eval text
-  ! (/init-tokenizer)
-  ! expr = /normalize (/read text)
+(to symta-compile-expr dst expr
   ! uses = nil
   ! expr = match expr
              (("|" ("use" . us) . xs)
@@ -1229,8 +1213,35 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                                               (list u e)))
   ! expr-with-deps = add-imports expr imports
   ! expanded-expr = builtin-expander expr-with-deps
-  ! test-ssa expanded-expr)
+  ! c-file = "{dst}.c"
+  ! ssa-produce-file c-file expanded-expr
+  ! result = c-compiler dst c-file
+  ! when (string/= result "")
+     (e l (split #\Newline result) (format t "~a~%" l))
+  )
+
+(to symta-read-file filename
+  ! text = load-text-file filename
+  ! (/init-tokenizer)
+  ! /normalize (/read text)
+  )
+
+(to compile-lib name
+  ! filename = "{*root-folder*}lib/{name}.s"
+  ! dst = "{*root-folder*}native/lib/{name}"
+  ! expr = symta-read-file filename
+  ! symta-compile-expr dst expr
+  )
 
 (to symta filename
-  ! text = load-text-file filename
-  ! symta-eval text)
+  ! native-folder = "{*root-folder*}native/"
+  ! runtime-src = "{*root-folder*}runtime.c"
+  ! runtime-path = "{native-folder}runtime"
+  ! compile-runtime runtime-src runtime-path
+  ! lib-path = "{native-folder}lib/"
+  ! bin-file = "{native-folder}test"
+  ! expr = symta-read-file filename
+  ! symta-compile-expr bin-file expr
+  ! result = shell runtime-path lib-path bin-file
+  ! e l (butlast (split #\Newline result)) (format t "~a~%" l)
+  )
