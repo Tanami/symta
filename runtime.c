@@ -519,6 +519,31 @@ BUILTIN1("log",log,C_ANY,a)
 RETURN(a)
 RETURNS(a)
 
+static uintptr_t runtime_reserved0;
+static uintptr_t runtime_reserved1;
+static uintptr_t get_heap_used(int i) {
+  return (void*)(apis[i].heap+HEAP_SIZE) - apis[i].top;
+}
+
+static uintptr_t show_runtime_info(api_t *api) {
+  uintptr_t heap0_used = get_heap_used(0);
+  uintptr_t heap1_used = get_heap_used(1);
+  uintptr_t total_reserved = runtime_reserved0+runtime_reserved1;
+  fprintf(stderr, "level: %ld\n", api->level);
+  fprintf(stderr, "usage: %ld = %ld+%ld\n"
+         , heap0_used+heap1_used-total_reserved
+         , heap0_used-runtime_reserved0
+         , heap1_used-runtime_reserved1);
+  fprintf(stderr, "total: %ld\n", (uintptr_t)(HEAP_SIZE)*2*8-total_reserved);
+  fprintf(stderr, "reserved: %ld\n", total_reserved);
+  fprintf(stderr, "types used: %d/%d\n", types_used, MAX_TYPES);
+  fprintf(stderr, "methods used: %d/%d\n", methods_used, MAX_METHODS);
+}
+
+BUILTIN0("runtime_info",runtime_info)
+  show_runtime_info(api);
+RETURNS(0)
+
 BUILTIN1("set_error_handler",set_error_handler,C_ANY,h)
   fatal("FIXME: implement set_error_handler\n");
 RETURNS(Void)
@@ -650,6 +675,7 @@ static struct {
   {"tag_of", b_tag_of},
   {"halt", b_halt},
   {"log", b_log},
+  {"runtime_info", b_runtime_info},
   {"_apply", b__apply},
   {"_no_method", b__no_method},
   {"read_file_as_text", b_read_file_as_text},
@@ -920,17 +946,13 @@ static void *exec_module(struct api_t *api, void *path) {
   setup = (pfun)dlsym(lib, "setup");
   if (!setup) fatal("dlsym couldnt find symbol `setup` in %s\n", path);
 
-  //Base = Top;
-  HEAP_FLIP();
   ARGLIST(E,0);
   R = setup(REGS_ARGS(P)); // init module's statics
-  HEAP_FLIP();
 
-  //Base = Top;
-  HEAP_FLIP();
+  PUSH_BASE();
   ARGLIST(E,0);
   R = entry(REGS_ARGS(P)); 
-  HEAP_FLIP();
+  POP_BASE();
 
   return R;
 }
@@ -1067,9 +1089,10 @@ int main(int argc, char **argv) {
   ++libs_used;
 
   for (i = 0; i < MAX_METHODS; i++) {
-    //FIXME: flip api->other here to balance allocation
     ALLOC_BASIC(methods[i].types, 0, MAX_TYPES);
+    api = api->other;
   }
+  if (api->level != 0) api = api->other;
 
   TEXT(n_int, "int");
   TEXT(n_list, "list");
@@ -1121,9 +1144,12 @@ int main(int argc, char **argv) {
   METHOD_FN("code", 0, 0, b_fixtext_code, 0, 0, 0, 0);
   METHOD_FN("char", b_integer_char, 0, 0, 0, 0, 0, 0);
 
+  runtime_reserved0 = get_heap_used(0);
+  runtime_reserved1 = get_heap_used(1);
+
   R = exec_module(api, module);
 
-  printf("%s\n", print_object(R));
+  fprintf(stderr, "%s\n", print_object(R));
 
   return 0;
 }
