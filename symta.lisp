@@ -1045,10 +1045,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                 default)
                (else :empty)
   ! when (find-if #'pattern-arg args)
-      (! gs = m a args (ssa-name "A")
-       ;; FIXME: value gets duplicated - potentially exponential code growth
-       ! e g gs (setf value (expand-match g `((,(pop args) ,value)) default))
-       ! setf args gs)
+      (match args
+        ((("@" all)) (setf args all))
+        (else
+         (! gs = m a args (ssa-name "A")
+          ;; FIXME: value gets duplicated - potentially exponential code growth
+          ! e g gs (setf value (expand-match g `((,(pop args) ,value)) default))
+          ! setf args gs)))
   ! setf value (expand-named name value)
   ! list name `("_fn" ,args ,value))
 
