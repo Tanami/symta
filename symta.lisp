@@ -1154,14 +1154,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("_quote" x) (return-from builtin-expander xs))
         (("fn" as . body) `("_fn" ,as ("|" ,@body)))
         (("=>" as body) `("_fn" ,as ,body))
-        (("when" a body) `("_if" ,a ,body :void))
-        (("unless" a body) `("_if" ,a :void ,body))
-        (("while" head . body) (expand-while head body))
+        (("when" . xs) `("_if" ,(butlast xs) ,@(last xs) :void))
+        (("unless" . xs) `("_if" ,(butlast xs) :void ,@(last xs)))
+        (("while" . xs) (expand-while (butlast xs) (car (last xs))))
         (("let" bs . body) `("_let" ,bs ,@body))
         (("|" . xs) (expand-block xs))
         (("[]" . as) `("_list" ,@as))
         (("." a b) `(,a ,b))
         (("^" a b) `(,b ,a))
+        ((":" a b) `(,@a ,b))
         (("{}" ("." a b) . as) `(,a ,b ,@as))
         (("{}" ("^" a b) . as) `(,b ,@as ,a))
         (("{}" h . as) (if (fn-sym? h)
@@ -1249,6 +1250,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   )
 
 (to symta filename
+  ! compile-lib "prelude"
   ! native-folder = "{*root-folder*}native/"
   ! runtime-src = "{*root-folder*}runtime.c"
   ! runtime-path = "{native-folder}runtime"
