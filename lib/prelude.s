@@ -45,4 +45,22 @@ list.Xs join =
                              | I !+ 1
 | Rs
 
-export not
+list.Xs infix Item =
+| I = 0
+| N = Xs.size*2-1
+| N = if N < 0 then 0 else N
+| Ys = N x 0
+| while I < N
+  | Ys{I (if I%2 then Item else Xs{I/2})}
+  | I !+ 1
+| Ys
+
+bad @Xs =
+| log [bad @Xs].map{&text}.infix{` `}.join_text
+| halt
+
+say @Xs =
+| log Xs.map{&text}.infix{` `}.join_text
+| Void
+
+export not say bad

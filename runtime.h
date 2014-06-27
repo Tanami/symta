@@ -203,7 +203,7 @@ typedef void *(*pfun)(REGS);
   if (GET_TAG(o) == T_CLOSURE) { \
     k = OBJECT_CODE(o)(REGS_ARGS(o)); \
   } else { \
-    api->fatal(api, "FIXME: resolve method at runtime\n"); \
+    api->fatal(api, "FIXME: resolve method at runtime"); \
   }
 #define CALL_TAGGED_DYNAMIC(k,o) CALL_TAGGED_DYNAMIC_NO_POP(k,o); POP_BASE();
 

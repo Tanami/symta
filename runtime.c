@@ -187,21 +187,24 @@ static int is_unicode(char *s) {
   return 0;
 }
 
-static void *alloc_text(api_t *api, char *s) {
-  int l, a;
+static void *alloc_bigtext(api_t *api, char *s, int l) {
+  int a;
   void *r;
-  char buf[1024];
-
-  if (is_unicode(s)) fatal("FIXME: implement unicode\n");
-
-  r = fixtext_encode(s);
-  if (r) return r;
-
-  l = strlen(s);
   a = (l+4+TAG_MASK)>>TAG_BITS;
   ALLOC_DATA(r, T_TEXT, a);
   DATA_REF4(r,0) = (uint32_t)FIXNUM(l);
   memcpy(&DATA_REF1(r,4), s, l);
+  return r;
+}
+
+static void *alloc_text(api_t *api, char *s) {
+  int l, a;
+  void *r;
+
+  if (is_unicode(s)) fatal("FIXME: implement unicode\n");
+
+  r = fixtext_encode(s);
+  if (!r) r = alloc_bigtext(api, s, strlen(s));
 
   return r;
 }
@@ -543,6 +546,7 @@ BUILTIN1("list join_text",list_join_text,C_ANY,o)
     x = LIST_REF(o,i);
     if (!IS_TEXT(x)) {
       fprintf(stderr, "list join_text: not a text (%s)\n", print_object(x));
+      abort();
     }
     if (GET_TAG(x) == T_FIXTEXT) {
       l += fixtext_size(x);
@@ -559,7 +563,7 @@ BUILTIN1("list join_text",list_join_text,C_ANY,o)
       p += fixtext_decode(p,x);
     } else {
       l = BIGTEXT_SIZE(x);
-      memcpy(p,BIGTEXT_DATA(p),l);
+      memcpy(p,BIGTEXT_DATA(x),l);
       p += l;
     }
   }
@@ -610,6 +614,7 @@ BUILTIN2("integer x",integer_x,C_ANY,size,C_ANY,init)
   void **p;
   intptr_t s = UNFIXNUM(size);
   if (s < 0) {
+    fprintf(stderr, "%ld\n", s);
     TEXT(R,"integer x");
     bad_call(REGS_ARGS(P), R);
   } else if (size == 0) {
@@ -964,7 +969,7 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
     if (dtag > MAX_TYPES) {
       p = (void*)dtag;
     } else if (dtag == T_TEXT) {
-      TEXT(p, BIGTEXT_DATA(o));
+      p = alloc_bigtext(api, BIGTEXT_DATA(o), BIGTEXT_SIZE(o));
       DATA_REF(o,-2) = p;
     } else if (dtag == T_CONS) {
       CONS(0, 0);

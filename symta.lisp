@@ -1114,7 +1114,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                      (normalize-matryoshka x)))
             (x x))
 
-(to expand-export xs ! `("_list" ,(m x xs `("_list" ("_quote" ,x) ("&" ,x)))))
+(to expand-export xs ! `("_list" ,@(m x xs `("_list" ("_quote" ,x) ("&" ,x)))))
 
 
 (to expand-while head body
