@@ -1,4 +1,5 @@
-export tag_of
+export text
+       tag_of
        halt
        log
        rtstat

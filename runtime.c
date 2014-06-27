@@ -14,9 +14,10 @@
 
 #define LIST_SIZE(o) OBJECT_CODE(o)
 
-#define IS_TEXT(o) (GET_TAG(o) == T_DATA && DATA_TAG(o) == T_TEXT)
-#define TEXT_SIZE(o) UNFIXNUM(DATA_REF4(o,0))
-#define TEXT_DATA(o) ((char*)&DATA_REF1(o,4))
+#define IS_BIGTEXT(o) (GET_TAG(o) == T_DATA && DATA_TAG(o) == T_TEXT)
+#define IS_TEXT(o) (GET_TAG(o) == T_FIXTEXT || IS_BIGTEXT(o))
+#define BIGTEXT_SIZE(o) UNFIXNUM(DATA_REF4(o,0))
+#define BIGTEXT_DATA(o) ((char*)&DATA_REF1(o,4))
 
 #define DATA_SIZE(o) ((uintptr_t)methods[0].types[DATA_TAG(o)])
 
@@ -27,7 +28,7 @@
     api->bad_type(REGS_ARGS(P), "integer", arg_index, meta)
 
 #define C_TEXT(o,arg_index,meta) \
-  if (GET_TAG(o) != T_FIXTEXT && !IS_TEXT(o)) \
+  if (!IS_TEXT(o)) \
     api->bad_type(REGS_ARGS(P), "text", arg_index, meta)
 
 #define C_LIST(o,arg_index,meta) \
@@ -135,6 +136,74 @@ static void *tag_of(void *o) {
     tag = DATA_TAG(o);
   }
   return methods[1].types[tag];
+}
+
+static int fixtext_size(void *o) {
+  uint64_t x = (uint64_t)o;
+  int i = 3;
+  int l = 0;
+  while (0x7F<<i) {
+    i += 7;
+    l++;
+  }
+  return l;
+}
+
+static void *fixtext_encode(char *p) {
+  uint64_t r = 0;
+  uint64_t c;
+  int i = 3;
+  char *s = p;
+  while (*s) {
+    if (i+7 >= 64) return 0;
+    c = (uint8_t)*s++;
+    if (c & 0x80) return 0;
+    r |= c << i;
+    i += 7;
+  }
+  return ADD_TAG(r,T_FIXTEXT);
+}
+
+static int fixtext_decode(char *dst, void *r) {
+  uint8_t *p = (uint8_t*)dst;
+  uint64_t x = (uint64_t)r;
+  uint64_t c;
+  int i = 3;
+  while (i < 64) {
+    c = (x>>i) & 0x7f;
+    i += 7;
+    if (!c) break;
+    *p++ = c;
+  }
+  *p = 0;
+  return p-(uint8_t*)dst;
+}
+
+static int is_unicode(char *s) {
+  while (*s) {
+    if (*(uint8_t*)s & 0x80) return 1;
+    s++;
+  }
+  return 0;
+}
+
+static void *alloc_text(api_t *api, char *s) {
+  int l, a;
+  void *r;
+  char buf[1024];
+
+  if (is_unicode(s)) fatal("FIXME: implement unicode\n");
+
+  r = fixtext_encode(s);
+  if (r) return r;
+
+  l = strlen(s);
+  a = (l+4+TAG_MASK)>>TAG_BITS;
+  ALLOC_DATA(r, T_TEXT, a);
+  DATA_REF4(r,0) = (uint32_t)FIXNUM(l);
+  memcpy(&DATA_REF1(r,4), s, l);
+
+  return r;
 }
 
 static void *exec_module(struct api_t *api, void *path) {
@@ -294,9 +363,9 @@ uint32_t hash(uint8_t *data, int len) {
 static int texts_equal(void *a, void *b) {
   intptr_t al, bl;
   if (GET_TAG(a) == T_FIXTEXT || GET_TAG(b) == T_FIXTEXT) return a == b;
-  al = TEXT_SIZE(a);
-  bl = TEXT_SIZE(b);
-  return al == bl && !memcmp(TEXT_DATA(a), TEXT_DATA(b), UNFIXNUM(al));
+  al = BIGTEXT_SIZE(a);
+  bl = BIGTEXT_SIZE(b);
+  return al == bl && !memcmp(BIGTEXT_DATA(a), BIGTEXT_DATA(b), UNFIXNUM(al));
 }
 
 BUILTIN2("void is",void_is,C_ANY,a,C_ANY,b)
@@ -309,11 +378,11 @@ BUILTIN2("void get",void_get,C_ANY,o,C_ANY,key)
 RETURNS(Void)
 
 BUILTIN2("text is",text_is,C_ANY,a,C_ANY,b)
-RETURNS(FIXNUM(IS_TEXT(b) ? texts_equal(a,b) : 0))
+RETURNS(FIXNUM(IS_BIGTEXT(b) ? texts_equal(a,b) : 0))
 BUILTIN2("text isnt",text_isnt,C_ANY,a,C_ANY,b)
-RETURNS(FIXNUM(IS_TEXT(b) ? !texts_equal(a,b) : 1))
+RETURNS(FIXNUM(IS_BIGTEXT(b) ? !texts_equal(a,b) : 1))
 BUILTIN1("text size",text_size,C_ANY,o)
-RETURNS(TEXT_SIZE(o))
+RETURNS(BIGTEXT_SIZE(o))
 BUILTIN2("text {}",text_get,C_ANY,o,C_FIXNUM,index)
   char t[2];
   if ((uintptr_t)CLOSURE_REF4(o,0) <= (uintptr_t)index) {
@@ -329,20 +398,12 @@ BUILTIN1("text end",text_end,C_ANY,o)
 RETURNS(FIXNUM(1))
 BUILTIN1("text hash",text_hash,C_ANY,o)
 RETURNS(FIXNUM(hash(&DATA_REF1(o,4), UNFIXNUM(DATA_REF4(o,0)))))
-
 BUILTIN2("text is",fixtext_is,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(GET_TAG(b) == T_FIXTEXT ? texts_equal(a,b) : 0))
 BUILTIN2("text isnt",fixtext_isnt,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(GET_TAG(b) == T_FIXTEXT ? !texts_equal(a,b) : 1))
 BUILTIN1("text size",fixtext_size,C_ANY,o)
-  uint64_t x = (uint64_t)o;
-  int i = 3;
-  int l = 0;
-  while (0x7F<<i) {
-    i += 7;
-    l++;
-  }
-RETURNS(FIXNUM(l))
+RETURNS(FIXNUM(fixtext_size(o)))
 BUILTIN2("text {}",fixtext_get,C_ANY,o,C_FIXNUM,index)
   char t[20];
   uint64_t c;
@@ -431,7 +492,7 @@ BUILTIN1("list size",list_size,C_ANY,o)
 RETURNS(LIST_SIZE(o))
 BUILTIN2("list {}",list_get,C_ANY,o,C_FIXNUM,index)
   if ((uintptr_t)LIST_SIZE(o) <= (uintptr_t)index) {
-    printf("index out of bounds\n");
+    fprintf(stderr, "index out of bounds\n");
     TEXT(P, "{}");
     bad_call(REGS_ARGS(P),P);
   }
@@ -440,7 +501,7 @@ BUILTIN3("list {!}",list_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   void **p;
   intptr_t i;
   if ((uintptr_t)LIST_SIZE(o) <= (uintptr_t)index) {
-    printf("list {!}: index out of bounds\n");
+    fprintf(stderr, "list {!}: index out of bounds\n");
     TEXT(P, "{!}");
     bad_call(REGS_ARGS(P),P);
   }
@@ -470,6 +531,40 @@ BUILTIN2("list pre",list_pre,C_ANY,o,C_ANY,x)
   *p++ = A;
   q = &LIST_REF(o,0);
   while(s-- > 0) *p++ = *q++;
+RETURN(R)
+RETURNS(0)
+BUILTIN1("list join_text",list_join_text,C_ANY,o)
+  int i;
+  void *x, *t;
+  uint8_t *p, *q;
+  intptr_t s = UNFIXNUM(LIST_SIZE(o));
+  int l = 1;
+  for (i = 0; i < s; i++) {
+    x = LIST_REF(o,i);
+    if (!IS_TEXT(x)) {
+      fprintf(stderr, "list join_text: not a text (%s)\n", print_object(x));
+    }
+    if (GET_TAG(x) == T_FIXTEXT) {
+      l += fixtext_size(x);
+    } else {
+      l += BIGTEXT_SIZE(x);
+    }
+  }
+  l = (l+TAG_MASK-1) & ~TAG_MASK;
+  Top = (uint8_t*)Top - l;
+  p = q = (uint8_t*)Top;
+  for (i = 0; i < s; i++) {
+    x = LIST_REF(o,i);
+    if (GET_TAG(x) == T_FIXTEXT) {
+      p += fixtext_decode(p,x);
+    } else {
+      l = BIGTEXT_SIZE(x);
+      memcpy(p,BIGTEXT_DATA(p),l);
+      p += l;
+    }
+  }
+  *p = 0;
+  TEXT(R,q);
 RETURN(R)
 RETURNS(0)
 BUILTIN_VARARGS("list _",list)
@@ -560,9 +655,18 @@ BUILTIN2("cons pre",cons_pre,C_ANY,o,C_ANY,head)
 RETURN(R)
 RETURNS(0)
 
+BUILTIN1("text",text,C_ANY,o)
+  if (!IS_TEXT(o)) {
+    TEXT(R, print_object(o));
+  } else {
+    R = o;
+  }
+RETURN(R)
+RETURNS(0)
+
 BUILTIN1("tag_of",tag_of,C_ANY,o)
   R = tag_of(o);
-  RETURN(R);
+RETURN(R);
 RETURNS(0)
 
 BUILTIN0("halt",halt)
@@ -611,62 +715,6 @@ RETURNS(Void)
 BUILTIN1("utf8_to_text",utf8_to_text,C_ANY,bytes)
   fatal("FIXME: implement utf8_to_text\n");
 RETURNS(Void)
-
-static int is_unicode(char *s) {
-  while (*s) {
-    if (*(uint8_t*)s & 0x80) return 1;
-    s++;
-  }
-  return 0;
-}
-
-static void *text_immediate_encoding(char *s) {
-  uint64_t r = 0;
-  uint64_t c;
-  int i = 3;
-  while (*s) {
-    if (i >= 64) return 0;
-    c = (uint8_t)*s++;
-    if (c & 0x80) return 0;
-    r |= c << i;
-    i += 7;
-  }
-  return ADD_TAG(r,T_FIXTEXT);
-}
-
-static int text_immediate_decode(char *dst, void *r) {
-  uint8_t *p = (uint8_t*)dst;
-  uint64_t x = (uint64_t)r;
-  uint64_t c;
-  int i = 3;
-  while (i < 64) {
-    c = (x>>i) & 0x7f;
-    i += 7;
-    if (!c) break;
-    *p++ = c;
-  }
-  *p = 0;
-  return p-(uint8_t*)dst;
-}
-
-static void *alloc_text(api_t *api, char *s) {
-  int l, a;
-  void *r;
-  char buf[1024];
-
-  if (is_unicode(s)) fatal("FIXME: implement unicode\n");
-
-  r = text_immediate_encoding(s);
-  if (r) return r;
-
-  l = strlen(s);
-  a = (l+4+TAG_MASK)>>TAG_BITS;
-  ALLOC_DATA(r, T_TEXT, a);
-  CLOSURE_REF4(r,0) = (uint32_t)FIXNUM(l);
-  memcpy(&DATA_REF1(r,4), s, l);
-  return r;
-}
-
 
 static char *read_whole_file_as_string(char *input_file_name) {
   char *file_contents;
@@ -718,8 +766,8 @@ BUILTIN1("_no_method",_no_method,C_TEXT,name)
 RETURNS(Void)
 
 BUILTIN_VARARGS("undefined",undefined)
-  fprintf(stderr, "`%s` has no method ", print_object(tag_of(getArg(0))));
-  fprintf(stderr, "`%s`\n", print_object(api->method));
+  fprintf(stderr, "%s has no method ", print_object(tag_of(getArg(0))));
+  fprintf(stderr, "%s\n", print_object(api->method));
   bad_call(REGS_ARGS(P), api->method);
   abort();
 RETURNS(0)
@@ -728,6 +776,7 @@ static struct {
   char *name;
   void *fun;
 } builtins[] = {
+  {"text", b_text},
   {"tag_of", b_tag_of},
   {"halt", b_halt},
   {"log", b_log},
@@ -773,14 +822,17 @@ static char *print_object_r(api_t *api, char *out, void *o) {
     }
     out += sprintf(out, ")");
   } else if (tag == T_FIXTEXT) {
-    out += text_immediate_decode(out, o);
+    *out++ = '`';
+    out += fixtext_decode(out, o);
+    *out++ = '`';
   } else if (tag == T_DATA) {
     uintptr_t dtag = DATA_TAG(o);
     if (dtag == T_TEXT) {
-      int size = (int)TEXT_SIZE(o);
-      char *p = TEXT_DATA(o);
+      int size = (int)BIGTEXT_SIZE(o);
+      char *p = BIGTEXT_DATA(o);
+      *out++ = '`';
       while (size-- > 0) *out++ = *p++;
-      *out = 0;
+      *out++ = '`';
     } else if (dtag == T_CONS) {
       out += sprintf(out, "(");
       for (;;) {
@@ -796,6 +848,7 @@ static char *print_object_r(api_t *api, char *out, void *o) {
   } else {
     out += sprintf(out, "#(ufo %d %p)", tag, o);
   }
+  *out = 0;
   return out;
 }
 
@@ -911,7 +964,7 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
     if (dtag > MAX_TYPES) {
       p = (void*)dtag;
     } else if (dtag == T_TEXT) {
-      TEXT(p, TEXT_DATA(o));
+      TEXT(p, BIGTEXT_DATA(o));
       DATA_REF(o,-2) = p;
     } else if (dtag == T_CONS) {
       CONS(0, 0);
@@ -977,7 +1030,7 @@ static void *find_export(struct api_t *api, void *name, void *exports) {
       fatal("bad export: %s", print_object(pair));
     }
     void *export_name = LIST_REF(pair,0);
-    if (GET_TAG(export_name) != T_FIXTEXT && !IS_TEXT(export_name)) {
+    if (!IS_TEXT(export_name)) {
       fatal("bad export: %s", print_object(pair));
     }
     if (texts_equal(name, export_name)) {
@@ -1142,6 +1195,7 @@ int main(int argc, char **argv) {
   METHOD_FN("hash", b_integer_hash, 0, b_fixtext_hash, b_text_hash, 0, 0, 0);
   METHOD_FN("code", 0, 0, b_fixtext_code, 0, 0, 0, 0);
   METHOD_FN("char", b_integer_char, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("join_text", 0, b_list_join_text, 0, 0, 0, 0, 0);
 
   runtime_reserved0 = get_heap_used(0);
   runtime_reserved1 = get_heap_used(1);

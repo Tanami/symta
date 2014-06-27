@@ -1132,6 +1132,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! as = m a as (if (incut? a) (second a) `("_list" ,a))
   ! `(("_list" ,@as) "join"))
 
+(to expand-string-splice x
+  ! as = nil
+  ! s = position #\{ x
+  ! unless s (return-from expand-string-splice `("_quote" x))
+  ! while s
+      (! e = position #\} x
+       ! unless e (error '"unterminated {")
+       ! push `("_quote" ,(subseq x 0 s)) as
+       ! push `("text" ,(/read (subseq x (+ s 1) e))) as
+       ! setf x (subseq x (+ e 1) (length x))
+       ! setf s (position #\{ x))
+  ! when (/= 0 (length x)) (push `("_quote" ,x) as)
+  ! `(("_list" ,@(reverse as)) "join_text"))
+
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
   (let ((xs (normalize-matryoshka xs))
@@ -1170,6 +1184,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("." a b) `(,a ,b))
         (("^" a b) `(,b ,a))
         ((":" a b) `(,@a ,b))
+        (("\"" x) (expand-string-splice x))
         (("{}" ("." a b) . as) `(,a ,b ,@as))
         (("{}" ("^" a b) . as) `(,b ,@as ,a))
         (("{}" h . as) (if (fn-sym? h)
