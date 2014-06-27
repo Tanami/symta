@@ -44,6 +44,15 @@
 
 #define MAX_TYPES (1024)
 #define MAX_METHODS (8*1024)
+#define MAX_LIBS 1024
+
+typedef struct {
+  char *name;
+  void *exports;
+} lib_t;
+
+static int libs_used;
+static lib_t libs[MAX_LIBS];
 
 static char *lib_path;
 
@@ -60,6 +69,14 @@ static int types_used;
 static char *typenames[MAX_TYPES];
 
 static void *undefined;
+
+static void fatal(char *fmt, ...) {
+   va_list ap;
+   va_start(ap,fmt);
+   vfprintf(stderr, fmt, ap);
+   va_end(ap);
+   abort();
+}
 
 static void **resolve_method(api_t *api, char *name) {
   int i, j;
@@ -120,13 +137,52 @@ static void *tag_of(void *o) {
   return methods[1].types[tag];
 }
 
-static void fatal(char *fmt, ...) {
-   va_list ap;
-   va_start(ap,fmt);
-   vfprintf(stderr, fmt, ap);
-   va_end(ap);
-   abort();
+static void *exec_module(struct api_t *api, void *path) {
+  void *lib;
+  pfun entry, setup;
+  void *R, *P=0, *E=0;
+
+  lib = dlopen(path, RTLD_LAZY);
+  if (!lib) fatal("dlopen couldnt load %s\n", path);
+
+  entry = (pfun)dlsym(lib, "entry");
+  if (!entry) fatal("dlsym couldnt find symbol `entry` in %s\n", path);
+
+  setup = (pfun)dlsym(lib, "setup");
+  if (!setup) fatal("dlsym couldnt find symbol `setup` in %s\n", path);
+
+  ARGLIST(E,0);
+  R = setup(REGS_ARGS(P)); // init module's statics
+
+  PUSH_BASE();
+  ARGLIST(E,0);
+  R = entry(REGS_ARGS(P)); 
+  POP_BASE();
+
+  return R;
 }
+
+static void *load_lib(struct api_t *api, char *name) {
+  int i;
+  char path[1024];
+
+  for (i = 0; i < libs_used; i++) {
+    if (strcmp(libs[i].name, name)) continue;
+    return libs[i].exports;
+  }
+
+  if (libs_used == MAX_LIBS) {
+    fprintf(stderr, "module table overflow\n");
+    abort();
+  }
+
+  sprintf(path, "%s/%s", lib_path, name);
+  libs[libs_used].name = name;
+  libs[libs_used].exports = exec_module(api, path);
+
+  return libs[libs_used++].exports;
+}
+
 
 static void bad_type(REGS, char *expected, int arg_index, char *name) {
   PROLOGUE;
@@ -355,7 +411,7 @@ BUILTIN1("view tail",view_tail,C_ANY,o)
   }
 RETURN(R)
 RETURNS(0)
-BUILTIN2("view add",view_add,C_ANY,o,C_ANY,x)
+BUILTIN2("view pre",view_pre,C_ANY,o,C_ANY,x)
   void **p, **q;
   int size = (int)UNFIXNUM(VIEW_SIZE(o));
   LIST_ALLOC(R, size+1);
@@ -405,7 +461,7 @@ BUILTIN1("list tail",list_tail,C_ANY,o)
   }
 RETURN(R)
 RETURNS(0)
-BUILTIN2("list add",list_add,C_ANY,o,C_ANY,x)
+BUILTIN2("list pre",list_pre,C_ANY,o,C_ANY,x)
   void **p, **q;
   intptr_t s = UNFIXNUM(LIST_SIZE(o));
   A = x;
@@ -499,7 +555,7 @@ BUILTIN2("cons isnt",cons_isnt,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a != b))
 BUILTIN1("cons end",cons_end,C_ANY,o)
 RETURNS(FIXNUM(0))
-BUILTIN2("cons add",cons_add,C_ANY,o,C_ANY,head)
+BUILTIN2("cons pre",cons_pre,C_ANY,o,C_ANY,head)
   R = CONS(head, o);
 RETURN(R)
 RETURNS(0)
@@ -540,7 +596,7 @@ static uintptr_t show_runtime_info(api_t *api) {
   fprintf(stderr, "methods used: %d/%d\n", methods_used, MAX_METHODS);
 }
 
-BUILTIN0("runtime_info",runtime_info)
+BUILTIN0("rtstat",rtstat)
   show_runtime_info(api);
 RETURNS(0)
 
@@ -675,7 +731,7 @@ static struct {
   {"tag_of", b_tag_of},
   {"halt", b_halt},
   {"log", b_log},
-  {"runtime_info", b_runtime_info},
+  {"rtstat", b_rtstat},
   {"_apply", b__apply},
   {"_no_method", b__no_method},
   {"read_file_as_text", b_read_file_as_text},
@@ -932,63 +988,6 @@ static void *find_export(struct api_t *api, void *name, void *exports) {
   fatal("Couldn't resolve `%s`\n", print_object(name));
 }
 
-static void *exec_module(struct api_t *api, void *path) {
-  void *lib;
-  pfun entry, setup;
-  void *R, *P=0, *E=0;
-
-  lib = dlopen(path, RTLD_LAZY);
-  if (!lib) fatal("dlopen couldnt load %s\n", path);
-
-  entry = (pfun)dlsym(lib, "entry");
-  if (!entry) fatal("dlsym couldnt find symbol `entry` in %s\n", path);
-
-  setup = (pfun)dlsym(lib, "setup");
-  if (!setup) fatal("dlsym couldnt find symbol `setup` in %s\n", path);
-
-  ARGLIST(E,0);
-  R = setup(REGS_ARGS(P)); // init module's statics
-
-  PUSH_BASE();
-  ARGLIST(E,0);
-  R = entry(REGS_ARGS(P)); 
-  POP_BASE();
-
-  return R;
-}
-
-
-#define MAX_LIBS 1024
-
-typedef struct {
-  char *name;
-  void *exports;
-} lib_t;
-
-static int libs_used;
-static lib_t libs[MAX_LIBS];
-
-static void *load_lib(struct api_t *api, char *name) {
-  int i;
-  char path[1024];
-
-  for (i = 0; i < libs_used; i++) {
-    if (strcmp(libs[i].name, name)) continue;
-    return libs[i].exports;
-  }
-
-  if (libs_used == MAX_LIBS) {
-    fprintf(stderr, "module table overflow\n");
-    abort();
-  }
-
-  sprintf(path, "%s/%s", lib_path, name);
-  libs[libs_used].name = name;
-  libs[libs_used].exports = exec_module(api, path);
-
-  return libs[libs_used++].exports;
-}
-
 static api_t *init_api(void *ptr) {
   int i;
   api_t *api = (api_t*)ptr;
@@ -1135,7 +1134,7 @@ int main(int argc, char **argv) {
   METHOD_FN("x", b_integer_x, 0, 0, 0, 0, 0, 0);
   METHOD_FN("head", 0, b_list_head, 0, 0, b_view_head, b_cons_head, 0);
   METHOD_FN("tail", 0, b_list_tail, 0, 0, b_view_tail, b_cons_tail, 0);
-  METHOD_FN("add", 0, b_list_add, 0, 0, b_view_add, b_cons_add, 0);
+  METHOD_FN("pre", 0, b_list_pre, 0, 0, b_view_pre, b_cons_pre, 0);
   METHOD_FN("end", 0, b_list_end, 0, 0, b_view_end, b_cons_end, b_void_end);
   METHOD_FN("size", 0, b_list_size, b_fixtext_size, b_text_size, b_view_size, 0, 0);
   METHOD_FN("{}", 0, b_list_get, b_fixtext_get, b_text_get, b_view_get, 0, b_void_get);

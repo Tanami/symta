@@ -1124,6 +1124,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                       ("_progn" ,@body ("_goto" ,l))
                       ())))
 
+(to incut? x ! match x (("@" x) t))
+
+(to expand-list as
+  ! incut-count = count-if #'incut? as
+  ! when (= 0 incut-count)  (return-from expand-list `("_list" ,@as))
+  ! as = m a as (if (incut? a) (second a) `("_list" ,a))
+  ! `(("_list" ,@as) "join"))
 
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
@@ -1159,7 +1166,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("while" . xs) (expand-while (butlast xs) (car (last xs))))
         (("let" bs . body) `("_let" ,bs ,@body))
         (("|" . xs) (expand-block xs))
-        (("[]" . as) `("_list" ,@as))
+        (("[]" . as) (expand-list as))
         (("." a b) `(,a ,b))
         (("^" a b) `(,b ,a))
         ((":" a b) `(,@a ,b))
