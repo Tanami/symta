@@ -1121,7 +1121,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! l = ssa-name "l"
   ! `("_progn" ("_label" ,l)
                ("_if" ,head
-                      ("_progn" ,@body ("_goto" ,l))
+                      ("_progn" ,body ("_goto" ,l))
                       ())))
 
 (to incut? x ! match x (("@" x) t))
@@ -1145,6 +1145,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        ! setf s (position #\{ x))
   ! when (/= 0 (length x)) (push `("_quote" ,x) as)
   ! `(("_list" ,@(reverse as)) "join_text"))
+
+(to expand-and a b ! `("if" ,a ,b 0))
+(to expand-or a b
+  ! v = ssa-name "V"
+  ! `("_let" ((,v ,a)) ("if" ,v ,v ,b)))
 
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
@@ -1178,6 +1183,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("when" . xs) `("_if" ,(butlast xs) ,@(last xs) :void))
         (("unless" . xs) `("_if" ,(butlast xs) :void ,@(last xs)))
         (("while" . xs) (expand-while (butlast xs) (car (last xs))))
+        (("and" a b) (expand-and a b))
+        (("or" a b) (expand-or a b))
         (("let" bs . body) `("_let" ,bs ,@body))
         (("|" . xs) (expand-block xs))
         (("[]" . as) (expand-list as))
