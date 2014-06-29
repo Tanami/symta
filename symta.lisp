@@ -1034,7 +1034,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! d = ssa-name "D"
   ! i = -1
   ! j = -1
-  ! `(("=" (,name ,@gs) ("_data" ,name ,@gs))
+  ! `(("=" (,"new_{name}" ,@gs) ("_data" ,name ,@gs))
       ,@(m f fields `("=" (("." ,name ,d) ,f) ("_dget" ,d ,(incf j))))))
 
 (to expand-block-item-fn name args value

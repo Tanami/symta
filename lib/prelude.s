@@ -1,7 +1,13 @@
 not X = if X then 0 else 1
 non F = X => if F X then 0 else 1
-none? X = Void is X
-some? X = Void isnt X
+no X = Void is X
+have X = Void isnt X
+
+text.O end = 1
+void.O end = 1
+void.O `{}` K = Void
+void.O find F = Void
+void.O locate F = Void
 
 list.Xs reverse =
 | N = Xs size
@@ -167,4 +173,21 @@ say @Xs =
 | log Xs.map{&text}.infix{` `}.unchars
 | Void
 
-export not non say bad none? some?
+// hashtable
+data table buckets
+table Size = new_table: Size x Void
+table.T `{}` K = 
+| Bs = T.buckets
+| Bs{K.hash%Bs.size}.find{X => X{0} is K}{1}
+table.T `{!}` K V =
+| Bs = T.buckets
+| H = K.hash%Bs.size
+| Xs = Bs{H}
+| if no Xs then Bs{H [[K V]]}
+  else | Old = Xs.find{X => X{0} is K}
+       | if no Old then Bs{H [[K V]@Xs]}
+         else Old{1 V}
+| T
+
+
+export not non say bad no have table

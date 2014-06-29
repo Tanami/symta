@@ -378,10 +378,6 @@ BUILTIN2("void is",void_is,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a == b))
 BUILTIN2("void isnt",void_isnt,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a != b))
-BUILTIN1("void end",void_end,C_ANY,o)
-RETURNS(FIXNUM(1))
-BUILTIN2("void get",void_get,C_ANY,o,C_ANY,key)
-RETURNS(Void)
 
 BUILTIN2("text is",text_is,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(IS_BIGTEXT(b) ? texts_equal(a,b) : 0))
@@ -397,10 +393,8 @@ BUILTIN2("text {}",text_get,C_ANY,o,C_FIXNUM,index)
     bad_call(REGS_ARGS(P),P);
   }
 RETURNS(single_chars[DATA_REF1(o,4+UNFIXNUM(index))])
-BUILTIN1("text end",text_end,C_ANY,o)
-RETURNS(FIXNUM(1))
 BUILTIN1("text hash",text_hash,C_ANY,o)
-RETURNS(FIXNUM(hash(&DATA_REF1(o,4), UNFIXNUM(DATA_REF4(o,0)))))
+RETURNS(FIXNUM(hash(BIGTEXT_DATA(o), BIGTEXT_SIZE(o))))
 BUILTIN2("text is",fixtext_is,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(GET_TAG(b) == T_FIXTEXT ? texts_equal(a,b) : 0))
 BUILTIN2("text isnt",fixtext_isnt,C_ANY,a,C_ANY,b)
@@ -875,7 +869,7 @@ static void *handle_args(REGS, void *E, intptr_t expected, intptr_t size, void *
     printf("bad number of arguments: got %ld, expected at least %ld\n",
        UNFIXNUM(got)-1, -UNFIXNUM(expected)-1);
   } else {
-    printf("bad number of arguments: got %ld, expected %ld\n", UNFIXNUM(got)-1, UNFIXNUM(expected)-1);
+    printf("bad number of arguments: got %ld, expected %ld\n", UNFIXNUM(got), UNFIXNUM(expected));
   }
   fatal("during call to `%s`\n", print_object(tag));
 }
@@ -1205,9 +1199,9 @@ int main(int argc, char **argv) {
   METHOD_FN("head", 0, b_list_head, 0, 0, b_view_head, b_cons_head, 0);
   METHOD_FN("tail", 0, b_list_tail, 0, 0, b_view_tail, b_cons_tail, 0);
   METHOD_FN("pre", 0, b_list_pre, 0, 0, b_view_pre, b_cons_pre, 0);
-  METHOD_FN("end", 0, b_list_end, 0, 0, b_view_end, b_cons_end, b_void_end);
+  METHOD_FN("end", 0, b_list_end, 0, 0, b_view_end, b_cons_end, 0);
   METHOD_FN("size", 0, b_list_size, b_fixtext_size, b_text_size, b_view_size, 0, 0);
-  METHOD_FN("{}", 0, b_list_get, b_fixtext_get, b_text_get, b_view_get, 0, b_void_get);
+  METHOD_FN("{}", 0, b_list_get, b_fixtext_get, b_text_get, b_view_get, 0, 0);
   METHOD_FN("{!}", 0, b_list_set, 0, 0, b_view_set, 0, 0);
   METHOD_FN("hash", b_integer_hash, 0, b_fixtext_hash, b_text_hash, 0, 0, 0);
   METHOD_FN("code", 0, 0, b_fixtext_code, 0, 0, 0, 0);
