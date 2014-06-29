@@ -1,4 +1,7 @@
 not X = if X then 0 else 1
+non F = X => if F X then 0 else 1
+none? X = Void is X
+some? X = Void isnt X
 
 list.Xs reverse =
 | N = Xs size
@@ -44,6 +47,7 @@ list.Xs sum =
   | S !+ Xs{I}
   | I !+ 1
 | S
+
 
 list.Xs count F =
 | S = 0
@@ -137,15 +141,30 @@ list.Xs locate F = named locate
   | I !+ 1
 | Void
 
-none? X = Void is X
-some? X = Void isnt X
+list.Xs find F = named find
+| N = Xs size
+| I = 0
+| while I < N
+  | X = Xs{I}
+  | when F X: leave find X
+  | I !+ 1
+| Void
+
+text.T chars =
+| N = T size
+| I = 0
+| R = N x 0
+| while I < N
+  | R{I T{I}}
+  | I! + 1
+| R
 
 bad @Xs =
-| log [bad @Xs].map{&text}.infix{` `}.join_text
+| log [bad @Xs].map{&text}.infix{` `}.unchars
 | halt
 
 say @Xs =
-| log Xs.map{&text}.infix{` `}.join_text
+| log Xs.map{&text}.infix{` `}.unchars
 | Void
 
-export not say bad none? some?
+export not non say bad none? some?

@@ -16,7 +16,7 @@
 
 #define IS_BIGTEXT(o) (GET_TAG(o) == T_DATA && DATA_TAG(o) == T_TEXT)
 #define IS_TEXT(o) (GET_TAG(o) == T_FIXTEXT || IS_BIGTEXT(o))
-#define BIGTEXT_SIZE(o) UNFIXNUM(DATA_REF4(o,0))
+#define BIGTEXT_SIZE(o) DATA_REF4(o,0)
 #define BIGTEXT_DATA(o) ((char*)&DATA_REF1(o,4))
 
 #define DATA_SIZE(o) ((uintptr_t)methods[0].types[DATA_TAG(o)])
@@ -46,6 +46,9 @@
 #define MAX_TYPES (1024)
 #define MAX_METHODS (8*1024)
 #define MAX_LIBS 1024
+
+#define MAX_SINGLE_CHARS (1<<8)
+static void *single_chars[MAX_SINGLE_CHARS];
 
 typedef struct {
   char *name;
@@ -192,7 +195,7 @@ static void *alloc_bigtext(api_t *api, char *s, int l) {
   void *r;
   a = (l+4+TAG_MASK)>>TAG_BITS;
   ALLOC_DATA(r, T_TEXT, a);
-  DATA_REF4(r,0) = (uint32_t)FIXNUM(l);
+  DATA_REF4(r,0) = (uint32_t)l;
   memcpy(&DATA_REF1(r,4), s, l);
   return r;
 }
@@ -385,7 +388,7 @@ RETURNS(FIXNUM(IS_BIGTEXT(b) ? texts_equal(a,b) : 0))
 BUILTIN2("text isnt",text_isnt,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(IS_BIGTEXT(b) ? !texts_equal(a,b) : 1))
 BUILTIN1("text size",text_size,C_ANY,o)
-RETURNS(BIGTEXT_SIZE(o))
+RETURNS(FIXNUM(BIGTEXT_SIZE(o)))
 BUILTIN2("text {}",text_get,C_ANY,o,C_FIXNUM,index)
   char t[2];
   if ((uintptr_t)CLOSURE_REF4(o,0) <= (uintptr_t)index) {
@@ -393,10 +396,7 @@ BUILTIN2("text {}",text_get,C_ANY,o,C_FIXNUM,index)
     TEXT(P, "{}");
     bad_call(REGS_ARGS(P),P);
   }
-  t[0] = DATA_REF1(o,4+UNFIXNUM(index));
-  t[1] = 0;
-  TEXT(R,t);
-RETURNS(R)
+RETURNS(single_chars[DATA_REF1(o,4+UNFIXNUM(index))])
 BUILTIN1("text end",text_end,C_ANY,o)
 RETURNS(FIXNUM(1))
 BUILTIN1("text hash",text_hash,C_ANY,o)
@@ -536,7 +536,7 @@ BUILTIN2("list pre",list_pre,C_ANY,o,C_ANY,x)
   while(s-- > 0) *p++ = *q++;
 RETURN(R)
 RETURNS(0)
-BUILTIN1("list join_text",list_join_text,C_ANY,o)
+BUILTIN1("list unchars",list_unchars,C_ANY,o)
   int i;
   void *x, *t;
   uint8_t *p, *q;
@@ -545,7 +545,7 @@ BUILTIN1("list join_text",list_join_text,C_ANY,o)
   for (i = 0; i < s; i++) {
     x = LIST_REF(o,i);
     if (!IS_TEXT(x)) {
-      fprintf(stderr, "list join_text: not a text (%s)\n", print_object(x));
+      fprintf(stderr, "list unchars: not a text (%s)\n", print_object(x));
       abort();
     }
     if (GET_TAG(x) == T_FIXTEXT) {
@@ -1151,6 +1151,18 @@ int main(int argc, char **argv) {
   }
   if (api->level != 0) api = api->other;
 
+  for (i = 0; i < 128; i++) {
+    char t[2];
+    t[0] = (char)i;
+    t[1] = 0;
+    TEXT(single_chars[i], t);
+  }
+
+  for (; i < MAX_SINGLE_CHARS; i++) {
+    single_chars[i] = single_chars[0];
+  }
+
+
   TEXT(n_int, "int");
   TEXT(n_list, "list");
   TEXT(n_text, "text");
@@ -1200,7 +1212,7 @@ int main(int argc, char **argv) {
   METHOD_FN("hash", b_integer_hash, 0, b_fixtext_hash, b_text_hash, 0, 0, 0);
   METHOD_FN("code", 0, 0, b_fixtext_code, 0, 0, 0, 0);
   METHOD_FN("char", b_integer_char, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("join_text", 0, b_list_join_text, 0, 0, 0, 0, 0);
+  METHOD_FN("unchars", 0, b_list_unchars, 0, 0, 0, 0, 0);
 
   runtime_reserved0 = get_heap_used(0);
   runtime_reserved1 = get_heap_used(1);
