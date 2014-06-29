@@ -374,14 +374,14 @@ static int texts_equal(void *a, void *b) {
   return al == bl && !memcmp(BIGTEXT_DATA(a), BIGTEXT_DATA(b), UNFIXNUM(al));
 }
 
-BUILTIN2("void is",void_is,C_ANY,a,C_ANY,b)
+BUILTIN2("void ><",void_eq,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a == b))
-BUILTIN2("void isnt",void_isnt,C_ANY,a,C_ANY,b)
+BUILTIN2("void <>",void_ne,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a != b))
 
-BUILTIN2("text is",text_is,C_ANY,a,C_ANY,b)
+BUILTIN2("text ><",text_eq,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(IS_BIGTEXT(b) ? texts_equal(a,b) : 0))
-BUILTIN2("text isnt",text_isnt,C_ANY,a,C_ANY,b)
+BUILTIN2("text <>",text_ne,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(IS_BIGTEXT(b) ? !texts_equal(a,b) : 1))
 BUILTIN1("text size",text_size,C_ANY,o)
 RETURNS(FIXNUM(BIGTEXT_SIZE(o)))
@@ -395,9 +395,9 @@ BUILTIN2("text {}",text_get,C_ANY,o,C_FIXNUM,index)
 RETURNS(single_chars[DATA_REF1(o,4+UNFIXNUM(index))])
 BUILTIN1("text hash",text_hash,C_ANY,o)
 RETURNS(FIXNUM(hash(BIGTEXT_DATA(o), BIGTEXT_SIZE(o))))
-BUILTIN2("text is",fixtext_is,C_ANY,a,C_ANY,b)
+BUILTIN2("text eq",fixtext_eq,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(GET_TAG(b) == T_FIXTEXT ? texts_equal(a,b) : 0))
-BUILTIN2("text isnt",fixtext_isnt,C_ANY,a,C_ANY,b)
+BUILTIN2("text ne",fixtext_ne,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(GET_TAG(b) == T_FIXTEXT ? !texts_equal(a,b) : 1))
 BUILTIN1("text size",fixtext_size,C_ANY,o)
 RETURNS(FIXNUM(fixtext_size(o)))
@@ -425,10 +425,6 @@ BUILTIN_VARARGS("text _",fixtext)
   abort();
 RETURNS_VOID
 
-BUILTIN2("view is",view_is,C_ANY,a,C_ANY,b)
-RETURNS(FIXNUM(a == b))
-BUILTIN2("view isnt",view_isnt,C_ANY,a,C_ANY,b)
-RETURNS(FIXNUM(a != b))
 BUILTIN1("view size",view_size,C_ANY,o)
 RETURNS((uintptr_t)VIEW_SIZE(o))
 BUILTIN2("view {}",view_get,C_ANY,o,C_FIXNUM,index)
@@ -480,11 +476,6 @@ BUILTIN2("view pre",view_pre,C_ANY,o,C_ANY,x)
 RETURN(R)
 RETURNS(0)
 
-BUILTIN2("list is",list_is,C_ANY,a,C_ANY,b)
-  intptr_t size = UNFIXNUM(LIST_SIZE(a));
-RETURNS(FIXNUM(a == b))
-BUILTIN2("list isnt",list_isnt,C_ANY,a,C_ANY,b)
-RETURNS(FIXNUM(a != b))
 BUILTIN1("list size",list_size,C_ANY,o)
 RETURNS(LIST_SIZE(o))
 BUILTIN2("list {}",list_get,C_ANY,o,C_FIXNUM,index)
@@ -582,9 +573,9 @@ BUILTIN2("integer /",integer_div,C_ANY,a,C_FIXNUM,b)
 RETURNS(FIXNUM((intptr_t)a / (intptr_t)b))
 BUILTIN2("integer %",integer_rem,C_ANY,a,C_FIXNUM,b)
 RETURNS((intptr_t)a % (intptr_t)b)
-BUILTIN2("integer is",integer_is,C_ANY,a,C_ANY,b)
+BUILTIN2("integer ><",integer_eq,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a == b))
-BUILTIN2("integer isnt",integer_isnt,C_ANY,a,C_ANY,b)
+BUILTIN2("integer <>",integer_ne,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a != b))
 BUILTIN2("integer <",integer_lt,C_ANY,a,C_FIXNUM,b)
 RETURNS(FIXNUM((intptr_t)a < (intptr_t)b))
@@ -643,10 +634,6 @@ BUILTIN1("cons head",cons_head,C_ANY,o)
 RETURNS(CAR(o))
 BUILTIN1("cons tail",cons_tail,C_ANY,o)
 RETURNS(CDR(o))
-BUILTIN2("cons is",cons_is,C_ANY,a,C_ANY,b)
-RETURNS(FIXNUM(a == b))
-BUILTIN2("cons isnt",cons_isnt,C_ANY,a,C_ANY,b)
-RETURNS(FIXNUM(a != b))
 BUILTIN1("cons end",cons_end,C_ANY,o)
 RETURNS(FIXNUM(0))
 BUILTIN2("cons pre",cons_pre,C_ANY,o,C_ANY,head)
@@ -1184,8 +1171,8 @@ int main(int argc, char **argv) {
   METHOD_FN("*", b_integer_mul, 0, 0, 0, 0, 0, 0);
   METHOD_FN("/", b_integer_div, 0, 0, 0, 0, 0, 0);
   METHOD_FN("%", b_integer_rem, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("is", b_integer_is, b_list_is, b_fixtext_is, b_text_is, b_view_is, b_cons_is, b_void_is);
-  METHOD_FN("isnt", b_integer_isnt, b_list_isnt, b_fixtext_isnt, b_text_isnt, b_view_isnt, b_cons_isnt, b_void_isnt);
+  METHOD_FN("><", b_integer_eq, 0, b_fixtext_eq, b_text_eq, 0, 0, b_void_eq);
+  METHOD_FN("<>", b_integer_ne, 0, b_fixtext_ne, b_text_ne, 0, 0, b_void_ne);
   METHOD_FN("<", b_integer_lt, 0, 0, 0, 0, 0, 0);
   METHOD_FN(">", b_integer_gt, 0, 0, 0, 0, 0, 0);
   METHOD_FN("<<", b_integer_lte, 0, 0, 0, 0, 0, 0);

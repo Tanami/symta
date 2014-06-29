@@ -78,9 +78,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to /init-tokenizer
   ! when g_table (return-from /init-tokenizer)
   ! digit = "0123456789"
-  ! head-char = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?<>"
+  ! head-char = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?"
   ! tail-char = "{head-char}{digit}"
   ! ls = `(".." "+" "-" "*" "/" "%" "^" "." "->" "~" "|" ";" "," ":" "=" "=>"
+           "><" "<>" "<" ">" "<<" ">>"
            "\\" "$" "@" "&" "!" (() :end)
            ")" ("(" ,(fn r o ! `(:|()| ,(/list r o :|)|))))
            "]" ("[" ,(fn r o ! `(:|[]| ,(/list r o :|]|))))
@@ -285,9 +286,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to /mul ! /binary #'/prefix '(:* :/ :%))
 (to /add ! /binary #'/mul '(:+ :-))
 (to /dots ! /binary #'/add '(:..))
+(to /bool ! /binary #'/dots '(:>< :<> :< :> :<< :>>))
 
 (to /logic
-  ! o = try (/op '(:and :or)) (/dots)
+  ! o = try (/op '(:and :or)) (/bool)
   ! g_output := nreverse g_output
   ! p = position-if #'delim? g_input ;hack LL(1) to speed-up parsing
   ! tok = and p (elt g_input p)
@@ -938,20 +940,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (if (var-sym? hole)
               `("_let" ((,hole ,key))
                         ,hit)
-              `("if" (,hole "is" ,key)
+              `("if" (,hole "><" ,key)
                      ,hit
                      ,miss)))))
-  (when (equal (car hole) "is")
+  (when (equal (car hole) "><")
     (return-from expand-hole
        (expand-hole key (second hole) (expand-hole key (third hole) hit miss) miss)))
   (when (equal (car hole) "or")
     (return-from expand-hole
-      `("if" (:void "is" ("match" ,key ,@(mapcar (lambda (x) `(,x 1)) (cdr hole))))
+      `("if" (:void "><" ("match" ,key ,@(mapcar (lambda (x) `(,x 1)) (cdr hole))))
              ,miss
              ,hit)))
   (when (equal (car hole) "not")
     (return-from expand-hole
-      `("if" (:void "is" ("match" ,key ,@(mapcar (lambda (x) `(,x 1)) (cdr hole))))
+      `("if" (:void "><" ("match" ,key ,@(mapcar (lambda (x) `(,x 1)) (cdr hole))))
              ,hit
              ,miss)))
   (when (equal (car hole) "bind")
@@ -967,12 +969,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
              ,miss))))
   (when (equal (car hole) "_quote")
     (return-from expand-hole
-      `("if" (,(second hole) "is" ,key)
+      `("if" (,(second hole) "><" ,key)
              ,hit
              ,miss)))
   (when (equal (car hole) "[]")
     (return-from expand-hole
-      `("if" (("_quote" "list") "is" ("tag_of" ,key))
+      `("if" (("_quote" "list") "><" ("tag_of" ,key))
              ,(expand-list-hole key (cdr hole) hit miss)
              ,miss)))
   (error "bad hole: ~a" hole))
@@ -1211,8 +1213,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         ((">" a b) `(,a  ">" ,b))
         (("<<" a b) `(,a "<<" ,b))
         ((">>" a b) `(,a  ">>" ,b))
-        (("is" a b) `(,a "is" ,b))
-        (("isnt" a b) `(,a  "isnt" ,b))
+        (("><" a b) `(,a "><" ,b))
+        (("<>" a b) `(,a  "<>" ,b))
         (("&" o) (return-from builtin-expander
                    (if (fn-sym? o) o `(,(builtin-expander o)))))
         (("and" a b) `("if" ,a ,b 0))
