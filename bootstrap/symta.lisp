@@ -59,7 +59,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                ! last)))
       (src (list row col g_origin))
       (last last)
-      (error (funcall g_error "{row},{col}: {car args}"))))
+      (error (error "{row},{col}: {car args}"))))
 
 (to /add-lexeme dst pattern type
   ! unless pattern (! gethash :type dst := type ! ret nil)
@@ -95,8 +95,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
            (("#" "0123456789ABCDEFabcdef" +) :hex)
            ((,digit +) :integer)
            ((,head-char ,tail-char *) :symbol))
-  ! ss = '(("if" :if) ("then" :then) ("else" :else) ("and" :and) ("or" :or)
-           ("Yes" :kw) ("No" :kw) ("Void" :kw))
+  ! ss = '(("if" :if) ("then" :then) ("else" :else) ("and" :and) ("or" :or) ("Void" :kw))
   ! g_table := (make-hash-table)
   ! g_specs := make-hash-table :test 'equal
   ! e (a b) ss (! gethash a g_specs := b)

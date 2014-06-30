@@ -44,4 +44,41 @@ add_lexeme Dst Pattern Type =
   | when no Dst{C}: Dst{C T}
   | add_lexeme T Next Type
 
+init_tokenizer =
+| unless no GTable: leave init_tokenizer Void
+| Digit = "0123456789"
+| HeadChar = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?"
+| TailChar = "{HeadChar}{Digit}"
+| Ls = \(`+` `-` `*` `/` `%` `^` `.` `->` `~` `|` `;` `,` `:` `=` `=>` `++` `--` `**` `..`
+         `><` `<>` `<` `>` `<<` `>>`
+         `\\` `$` `@` `&` `!`
+         (() end)
+         `)` (`(` $(R O => [`()` (read_list R O ')')]))
+         `]` (`[` $(R O => [`[]` (read_list R O ']')]))
+         `}` (`{` $(R O => [`{}` (read_list R O '}')]))
+         (`'` $(R Cs => [text [`\\` @(read_string R 0 `'`)]]))
+         (`"` $(R Cs => [text [`\`` @(read_string R `{` '`')]]))
+         ($'`' $(R Cs => [symbol (read_string R 0 '`'){0}]))
+         (`//` $&read_comment)
+         (`/*` $&read_multi_comment)
+         ((&(` ` `\n`)) $(R Cs => read_token R 1))
+         ((`#` &`0123456789ABCDEFabcdef`) hex)
+         ((&$Digit) integer)
+         (($HeadChar @$TailChar) symbol)
+         )
+| Ss = \((`if` `if`) (`then` `then`) (`else` `else`) (`and` `and`) (`or` `or`) (`Void` `kw`))
+| GTable != table 256
+| GSpecs != table 256
+| Ss each:[A B] => GSpecs{A B}
+| Ls each:L =>
+  | [Pattern Type] = if list? L then L else [L L]
+  | when text? Pattern: Pattern! chars
+  | add_lexeme GTable Pattern Type
+
+read_token R LeftSpaced =
+read_list R Open Close =
+read_string R Incut End =
+read_comment R Cs =
+read_multi_comment R Cs =
+
 export newInput
