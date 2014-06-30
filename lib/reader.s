@@ -33,7 +33,7 @@ add_lexeme Dst Pattern Type
 | when no Pattern
   | Dst{type Type}
   | leave add_lexeme Void
-| [Cs Next] = Pattern
+| [Cs@Next] = Pattern
 | Cs^| [`&` Cs] => Next != \(@Cs $@Next)
 | when (headed '+ Next) (! next := `(,cs * ,@(cdr next)))
 | when (stringp cs) (! cs := coerce cs 'list)

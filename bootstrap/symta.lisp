@@ -1067,6 +1067,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! setf body (expand-named name body)
   ! list name `("_fn" ,args ,body))
 
+(to expand-destructuring value bs
+  ! xs-var = nil
+  ! match (car (last bs))
+     (("@" x)
+      (setf xs-var x)
+      (setf bs (butlast bs)))
+  ! i = -1
+  ! o = ssa-name "O"
+  ! ys = m b bs (list b `(,o ,'"{}" ,(incf i)))
+  ! when xs-var (setf ys `((,xs-var (,o "drop" ,(length bs))) ,@ys))
+  ! `((,o ,value) ,@ys))
+
 (to expand-block-item x
   ! y = match x
      (("data" name . fields)
@@ -1080,6 +1092,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (else `(nil ("_set" ,place ,value)))))
      (("=" (("." type var) method . args) value)
       (list nil `("_dmet" ,method ,type ("_fn" (,var ,@args) ,value))))
+     (("=" (("[]" . bs)) value) (return-from expand-block-item (expand-destructuring value bs)))
      (("=" (name . args) value)
       (if (var-sym? name)
           (list name value) ;; FIXME: check that args are empty
