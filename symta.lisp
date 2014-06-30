@@ -1143,7 +1143,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to expand-string-splice x
   ! as = nil
   ! s = position #\{ x
-  ! unless s (return-from expand-string-splice `("_quote" x))
+  ! unless s (return-from expand-string-splice `("_quote" ,x))
   ! while s
       (! e = position #\} x
        ! unless e (error '"unterminated {")
@@ -1158,6 +1158,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to expand-or a b
   ! v = ssa-name "V"
   ! `("_let" ((,v ,a)) ("if" ,v ,v ,b)))
+
+(to expand-assign-result as
+  ! ys = copy-list as
+  ! v = nil
+  ! p = position-if (fn x ! match x (("!" x) (setf v x) t)) as
+  ! unless p (error "!!: no ! in ~a" as)
+  ! setf (nth p ys) v
+  ! match v
+     (("." object field) `(,object ,"set_{field}" ,ys))
+     (else `("_set" ,v ,ys)))
+
 
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
@@ -1228,14 +1239,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                       `("let" ((,n ,a)) ("if" ,n ,n ,b))))
         (("named" name . body) (expand-named name `("_progn" ,@body)))
         (("leave" name value) (expand-leave name value))
-        (("!!" . as)
-         (let* ((ys (copy-list as))
-                (v nil)
-                (p (position-if (fn x ! match x (("!" x) (setf v x) t)) as)))
-           (if p
-               (setf (nth p ys) v)
-               (error "!!: no ! in ~a" as))
-           `("_set" ,v ,ys)))
+        (("!!" . as) (expand-assign-result as))
         (("match" keyform . cases) (expand-match keyform cases :empty))
         (("export" . xs) (expand-export xs))
         (else (return-from builtin-expander
@@ -1288,6 +1292,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to symta filename
   ! compile-lib "prelude"
+  ! compile-lib "reader"
   ! native-folder = "{*root-folder*}native/"
   ! runtime-src = "{*root-folder*}runtime.c"
   ! runtime-path = "{native-folder}runtime"
