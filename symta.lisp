@@ -1033,11 +1033,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to expand-block-item-data name fields
   ! gs = m f fields (ssa-name "A")
-  ! d = ssa-name "D"
+  ! o = ssa-name "O"
+  ! v = ssa-name "V"
   ! i = -1
   ! j = -1
+  ! k = -1
   ! `(("=" (,"new_{name}" ,@gs) ("_data" ,name ,@gs))
-      ,@(m f fields `("=" (("." ,name ,d) ,f) ("_dget" ,d ,(incf j))))))
+      ,@(m f fields `("=" (("." ,name ,o) ,f) ("_dget" ,o ,(incf j))))
+      ,@(m f fields `("=" (("." ,name ,o) ,"set_{f}" ,v) ("_dset" ,o ,(incf k) ,v)))))
 
 (to expand-block-item-fn name args value
   ! kname = concatenate 'string "_k_" name
@@ -1064,7 +1067,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (apply #'concatenate 'list
                (m x (expand-block-item-data name fields)
                   (expand-block-item x)))))
-     (("=" ("!!" ("!" name)) value) `(nil ("_set" ,name ,value)))
+     (("=" ("!!" ("!" place)) value)
+      (match place
+        (("." object field) `(nil (,object "set_{field}" ,value)))
+        (else `(nil ("_set" ,place ,value)))))
      (("=" (("." type var) method . args) value)
       (list nil `("_dmet" ,method ,type ("_fn" (,var ,@args) ,value))))
      (("=" (name . args) value)
