@@ -9,12 +9,17 @@ void.O `{}` K = Void
 void.O find F = Void
 void.O locate F = Void
 
-list.As `><` Bs = named `><`
-| N = As.size
-| unless N >< Bs.size: leave `><` 0
+list? O = tag_of.O >< list
+text? O = tag_of.O >< text
+int? O = tag_of.O >< int
+
+list.A `><` B = named `><`
+| unless B^list?: leave `><` 0
+| N = A.size
+| unless N >< B.size: leave `><` 0
 | I = 0
 | while I < N
-  | unless As{I} >< Bs{I}: leave `><` 0
+  | unless A{I} >< B{I}: leave `><` 0
   | I !+ 1
 | 1
 
@@ -199,4 +204,4 @@ table.T `{!}` K V =
          else Old{1 V}
 | T
 
-export not non say bad no have table
+export not non say bad no have table list? text? int?

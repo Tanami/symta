@@ -80,7 +80,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! digit = "0123456789"
   ! head-char = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?"
   ! tail-char = "{head-char}{digit}"
-  ! ls = `(".." "+" "-" "*" "/" "%" "^" "." "->" "~" "|" ";" "," ":" "=" "=>"
+  ! ls = `("+" "-" "*" "/" "%" "^" "." "->" "~" "|" ";" "," ":" "=" "=>" "++" "--" "**" ".."
            "><" "<>" "<" ">" "<<" ">>"
            "\\" "$" "@" "&" "!" (() :end)
            ")" ("(" ,(fn r o ! `(:|()| ,(/list r o :|)|))))
@@ -1046,23 +1046,26 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       ,@(m f fields `("=" (("." ,name ,o) ,f) ("_dget" ,o ,(incf j))))
       ,@(m f fields `("=" (("." ,name ,o) ,"set_{f}" ,v) ("_dset" ,o ,(incf k) ,v)))))
 
-(to expand-block-item-fn name args value
-  ! kname = concatenate 'string "_k_" name
+(to add-pattern-matcher args body
   ! default = match args
                ((("&" default) . tail)
                 (setf args tail)
                 default)
                (else :empty)
-  ! when (find-if #'pattern-arg args)
-      (match args
-        ((("@" all)) (setf args all))
-        (else
-         (! gs = m a args (ssa-name "A")
-          ;; FIXME: value gets duplicated - potentially exponential code growth
-          ! e g gs (setf value (expand-match g `((,(pop args) ,value)) default))
-          ! setf args gs)))
-  ! setf value (expand-named name value)
-  ! list name `("_fn" ,args ,value))
+  ! match args
+    ((("@" all)) (setf args all))
+    (else
+      (! gs = m a args (ssa-name "A")
+       ;; FIXME: value gets duplicated - potentially exponential code growth
+       ! e g gs (setf body (expand-match g `((,(pop args) ,body)) default))
+       ! setf args gs))
+  ! list args body)
+
+(to expand-block-item-fn name args body
+  ! kname = concatenate 'string "_k_" name
+  ! (args body) = if (find-if #'pattern-arg args) (add-pattern-matcher args body) (list args body)
+  ! setf body (expand-named name body)
+  ! list name `("_fn" ,args ,body))
 
 (to expand-block-item x
   ! y = match x
@@ -1173,6 +1176,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (("." object field) `(,object ,"set_{field}" ,ys))
      (else `("_set" ,v ,ys)))
 
+(to expand-lambda as body
+  ! (as body) = if (find-if #'pattern-arg as) (add-pattern-matcher as body) (list as body)
+  ! `("_fn" ,as ,body))
 
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
@@ -1202,7 +1208,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("_goto" name) (return-from builtin-expander xs))
         (("_quote" x) (return-from builtin-expander xs))
         (("fn" as . body) `("_fn" ,as ("|" ,@body)))
-        (("=>" as body) `("_fn" ,as ,body))
+        (("=>" as body) (expand-lambda as body))
         (("when" . xs) `("_if" ,(butlast xs) ,@(last xs) :void))
         (("unless" . xs) `("_if" ,(butlast xs) :void ,@(last xs)))
         (("while" . xs) (expand-while (butlast xs) (car (last xs))))

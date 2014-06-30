@@ -24,8 +24,24 @@ reader_input.O next =
   | O.row !+ 1
 | O.last
 reader_input.O src = [O.row O.col O.origin]
-reader_input.O error = bad reader error at O.src
+reader_input.O error Msg = bad reader error at O.src Msg
 
 data token symbol value src
+
+/*
+add_lexeme Dst Pattern Type
+| when no Pattern
+  | Dst{type Type}
+  | leave add_lexeme Void
+| [Cs Next] = Pattern
+| Cs^| [`&` Cs] => Next != \(@Cs $@Next)
+| when (headed '+ Next) (! next := `(,cs * ,@(cdr next)))
+| when (stringp cs) (! cs := coerce cs 'list)
+| e c (if (listp cs) cs (list cs))
+   (! unless (gethash c dst)
+      (! gethash c dst := if (headed '* next) dst (make-hash-table))
+    ! next = (if (headed '* next) (cdr next) next)
+    ! /add-lexeme (gethash c dst) next type))
+*/
 
 export newInput
