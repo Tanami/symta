@@ -1261,6 +1261,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         ((">>" a b) `(,a  ">>" ,b))
         (("><" a b) `(,a "><" ,b))
         (("<>" a b) `(,a  "<>" ,b))
+        (("=" a b) `("|" ,xs))
         (("&" o) (return-from builtin-expander
                    (if (fn-sym? o) o `(,(builtin-expander o)))))
         (("and" a b) `("if" ,a ,b 0))
