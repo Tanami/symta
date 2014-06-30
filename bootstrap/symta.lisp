@@ -755,10 +755,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! sb-ext:run-program command args :output s :search t :wait t
   ! get-output-stream-string s)
 
-(defparameter *root-folder* "/Users/nikita/Documents/prj/symta/libs/symta/")
+(defparameter *root-folder* "/Users/nikita/Documents/git/symta/")
 
-(to c-runtime-compiler dst src ! shell "gcc" "-O1" "-I" *root-folder* "-g" #|"-DNDEBUG"|# "-o" dst src)
-(to c-compiler dst src ! shell "gcc" "-O1" "-I" *root-folder* "-g" #|"-DNDEBUG"|# "-fpic" "-shared" "-o" dst src)
+(to c-runtime-compiler dst src
+  ! rt-folder = "{*root-folder*}runtime"
+  ! shell "gcc" "-O1" "-I" rt-folder "-g" #|"-DNDEBUG"|# "-o" dst src)
+(to c-compiler dst src
+  ! rt-folder = "{*root-folder*}runtime"
+  ! shell "gcc" "-O1" "-I" rt-folder "-g" #|"-DNDEBUG"|# "-fpic" "-shared" "-o" dst src)
 
 (defparameter *exports-cache* (make-hash-table :test 'equal))
 
@@ -1285,7 +1289,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to compile-lib name
   ! filename = "{*root-folder*}lib/{name}.s"
-  ! dst = "{*root-folder*}native/lib/{name}"
+  ! dst = "{*root-folder*}cache/lib/{name}"
   ! expr = symta-read-file filename
   ! symta-compile-expr dst expr
   )
@@ -1293,12 +1297,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to symta filename
   ! compile-lib "prelude"
   ! compile-lib "reader"
-  ! native-folder = "{*root-folder*}native/"
-  ! runtime-src = "{*root-folder*}runtime.c"
-  ! runtime-path = "{native-folder}runtime"
+  ! cache-folder = "{*root-folder*}cache/"
+  ! runtime-src = "{*root-folder*}/runtime/runtime.c"
+  ! runtime-path = "{cache-folder}runtime"
   ! compile-runtime runtime-src runtime-path
-  ! lib-path = "{native-folder}lib/"
-  ! bin-file = "{native-folder}test"
+  ! lib-path = "{cache-folder}lib/"
+  ! bin-file = "{cache-folder}test"
   ! expr = symta-read-file filename
   ! symta-compile-expr bin-file expr
   ! result = shell runtime-path lib-path bin-file

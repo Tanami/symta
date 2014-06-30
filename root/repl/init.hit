@@ -1,6 +1,0 @@
-use prelude
-
-greet Name => say hello Name
-
-greet world
-
