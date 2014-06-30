@@ -1180,6 +1180,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! (as body) = if (find-if #'pattern-arg as) (add-pattern-matcher as body) (list as body)
   ! `("_fn" ,as ,body))
 
+(to expand-quasiquote o
+  ! unless (listp o) (return-from expand-quasiquote `("_quote" ,o))
+  ! match o
+     (("$" o) o)
+     (else `("[]" ,@(m x o (expand-quasiquote x)))))
+
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
   (let ((xs (normalize-matryoshka xs))
@@ -1229,7 +1235,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                                `(,h "{!}" ,@as)
                                `(,h "{}" ,@as))))
         (("{}" . else) (error "bad {}: ~%" xs))
-        (("\\" o) (return-from builtin-expander `("_quote" ,o)))
+        (("\\" o) (expand-quasiquote o))
         (("+" a b) `(,a "+" ,b))
         (("-" a) `(,a "neg"))
         (("-" a b) `(,a "-" ,b))
