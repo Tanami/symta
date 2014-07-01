@@ -1074,7 +1074,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       (setf bs (butlast bs)))
   ! i = -1
   ! o = ssa-name "O"
-  ! ys = m b bs (list b `(,o ,'"{}" ,(incf i)))
+  ! ys = m b bs (list b `(,o ,'"." ,(incf i)))
   ! when xs-var (setf ys `((,xs-var (,o "drop" ,(length bs))) ,@ys))
   ! `((,o ,value) ,@ys))
 
@@ -1113,7 +1113,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                `("_fn" ,(if (var-sym? (first as)) as `(,dummy ,@(cdr as)))
                        ,expr))))
   ! key = ssa-name "K"
-  ! sel = expand-match `(,all "{}" 1) cases `("_no_method" ,key) :keyvar key
+  ! sel = expand-match `(,all "." 1) cases `("_no_method" ,key) :keyvar key
   ! `("_fn" ,all ("_apply" ,sel ,all)))
 
 (to expand-block xs
@@ -1239,10 +1239,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("let" bs . body) `("_let" ,bs ,@body))
         (("|" . xs) (expand-block xs))
         (("[]" . as) (expand-list as))
-        (("." a b) (if (fn-sym? b) `(,a ,b) `(,a ,"." ,b)))
         (("^" a b) `(,b ,a))
         ((":" a b) `(,@a ,b))
         (("\"" x) (expand-string-splice x))
+        (("." a b) (cond
+                     ((fn-sym? b) `("{}" ,xs))
+                     (t `(,a "." ,b))))
         (("{}" ("." a b) . as) `(,a ,b ,@as))
         (("{}" ("^" a b) . as) `(,b ,@as ,a))
         (("{}" h . as) (if (fn-sym? h) `(,h ,@as) `(,h "{}" ,as)))

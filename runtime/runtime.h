@@ -182,12 +182,8 @@ typedef void *(*pfun)(REGS);
 #define CALL_NO_POP(k,f) k = OBJECT_CODE(f)(REGS_ARGS(f));
 #define CALL(k,f) CALL_NO_POP(k,f); POP_BASE();
 
-#define CALL_TAGGED_NO_POP(k,o,m) \
-  { \
-    uintptr_t tag = (uintptr_t)GET_TAG(o); \
-    if (tag == T_CLOSURE) { \
-      k = OBJECT_CODE(o)(REGS_ARGS(o)); \
-    } else { \
+#define CALL_METHOD_WITH_TAG(k,o,m,tag) \
+   { \
       void *p; \
       ARG_LOAD(api->method, Top, 2); \
       ARG_STORE(Top, 2, o); \
@@ -196,6 +192,21 @@ typedef void *(*pfun)(REGS);
       } \
       p = ((void**)(m))[tag]; \
       k = OBJECT_CODE(p)(REGS_ARGS(p)); \
+   } \
+
+#define CALL_METHOD(k,o,m) \
+  { \
+    uintptr_t tag = (uintptr_t)GET_TAG(o); \
+    CALL_METHOD_WITH_TAG(k,o,m,tag); \
+  }
+
+#define CALL_TAGGED_NO_POP(k,o,m) \
+  { \
+    uintptr_t tag = (uintptr_t)GET_TAG(o); \
+    if (tag == T_CLOSURE) { \
+      k = OBJECT_CODE(o)(REGS_ARGS(o)); \
+    } else { \
+      CALL_METHOD_WITH_TAG(k,o,m,tag); \
     } \
   }
 #define CALL_TAGGED(k,o,m) CALL_TAGGED_NO_POP(k,o,m); POP_BASE();
