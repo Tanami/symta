@@ -75,7 +75,8 @@ init_tokenizer =
   | when text? Pattern: Pattern! chars
   | add_lexeme GTable Pattern Type
 
-read_token R LeftSpaced =/*
+
+read_token R LeftSpaced = /*
 | Src = R.src
 | Head = R.peek
 | Next = R.next
@@ -87,7 +88,12 @@ read_token R LeftSpaced =/*
   | C != R.peek
   | Next != Next.C
   | when no Next
-    | Value = Cs.unchars
+    | Value = Cs.reverse.unchars
+    | when Value >< '-' and LeftSpaced and C <> '\n' and C <> ' '
+      | Type != \negate
+    | when Type >< end and C: Type != 0
+    | unless Type: R error "unexpected `[Value][C or '']`"
+    | when 
 */
 
 read_list R Open Close =

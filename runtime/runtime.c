@@ -379,6 +379,12 @@ RETURNS(FIXNUM(a == b))
 BUILTIN2("void <>",void_ne,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a != b))
 
+BUILTIN2("fn ><",fn_eq,C_ANY,a,C_ANY,b)
+RETURNS(FIXNUM(a == b))
+BUILTIN2("fn <>",fn_ne,C_ANY,a,C_ANY,b)
+RETURNS(FIXNUM(a != b))
+
+
 BUILTIN2("text ><",text_eq,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(IS_BIGTEXT(b) ? texts_equal(a,b) : 0))
 BUILTIN2("text <>",text_ne,C_ANY,a,C_ANY,b)
@@ -1047,9 +1053,10 @@ static api_t *init_api(void *ptr) {
   return api;
 }
 
-#define METHOD_FN(name, m_int, m_list, m_fixtext, m_text, m_view, m_cons, m_void) \
+#define METHOD_FN(name, m_int, m_fn, m_list, m_fixtext, m_text, m_view, m_cons, m_void) \
   multi = api->resolve_method(api, name); \
   if (m_int) {BUILTIN_CLOSURE(multi[T_INTEGER], m_int);}\
+  if (m_fn) {BUILTIN_CLOSURE(multi[T_CLOSURE], m_fn);}\
   if (m_list) {BUILTIN_CLOSURE(multi[T_LIST], m_list);} \
   if (m_fixtext) {BUILTIN_CLOSURE(multi[T_FIXTEXT], m_fixtext);} \
   if (m_text) {BUILTIN_CLOSURE(multi[T_TEXT], m_text);} \
@@ -1057,9 +1064,10 @@ static api_t *init_api(void *ptr) {
   if (m_cons) {BUILTIN_CLOSURE(multi[T_CONS], m_cons);} \
   if (m_void) {BUILTIN_CLOSURE(multi[T_VOID], m_void);}
 
-#define METHOD_VAL(name, m_int, m_list, m_fixtext, m_text, m_view, m_cons, m_void) \
+#define METHOD_VAL(name, m_int, m_fn, m_list, m_fixtext, m_text, m_view, m_cons, m_void) \
   multi = api->resolve_method(api, name); \
   multi[T_INTEGER] = m_int;\
+  multi[T_CLOSURE] = m_fn; \
   multi[T_LIST] = m_list; \
   multi[T_FIXTEXT] = m_fixtext; \
   multi[T_TEXT] = m_text; \
@@ -1075,7 +1083,7 @@ int main(int argc, char **argv) {
   api_t *api;
   void *R;
   void **multi;
-  void *n_int, *n_list, *n_text, *n_void; // typenames
+  void *n_int, *n_fn, *n_list, *n_text, *n_void; // typenames
   void *core;
 
   void *E = 0; // current environment
@@ -1145,12 +1153,13 @@ int main(int argc, char **argv) {
 
 
   TEXT(n_int, "int");
+  TEXT(n_fn, "fn");
   TEXT(n_list, "list");
   TEXT(n_text, "text");
   TEXT(n_void, "void");
 
   api->resolve_type(api, "int");
-  api->resolve_type(api, "closure");
+  api->resolve_type(api, "fn");
   api->resolve_type(api, "list");
   api->resolve_type(api, "float");
   api->resolve_type(api, "view");
@@ -1161,39 +1170,39 @@ int main(int argc, char **argv) {
   api->resolve_type(api, "cons");
   api->resolve_type(api, "void");
 
-  METHOD_VAL("_size", 0, 0, 0, 0, 0, 0, 0);
-  METHOD_VAL("_name", n_int, n_list, n_text, n_text, n_list, n_list, n_void);
-  METHOD_FN("_gc", 0, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("_print", 0, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("neg", b_integer_neg, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("+", b_integer_add, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("-", b_integer_sub, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("*", b_integer_mul, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("/", b_integer_div, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("%", b_integer_rem, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("><", b_integer_eq, 0, b_fixtext_eq, b_text_eq, 0, 0, b_void_eq);
-  METHOD_FN("<>", b_integer_ne, 0, b_fixtext_ne, b_text_ne, 0, 0, b_void_ne);
-  METHOD_FN("<", b_integer_lt, 0, 0, 0, 0, 0, 0);
-  METHOD_FN(">", b_integer_gt, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("<<", b_integer_lte, 0, 0, 0, 0, 0, 0);
-  METHOD_FN(">>", b_integer_gte, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("mask", b_integer_mask, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("ior", b_integer_ior, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("xor", b_integer_xor, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("shl", b_integer_shl, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("shr", b_integer_shr, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("x", b_integer_x, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("head", 0, b_list_head, 0, 0, b_view_head, b_cons_head, 0);
-  METHOD_FN("tail", 0, b_list_tail, 0, 0, b_view_tail, b_cons_tail, 0);
-  METHOD_FN("pre", 0, b_list_pre, 0, 0, b_view_pre, b_cons_pre, 0);
-  METHOD_FN("end", 0, b_list_end, 0, 0, b_view_end, b_cons_end, 0);
-  METHOD_FN("size", 0, b_list_size, b_fixtext_size, b_text_size, b_view_size, 0, 0);
-  METHOD_FN(".", 0, b_list_get, b_fixtext_get, b_text_get, b_view_get, 0, 0);
-  METHOD_FN("!", 0, b_list_set, 0, 0, b_view_set, 0, 0);
-  METHOD_FN("hash", b_integer_hash, 0, b_fixtext_hash, b_text_hash, 0, 0, 0);
-  METHOD_FN("code", 0, 0, b_fixtext_code, 0, 0, 0, 0);
-  METHOD_FN("char", b_integer_char, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("unchars", 0, b_list_unchars, 0, 0, 0, 0, 0);
+  METHOD_VAL("_size", 0, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_VAL("_name", n_int, n_fn, n_list, n_text, n_text, n_list, n_list, n_void);
+  METHOD_FN("_gc", 0, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("_print", 0, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("neg", b_integer_neg, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("+", b_integer_add, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("-", b_integer_sub, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("*", b_integer_mul, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("/", b_integer_div, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("%", b_integer_rem, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("><", b_integer_eq, b_fn_eq, 0, b_fixtext_eq, b_text_eq, 0, 0, b_void_eq);
+  METHOD_FN("<>", b_integer_ne, b_fn_ne, 0, b_fixtext_ne, b_text_ne, 0, 0, b_void_ne);
+  METHOD_FN("<", b_integer_lt, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN(">", b_integer_gt, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("<<", b_integer_lte, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN(">>", b_integer_gte, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("mask", b_integer_mask, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("ior", b_integer_ior, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("xor", b_integer_xor, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("shl", b_integer_shl, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("shr", b_integer_shr, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("x", b_integer_x, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("head", 0, b_list_head, 0, 0, 0, b_view_head, b_cons_head, 0);
+  METHOD_FN("tail", 0, b_list_tail, 0, 0, 0, b_view_tail, b_cons_tail, 0);
+  METHOD_FN("pre", 0, b_list_pre, 0, 0, 0, b_view_pre, b_cons_pre, 0);
+  METHOD_FN("end", 0, b_list_end, 0, 0, 0, b_view_end, b_cons_end, 0);
+  METHOD_FN("size", 0, b_list_size, 0, b_fixtext_size, b_text_size, b_view_size, 0, 0);
+  METHOD_FN(".", 0, b_list_get, 0, b_fixtext_get, b_text_get, b_view_get, 0, 0);
+  METHOD_FN("!", 0, b_list_set, 0, 0, 0, b_view_set, 0, 0);
+  METHOD_FN("hash", b_integer_hash, 0, 0, b_fixtext_hash, b_text_hash, 0, 0, 0);
+  METHOD_FN("code", 0, 0, 0, b_fixtext_code, 0, 0, 0, 0);
+  METHOD_FN("char", b_integer_char, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("unchars", 0, 0, b_list_unchars, 0, 0, 0, 0, 0);
 
   runtime_reserved0 = get_heap_used(0);
   runtime_reserved1 = get_heap_used(1);

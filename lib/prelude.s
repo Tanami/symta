@@ -9,9 +9,9 @@ void.O `.` K = Void
 void.O find F = Void
 void.O locate F = Void
 
-list? O = tag_of.O >< list
-text? O = tag_of.O >< text
-int? O = tag_of.O >< int
+list? O = O^tag_of >< list
+text? O = O^tag_of >< text
+int? O = O^tag_of >< int
 
 list.A `><` B = named `><`
 | unless B^list?: leave `><` 0

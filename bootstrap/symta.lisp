@@ -561,8 +561,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'var v
   ! v)
 
-(to ssa-apply k f as
-  ! match f (("_fn" bs . body) (return-from ssa-apply (ssa-let k bs as body)))
+(to ssa-apply k f as &optional is-method
+  ! unless is-method
+     (match f (("_fn" bs . body)
+               (return-from ssa-apply (ssa-let k bs as body))))
   ! ssa 'push_base
   ! h = ssa-var "head"
   ! ssa-expr h f
@@ -582,7 +584,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! method-name-bytes = ssa-cstring method-name
   ! m = ssa-global "m"
   ! push `(resolve_method ,m ,method-name-bytes) *ssa-raw-inits*
-  ! ssa 'call_tagged k h m)
+  ! if is-method
+       (ssa 'call_method k h m)
+       (ssa 'call_tagged k h m))
 
 (to ssa-set k place value
   ! r = ssa-name "r"
@@ -728,6 +732,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_dget" src index) (ssa-dget k src index))
     (("_dset" dst index value) (ssa-dset k dst index value))
     (("_dmet" method type handler) (ssa-dmet k method type handler))
+    (("_mcall" f . as) (ssa-apply k f as t))
     (("_list" . xs) (ssa-list k xs))
     (("_import" lib symbol) (ssa-import k lib symbol))
     #|(("_add" a b) (ssa-fixed k 'fixed_add a b))
@@ -843,6 +848,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''push_base) (to-c-emit "  PUSH_BASE();"))
          ((''call k name) (to-c-emit "  CALL(~a, ~a);" k name))
          ((''call_tagged k obj method) (to-c-emit "  CALL_TAGGED(~a, ~a, ~a);" k obj method))
+         ((''call_method k obj method) (to-c-emit "  CALL_METHOD(~a, ~a, ~a);" k obj method))
          ((''call_tagged_dynamic k obj) (to-c-emit "  CALL_TAGGED_DYNAMIC(~a, ~a);" k obj))
          ((''arglist place size) (to-c-emit "  ARGLIST(~a, ~a);" place size))
          ((''lift base pos value) (to-c-emit "  LIFT(~a,~a,~a);" base pos value))
@@ -943,7 +949,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (if (var-sym? hole)
               `("_let" ((,hole ,key))
                         ,hit)
-              `("if" (,hole "><" ,key)
+              `("if" ("><" ,hole ,key)
                      ,hit
                      ,miss)))))
   (when (equal (car hole) "><")
@@ -951,12 +957,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        (expand-hole key (second hole) (expand-hole key (third hole) hit miss) miss)))
   (when (equal (car hole) "or")
     (return-from expand-hole
-      `("if" (:void "><" ("match" ,key ,@(mapcar (lambda (x) `(,x 1)) (cdr hole))))
+      `("if" ("><" :void ("match" ,key ,@(mapcar (lambda (x) `(,x 1)) (cdr hole))))
              ,miss
              ,hit)))
   (when (equal (car hole) "not")
     (return-from expand-hole
-      `("if" (:void "><" ("match" ,key ,@(mapcar (lambda (x) `(,x 1)) (cdr hole))))
+      `("if" ("><" :void ("match" ,key ,@(mapcar (lambda (x) `(,x 1)) (cdr hole))))
              ,hit
              ,miss)))
   (when (equal (car hole) "bind")
@@ -972,12 +978,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
              ,miss))))
   (when (equal (car hole) "_quote")
     (return-from expand-hole
-      `("if" (,(second hole) "><" ,key)
+      `("if" ("><" ,(second hole) ,key)
              ,hit
              ,miss)))
   (when (equal (car hole) "[]")
     (return-from expand-hole
-      `("if" (("_quote" "list") "><" ("tag_of" ,key))
+      `("if" ("><" ("_quote" "list") ("tag_of" ,key))
              ,(expand-list-hole key (cdr hole) hit miss)
              ,miss)))
   (error "bad hole: ~a" hole))
@@ -1245,23 +1251,23 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("." a b) (cond
                      ((fn-sym? b) `("{}" ,xs))
                      (t `(,a "." ,b))))
-        (("{}" ("." a b) . as) `(,a ,b ,@as))
+        (("{}" ("." a b) . as) `("_mcall" ,a ,b ,@as))
         (("{}" ("^" a b) . as) `(,b ,@as ,a))
         (("{}" h . as) (if (fn-sym? h) `(,h ,@as) `(,h "{}" ,as)))
         (("{}" . else) (error "bad {}: ~%" xs))
         (("\\" o) (expand-quasiquote o))
-        (("+" a b) `(,a "+" ,b))
-        (("-" a) `(,a "neg"))
-        (("-" a b) `(,a "-" ,b))
-        (("*" a b) `(,a "*" ,b))
-        (("/" a b) `(,a "/" ,b))
-        (("%" a b) `(,a  "%" ,b))
-        (("<" a b) `(,a "<" ,b))
-        ((">" a b) `(,a  ">" ,b))
-        (("<<" a b) `(,a "<<" ,b))
-        ((">>" a b) `(,a  ">>" ,b))
-        (("><" a b) `(,a "><" ,b))
-        (("<>" a b) `(,a  "<>" ,b))
+        (("+" a b) `("_mcall" ,a "+" ,b))
+        (("-" a) `("_mcall" ,a "neg"))
+        (("-" a b) `("_mcall" ,a "-" ,b))
+        (("*" a b) `("_mcall" ,a "*" ,b))
+        (("/" a b) `("_mcall" ,a "/" ,b))
+        (("%" a b) `("_mcall" ,a  "%" ,b))
+        (("<" a b) `("_mcall" ,a "<" ,b))
+        ((">" a b) `("_mcall" ,a  ">" ,b))
+        (("<<" a b) `("_mcall" ,a "<<" ,b))
+        ((">>" a b) `("_mcall" ,a  ">>" ,b))
+        (("><" a b) `("_mcall" ,a "><" ,b))
+        (("<>" a b) `("_mcall" ,a  "<>" ,b))
         (("=" a b) `("|" ,xs))
         (("&" o) (return-from builtin-expander
                    (if (fn-sym? o) o `(,(builtin-expander o)))))
