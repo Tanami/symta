@@ -87,7 +87,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
            "]" ("[" ,(fn r o ! `(:|[]| ,(/list r o :|]|))))
            "}" (,(string #\{) ,(fn r o ! `(:|{}| ,(/list r o :|}|))))
            ("'" ,(fn r cs ! `(:text ,(cons "\\" (/string r nil #\')))))
-           ("\"" ,(fn r cs ! `(:text ,(cons "\"" (/string r #\[ #\")))))
+           ("\"" ,(fn r cs ! `(:text ,(cons "\"" (/string r nil #\")))))
            ("`" ,(fn r cs ! `(:symbol ,(first (/string r nil #\`)))))
            ("//" ,#'/comment)
            ("/*" ,#'/multi-comment)
@@ -1161,17 +1161,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to expand-string-splice x
   ! as = nil
-  ! s = position #\{ x
+  ! s = position #\[ x
   ! unless s (return-from expand-string-splice `("_quote" ,x))
   ! while s
-      (! e = position #\} x
-       ! unless e (error '"unterminated {")
+      (! e = position #\] x
+       ! unless e (error '"unterminated [")
        ! push `("_quote" ,(subseq x 0 s)) as
        ! push `("text" ,(/read (subseq x (+ s 1) e))) as
        ! setf x (subseq x (+ e 1) (length x))
-       ! setf s (position #\{ x))
+       ! setf s (position #\[ x))
   ! when (/= 0 (length x)) (push `("_quote" ,x) as)
-  ! `(("_list" ,@(reverse as)) "join_text"))
+  ! `(("_list" ,@(reverse as)) "unchars"))
 
 (to expand-and a b ! `("if" ,a ,b 0))
 (to expand-or a b
@@ -1185,10 +1185,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! unless p (error "!!: no ! in ~a" as)
   ! setf (nth p ys) v
   ! match v
-     (("." object field) `(,object ,"set_{field}" ,ys))
+     (("." object field)
+      (if (fn-sym? field)
+          `(,object ,"set_{field}" ,ys)
+          `(,object "!" ,field ,ys)))
      (else `("_set" ,v ,ys)))
 
 (to expand-lambda as body
+  ! body = `("|" ,body)
   ! (as body) = if (find-if #'pattern-arg as) (add-pattern-matcher as body) (list as body)
   ! `("_fn" ,as ,body))
 
@@ -1235,17 +1239,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("let" bs . body) `("_let" ,bs ,@body))
         (("|" . xs) (expand-block xs))
         (("[]" . as) (expand-list as))
-        (("." a b) `(,a ,b))
+        (("." a b) (if (fn-sym? b) `(,a ,b) `(,a ,"." ,b)))
         (("^" a b) `(,b ,a))
         ((":" a b) `(,@a ,b))
         (("\"" x) (expand-string-splice x))
         (("{}" ("." a b) . as) `(,a ,b ,@as))
         (("{}" ("^" a b) . as) `(,b ,@as ,a))
-        (("{}" h . as) (if (fn-sym? h)
-                           `(,h ,@as)
-                           (if (> (length as) 1)
-                               `(,h "{!}" ,@as)
-                               `(,h "{}" ,@as))))
+        (("{}" h . as) (if (fn-sym? h) `(,h ,@as) `(,h "{}" ,as)))
         (("{}" . else) (error "bad {}: ~%" xs))
         (("\\" o) (expand-quasiquote o))
         (("+" a b) `(,a "+" ,b))

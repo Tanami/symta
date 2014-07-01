@@ -12,7 +12,7 @@ headed&0 H [X@Xs] = H >< X
 
 data reader_input chars origin row col off last len
 newInput Text Origin = new_reader_input Text.chars Origin 0 0 0 Void Text.size
-reader_input.O `{}` K = (O.chars){K}
+reader_input.O `{}` K = O.chars.K
 reader_input.O peek = when O.off < O.len: O{O.off}
 reader_input.O next =
 | when O.off < O.len
@@ -30,7 +30,7 @@ data token symbol value src
 
 add_lexeme Dst Pattern Type =
 | when Pattern end
-  | Dst{type Type}
+  | Dst.type != Type
   | leave add_lexeme Void
 | [Cs@Next] = Pattern
 | Cs^| [`&` Cs] => Next != \(@Cs $@Next)
@@ -41,14 +41,14 @@ add_lexeme Dst Pattern Type =
   | C^| [`@` X] => | Kleene != 1
                    | C != X
   | T = if Kleene then Dst else table 256
-  | when no Dst{C}: Dst{C T}
+  | when no Dst.C: Dst.C != T
   | add_lexeme T Next Type
 
 init_tokenizer =
 | unless no GTable: leave init_tokenizer Void
 | Digit = "0123456789"
 | HeadChar = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?"
-| TailChar = "{HeadChar}{Digit}"
+| TailChar = "[HeadChar][Digit]"
 | Ls = \(`+` `-` `*` `/` `%` `^` `.` `->` `~` `|` `;` `,` `:` `=` `=>` `++` `--` `**` `..`
          `><` `<>` `<` `>` `<<` `>>`
          `\\` `$` `@` `&` `!`
@@ -69,13 +69,27 @@ init_tokenizer =
 | Ss = \((`if` `if`) (`then` `then`) (`else` `else`) (`and` `and`) (`or` `or`) (`Void` `kw`))
 | GTable != table 256
 | GSpecs != table 256
-| Ss each:[A B] => GSpecs{A B}
+| Ss each:[A B] => GSpecs.A != B
 | Ls each:L =>
   | [Pattern Type] = if list? L then L else [L L]
   | when text? Pattern: Pattern! chars
   | add_lexeme GTable Pattern Type
 
-read_token R LeftSpaced =
+read_token R LeftSpaced =/*
+| Src = R.src
+| Head = R.peek
+| Next = R.next
+| Cur = Void
+| C = Void
+| Cs = []
+| while 1
+  | Cur != Next
+  | C != R.peek
+  | Next != Next.C
+  | when no Next
+    | Value = Cs.unchars
+*/
+
 read_list R Open Close =
 read_string R Incut End =
 read_comment R Cs =

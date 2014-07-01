@@ -5,7 +5,7 @@ have X = Void <> X
 
 text.O end = 1
 void.O end = 1
-void.O `{}` K = Void
+void.O `.` K = Void
 void.O find F = Void
 void.O locate F = Void
 
@@ -26,7 +26,7 @@ list.A `><` B = named `><`
 list.As `<>` Bs = if As >< Bs then 0 else 1
 
 list.Xs reverse =
-| N = Xs size
+| N = Xs.size
 | I = 0
 | Ys = N x 0
 | while I < N
@@ -37,54 +37,54 @@ list.Xs reverse =
 | Ys
 
 list.Xs map F =
-| N = Xs size
+| N = Xs.size
 | I = 0
 | Ys = N x 0
 | while I < N
-  | Ys{I Xs{I}^F}
+  | Ys.I != Xs.I^F
   | I! + 1
 | Ys
 
 list.Xs each F =
-| N = Xs size
+| N = Xs.size
 | I = 0
 | while I < N
-  | F Xs{I}
+  | F = Xs.I
   | I! + 1
 | Void
 
-int.N `{}` F =
+int.N `.` F =
 | I = 0
 | Ys = N x 0
 | while I < N
-  | Ys{I F.I}
+  | Ys.I != F I
   | I! + 1
 | Ys
 
 list.Xs sum =
 | S = 0
 | I = 0
-| N = Xs size
+| N = Xs.size
 | while I < N
-  | S !+ Xs{I}
+  | S !+ Xs.I
   | I !+ 1
 | S
 
 list.Xs count F =
 | S = 0
 | I = 0
-| N = Xs size
+| N = Xs.size
 | while I < N
-  | when F Xs{I}: S !+ 1
+  | when F Xs.I: S !+ 1
   | I !+ 1
 | S
 
 list.Xs countNot F =
 | S = 0
 | I = 0
-| N = Xs size
+| N = Xs.size
 | while I < N
-  | unless F Xs{I}: S !+ 1
+  | unless F Xs.I: S !+ 1
   | I !+ 1
 | S
 
@@ -94,9 +94,9 @@ list.Xs keep F =
 | I = 0
 | J = 0
 | while J < N
-  | X = Xs{I}
+  | X = Xs.I
   | when F X
-    | Ys{J X}
+    | Ys.J != X
     | J !+ 1
   | I !+ 1
 | Ys
@@ -107,9 +107,9 @@ list.Xs skip F =
 | I = 0
 | J = 0
 | while J < N
-  | X = Xs{I}
+  | X = Xs.I
   | unless F X
-    | Ys{J X}
+    | Ys.J != X
     | J !+ 1
   | I !+ 1
 | Ys
@@ -118,7 +118,7 @@ list.Xs join =
 | Size = Xs.map{X=>X.size}.sum
 | Rs = Size x 0
 | I = 0
-| Xs map: Ys => Ys map: Y => | Rs{I Y}
+| Xs map: Ys => Ys map: Y => | Rs.I != Y
                              | I !+ 1
 | Rs
 
@@ -126,7 +126,7 @@ list.Xs take N =
 | Ys = N x 0
 | I = 0
 | while I < N
-  | Ys{I Xs{I}}
+  | Ys.I != Xs.I
   | I !+ 1
 | Ys
 
@@ -135,12 +135,12 @@ list.Xs drop S =
 | Ys = N-S x 0
 | I = 0
 | while S < N
-  | Ys{I Xs{S}}
+  | Ys.I != Xs.S
   | I !+ 1
   | S !+ 1
 | Ys
 
-list.Xs last = Xs{Xs.size-1}
+list.Xs last = Xs.(Xs.size-1)
 list.Xs suf X = [@Xs X]
 list.Xs lead = Xs take Xs.size-1
 
@@ -150,7 +150,7 @@ list.Xs infix Item =
 | N = if N < 0 then 0 else N
 | Ys = N x 0
 | while I < N
-  | Ys{I (if I%2 then Item else Xs{I/2})}
+  | Ys.I != if I%2 then Item else Xs.(I/2)
   | I !+ 1
 | Ys
 
@@ -158,7 +158,7 @@ list.Xs locate F = named locate
 | N = Xs size
 | I = 0
 | while I < N
-  | when F Xs{I}: leave locate I
+  | when F Xs.I: leave locate I
   | I !+ 1
 | Void
 
@@ -166,7 +166,7 @@ list.Xs find F = named find
 | N = Xs size
 | I = 0
 | while I < N
-  | X = Xs{I}
+  | X = Xs.I
   | when F X: leave find X
   | I !+ 1
 | Void
@@ -176,7 +176,7 @@ text.T chars =
 | I = 0
 | R = N x 0
 | while I < N
-  | R{I T{I}}
+  | R.I != T.I
   | I! + 1
 | R
 
@@ -191,17 +191,18 @@ say @Xs =
 // hashtable
 data table buckets
 table Size = new_table: Size x Void
-table.T `{}` K = 
-| Bs = T.buckets
-| Bs{K.hash%Bs.size}.find{X => X{0}><K}{1}
-table.T `{!}` K V =
+table.T `.` K = 
 | Bs = T.buckets
 | H = K.hash%Bs.size
-| Xs = Bs{H}
-| if no Xs then Bs{H [[K V]]}
-  else | Old = Xs.find{X => X{0}><K}
-       | if no Old then Bs{H [[K V]@Xs]}
-         else Old{1 V}
+| Bs.H.find{X => X.0><K}.1
+table.T `!` K V =
+| Bs = T.buckets
+| H = K.hash%Bs.size
+| Xs = Bs.H
+| if no Xs then Bs.H != [[K V]]
+  else | Old = Xs.find{X => X.0><K}
+       | if no Old then Bs.H != [[K V]@Xs]
+         else Old.1 != V
 | T
 
 export not non say bad no have table list? text? int?
