@@ -952,10 +952,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
               `("if" ("><" ,hole ,key)
                      ,hit
                      ,miss)))))
-  (when (equal (car hole) "><")
+  (when (equal (car hole) ">")
     (return-from expand-hole
        (expand-hole key (second hole) (expand-hole key (third hole) hit miss) miss)))
-  (when (equal (car hole) "or")
+  (when (equal (car hole) "in")
     (return-from expand-hole
       `("if" ,(expand-match key (m x (cdr hole) `(,x 1)) 0)
              ,hit
@@ -1069,7 +1069,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to expand-block-item-fn name args body
   ! kname = concatenate 'string "_k_" name
   ! (args body) = if (find-if #'pattern-arg args) (add-pattern-matcher args body) (list args body)
-  ! setf body (expand-named name body)
+  ! setf body `("_default_leave" ,name ,(expand-named name body))
   ! list name `("_fn" ,args ,body))
 
 (to expand-destructuring value bs
@@ -1154,12 +1154,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                       `("_set" ,(first x) ,(second x))
                       (second x)))))
 
-(to normalize-matryoshka o
-  ! match o ((x) (if (fn-sym? x)
-                     o
-                     (normalize-matryoshka x)))
-            (x x))
-
 (to expand-export xs ! `("_list" ,@(m x xs `("_list" ("_quote" ,x) ("&" ,x)))))
 
 
@@ -1169,6 +1163,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                ("_if" ,head
                       ("_progn" ,body ("_goto" ,l))
                       ())))
+
+(to expand-for item items body
+  ! xs = ssa-name "Xs"
+  ! i = ssa-name "I"
+  ! n = ssa-name "N"
+  ! `("|" ("=" (,xs) (,items))
+          ("=" (,i) (0))
+          ("=" (,n) (,xs "size"))
+          ("while" ("<" ,i ,n)
+            ("|" ("=" (,item) (,items "." ,i))
+                 ,body
+                 ("_set" ,i ("+" ,i 1))))))
 
 (to incut? x ! match x (("@" x) t))
 
@@ -1216,6 +1222,23 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      ! setf xs (subseq xs n))
   ! reverse ys)
 
+(to expand-pop o
+  ! r = ssa-name "R"
+  ! `("|" ("=" (,r) ("_mcall" ,o "head"))
+          ("_set" ,o ("_mcall" ,o "tail"))
+          ,r))
+
+(to expand-push o item ! `("_set" ,o ("_mcall" ,o "pre" ,item)))
+
+(to normalize-matryoshka o
+  ! match o ((x) (if (fn-sym? x)
+                     o
+                     (normalize-matryoshka x)))
+            (x x))
+
+(defparameter *default-leave* nil)
+
+
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
   (let ((xs (normalize-matryoshka xs))
@@ -1248,6 +1271,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("when" . xs) `("_if" ,(butlast xs) ,@(last xs) :void))
         (("unless" . xs) `("_if" ,(butlast xs) :void ,@(last xs)))
         (("while" . xs) (expand-while (butlast xs) (car (last xs))))
+        (("for" v . xs) (expand-for v (butlast xs) (car (last xs))))
+        (("pop" o) (expand-pop o))
+        (("push" o item) (expand-push o item))
         (("and" a b) (expand-and a b))
         (("or" a b) (expand-or a b))
         (("let" bs . body) `("_let" ,bs ,@body))
@@ -1283,9 +1309,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("or" a b) (let ((n (ssa-name "T")))
                       `("let" ((,n ,a)) ("if" ,n ,n ,b))))
         (("named" name . body) (expand-named name `("_progn" ,@body)))
+        (("_default_leave" name body)
+         (return-from builtin-expander
+           (let ((*default-leave* name))
+             (builtin-expander body))))
         (("leave" name value) (expand-leave name value))
+        (("leave" value) (expand-leave *default-leave* value))
         (("!!" . as) (expand-assign-result as))
-        (("case" keyform . cases) (expand-match keyform (group-by 2 cases) 0))
+        (("on" keyform . cases) (expand-match keyform (group-by 2 cases) 0))
         (("export" . xs) (expand-export xs))
         (else (return-from builtin-expander
                 (cons (builtin-expander (car xs) t)
@@ -1336,7 +1367,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   )
 
 (to symta filename
-  ! compile-lib "prelude"
+  ;;! compile-lib "prelude"
   ! compile-lib "reader"
   ! cache-folder = "{*root-folder*}cache/"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"

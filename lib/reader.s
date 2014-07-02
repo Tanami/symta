@@ -32,7 +32,7 @@ token? O = O^tag_of >< token
 add_lexeme Dst Pattern Type =
 | when Pattern end
   | Dst.type != Type
-  | leave add_lexeme Void
+  | leave Void
 | [Cs@Next] = Pattern
 | Cs^| [`&` Cs] => Next != \(@Cs $@Next)
 | when text? Cs | Cs != Cs.chars
@@ -46,7 +46,7 @@ add_lexeme Dst Pattern Type =
   | add_lexeme T Next Type
 
 init_tokenizer =
-| unless no GTable: leave init_tokenizer Void
+| unless no GTable: leave Void
 | Digit = "0123456789"
 | HeadChar = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?"
 | TailChar = "[HeadChar][Digit]"
@@ -97,10 +97,10 @@ read_token R LeftSpaced =
     | unless Type: R error "unexpected `[Value][C or '']`"
     | when fn? Type
       | Value != Type R Value
-      | when token? Value: leave read_token Value
+      | when token? Value: leave Value
       | Type != Value.0
       | Value != Value.1
-    | leave read_token: new_token Type Value Src
+    | leave: new_token Type Value Src
   | Cs != [C@Cs]
   | R.next
 
@@ -121,7 +121,7 @@ tokenize R =
 | Ts = []
 | while 1
   | Tok = read_token R 0
-  | when Tok.symbol >< end: leave tokenize Ts.reverse^add_bars
+  | when Tok.symbol >< end: leave Ts.reverse^add_bars
   | Ts != [Tok@Ts]
 
 read_list R Open Close =
@@ -129,7 +129,7 @@ read_list R Open Close =
 | Xs = []
 | while 1
   | X = read_token R 0
-  | when X.symbol >< Close: leave read_list Xs.reverse
+  | when X.symbol >< Close: leave Xs.reverse
   | when X.symbol >< end: GError "[Orig]:[Row],[Col]: unclosed `[Open]`"
   | Xs != [X@Xs]
 
@@ -139,30 +139,77 @@ str_merge Left Middle Right =
 | Left = if str_empty? Left then [Middle] else [Left Middle]
 | if Right.size >< 1 and Right.1.size >< 0 then Left else [@Left @Right]
 
-read_string R Incut End = /*
+read_string R Incut End =
 | L = []
 | while 1
   | C = R.peek
   | unless C >< Incut: R.next
-  | case C
-     '\\' | case R.next
-              'n' | L != ['\n' @L]
-              't' | L != ['\t' @L]
-              '\\' | L != ['\\' @L]
-              C><(Incut or End) | L != [C@L]
-              0 | R.error{'EOF in string'}
-              Else | R.error{"Invalid escape code: [else]"}
-     &End | leave read_string [L.reverse.unchars]
-     &Incut | L != L.reverse.unchars
-            | M = read_token{R 0}.value
-            | E = read_string R Incut End
-            | leave read_string: str_merge L M E
-     [] | R.error{'EOF in string'}
-     Else | L != [C@L]
-*/
+  | on C
+       `\\` | on R.next
+                 `n` | L != ['\n' @L]
+                 `t` | L != ['\t' @L]
+                 `\\` | L != ['\\' @L]
+                 C>(in &Incut &End) | L != [C@L]
+                 0 | R.error{'EOF in string'}
+                 Else | R.error{"Invalid escape code: [Else]"}
+       &End | leave [L.reverse.unchars]
+       &Incut | L != L.reverse.unchars
+              | M = read_token{R 0}.value
+              | E = read_string R Incut End
+              | leave: str_merge L M E
+       [] | R.error{'EOF in string'}
+       Else | L != [C@L]
 
+comment_char? C = C and not C >< '\n'
 read_comment R Cs =
+| while comment_char? R.next
+| read_token R 0
 
 read_multi_comment R Cs =
+| O = 1
+| while O > 0
+  | on [R.next R.next]
+       [X 0] | R.error{"`/*`: missing `*/`"}
+       [`*` `/`] | O!-1
+       [`/` `*`] | O!+1
+  | R.next
+| read_token R 0
+
+parser_error Cause Tok =
+| [Row Col Orig] = Tok.src
+| bad "[Orig]:[Row],[Col]: [Cause] [Tok.value or 'eof']"
+
+expect What Head =
+| Tok = GInput.1
+| unless Tok.symbol >< What: parser_error "expected [What]; got" (Head or Tok)
+| pop GInput
+
+parse_if Sym =
+| Head = parse_xs
+| expect `then` Sym
+| Then = parse_xs
+| expect `else` Sym
+| Else = parse_xs
+| [Sym Head Then Else]
+
+parse_bar H =
+| C = H.src.1
+| Zs = []
+| while GInput
+  | Ys = []
+  | while not GInput.end and GInput.0.src.1 >< C: push Ys GInput^pop
+  | push Zs Ys.reverse^parse
+  | X = GInput.0
+  | unless X.symbol >< '|' and X.src.1 >< C: leave [H @Zs.reverse]
+  | pop GInput
+
+
+//A = parse_mul or return 0
+
+parse_xs =
+parse Tokens =
+
+
+
 
 export newInput
