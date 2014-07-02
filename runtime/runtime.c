@@ -1192,10 +1192,10 @@ int main(int argc, char **argv) {
   METHOD_FN("shl", b_integer_shl, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("shr", b_integer_shr, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("x", b_integer_x, 0, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("head", 0, b_list_head, 0, 0, 0, b_view_head, b_cons_head, 0);
-  METHOD_FN("tail", 0, b_list_tail, 0, 0, 0, b_view_tail, b_cons_tail, 0);
-  METHOD_FN("pre", 0, b_list_pre, 0, 0, 0, b_view_pre, b_cons_pre, 0);
-  METHOD_FN("end", 0, b_list_end, 0, 0, 0, b_view_end, b_cons_end, 0);
+  METHOD_FN("head", 0, 0, b_list_head, 0, 0, b_view_head, b_cons_head, 0);
+  METHOD_FN("tail", 0, 0, b_list_tail, 0, 0, b_view_tail, b_cons_tail, 0);
+  METHOD_FN("pre", 0, 0, b_list_pre, 0, 0, b_view_pre, b_cons_pre, 0);
+  METHOD_FN("end", 0, 0, b_list_end, 0, 0, b_view_end, b_cons_end, 0);
   METHOD_FN("size", 0, 0, b_list_size, b_fixtext_size, b_text_size, b_view_size, 0, 0);
   METHOD_FN(".", 0, 0, b_list_get, b_fixtext_get, b_text_get, b_view_get, 0, 0);
   METHOD_FN("!", 0, 0, b_list_set, 0, 0, b_view_set, 0, 0);

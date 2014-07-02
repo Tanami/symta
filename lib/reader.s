@@ -1,6 +1,6 @@
 use prelude
 
-GError = Void
+GError = Msg => log Msg
 GInput = Void
 GOutput = Void
 GTable = Void
@@ -103,9 +103,66 @@ read_token R LeftSpaced =
     | leave read_token: new_token Type Value Src
   | Cs != [C@Cs]
   | R.next
+
+add_bars Xs =
+| Ys = []
+| First = 1
+| while not Xs.end
+  | X = Xs.0
+  | Xs != Xs.tail
+  | [Row Col Orig] = X.src
+  | S = X.symbol
+  | when (Col >< 0 or First) and S <> `|` and S <> `then` and S <> `else`:
+    | Ys != [(new_token '|' '|' [Row Col-1 Orig]) @Ys]
+    | First != 0
+| Ys.reverse
+
+tokenize R =
+| Ts = []
+| while 1
+  | Tok = read_token R 0
+  | when Tok.symbol >< end: leave tokenize Ts.reverse^add_bars
+  | Ts != [Tok@Ts]
+
 read_list R Open Close =
-read_string R Incut End =
+| [Row Col Orig] = R.src
+| Xs = []
+| while 1
+  | X = read_token R 0
+  | when X.symbol >< Close: leave read_list Xs.reverse
+  | when X.symbol >< end: GError "[Orig]:[Row],[Col]: unclosed `[Open]`"
+  | Xs != [X@Xs]
+
+str_empty? X = bad fixme
+
+str_merge Left Middle Right =
+| Left = if str_empty? Left then [Middle] else [Left Middle]
+| if Right.size >< 1 and Right.1.size >< 0 then Left else [@Left @Right]
+
+read_string R Incut End = /*
+| L = []
+| while 1
+  | C = R.peek
+  | unless C >< Incut: R.next
+  | case C
+     '\\' | case R.next
+              'n' | L != ['\n' @L]
+              't' | L != ['\t' @L]
+              '\\' | L != ['\\' @L]
+              C><(Incut or End) | L != [C@L]
+              0 | R.error{'EOF in string'}
+              Else | R.error{"Invalid escape code: [else]"}
+     &End | leave read_string [L.reverse.unchars]
+     &Incut | L != L.reverse.unchars
+            | M = read_token{R 0}.value
+            | E = read_string R Incut End
+            | leave read_string: str_merge L M E
+     [] | R.error{'EOF in string'}
+     Else | L != [C@L]
+*/
+
 read_comment R Cs =
+
 read_multi_comment R Cs =
 
 export newInput

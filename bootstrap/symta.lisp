@@ -157,7 +157,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! while t
     (! x = /token r
      ! when (token-is close x) (ret (nreverse xs))
-     ! when (token-is :end x) (funcall g_error "{orig}:{row},{col}: unclosed `{open}`")
+     ! when (token-is :end x) (error "{orig}:{row},{col}: unclosed `{open}`")
      ! push x xs))
 
 (to str-merge left middle right
@@ -200,7 +200,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to parser-error cause tok
   ! (row col orig) = or (getf tok :src) (list -1 -1 "<unknown>")
-  ! funcall g_error "{orig}:{row},{col}: {cause} `{or (getf tok :value) 'eof}`")
+  ! error "{orig}:{row},{col}: {cause} `{or (getf tok :value) 'eof}`")
 (to /expect what &optional (head nil)
   ! tok = car g_input
   ! unless (token-is what tok) (parser-error "expected {symbol-name what}; got" (or head tok))
@@ -957,26 +957,26 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        (expand-hole key (second hole) (expand-hole key (third hole) hit miss) miss)))
   (when (equal (car hole) "or")
     (return-from expand-hole
-      `("if" ("><" :void ("match" ,key ,@(mapcar (lambda (x) `(,x 1)) (cdr hole))))
-             ,miss
-             ,hit)))
-  (when (equal (car hole) "not")
-    (return-from expand-hole
-      `("if" ("><" :void ("match" ,key ,@(mapcar (lambda (x) `(,x 1)) (cdr hole))))
+      `("if" ,(expand-match key (m x (cdr hole) `(,x 1)) 0)
              ,hit
              ,miss)))
+  (when (equal (car hole) "not")
+    (return-from expand-hole
+      `("if" ,(expand-match key (m x (cdr hole) `(,x 1)) 0)
+             ,miss
+             ,hit)))
   (when (equal (car hole) "bind")
     (return-from expand-hole
       (let ((g (ssa-name "G")))
         `("_let" ((,g (,(second hole) ,key)))
            ,(expand-hole g (third hole) hit miss)))))
-  (when (equal (car hole) "fn")
+  (when (equal (car hole) "=>")
     (return-from expand-hole
-      `("_let" ((,(second hole) ,key))
-         ("if" ("|" ,@(cddr hole))
+      `("_let" ((,(first (second hole)) ,key))
+         ("if" ("|" ,@(third hole))
              ,hit
              ,miss))))
-  (when (equal (car hole) "_quote")
+  (when (equal (car hole) "&")
     (return-from expand-hole
       `("if" ("><" ,(second hole) ,key)
              ,hit
@@ -1208,6 +1208,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (("$" o) o)
      (else `("[]" ,@(m x o (expand-quasiquote x)))))
 
+(to group-by n xs
+  ! ys = nil
+  ! while xs
+    (! setf n (min n (length xs))
+     ! push (subseq xs 0 n) ys
+     ! setf xs (subseq xs n))
+  ! reverse ys)
+
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
   (let ((xs (normalize-matryoshka xs))
@@ -1253,7 +1261,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                      (t `("_mcall" ,a "." ,b))))
         (("{}" ("." a b) . as) `("_mcall" ,a ,b ,@as))
         (("{}" ("^" a b) . as) `(,b ,@as ,a))
-        (("{}" h . as) `(,h "{}" ,as)))
+        (("{}" h . as) `(,h "{}" ,as))
         (("{}" . else) (error "bad {}: ~%" xs))
         (("\\" o) (expand-quasiquote o))
         (("+" a b) `("_mcall" ,a "+" ,b))
@@ -1277,7 +1285,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("named" name . body) (expand-named name `("_progn" ,@body)))
         (("leave" name value) (expand-leave name value))
         (("!!" . as) (expand-assign-result as))
-        (("match" keyform . cases) (expand-match keyform cases :empty))
+        (("case" keyform . cases) (expand-match keyform (group-by 2 cases) 0))
         (("export" . xs) (expand-export xs))
         (else (return-from builtin-expander
                 (cons (builtin-expander (car xs) t)
