@@ -143,10 +143,10 @@ static void *tag_of(void *o) {
 
 static int fixtext_size(void *o) {
   uint64_t x = (uint64_t)o;
-  int i = 3;
+  uint64_t m = 0x7F << 3;
   int l = 0;
-  while (0x7F<<i) {
-    i += 7;
+  while (x & m) {
+    m <<= 7;
     l++;
   }
   return l;
@@ -391,11 +391,11 @@ BUILTIN2("text <>",text_ne,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(IS_BIGTEXT(b) ? !texts_equal(a,b) : 1))
 BUILTIN1("text size",text_size,C_ANY,o)
 RETURNS(FIXNUM(BIGTEXT_SIZE(o)))
-BUILTIN2("text {}",text_get,C_ANY,o,C_FIXNUM,index)
+BUILTIN2("text .",text_get,C_ANY,o,C_FIXNUM,index)
   char t[2];
   if ((uintptr_t)CLOSURE_REF4(o,0) <= (uintptr_t)index) {
     printf("index out of bounds\n");
-    TEXT(P, "{}");
+    TEXT(P, ".");
     bad_call(REGS_ARGS(P),P);
   }
 RETURNS(single_chars[DATA_REF1(o,4+UNFIXNUM(index))])
@@ -407,14 +407,14 @@ BUILTIN2("text ne",fixtext_ne,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(GET_TAG(b) == T_FIXTEXT ? !texts_equal(a,b) : 1))
 BUILTIN1("text size",fixtext_size,C_ANY,o)
 RETURNS(FIXNUM(fixtext_size(o)))
-BUILTIN2("text {}",fixtext_get,C_ANY,o,C_FIXNUM,index)
+BUILTIN2("text .",fixtext_get,C_ANY,o,C_FIXNUM,index)
   char t[20];
   uint64_t c;
   int i = UNFIXNUM(index);
   if (i >= 8) {
 bounds_error:
     printf("index out of bounds\n");
-    TEXT(P, "{}");
+    TEXT(P, ".");
     bad_call(REGS_ARGS(P),P);
   }
   c = ((uint64_t)o>>(i*7))&(0x7F<<TAG_BITS);
@@ -433,22 +433,22 @@ RETURNS_VOID
 
 BUILTIN1("view size",view_size,C_ANY,o)
 RETURNS((uintptr_t)VIEW_SIZE(o))
-BUILTIN2("view {}",view_get,C_ANY,o,C_FIXNUM,index)
+BUILTIN2("view .",view_get,C_ANY,o,C_FIXNUM,index)
   uint32_t start = VIEW_START(o);
   uint32_t size = VIEW_SIZE(o);
   if (size <= (uint32_t)(uintptr_t)index) {
     printf("index out of bounds\n");
-    TEXT(R, "{}");
+    TEXT(R, ".");
     bad_call(REGS_ARGS(P),R);
   }
 RETURNS(VIEW_REF(o, start, UNFIXNUM(index)))
-BUILTIN3("view {!}",view_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
+BUILTIN3("view !",view_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   uint32_t start = VIEW_START(o);
   uint32_t size = VIEW_SIZE(o);
   void *p;
   if (size <= (uint32_t)(uintptr_t)index) {
-    printf("view {!}: index out of bounds\n");
-    TEXT(P, "{!}");
+    printf("view !: index out of bounds\n");
+    TEXT(P, "!");
     bad_call(REGS_ARGS(P),P);
   }
   start += UNFIXNUM(index);
@@ -484,19 +484,19 @@ RETURNS(0)
 
 BUILTIN1("list size",list_size,C_ANY,o)
 RETURNS(LIST_SIZE(o))
-BUILTIN2("list {}",list_get,C_ANY,o,C_FIXNUM,index)
+BUILTIN2("list .",list_get,C_ANY,o,C_FIXNUM,index)
   if ((uintptr_t)LIST_SIZE(o) <= (uintptr_t)index) {
     fprintf(stderr, "index out of bounds\n");
-    TEXT(P, "{}");
+    TEXT(P, ".");
     bad_call(REGS_ARGS(P),P);
   }
 RETURNS(LIST_REF(o, UNFIXNUM(index)))
-BUILTIN3("list {!}",list_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
+BUILTIN3("list !",list_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   void **p;
   intptr_t i;
   if ((uintptr_t)LIST_SIZE(o) <= (uintptr_t)index) {
-    fprintf(stderr, "list {!}: index out of bounds\n");
-    TEXT(P, "{!}");
+    fprintf(stderr, "list !: index out of bounds\n");
+    TEXT(P, "!");
     bad_call(REGS_ARGS(P),P);
   }
   p = (void*)((uintptr_t)o - T_LIST);
@@ -1196,9 +1196,9 @@ int main(int argc, char **argv) {
   METHOD_FN("tail", 0, b_list_tail, 0, 0, 0, b_view_tail, b_cons_tail, 0);
   METHOD_FN("pre", 0, b_list_pre, 0, 0, 0, b_view_pre, b_cons_pre, 0);
   METHOD_FN("end", 0, b_list_end, 0, 0, 0, b_view_end, b_cons_end, 0);
-  METHOD_FN("size", 0, b_list_size, 0, b_fixtext_size, b_text_size, b_view_size, 0, 0);
-  METHOD_FN(".", 0, b_list_get, 0, b_fixtext_get, b_text_get, b_view_get, 0, 0);
-  METHOD_FN("!", 0, b_list_set, 0, 0, 0, b_view_set, 0, 0);
+  METHOD_FN("size", 0, 0, b_list_size, b_fixtext_size, b_text_size, b_view_size, 0, 0);
+  METHOD_FN(".", 0, 0, b_list_get, b_fixtext_get, b_text_get, b_view_get, 0, 0);
+  METHOD_FN("!", 0, 0, b_list_set, 0, 0, b_view_set, 0, 0);
   METHOD_FN("hash", b_integer_hash, 0, 0, b_fixtext_hash, b_text_hash, 0, 0, 0);
   METHOD_FN("code", 0, 0, 0, b_fixtext_code, 0, 0, 0, 0);
   METHOD_FN("char", b_integer_char, 0, 0, 0, 0, 0, 0, 0);

@@ -13,10 +13,10 @@ headed&0 H [X@Xs] = H >< X
 data reader_input chars origin row col off last len
 newInput Text Origin = new_reader_input Text.chars Origin 0 0 0 Void Text.size
 reader_input.O `{}` K = O.chars.K
-reader_input.O peek = when O.off < O.len: O{O.off}
+reader_input.O peek = when O.off < O.len: O.(O.off)
 reader_input.O next =
 | when O.off < O.len
-  | O.last != O{O.off}
+  | O.last != O.(O.off)
   | O.col !+ 1
   | O.off !+ 1
 | when O.last >< Newline
@@ -27,6 +27,7 @@ reader_input.O src = [O.row O.col O.origin]
 reader_input.O error Msg = bad reader error at O.src Msg
 
 data token symbol value src
+token? O = O^tag_of >< token
 
 add_lexeme Dst Pattern Type =
 | when Pattern end
@@ -57,8 +58,8 @@ init_tokenizer =
          `]` (`[` $(R O => [`[]` (read_list R O ']')]))
          `}` (`{` $(R O => [`{}` (read_list R O '}')]))
          (`'` $(R Cs => [text [`\\` @(read_string R 0 `'`)]]))
-         (`"` $(R Cs => [text [`\`` @(read_string R `{` '`')]]))
-         ($'`' $(R Cs => [symbol (read_string R 0 '`'){0}]))
+         (`"` $(R Cs => [text [`\`` @(read_string R 0 '`')]]))
+         ($'`' $(R Cs => [symbol (read_string R 0 '`').0]))
          (`//` $&read_comment)
          (`/*` $&read_multi_comment)
          ((&(` ` `\n`)) $(R Cs => read_token R 1))
@@ -75,8 +76,7 @@ init_tokenizer =
   | when text? Pattern: Pattern! chars
   | add_lexeme GTable Pattern Type
 
-
-read_token R LeftSpaced = /*
+read_token R LeftSpaced =
 | Src = R.src
 | Head = R.peek
 | Next = R.next
@@ -89,13 +89,20 @@ read_token R LeftSpaced = /*
   | Next != Next.C
   | when no Next
     | Value = Cs.reverse.unchars
-    | when Value >< '-' and LeftSpaced and C <> '\n' and C <> ' '
+    | Type = GSpecs.Value
+    | when no Type: Type != Cur.type
+    | when Value >< '-' and LeftSpaced and C <> '\n' and C <> ' ':
       | Type != \negate
     | when Type >< end and C: Type != 0
     | unless Type: R error "unexpected `[Value][C or '']`"
-    | when 
-*/
-
+    | when fn? Type
+      | Value != Type R Value
+      | when token? Value: leave read_token Value
+      | Type != Value.0
+      | Value != Value.1
+    | leave read_token: new_token Type Value Src
+  | Cs != [C@Cs]
+  | R.next
 read_list R Open Close =
 read_string R Incut End =
 read_comment R Cs =

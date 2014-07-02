@@ -9,9 +9,10 @@ void.O `.` K = Void
 void.O find F = Void
 void.O locate F = Void
 
+int? O = O^tag_of >< int
+fn? O = O^tag_of >< fn
 list? O = O^tag_of >< list
 text? O = O^tag_of >< text
-int? O = O^tag_of >< int
 
 list.A `><` B = named `><`
 | unless B^list?: leave `><` 0
@@ -19,7 +20,7 @@ list.A `><` B = named `><`
 | unless N >< B.size: leave `><` 0
 | I = 0
 | while I < N
-  | unless A{I} >< B{I}: leave `><` 0
+  | unless A.I >< B.I: leave `><` 0
   | I !+ 1
 | 1
 
@@ -31,8 +32,8 @@ list.Xs reverse =
 | Ys = N x 0
 | while I < N
   | N! - 1
-  | Ys{I Xs{N}}
-  | Ys{N Xs{I}}
+  | Ys.I != Xs.N
+  | Ys.N != Xs.I
   | I! + 1
 | Ys
 
@@ -205,4 +206,4 @@ table.T `!` K V =
          else Old.1 != V
 | T
 
-export not non say bad no have table list? text? int?
+export not non say bad no have table int? fn? list? text?

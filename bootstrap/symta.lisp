@@ -1084,6 +1084,22 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! when xs-var (setf ys `((,xs-var (,o "drop" ,(length bs))) ,@ys))
   ! `((,o ,value) ,@ys))
 
+(to expand-assign place value
+ ! match place
+    (("." object field)
+     (if (fn-sym? field)
+         `(,object ,"set_{field}" ,value)
+         `(,object "!" ,field ,value)))
+    (else `("_set" ,place ,value)))
+
+(to expand-assign-result as
+  ! ys = copy-list as
+  ! v = nil
+  ! p = position-if (fn x ! match x (("!" x) (setf v x) t)) as
+  ! unless p (error "!!: no ! in ~a" as)
+  ! setf (nth p ys) v
+  ! expand-assign v ys)
+
 (to expand-block-item x
   ! y = match x
      (("data" name . fields)
@@ -1091,10 +1107,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (apply #'concatenate 'list
                (m x (expand-block-item-data name fields)
                   (expand-block-item x)))))
-     (("=" ("!!" ("!" place)) value)
-      (match place
-        (("." object field) `(nil (,object "set_{field}" ,value)))
-        (else `(nil ("_set" ,place ,value)))))
+     (("=" ("!!" ("!" place)) value) (list nil (expand-assign place value)))
      (("=" (("." type var) method . args) value)
       (list nil `("_dmet" ,method ,type ("_fn" (,var ,@args) ,value))))
      (("=" (("[]" . bs)) value) (return-from expand-block-item (expand-destructuring value bs)))
@@ -1184,19 +1197,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! v = ssa-name "V"
   ! `("_let" ((,v ,a)) ("if" ,v ,v ,b)))
 
-(to expand-assign-result as
-  ! ys = copy-list as
-  ! v = nil
-  ! p = position-if (fn x ! match x (("!" x) (setf v x) t)) as
-  ! unless p (error "!!: no ! in ~a" as)
-  ! setf (nth p ys) v
-  ! match v
-     (("." object field)
-      (if (fn-sym? field)
-          `(,object ,"set_{field}" ,ys)
-          `(,object "!" ,field ,ys)))
-     (else `("_set" ,v ,ys)))
-
 (to expand-lambda as body
   ! body = `("|" ,body)
   ! (as body) = if (find-if #'pattern-arg as) (add-pattern-matcher as body) (list as body)
@@ -1250,10 +1250,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("\"" x) (expand-string-splice x))
         (("." a b) (cond
                      ((fn-sym? b) `("{}" ,xs))
-                     (t `(,a "." ,b))))
+                     (t `("_mcall" ,a "." ,b))))
         (("{}" ("." a b) . as) `("_mcall" ,a ,b ,@as))
         (("{}" ("^" a b) . as) `(,b ,@as ,a))
-        (("{}" h . as) (if (fn-sym? h) `(,h ,@as) `(,h "{}" ,as)))
+        (("{}" h . as) `(,h "{}" ,as)))
         (("{}" . else) (error "bad {}: ~%" xs))
         (("\\" o) (expand-quasiquote o))
         (("+" a b) `("_mcall" ,a "+" ,b))
