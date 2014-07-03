@@ -123,6 +123,17 @@ list.Xs join =
                              | I !+ 1
 | Rs
 
+list.Xs split F =
+| Ys = []
+| P = Xs.locate{F}
+| while have P
+  | Ys != [Xs.take{P}@Ys]
+  | Xs != Xs.drop{P+1}
+  | P != Xs.locate{F}
+| [Xs@Ys].reverse
+
+text.Xs split F = Xs.chars.split{F}.map{X=>X.unchars}
+
 list.Xs take N =
 | Ys = N x 0
 | I = 0

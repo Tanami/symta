@@ -53,7 +53,7 @@ init_tokenizer =
 | Ls = \(`+` `-` `*` `/` `%` `^` `.` `->` `~` `|` `;` `,` `:` `=` `=>` `++` `--` `**` `..`
          `><` `<>` `<` `>` `<<` `>>`
          `\\` `$` `@` `&` `!`
-         (0 end)
+         (Void end)
          `)` (`(` $(R O => [`()` (read_list R O ')')]))
          `]` (`[` $(R O => [`[]` (read_list R O ']')]))
          `}` (`{` $(R O => [`{}` (read_list R O '}')]))
@@ -217,6 +217,8 @@ parse_integer T =
   | I !+ 1
 | R*Sign
 
+parse_float T = bad 'parse_float isnt implemented'
+
 parse_negate H =
 | A = parse_mul or leave 0
 | unless A.symbol >< integer or A.symbol >< float: leave [H A]
@@ -244,10 +246,85 @@ parse_term =
 
 delim? X = X^token? and on X.symbol (in `:` `=` `=>` `,` `if` `then` `else`) 1
 
+parse_op Ops =
+| V = GInput.0.value
+| unless Ops.find{O => O><V}: leave 0
+| pop GInput
 
-parse_mul =
+binary_loop Ops Down E =
+| O = parse_op Ops or leave E
+| when O.symbol >< `{}`
+  | As = parse O.value
+  | As != if As.find{&delim?} then [As] else As //allows Xs.map{X=>...}
+  | O.parsed != [`{}`]
+  | leave: binary_loop Ops Down [O E @As]
+| B = &Down or parser_error "no right operand for" o
+| unless O.symbol >< '.' and E.symbol >< integer and B.symbol >< integer:
+  | leave: binary_loop Ops Down [O E B]
+| V = "[E.value].[B.value]"
+| F = new_token float V E.src [V^parse_float]
+| leave: binary_loop Ops Down F
+
+parse_binary Down Ops = binary_loop Ops Down: &Down or leave 0
+suffix_loop E = suffix_loop [(parse_op [`!`] or leave E) E]
+parse_suffix = suffix_loop: parse_binary &parse_term [`:` `^` `->` `~` `{}`] or leave 0
+parse_prefix =
+| O = parse_op [negate `\\` `$` `@` `&`] or leave (parse_suffix)
+| when O.symbol >< negate: leave O^parse_negate
+| [O (parse_prefix or parser_error "no operand for" O)]
+parse_mul = parse_binary &parse_prefix [`*` `/` `%`]
+parse_add = parse_binary &parse_mul [`+` `-`]
+parse_dots = parse_binary &parse_add [`..`]
+parse_bool = parse_binary &parse_dots [`><` `<>` `<` `>` `<<` `>>`]
+
+parse_logic =
+| O = parse_op [`and` `or`] or leave (parse_bool)
+| GOutput != GOutput.reverse
+| P = GInput.locate{&delim?}
+| Tok = have P and GInput{P}
+| when not P or have [`if` `then` `else` ].locate{X = X><Tok.symbol}:
+  | GOutput != [(parse_xs) GOutput O]
+  | leave 0
+| R = GInput.drop{P}
+| GInput != GInput.take{P}
+| GOutput != if Tok.symbol >< `:`
+             then [[O GOutput.tail R^parse] GOutput.head]
+             else [[O GOutput R^parse]]
+| Void
+
+parse_delim =
+| O = parse_op [`:` `=` `=>` `,`] or leave (parse_logic)
+| Pref = if GOutput.size > 0 then GOutput.reverse else [void]
+| unless O.symbol >< `,`
+  | GOutput != [(parse_xs) Pref O]
+  | leave Void
+| Pref = Pref.map{X => new_token escape X^parse_strip O.src 0}
+| R = GInput.split{X => X.symbol >< `,`}
+| R = R.reverse.map{X => [@X (new_token `:` `:` O.src 0)]}
+| GInput != [@R Pref].join
+| GOutput != (parse_xs).reverse
+| Void
+
+parse_semicolon =
+| P = GInput.locate{X => X.symbol >< `|` or X.symbol >< `;`}
+| M = when have P: GInput.P
+| when no P or M.symbol >< `|`: leave []
+| L = parse GInput.take{P}
+| R = parse GInput.drop{P+1}
+| GInput != []
+| GOutput != if R.0.symbol >< `;` then [@R.tail.reverse L M] else [R L M]
+| Void
+
+parse_xs =
+| shade GOutput
+  | parse_semicolon
+  | while 1
+    | X = parse_delim or leave GOutput.reverse
+    | unless no X: push GOutput X
+
 parse_xs =
 parse Tokens =
 
+parse_strip =
 
 export newInput

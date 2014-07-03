@@ -1366,7 +1366,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   )
 
 (to symta filename
-  ;;! compile-lib "prelude"
+  ;! compile-lib "prelude"
   ! compile-lib "reader"
   ! cache-folder = "{*root-folder*}cache/"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"
