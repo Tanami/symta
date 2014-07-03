@@ -19,10 +19,10 @@ reader_input.O next =
   | O.last != O.(O.off)
   | O.col !+ 1
   | O.off !+ 1
-| when O.last >< Newline
-  | O.col != 0
-  | O.row !+ 1
-| O.last
+  | when O.last >< Newline
+    | O.col != 0
+    | O.row !+ 1
+  | O.last
 reader_input.O src = [O.row O.col O.origin]
 reader_input.O error Msg = bad reader error at O.src Msg
 
@@ -53,7 +53,7 @@ init_tokenizer =
 | Ls = \(`+` `-` `*` `/` `%` `^` `.` `->` `~` `|` `;` `,` `:` `=` `=>` `++` `--` `**` `..`
          `><` `<>` `<` `>` `<<` `>>`
          `\\` `$` `@` `&` `!`
-         (() end)
+         (0 end)
          `)` (`(` $(R O => [`()` (read_list R O ')')]))
          `]` (`[` $(R O => [`[]` (read_list R O ']')]))
          `}` (`{` $(R O => [`{}` (read_list R O '}')]))
@@ -100,7 +100,7 @@ read_token R LeftSpaced =
       | when token? Value: leave Value
       | Type != Value.0
       | Value != Value.1
-    | leave: new_token Type Value Src
+    | leave: new_token Type Value Src 0
   | Cs != [C@Cs]
   | R.next
 
@@ -113,7 +113,7 @@ add_bars Xs =
   | [Row Col Orig] = X.src
   | S = X.symbol
   | when (Col >< 0 or First) and S <> `|` and S <> `then` and S <> `else`:
-    | Ys != [(new_token '|' '|' [Row Col-1 Orig]) @Ys]
+    | Ys != [(new_token '|' '|' [Row Col-1 Orig] 0) @Ys]
     | First != 0
 | Ys.reverse
 
@@ -150,7 +150,7 @@ read_string R Incut End =
                  `t` | L != ['\t' @L]
                  `\\` | L != ['\\' @L]
                  C>(in &Incut &End) | L != [C@L]
-                 0 | R.error{'EOF in string'}
+                 Void | R.error{'EOF in string'}
                  Else | R.error{"Invalid escape code: [Else]"}
        &End | leave [L.reverse.unchars]
        &Incut | L != L.reverse.unchars
@@ -169,7 +169,7 @@ read_multi_comment R Cs =
 | O = 1
 | while O > 0
   | on [R.next R.next]
-       [X 0] | R.error{"`/*`: missing `*/`"}
+       [X Void] | R.error{"`/*`: missing `*/`"}
        [`*` `/`] | O!-1
        [`/` `*`] | O!+1
   | R.next
@@ -203,13 +203,51 @@ parse_bar H =
   | unless X.symbol >< '|' and X.src.1 >< C: leave [H @Zs.reverse]
   | pop GInput
 
+parse_integer T =
+| N = T.size
+| I = 0
+| Sign = if T.I >< '-'
+         then | I !+ 1
+              | -1
+         else 1
+| R = 0
+| Base = '0'.code
+| while I < N
+  | R != R*10 + (T.I.code - Base)
+  | I !+ 1
+| R*Sign
 
-//A = parse_mul or return 0
+parse_negate H =
+| A = parse_mul or leave 0
+| unless A.symbol >< integer or A.symbol >< float: leave [H A]
+| V = "[H.value][A.value]"
+| new_token A.symbol V H.src [V^parse_integer]
 
+parse_term =
+| when GInput.end: leave 0
+| Tok = pop GInput
+| when Tok.parsed: parser_error "already parsed token" Tok
+| V = Tok.value
+| P = on Tok.symbol
+         (in escape symbol text) | leave Tok
+         integer | parse_integer V
+         kw | V
+         `()` | parse V
+         `[]` | new_token symbol `[]` Tok.src V^parse
+         `|` | leave Tok^parse_bar
+         `if` | leave Tok^parse_if
+         `-` | leave Tok^parse_negate
+         Else | push GInput Tok
+              | leave 0
+| Tok.parsed != P
+| Tok
+
+delim? X = X^token? and on X.symbol (in `:` `=` `=>` `,` `if` `then` `else`) 1
+
+
+parse_mul =
 parse_xs =
 parse Tokens =
-
-
 
 
 export newInput

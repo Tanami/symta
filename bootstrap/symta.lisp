@@ -448,8 +448,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! cond
      ((stringp x) (ssa-text k x))
      ((listp x) (ssa-quote-list k x))
-     ((integerp x) (ssa-atom k x))
-     (t (error "unsupported quoted value: ~a" x)))
+     (t (ssa-expr k x)))
 
 (to ssa-resolved name ! cons name *ssa-ns*)
 

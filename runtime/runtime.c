@@ -378,6 +378,9 @@ BUILTIN2("void ><",void_eq,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a == b))
 BUILTIN2("void <>",void_ne,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a != b))
+BUILTIN1("void hash",void_hash,C_ANY,a)
+RETURNS(FIXNUM(0x12345678))
+
 
 BUILTIN2("fn ><",fn_eq,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a == b))
@@ -1199,7 +1202,7 @@ int main(int argc, char **argv) {
   METHOD_FN("size", 0, 0, b_list_size, b_fixtext_size, b_text_size, b_view_size, 0, 0);
   METHOD_FN(".", 0, 0, b_list_get, b_fixtext_get, b_text_get, b_view_get, 0, 0);
   METHOD_FN("!", 0, 0, b_list_set, 0, 0, b_view_set, 0, 0);
-  METHOD_FN("hash", b_integer_hash, 0, 0, b_fixtext_hash, b_text_hash, 0, 0, 0);
+  METHOD_FN("hash", b_integer_hash, 0, 0, b_fixtext_hash, b_text_hash, 0, 0, b_void_hash);
   METHOD_FN("code", 0, 0, 0, b_fixtext_code, 0, 0, 0, 0);
   METHOD_FN("char", b_integer_char, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("unchars", 0, 0, b_list_unchars, 0, 0, 0, 0, 0);
