@@ -1237,6 +1237,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (defparameter *default-leave* nil)
 
+(to expand-shade bs body
+  ! gs = m b bs `(,(ssa-name "G") ,@b)
+  !`("_let" ,(m g gs `(,(first g) ,(second g)))
+       ,@(m g gs `("_set" ,(second g) ,(third g)))
+       ,body
+       ,@(m g gs `("_set" ,(second g) ,(first g)))))
 
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
@@ -1316,6 +1322,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("leave" value) (expand-leave *default-leave* value))
         (("!!" . as) (expand-assign-result as))
         (("on" keyform . cases) (expand-match keyform (group-by 2 cases) 0))
+        (("shade" . xs) (expand-shade (butlast xs) (car (last xs))))
         (("export" . xs) (expand-export xs))
         (else (return-from builtin-expander
                 (cons (builtin-expander (car xs) t)

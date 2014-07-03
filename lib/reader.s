@@ -316,14 +316,17 @@ parse_semicolon =
 | Void
 
 parse_xs =
-| shade GOutput
+| shade (GOutput [])
   | parse_semicolon
   | while 1
     | X = parse_delim or leave GOutput.reverse
     | unless no X: push GOutput X
 
-parse_xs =
-parse Tokens =
+parse Input =
+| shade (GInput Input)
+  | Xs = parse_xs
+  | unless GInput.end: parser_error "unexpected" GInput.0
+  | Xs
 
 parse_strip =
 
