@@ -50,7 +50,7 @@ list.Xs each F =
 | N = Xs.size
 | I = 0
 | while I < N
-  | F = Xs.I
+  | F Xs.I
   | I! + 1
 | Void
 
@@ -203,7 +203,7 @@ say @Xs =
 // hashtable
 data table buckets
 table Size = new_table: Size x Void
-table.T `.` K = 
+table.T `.` K =
 | Bs = T.buckets
 | H = K.hash%Bs.size
 | Bs.H.find{X => X.0><K}.1

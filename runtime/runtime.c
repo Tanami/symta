@@ -74,6 +74,12 @@ static char *typenames[MAX_TYPES];
 
 static void *undefined;
 
+
+// FIXME: use heap instead
+static char print_buffer[1024*1024*2];
+int print_depth = 0;
+#define MAX_PRINT_DEPTH 32
+
 static void fatal(char *fmt, ...) {
    va_list ap;
    va_start(ap,fmt);
@@ -279,10 +285,8 @@ static void bad_call(REGS, void *method) {
 }
 
 static char *print_object_r(api_t *api, char *out, void *o);
-
-// FIXME: use heap instead
-static char print_buffer[1024*1024*2];
 char* print_object_f(api_t *api, void *object) {
+  print_depth = 0;
   print_object_r(api, print_buffer, object);
   return print_buffer;
 }
@@ -788,6 +792,16 @@ static char *print_object_r(api_t *api, char *out, void *o) {
   int i;
   int tag = GET_TAG(o);
 
+  //fprintf(stderr, "%p = %d\n", o, tag);
+  //if (print_depth > 4) abort();
+
+  print_depth++;
+
+  if (print_depth > MAX_PRINT_DEPTH) {
+    fprintf(stderr, "MAX_PRINT_DEPTH reached: likely a recursive object\n");
+    abort();
+  }
+
   if (o == Empty) {
     out += sprintf(out, "()");
   } else if (o == Void) {
@@ -844,6 +858,9 @@ static char *print_object_r(api_t *api, char *out, void *o) {
     out += sprintf(out, "#(ufo %d %p)", tag, o);
   }
   *out = 0;
+
+  print_depth--;
+
   return out;
 }
 

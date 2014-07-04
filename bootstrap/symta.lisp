@@ -1237,7 +1237,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (defparameter *default-leave* nil)
 
-(to expand-shade bs body
+(to expand-shade binding body
   ! gs = m b bs `(,(ssa-name "G") ,@b)
   !`("_let" ,(m g gs `(,(first g) ,(second g)))
        ,@(m g gs `("_set" ,(second g) ,(third g)))
@@ -1374,7 +1374,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to symta filename
   ;! compile-lib "prelude"
-  ! compile-lib "reader"
+  ;! compile-lib "reader"
   ! cache-folder = "{*root-folder*}cache/"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"
   ! runtime-path = "{cache-folder}runtime"

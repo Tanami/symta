@@ -198,6 +198,7 @@ typedef void *(*pfun)(REGS);
   { \
     uintptr_t tag = (uintptr_t)GET_TAG(o); \
     CALL_METHOD_WITH_TAG(k,o,m,tag); \
+    POP_BASE(); \
   }
 
 #define CALL_TAGGED_NO_POP(k,o,m) \

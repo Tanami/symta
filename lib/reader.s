@@ -1,9 +1,9 @@
 use prelude
 
+GTable = Void
 GError = Msg => log Msg
 GInput = Void
 GOutput = Void
-GTable = Void
 GSpecs = Void
 Newline = '\n'
 
@@ -12,10 +12,10 @@ headed&0 H [X@Xs] = H >< X
 data reader_input chars origin row col off last len
 newInput Text Origin = new_reader_input Text.chars Origin 0 0 0 Void Text.size
 reader_input.O `{}` K = O.chars.K
-reader_input.O peek = when O.off < O.len: O.(O.off)
+reader_input.O peek = when O.off < O.len: O.chars.(O.off)
 reader_input.O next =
 | when O.off < O.len
-  | O.last != O.(O.off)
+  | O.last != O.chars.(O.off)
   | O.col !+ 1
   | O.off !+ 1
   | when O.last >< Newline
@@ -31,7 +31,7 @@ token_is What O = token? O and O.symbol >< What
 
 add_lexeme Dst Pattern Type =
 | when Pattern end
-  | Dst.type != Type
+  | Dst.'type' != Type
   | leave Void
 | [Cs@Next] = Pattern
 | Cs^| [`&` Cs] => Next != \(@Cs $@Next)
@@ -42,6 +42,7 @@ add_lexeme Dst Pattern Type =
   | C^| [`@` X] => | Kleene != 1
                    | C != X
   | T = if Kleene then Dst else table 256
+  | 123//log Dst.buckets //[Dst.'-' Pattern Type]
   | when no Dst.C: Dst.C != T
   | add_lexeme T Next Type
 
@@ -92,7 +93,7 @@ read_token R LeftSpaced =
   | when no Next
     | Value = Cs.reverse.unchars
     | Type = GSpecs.Value
-    | when no Type: Type != Cur.type
+    | when no Type: Type != Cur.'type'
     | when Value >< '-' and LeftSpaced and C <> '\n' and C <> ' ':
       | Type != \negate
     | when Type >< end and C: Type != 0
@@ -354,4 +355,4 @@ normalize Expr = on Expr [`|` @As] Expr
 
 //read Xs = read_toplevel Xs
 
-export newInput
+export read_token tokenize newInput
