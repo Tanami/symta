@@ -5,7 +5,6 @@ GInput = Void
 GOutput = Void
 GTable = Void
 GSpecs = Void
-GSymbolSource = Void
 Newline = '\n'
 
 headed&0 H [X@Xs] = H >< X
@@ -28,6 +27,7 @@ reader_input.O error Msg = bad reader error at O.src Msg
 
 data token symbol value src
 token? O = O^tag_of >< token
+token_is What O = token? O and O.symbol >< What
 
 add_lexeme Dst Pattern Type =
 | when Pattern end
@@ -46,7 +46,7 @@ add_lexeme Dst Pattern Type =
   | add_lexeme T Next Type
 
 init_tokenizer =
-| unless no GTable: leave Void
+| when have GTable: leave Void
 | Digit = "0123456789"
 | HeadChar = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?"
 | TailChar = "[HeadChar][Digit]"
@@ -75,6 +75,8 @@ init_tokenizer =
   | [Pattern Type] = if list? L then L else [L L]
   | when text? Pattern: Pattern! chars
   | add_lexeme GTable Pattern Type
+
+init_tokenizer
 
 read_token R LeftSpaced =
 | Src = R.src
@@ -121,7 +123,7 @@ tokenize R =
 | Ts = []
 | while 1
   | Tok = read_token R 0
-  | when Tok.symbol >< end: leave Ts.reverse^add_bars
+  | when Tok^token_is{end}: leave Ts.reverse^add_bars
   | Ts != [Tok@Ts]
 
 read_list R Open Close =
@@ -129,8 +131,8 @@ read_list R Open Close =
 | Xs = []
 | while 1
   | X = read_token R 0
-  | when X.symbol >< Close: leave Xs.reverse
-  | when X.symbol >< end: GError "[Orig]:[Row],[Col]: unclosed `[Open]`"
+  | when X^token_is{Close}: leave Xs.reverse
+  | when X^token_is{end}: GError "[Orig]:[Row],[Col]: unclosed `[Open]`"
   | Xs != [X@Xs]
 
 str_empty? X = bad fixme
@@ -181,7 +183,7 @@ parser_error Cause Tok =
 
 expect What Head =
 | Tok = GInput.1
-| unless Tok.symbol >< What: parser_error "expected [What]; got" (Head or Tok)
+| unless Tok^token_is{What}: parser_error "expected [What]; got" (Head or Tok)
 | pop GInput
 
 parse_if Sym =
@@ -200,7 +202,7 @@ parse_bar H =
   | while not GInput.end and GInput.0.src.1 >< C: push Ys GInput^pop
   | push Zs Ys.reverse^parse
   | X = GInput.0
-  | unless X.symbol >< '|' and X.src.1 >< C: leave [H @Zs.reverse]
+  | unless X^token_is{'|'} and X.src.1 >< C: leave [H @Zs.reverse]
   | pop GInput
 
 parse_integer T =
@@ -221,7 +223,7 @@ parse_float T = bad 'parse_float isnt implemented'
 
 parse_negate H =
 | A = parse_mul or leave 0
-| unless A.symbol >< integer or A.symbol >< float: leave [H A]
+| unless A^token_is{integer} or A^token_is{float}: leave [H A]
 | V = "[H.value][A.value]"
 | new_token A.symbol V H.src [V^parse_integer]
 
@@ -253,13 +255,13 @@ parse_op Ops =
 
 binary_loop Ops Down E =
 | O = parse_op Ops or leave E
-| when O.symbol >< `{}`
+| when O^token_is{`{}`}
   | As = parse O.value
   | As != if As.find{&delim?} then [As] else As //allows Xs.map{X=>...}
   | O.parsed != [`{}`]
   | leave: binary_loop Ops Down [O E @As]
 | B = &Down or parser_error "no right operand for" o
-| unless O.symbol >< '.' and E.symbol >< integer and B.symbol >< integer:
+| unless O^token_is{'.'} and E^token_is{integer} and B^token_is{integer}:
   | leave: binary_loop Ops Down [O E B]
 | V = "[E.value].[B.value]"
 | F = new_token float V E.src [V^parse_float]
@@ -270,7 +272,7 @@ suffix_loop E = suffix_loop [(parse_op [`!`] or leave E) E]
 parse_suffix = suffix_loop: parse_binary &parse_term [`:` `^` `->` `~` `{}`] or leave 0
 parse_prefix =
 | O = parse_op [negate `\\` `$` `@` `&`] or leave (parse_suffix)
-| when O.symbol >< negate: leave O^parse_negate
+| when O^token_is{negate}: leave O^parse_negate
 | [O (parse_prefix or parser_error "no operand for" O)]
 parse_mul = parse_binary &parse_prefix [`*` `/` `%`]
 parse_add = parse_binary &parse_mul [`+` `-`]
@@ -282,12 +284,12 @@ parse_logic =
 | GOutput != GOutput.reverse
 | P = GInput.locate{&delim?}
 | Tok = have P and GInput{P}
-| when not P or have [`if` `then` `else` ].locate{X = X><Tok.symbol}:
+| when not P or have [`if` `then` `else` ].locate{X = Tok^token_is{X}}:
   | GOutput != [(parse_xs) GOutput O]
   | leave 0
 | R = GInput.drop{P}
 | GInput != GInput.take{P}
-| GOutput != if Tok.symbol >< `:`
+| GOutput != if Tok^token_is{`:`}
              then [[O GOutput.tail R^parse] GOutput.head]
              else [[O GOutput R^parse]]
 | Void
@@ -295,24 +297,24 @@ parse_logic =
 parse_delim =
 | O = parse_op [`:` `=` `=>` `,`] or leave (parse_logic)
 | Pref = if GOutput.size > 0 then GOutput.reverse else [void]
-| unless O.symbol >< `,`
+| unless O^token_is{`,`}
   | GOutput != [(parse_xs) Pref O]
   | leave Void
 | Pref = Pref.map{X => new_token escape X^parse_strip O.src 0}
-| R = GInput.split{X => X.symbol >< `,`}
+| R = GInput.split{X => X^token_is{`,`}}
 | R = R.reverse.map{X => [@X (new_token `:` `:` O.src 0)]}
 | GInput != [@R Pref].join
 | GOutput != (parse_xs).reverse
 | Void
 
 parse_semicolon =
-| P = GInput.locate{X => X.symbol >< `|` or X.symbol >< `;`}
+| P = GInput.locate{X => X^token_is{`|`} or X^token_is{`;`}}
 | M = when have P: GInput.P
-| when no P or M.symbol >< `|`: leave []
+| when no P or M^token_is{`|`}: leave []
 | L = parse GInput.take{P}
 | R = parse GInput.drop{P+1}
 | GInput != []
-| GOutput != if R.0.symbol >< `;` then [@R.tail.reverse L M] else [R L M]
+| GOutput != if R.0^token_is{`};`} then [@R.tail.reverse L M] else [R L M]
 | Void
 
 parse_xs =
@@ -328,6 +330,28 @@ parse Input =
   | unless GInput.end: parser_error "unexpected" GInput.0
   | Xs
 
-parse_strip =
+parse_strip X =
+| if token? X
+  then | P = X.parsed
+       | R = if have P then parse_strip P else X.value
+       //| when text? R: R != new_meta R X.src
+       | leave R
+  else if list? X
+  then | for V X
+         | when (on V [U@Us] | X^token_is{`!`}) and not (on X [Z@Zs] X^token_is{`!`}):
+           | leave [`!!`] 
+       | X map:V => parse_strip V
+  else X
+
+read_toplevel Chars =
+| R = parse_strip: parse: tokenize: newInput Chars
+| R != R.0
+| on R [X S] S
+       R R
+
+normalize Expr = on Expr [`|` @As] Expr
+                         X [`|` X]
+
+//read Xs = read_toplevel Xs
 
 export newInput
