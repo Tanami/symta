@@ -142,12 +142,14 @@ typedef void *(*pfun)(REGS);
 #define ENTRY(name) } void *name(REGS) {PROLOGUE;
 #define LABEL(name) } static void *name(REGS) {PROLOGUE;
 #define VAR(name) void *name;
+#define GC(value) \
+  /*D; fprintf(stderr, "GC %p:%p -> %p\n", Top, Base, api->other->top);*/ \
+  api->gc(api->other, Top, Base, (void*)(value));
 #define RETURN(value) \
    if (IMMEDIATE(value) && !LIFTS_LIST(Base)) { \
      return (void*)(value); \
    } \
-   /*D; fprintf(stderr, "GC %p:%p -> %p\n", Top, Base, api->other->top);*/ \
-   value = api->gc(api->other, Top, Base, (void*)(value)); \
+   value = GC(value); \
    return (void*)(value);
 #define RETURN_NO_GC(value) return (void*)(value);
 #define GOSUB(label) label(REGS_ARGS(P));

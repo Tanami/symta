@@ -734,6 +734,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! n = position-if (fn b ! find name b :test 'equal) *ssa-bases*
   ! unless n (error "cant find label {name}")
   ! while (> n 0)
+     (ssa 'gc 0) ; have to GC, simple pop_base wont LIFT
      (ssa 'pop_base)
      (decf n)
   ! ssa 'jmp name)
@@ -866,6 +867,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''branch cond label) (to-c-emit "  BRANCH(~a, ~a);" cond label))
          ((''push_base) (to-c-emit "  PUSH_BASE();"))
          ((''pop_base) (to-c-emit "  POP_BASE();"))
+         ((''gc value) (to-c-emit "  GC(~a);" value))
          ((''call k name) (to-c-emit "  CALL(~a, ~a);" k name))
          ((''call_tagged k obj method) (to-c-emit "  CALL_TAGGED(~a, ~a, ~a);" k obj method))
          ((''call_method k obj method) (to-c-emit "  CALL_METHOD(~a, ~a, ~a);" k obj method))
