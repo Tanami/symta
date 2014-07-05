@@ -367,6 +367,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (defparameter *ssa-raw-inits* nil)
 (defparameter *ssa-fns* nil)
 (defparameter *ssa-closure* nil) ; other lambdas', this lambda references
+(defparameter *ssa-bases* nil)
 (defparameter *compiler-meta-info* (make-hash-table :test 'eq))
 
 (to set-meta meta object
@@ -454,6 +455,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-fn-body k f args body o prologue epilogue
   ! cs = nil
+  ! *ssa-bases* = (list ())
   ! *ssa-out* = nil
   ! *ssa-ns* = f
   ! *ssa-env* = if (stringp args)
@@ -565,6 +567,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (match f (("_fn" bs . body)
                (return-from ssa-apply (ssa-let k bs as body))))
   ! ssa 'push_base
+  ! *ssa-bases* = cons nil *ssa-bases*
   ! h = ssa-var "head"
   ! ssa-expr h f
   ! vs = m a as
@@ -594,10 +597,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa-symbol nil place r
   ! ssa 'move k r)
 
+;; FIXME: _label should be allowed only inside of _progn
 (to ssa-progn k xs
   ! unless xs (setf xs '(()))
   ! d = ssa-name "dummy"
   ! ssa 'var d
+  ! e x xs
+      (match x
+        (("_label" name)
+          (! (b . bs) = *ssa-bases*
+           ! setf *ssa-bases* `((,name ,@b) ,@bs))))
   ! while xs
      (! x = car xs
       ! unless (cdr xs) (setf d k)
@@ -718,6 +727,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! push `(import ,g ,lib ,symbol ,(ssa-cstring lib) ,(ssa-cstring symbol)) *ssa-raw-inits*
   ! ssa 'move k g)
 
+(to ssa-label name
+  ! ssa 'local_label name)
+
+(to ssa-goto name
+  ! n = position-if (fn b ! find name b :test 'equal) *ssa-bases*
+  ! unless n (error "cant find label {name}")
+  ! while (> n 0)
+     (ssa 'pop_base)
+     (decf n)
+  ! ssa 'jmp name)
+
 (to ssa-form k xs
   ! match xs
     (("_fn" as body) (ssa-fn (ssa-name "n") k as body xs))
@@ -725,8 +745,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_quote" x . xs) (ssa-quote k x))
     (("_set" place value) (ssa-set k place value))
     (("_progn" . xs) (ssa-progn k xs))
-    (("_label" name) (ssa 'local_label name))
-    (("_goto" name) (ssa 'jmp name))
+    (("_label" name) (ssa-label name))
+    (("_goto" name) (ssa-goto name))
     (("_data" type . xs) (ssa-data k type xs))
     (("_dget" src index) (ssa-dget k src index))
     (("_dset" dst index value) (ssa-dset k dst index value))
@@ -845,6 +865,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''gosub label-name) (to-c-emit "  GOSUB(~a);" label-name))
          ((''branch cond label) (to-c-emit "  BRANCH(~a, ~a);" cond label))
          ((''push_base) (to-c-emit "  PUSH_BASE();"))
+         ((''pop_base) (to-c-emit "  POP_BASE();"))
          ((''call k name) (to-c-emit "  CALL(~a, ~a);" k name))
          ((''call_tagged k obj method) (to-c-emit "  CALL_TAGGED(~a, ~a, ~a);" k obj method))
          ((''call_method k obj method) (to-c-emit "  CALL_METHOD(~a, ~a, ~a);" k obj method))
