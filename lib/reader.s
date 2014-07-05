@@ -23,12 +23,13 @@ reader_input.O next =
     | O.row !+ 1
   | O.last
 reader_input.O src = [O.row O.col O.origin]
-reader_input.O error Msg = bad reader error at O.src Msg
+reader_input.O error Msg = bad "reader error at [O.src]: [Msg]"
 
-data token symbol value src
+data token symbol value src parsed
 token? O = O^tag_of >< token
 token_is What O = token? O and O.symbol >< What
 
+//FIXME: optimize memory usage
 add_lexeme Dst Pattern Type =
 | when Pattern end
   | Dst.'type' != Type
@@ -42,8 +43,10 @@ add_lexeme Dst Pattern Type =
 | when text? Cs | Cs != Cs.chars
 | Cs = if list? Cs then Cs else [Cs]
 | Cs each: C =>
-  | T = if Kleene then Dst else table 256
-  | when no Dst.C: Dst.C != T
+  | T = Dst.C
+  | when no T: 
+    | T != if Kleene then Dst else table 256
+    | Dst.C != T
   | add_lexeme T Next Type
 
 init_tokenizer =
@@ -54,7 +57,7 @@ init_tokenizer =
 | Ls = \(`+` `-` `*` `/` `%` `^` `.` `->` `~` `|` `;` `,` `:` `=` `=>` `++` `--` `**` `..`
          `><` `<>` `<` `>` `<<` `>>`
          `\\` `$` `@` `&` `!`
-         (Void end)
+         (() end)
          `)` (`(` $(R O => [`()` (read_list R O ')')]))
          `]` (`[` $(R O => [`[]` (read_list R O ']')]))
          `}` (`{` $(R O => [`{}` (read_list R O '}')]))
@@ -82,7 +85,7 @@ init_tokenizer
 read_token R LeftSpaced =
 | Src = R.src
 | Head = R.peek
-| Next = R.next
+| Next = GTable
 | Cur = Void
 | C = Void
 | Cs = []
@@ -96,7 +99,7 @@ read_token R LeftSpaced =
     | when no Type: Type != Cur.'type'
     | when Value >< '-' and LeftSpaced and C <> '\n' and C <> ' ':
       | Type != \negate
-    | when Type >< end and C: Type != 0
+    | when Type >< end and have C: Type != 0
     | unless Type: R error "unexpected `[Value][C or '']`"
     | when fn? Type
       | Value != Type R Value
@@ -104,20 +107,20 @@ read_token R LeftSpaced =
       | Type != Value.0
       | Value != Value.1
     | leave: new_token Type Value Src 0
-  | Cs != [C@Cs]
+  | push C Cs
   | R.next
 
 add_bars Xs =
 | Ys = []
 | First = 1
 | while not Xs.end
-  | X = Xs.0
-  | Xs != Xs.tail
+  | X = pop Xs
   | [Row Col Orig] = X.src
   | S = X.symbol
   | when (Col >< 0 or First) and S <> `|` and S <> `then` and S <> `else`:
-    | Ys != [(new_token '|' '|' [Row Col-1 Orig] 0) @Ys]
+    | push (new_token '|' '|' [Row Col-1 Orig] 0) Ys 
     | First != 0
+  | push X Ys
 | Ys.reverse
 
 tokenize R =
@@ -200,8 +203,8 @@ parse_bar H =
 | Zs = []
 | while GInput
   | Ys = []
-  | while not GInput.end and GInput.0.src.1 >< C: push Ys GInput^pop
-  | push Zs Ys.reverse^parse
+  | while not GInput.end and GInput.0.src.1 >< C: push GInput^pop Ys
+  | push Ys.reverse^parse Zs
   | X = GInput.0
   | unless X^token_is{'|'} and X.src.1 >< C: leave [H @Zs.reverse]
   | pop GInput
@@ -242,7 +245,7 @@ parse_term =
          `|` | leave Tok^parse_bar
          `if` | leave Tok^parse_if
          `-` | leave Tok^parse_negate
-         Else | push GInput Tok
+         Else | push Tok GInput
               | leave 0
 | Tok.parsed != P
 | Tok
@@ -323,7 +326,7 @@ parse_xs =
   | parse_semicolon
   | while 1
     | X = parse_delim or leave GOutput.reverse
-    | unless no X: push GOutput X
+    | unless no X: push X GOutput
 
 parse Input =
 | shade (GInput Input)

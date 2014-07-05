@@ -1278,7 +1278,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("while" . xs) (expand-while (butlast xs) (car (last xs))))
         (("for" v . xs) (expand-for v (butlast xs) (car (last xs))))
         (("pop" o) (expand-pop o))
-        (("push" o item) (expand-push o item))
+        (("push" item o) (expand-push o item))
         (("and" a b) (expand-and a b))
         (("or" a b) (expand-or a b))
         (("let" bs . body) `("_let" ,bs ,@body))
