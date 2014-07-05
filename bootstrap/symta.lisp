@@ -1237,12 +1237,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (defparameter *default-leave* nil)
 
-(to expand-shade binding body
+(to expand-shade bs body
   ! gs = m b bs `(,(ssa-name "G") ,@b)
-  !`("_let" ,(m g gs `(,(first g) ,(second g)))
+  ! r = ssa-name "R"
+  !`("_let" ((,r 0) ,@(m g gs `(,(first g) ,(second g))))
        ,@(m g gs `("_set" ,(second g) ,(third g)))
-       ,body
-       ,@(m g gs `("_set" ,(second g) ,(first g)))))
+       ("_set" ,r ,body)
+       ,@(m g gs `("_set" ,(second g) ,(first g)))
+       ,r))
 
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms

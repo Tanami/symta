@@ -128,7 +128,7 @@ tokenize R =
 | while 1
   | Tok = read_token R 0
   | when Tok^token_is{end}: leave Ts.reverse^add_bars
-  | Ts != [Tok@Ts]
+  | push Tok Ts
 
 read_list R Open Close =
 | [Row Col Orig] = R.src
@@ -201,10 +201,11 @@ parse_if Sym =
 parse_bar H =
 | C = H.src.1
 | Zs = []
-| while GInput
+| while not GInput.end
   | Ys = []
-  | while not GInput.end and GInput.0.src.1 >< C: push GInput^pop Ys
+  | while not GInput.end and GInput.0.src.1 > C: push GInput^pop Ys
   | push Ys.reverse^parse Zs
+  | when GInput.end: leave [H @Zs.reverse]
   | X = GInput.0
   | unless X^token_is{'|'} and X.src.1 >< C: leave [H @Zs.reverse]
   | pop GInput
@@ -253,8 +254,9 @@ parse_term =
 delim? X = X^token? and on X.symbol (in `:` `=` `=>` `,` `if` `then` `else`) 1
 
 parse_op Ops =
+| when GInput.end: leave 0
 | V = GInput.0.value
-| unless Ops.find{O => O><V}: leave 0
+| when no Ops.find{O => O><V}: leave 0
 | pop GInput
 
 binary_loop Ops Down E =
@@ -326,7 +328,7 @@ parse_xs =
   | parse_semicolon
   | while 1
     | X = parse_delim or leave GOutput.reverse
-    | unless no X: push X GOutput
+    | when have X: push X GOutput
 
 parse Input =
 | shade (GInput Input)
@@ -337,7 +339,7 @@ parse Input =
 parse_strip X =
 | if token? X
   then | P = X.parsed
-       | R = if have P then parse_strip P else X.value
+       | R = if P then parse_strip P else X.value
        //| when text? R: R != new_meta R X.src
        | leave R
   else if list? X
@@ -358,4 +360,4 @@ normalize Expr = on Expr [`|` @As] Expr
 
 //read Xs = read_toplevel Xs
 
-export read_token tokenize newInput
+export parse_strip parse tokenize newInput
