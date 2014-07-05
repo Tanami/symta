@@ -1124,8 +1124,8 @@ int main(int argc, char **argv) {
   api->base = api->top = api->heap+HEAP_SIZE-BASE_HEAD_SIZE;
   api->other->base = api->other->top = api->other->heap+HEAP_SIZE-BASE_HEAD_SIZE;
 
-  api->level = 0;
-  api->other->level = 1;
+  api->level = 1;
+  api->other->level = 0;
 
   BUILTIN_CLOSURE(undefined, b_undefined);
   ALLOC_DATA(Void, T_VOID, 0);
@@ -1158,7 +1158,7 @@ int main(int argc, char **argv) {
     ALLOC_BASIC(methods[i].types, 0, MAX_TYPES);
     api = api->other;
   }
-  if (api->level != 0) api = api->other;
+  if (api->level != 1) api = api->other;
 
   for (i = 0; i < 128; i++) {
     char t[2];

@@ -34,15 +34,15 @@ add_lexeme Dst Pattern Type =
   | Dst.'type' != Type
   | leave Void
 | [Cs@Next] = Pattern
-| Cs^| [`&` Cs] => Next != \(@Cs $@Next)
+| Kleene = 0
+| on Cs [`&` X] | Cs != X
+                | Next != \(@$Cs $@Next)
+        [`@` X] | Cs != X
+                | Kleene != 1
 | when text? Cs | Cs != Cs.chars
 | Cs = if list? Cs then Cs else [Cs]
 | Cs each: C =>
-  | Kleene = 0
-  | C^| [`@` X] => | Kleene != 1
-                   | C != X
   | T = if Kleene then Dst else table 256
-  | 123//log Dst.buckets //[Dst.'-' Pattern Type]
   | when no Dst.C: Dst.C != T
   | add_lexeme T Next Type
 

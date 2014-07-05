@@ -168,13 +168,13 @@ typedef void *(*pfun)(REGS);
 #define PUSH_BASE() \
   HEAP_FLIP(); \
   Level += 2; \
-  /*printf("Entering %ld\n", Level);*/ \
+  /*fprintf(stderr, "Entering %ld\n", Level);*/ \
   Top = (void**)Top-BASE_HEAD_SIZE; \
   *((void**)Top+0) = Base; \
   LIFTS_LIST(Top) = 0; \
   Base = Top;
 #define POP_BASE() \
-  /*printf("Leaving %ld\n", Level);*/ \
+  /*fprintf(stderr, "Leaving %ld\n", Level);*/ \
   Top = (void**)Base+BASE_HEAD_SIZE; \
   Base = *(void**)Base; \
   Level -= 2; \
