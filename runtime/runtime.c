@@ -80,6 +80,18 @@ static char print_buffer[1024*1024*2];
 int print_depth = 0;
 #define MAX_PRINT_DEPTH 32
 
+static void print_stack_trace(api_t *api) {
+  intptr_t s = Level-1;
+  intptr_t parity = s&1;
+  fprintf(stderr, "Stack Trace:\n");
+  while (s-- > 1) {
+    intptr_t l = s + 1;
+    api_t *a = ((l&1)^parity) ? api : api->other;
+    void *init = a->marks[l>>1];
+    fprintf(stderr, "  %s\n", print_object(init));
+  }
+}
+
 static void fatal(char *fmt, ...) {
    va_list ap;
    va_start(ap,fmt);
@@ -268,19 +280,21 @@ static void *load_lib(struct api_t *api, char *name) {
 static void bad_type(REGS, char *expected, int arg_index, char *name) {
   PROLOGUE;
   int i, nargs = (int)UNFIXNUM(NARGS(E));
-  printf("arg %d isnt %s, in: %s", arg_index, expected, name);
-  for (i = 0; i < nargs; i++) printf(" %s", print_object(getArg(i)));
-  printf("\n");
+  fprintf(stderr, "arg %d isnt %s, in: %s", arg_index, expected, name);
+  for (i = 0; i < nargs; i++) fprintf(stderr, " %s", print_object(getArg(i)));
+  fprintf(stderr, "\n");
+  print_stack_trace(api);
   abort();
 }
 
 static void bad_call(REGS, void *method) {
   PROLOGUE;
   int i, nargs = (int)UNFIXNUM(NARGS(E));
-  printf("bad call: %s", print_object(getArg(0)));
-  printf(" %s", print_object(method));
-  for (i = 1; i < nargs; i++) printf(" %s", print_object(getArg(i)));
-  printf("\n");
+  fprintf(stderr, "bad call: %s", print_object(getArg(0)));
+  fprintf(stderr, " %s", print_object(method));
+  for (i = 1; i < nargs; i++) fprintf(stderr, " %s", print_object(getArg(i)));
+  fprintf(stderr, "\n");
+  print_stack_trace(api);
   abort();
 }
 
@@ -401,7 +415,7 @@ RETURNS(FIXNUM(BIGTEXT_SIZE(o)))
 BUILTIN2("text .",text_get,C_ANY,o,C_FIXNUM,index)
   char t[2];
   if ((uintptr_t)CLOSURE_REF4(o,0) <= (uintptr_t)index) {
-    printf("index out of bounds\n");
+    fprintf(stderr, "index out of bounds\n");
     TEXT(P, ".");
     bad_call(REGS_ARGS(P),P);
   }
@@ -420,7 +434,7 @@ BUILTIN2("text .",fixtext_get,C_ANY,o,C_FIXNUM,index)
   int i = UNFIXNUM(index);
   if (i >= 8) {
 bounds_error:
-    printf("index out of bounds\n");
+    fprintf(stderr, "index out of bounds\n");
     TEXT(P, ".");
     bad_call(REGS_ARGS(P),P);
   }
@@ -444,7 +458,7 @@ BUILTIN2("view .",view_get,C_ANY,o,C_FIXNUM,index)
   uint32_t start = VIEW_START(o);
   uint32_t size = VIEW_SIZE(o);
   if (size <= (uint32_t)(uintptr_t)index) {
-    printf("index out of bounds\n");
+    fprintf(stderr, "index out of bounds\n");
     TEXT(R, ".");
     bad_call(REGS_ARGS(P),R);
   }
@@ -454,7 +468,7 @@ BUILTIN3("view !",view_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   uint32_t size = VIEW_SIZE(o);
   void *p;
   if (size <= (uint32_t)(uintptr_t)index) {
-    printf("view !: index out of bounds\n");
+    fprintf(stderr, "view !: index out of bounds\n");
     TEXT(P, "!");
     bad_call(REGS_ARGS(P),P);
   }
@@ -544,7 +558,7 @@ BUILTIN1("list unchars",list_unchars,C_ANY,o)
     x = LIST_REF(o,i);
     if (!IS_TEXT(x)) {
       fprintf(stderr, "list unchars: not a text (%s)\n", print_object(x));
-      abort();
+      bad_call(REGS_ARGS(P),P);
     }
     if (GET_TAG(x) == T_FIXTEXT) {
       l += fixtext_size(x);
@@ -583,8 +597,18 @@ RETURNS((intptr_t)a - (intptr_t)b)
 BUILTIN2("integer *",integer_mul,C_ANY,a,C_FIXNUM,b)
 RETURNS(UNFIXNUM(a) * (intptr_t)b)
 BUILTIN2("integer /",integer_div,C_ANY,a,C_FIXNUM,b)
+ if (!b) {
+    fprintf(stderr, "division by zero\n");
+    TEXT(R, "/");
+    bad_call(REGS_ARGS(P),R);
+  }
 RETURNS(FIXNUM((intptr_t)a / (intptr_t)b))
 BUILTIN2("integer %",integer_rem,C_ANY,a,C_FIXNUM,b)
+ if (!b) {
+    fprintf(stderr, "division by zero\n");
+    TEXT(R, "/");
+    bad_call(REGS_ARGS(P),R);
+  }
 RETURNS((intptr_t)a % (intptr_t)b)
 BUILTIN2("integer ><",integer_eq,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a == b))
@@ -703,6 +727,25 @@ BUILTIN0("rtstat",rtstat)
   show_runtime_info(api);
 RETURNS(0)
 
+BUILTIN0("stack_trace",stack_trace)
+  void **p;
+  intptr_t s = Level-1;
+  intptr_t parity = s&1;
+  if (s == 0) {
+    R = Empty;
+  } else {
+    LIST_ALLOC(R,s-1);
+    p = &LIST_REF(R,0);
+    while (s-- > 1) {
+      intptr_t l = s + 1;
+      api_t *a = ((l&1)^parity) ? api : api->other;
+      void *init = a->marks[l>>1];
+      *p++ = init;
+    }
+  }
+RETURN(R)
+RETURNS(0)
+
 BUILTIN1("set_error_handler",set_error_handler,C_ANY,h)
   fatal("FIXME: implement set_error_handler\n");
 RETURNS(Void)
@@ -780,6 +823,7 @@ static struct {
   {"halt", b_halt},
   {"log", b_log},
   {"rtstat", b_rtstat},
+  {"stack_trace", b_stack_trace},
   {"_apply", b__apply},
   {"_no_method", b__no_method},
   {"read_file_as_text", b_read_file_as_text},

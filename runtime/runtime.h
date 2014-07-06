@@ -44,10 +44,11 @@
 #define FIXNUM_LT(a,b) (void*)FIXNUM((intptr_t)(a) < (intptr_t)(b))
 #define FIXNUM_GT(a,b) (void*)FIXNUM((intptr_t)(a) > (intptr_t)(b))
 
-#define HEAP_DEPTH 1024
 #define HEAP_SIZE (32*1024*1024)
 #define BASE_HEAD_SIZE 2
 #define OBJ_HEAD_SIZE 2
+
+#define MAX_LEVEL 512*1024
 
 #define REGS void *P, struct api_t *api
 #define REGS_ARGS(P) P, api
@@ -80,6 +81,8 @@ typedef struct api_t {
   void (*set_method)(struct api_t *api, void *method, void *type, void *handler);
   void *(*find_export)(struct api_t *api, void *name, void *exports);
   void *(*load_lib)(struct api_t *api, char *name);
+
+  void *marks[MAX_LEVEL];
 
   void *heap[HEAP_SIZE];
 } api_t;
@@ -166,10 +169,12 @@ typedef void *(*pfun)(REGS);
   if (!IMMEDIATE(value) && OBJECT_LEVEL(base) < OBJECT_LEVEL(value)) { \
     LIFTS_CONS(LIFTS_LIST(Base), (void**)(base)+(pos), LIFTS_LIST(Base)); \
   }
+#define MARK(name) api->marks[Level>>1] = (void*)(name);
 #define HEAP_FLIP() api = api->other;
 #define PUSH_BASE() \
   HEAP_FLIP(); \
   Level += 2; \
+  MARK(0); \
   /*fprintf(stderr, "Entering %ld\n", Level);*/ \
   Top = (void**)Top-BASE_HEAD_SIZE; \
   *((void**)Top+0) = Base; \

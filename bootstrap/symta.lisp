@@ -740,6 +740,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (decf n)
   ! ssa 'jmp name)
 
+(to ssa-mark name
+  ! v = ssa-var "X"
+  ! ssa-text v (second name)
+  ! ssa 'mark v)
+
 (to ssa-form k xs
   ! match xs
     (("_fn" as body) (ssa-fn (ssa-name "n") k as body xs))
@@ -749,6 +754,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_progn" . xs) (ssa-progn k xs))
     (("_label" name) (ssa-label name))
     (("_goto" name) (ssa-goto name))
+    (("_mark" name) (ssa-mark name))
     (("_data" type . xs) (ssa-data k type xs))
     (("_dget" src index) (ssa-dget k src index))
     (("_dset" dst index value) (ssa-dset k dst index value))
@@ -773,7 +779,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (t (error "unexpected ~a" x)))
 
 (to ssa-expr k x ! if (listp x) (ssa-form k x) (ssa-atom k x))
-
 
 (to shell command &rest args
   ! s = (make-string-output-stream)
@@ -868,6 +873,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''branch cond label) (to-c-emit "  BRANCH(~a, ~a);" cond label))
          ((''push_base) (to-c-emit "  PUSH_BASE();"))
          ((''pop_base) (to-c-emit "  POP_BASE();"))
+         ((''mark value) (to-c-emit "  MARK(~a);" value))
+         ((''unmark) (to-c-emit "  UNMARK();"))
          ((''gc value) (to-c-emit "  GC(~a);" value))
          ((''call k name) (to-c-emit "  CALL(~a, ~a);" k name))
          ((''call_tagged k obj method) (to-c-emit "  CALL_TAGGED(~a, ~a, ~a);" k obj method))
@@ -1093,7 +1100,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! kname = concatenate 'string "_k_" name
   ! (args body) = if (find-if #'pattern-arg args) (add-pattern-matcher args body) (list args body)
   ! setf body `("_default_leave" ,name ,(expand-named name body))
-  ! list name `("_fn" ,args ,body))
+  ! list name `("_fn" ,args ("_progn" ("_mark" ,name) ,body)))
 
 (to expand-destructuring value bs
   ! xs-var = nil
@@ -1400,7 +1407,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to symta filename
   ;! compile-lib "prelude"
-  ;! compile-lib "reader"
+  ! compile-lib "reader"
   ! cache-folder = "{*root-folder*}cache/"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"
   ! runtime-path = "{cache-folder}runtime"
