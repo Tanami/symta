@@ -32,8 +32,8 @@ list.Xs reverse =
 | Ys = N x 0
 | while I < N
   | N! - 1
-  | Ys.I != Xs.N
-  | Ys.N != Xs.I
+  | Ys.I <= Xs.N
+  | Ys.N <= Xs.I
   | I! + 1
 | Ys
 
@@ -42,7 +42,7 @@ list.Xs map F =
 | I = 0
 | Ys = N x 0
 | while I < N
-  | Ys.I != Xs.I^F
+  | Ys.I <= Xs.I^F
   | I! + 1
 | Ys
 
@@ -58,7 +58,7 @@ int.N `.` F =
 | I = 0
 | Ys = N x 0
 | while I < N
-  | Ys.I != F I
+  | Ys.I <= F I
   | I! + 1
 | Ys
 
@@ -97,7 +97,7 @@ list.Xs keep F =
 | while J < N
   | X = Xs.I
   | when F X
-    | Ys.J != X
+    | Ys.J <= X
     | J !+ 1
   | I !+ 1
 | Ys
@@ -110,7 +110,7 @@ list.Xs skip F =
 | while J < N
   | X = Xs.I
   | unless F X
-    | Ys.J != X
+    | Ys.J <= X
     | J !+ 1
   | I !+ 1
 | Ys
@@ -119,7 +119,7 @@ list.Xs join =
 | Size = Xs.map{X=>X.size}.sum
 | Rs = Size x 0
 | I = 0
-| Xs map: Ys => Ys map: Y => | Rs.I != Y
+| Xs map: Ys => Ys map: Y => | Rs.I <= Y
                              | I !+ 1
 | Rs
 
@@ -127,9 +127,9 @@ list.Xs split F =
 | Ys = []
 | P = Xs.locate{F}
 | while have P
-  | Ys != [Xs.take{P}@Ys]
-  | Xs != Xs.drop{P+1}
-  | P != Xs.locate{F}
+  | Ys <= [Xs.take{P}@Ys]
+  | Xs <= Xs.drop{P+1}
+  | P <= Xs.locate{F}
 | [Xs@Ys].reverse
 
 text.Xs split F = Xs.chars.split{F}.map{X=>X.unchars}
@@ -138,7 +138,7 @@ list.Xs take N =
 | Ys = N x 0
 | I = 0
 | while I < N
-  | Ys.I != Xs.I
+  | Ys.I <= Xs.I
   | I !+ 1
 | Ys
 
@@ -147,7 +147,7 @@ list.Xs drop S =
 | Ys = N-S x 0
 | I = 0
 | while S < N
-  | Ys.I != Xs.S
+  | Ys.I <= Xs.S
   | I !+ 1
   | S !+ 1
 | Ys
@@ -162,7 +162,7 @@ list.Xs infix Item =
 | N = if N < 0 then 0 else N
 | Ys = N x 0
 | while I < N
-  | Ys.I != if I%2 then Item else Xs.(I/2)
+  | Ys.I <= if I%2 then Item else Xs.(I/2)
   | I !+ 1
 | Ys
 
@@ -188,7 +188,7 @@ text.T chars =
 | I = 0
 | R = N x 0
 | while I < N
-  | R.I != T.I
+  | R.I <= T.I
   | I! + 1
 | R
 
@@ -211,10 +211,10 @@ table.T `!` K V =
 | Bs = T.buckets
 | H = K.hash%Bs.size
 | Xs = Bs.H
-| if no Xs then Bs.H != [[K V]]
+| if no Xs then Bs.H <= [[K V]]
   else | Old = Xs.find{X => X.0><K}
-       | if no Old then Bs.H != [[K V]@Xs]
-         else Old.1 != V
+       | if no Old then Bs.H <= [[K V]@Xs]
+         else Old.1 <= V
 | T
 
 export not non say bad no have table int? fn? list? text?

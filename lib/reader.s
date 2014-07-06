@@ -15,11 +15,11 @@ reader_input.O `{}` K = O.chars.K
 reader_input.O peek = when O.off < O.len: O.chars.(O.off)
 reader_input.O next =
 | when O.off < O.len
-  | O.last != O.chars.(O.off)
+  | O.last <= O.chars.(O.off)
   | O.col !+ 1
   | O.off !+ 1
   | when O.last >< Newline
-    | O.col != 0
+    | O.col <= 0
     | O.row !+ 1
   | O.last
 reader_input.O src = [O.row O.col O.origin]
@@ -32,21 +32,21 @@ token_is What O = token? O and O.symbol >< What
 //FIXME: optimize memory usage
 add_lexeme Dst Pattern Type =
 | when Pattern end
-  | Dst.'type' != Type
+  | Dst.'type' <= Type
   | leave Void
 | [Cs@Next] = Pattern
 | Kleene = 0
-| on Cs [`&` X] | Cs != X
-                | Next != \(@$Cs $@Next)
-        [`@` X] | Cs != X
-                | Kleene != 1
-| when text? Cs | Cs != Cs.chars
+| on Cs [`&` X] | Cs <= X
+                | Next <= \(@$Cs $@Next)
+        [`@` X] | Cs <= X
+                | Kleene <= 1
+| when text? Cs | Cs <= Cs.chars
 | Cs = if list? Cs then Cs else [Cs]
 | Cs each: C =>
   | T = Dst.C
   | when no T: 
-    | T != if Kleene then Dst else table 256
-    | Dst.C != T
+    | T <= if Kleene then Dst else table 256
+    | Dst.C <= T
   | add_lexeme T Next Type
 
 init_tokenizer =
@@ -54,7 +54,8 @@ init_tokenizer =
 | Digit = "0123456789"
 | HeadChar = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?"
 | TailChar = "[HeadChar][Digit]"
-| Ls = \(`+` `-` `*` `/` `%` `^` `.` `->` `~` `|` `;` `,` `:` `=` `=>` `++` `--` `**` `..`
+| Ls = \(`+` `-` `*` `/` `%` `^` `.` `->` `~` `|` `;` `,` `:` `=` `=>` `<=`
+         `++` `--` `**` `..`
          `><` `<>` `<` `>` `<<` `>>`
          `\\` `$` `@` `&` `!`
          (() end)
@@ -72,9 +73,9 @@ init_tokenizer =
          (($HeadChar @$TailChar) symbol)
          )
 | Ss = \((`if` `if`) (`then` `then`) (`else` `else`) (`and` `and`) (`or` `or`) (`Void` `void`))
-| GTable != table 256
-| GSpecs != table 256
-| Ss each:[A B] => GSpecs.A != B
+| GTable <= table 256
+| GSpecs <= table 256
+| Ss each:[A B] => GSpecs.A <= B
 | Ls each:L =>
   | [Pattern Type] = if list? L then L else [L L]
   | when text? Pattern: Pattern! chars
@@ -90,22 +91,22 @@ read_token R LeftSpaced =
 | C = Void
 | Cs = []
 | while 1
-  | Cur != Next
-  | C != R.peek
-  | Next != Next.C
+  | Cur <= Next
+  | C <= R.peek
+  | Next <= Next.C
   | when no Next
     | Value = Cs.reverse.unchars
     | Type = GSpecs.Value
-    | when no Type: Type != Cur.'type'
+    | when no Type: Type <= Cur.'type'
     | when Value >< '-' and LeftSpaced and C <> '\n' and C <> ' ':
-      | Type != \negate
-    | when Type >< end and have C: Type != 0
+      | Type <= \negate
+    | when Type >< end and have C: Type <= 0
     | unless Type: R error "unexpected `[Value][C or '']`"
     | when fn? Type
-      | Value != Type R Value
+      | Value <= Type R Value
       | when token? Value: leave Value
-      | Type != Value.0
-      | Value != Value.1
+      | Type <= Value.0
+      | Value <= Value.1
     | leave: new_token Type Value Src 0
   | push C Cs
   | R.next
@@ -119,7 +120,7 @@ add_bars Xs =
   | S = X.symbol
   | when (Col >< 0 or First) and S <> `|` and S <> `then` and S <> `else`:
     | push (new_token '|' '|' [Row Col-1 Orig] 0) Ys 
-    | First != 0
+    | First <= 0
   | push X Ys
 | Ys.reverse
 
@@ -137,7 +138,7 @@ read_list R Open Close =
   | X = read_token R 0
   | when X^token_is{Close}: leave Xs.reverse
   | when X^token_is{end}: GError "[Orig]:[Row],[Col]: unclosed `[Open]`"
-  | Xs != [X@Xs]
+  | Xs <= [X@Xs]
 
 str_empty? X = bad fixme
 
@@ -152,19 +153,19 @@ read_string R Incut End =
   | unless C >< Incut: R.next
   | on C
        `\\` | on R.next
-                 `n` | L != ['\n' @L]
-                 `t` | L != ['\t' @L]
-                 `\\` | L != ['\\' @L]
-                 C>(in &Incut &End) | L != [C@L]
+                 `n` | L <= ['\n' @L]
+                 `t` | L <= ['\t' @L]
+                 `\\` | L <= ['\\' @L]
+                 C>(in &Incut &End) | L <= [C@L]
                  Void | R.error{'EOF in string'}
                  Else | R.error{"Invalid escape code: [Else]"}
        &End | leave [L.reverse.unchars]
-       &Incut | L != L.reverse.unchars
+       &Incut | L <= L.reverse.unchars
               | M = read_token{R 0}.value
               | E = read_string R Incut End
               | leave: str_merge L M E
        [] | R.error{'EOF in string'}
-       Else | L != [C@L]
+       Else | L <= [C@L]
 
 comment_char? C = C and not C >< '\n'
 read_comment R Cs =
@@ -220,7 +221,7 @@ parse_integer T =
 | R = 0
 | Base = '0'.code
 | while I < N
-  | R != R*10 + (T.I.code - Base)
+  | R <= R*10 + (T.I.code - Base)
   | I !+ 1
 | R*Sign
 
@@ -248,10 +249,10 @@ parse_term =
          `-` | leave Tok^parse_negate
          Else | push Tok GInput
               | leave 0
-| Tok.parsed != P
+| Tok.parsed <= P
 | Tok
 
-delim? X = X^token? and on X.symbol (in `:` `=` `=>` `,` `if` `then` `else`) 1
+delim? X = X^token? and on X.symbol (in `:` `=` `=>` `<=` `,` `if` `then` `else`) 1
 
 parse_op Ops =
 | when GInput.end: leave 0
@@ -263,8 +264,8 @@ binary_loop Ops Down E =
 | O = parse_op Ops or leave E
 | when O^token_is{`{}`}
   | As = parse O.value
-  | As != if As.find{&delim?} then [As] else As //allows Xs.map{X=>...}
-  | O.parsed != [`{}`]
+  | As <= if As.find{&delim?} then [As] else As //allows Xs.map{X=>...}
+  | O.parsed <= [`{}`]
   | leave: binary_loop Ops Down [O E @As]
 | B = &Down or parser_error "no right operand for" o
 | unless O^token_is{'.'} and E^token_is{integer} and B^token_is{integer}:
@@ -287,30 +288,30 @@ parse_bool = parse_binary &parse_dots [`><` `<>` `<` `>` `<<` `>>`]
 
 parse_logic =
 | O = parse_op [`and` `or`] or leave (parse_bool)
-| GOutput != GOutput.reverse
-| P = GInput.locate{&delim?}
-| Tok = have P and GInput{P}
-| when not P or have [`if` `then` `else` ].locate{X = Tok^token_is{X}}:
-  | GOutput != [(parse_xs) GOutput O]
+| GOutput <= GOutput.reverse
+| P = GInput.locate{&delim?} //hack LL(1) to speed-up parsing
+| Tok = have P and GInput.P
+| when no P or have [`if` `then` `else` ].locate{X => Tok^token_is{X}}:
+  | GOutput <= [(parse_xs) GOutput O]
   | leave 0
-| R = GInput.drop{P}
-| GInput != GInput.take{P}
-| GOutput != if Tok^token_is{`:`}
+| R = GInput.take{P}
+| GInput <= GInput.drop{P}
+| GOutput <= if Tok^token_is{`:`}
              then [[O GOutput.tail R^parse] GOutput.head]
              else [[O GOutput R^parse]]
 | Void
 
 parse_delim =
-| O = parse_op [`:` `=` `=>` `,`] or leave (parse_logic)
+| O = parse_op [`:` `=` `=>` `<=` `,`] or leave (parse_logic)
 | Pref = if GOutput.size > 0 then GOutput.reverse else [void]
 | unless O^token_is{`,`}
-  | GOutput != [(parse_xs) Pref O]
+  | GOutput <= [(parse_xs) Pref O]
   | leave Void
 | Pref = Pref.map{X => new_token escape X^parse_strip O.src 0}
 | R = GInput.split{X => X^token_is{`,`}}
 | R = R.reverse.map{X => [@X (new_token `:` `:` O.src 0)]}
-| GInput != [@R Pref].join
-| GOutput != (parse_xs).reverse
+| GInput <= [@R Pref].join
+| GOutput <= (parse_xs).reverse
 | Void
 
 parse_semicolon =
@@ -319,8 +320,8 @@ parse_semicolon =
 | when no P or M^token_is{`|`}: leave 0
 | L = parse GInput.take{P}
 | R = parse GInput.drop{P+1}
-| GInput != []
-| GOutput != if R.0^token_is{`};`} then [@R.tail.reverse L M] else [R L M]
+| GInput <= []
+| GOutput <= if R.0^token_is{`};`} then [@R.tail.reverse L M] else [R L M]
 | Void
 
 parse_xs =
@@ -341,7 +342,7 @@ parse_strip X =
 | if token? X
   then | P = X.parsed
        | R = if P then parse_strip P.0 else X.value
-       //| when text? R: R != new_meta R X.src
+       //| when text? R: R <= new_meta R X.src
        | leave R
   else if list? X
   then | for V X
@@ -352,7 +353,7 @@ parse_strip X =
 
 read Chars =
 | R = parse_strip: parse: tokenize: newInput Chars test
-| R != R.0
+| R <= R.0
 | on R [X S] S
        R R
 

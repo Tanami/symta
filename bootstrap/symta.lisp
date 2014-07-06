@@ -80,7 +80,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! digit = "0123456789"
   ! head-char = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?"
   ! tail-char = "{head-char}{digit}"
-  ! ls = `("+" "-" "*" "/" "%" "^" "." "->" "~" "|" ";" "," ":" "=" "=>" "++" "--" "**" ".."
+  ! ls = `("+" "-" "*" "/" "%" "^" "." "->" "~" "|" ";" "," ":" "=" "=>" "<="
+           "++" "--" "**" ".."
            "><" "<>" "<" ">" "<<" ">>"
            "\\" "$" "@" "&" "!" (() :end)
            ")" ("(" ,(fn r o ! `(:|()| ,(/list r o :|)|))))
@@ -255,7 +256,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (otherwise (push tok g_input) (ret :fail))
   ! `(,@tok :parsed ,p))
 
-(to delim? x ! match x ((:token (or :|:| :|=| :|=>| :|,| :if :then :else) . _) t))
+(to delim? x ! match x ((:token (or :|:| :|=| :|=>| :|<=| :|,| :if :then :else) . _) t))
 
 (to /op ops
   ! v = second (car g_input)
@@ -302,7 +303,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! nil)
 
 (to /delim
-  ! o = try (/op '(:|:| :|=| :|=>| :|,|)) (/logic)
+  ! o = try (/op '(:|:| :|=| :|=>| :|<=| :|,|)) (/logic)
   ! pref = or (nreverse g_output) '(:void)
   ! unless (token-is :|,| o) (! g_output := `(,(/xs) ,pref ,o) ! ret nil)
   ! pref = m x pref `(:token :escape :value ,(/strip x) :src ,(getf o :src))
@@ -1332,7 +1333,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         ((">>" a b) `("_mcall" ,a  ">>" ,b))
         (("><" a b) `("_mcall" ,a "><" ,b))
         (("<>" a b) `("_mcall" ,a  "<>" ,b))
-        (("=" a b) `("|" ,xs))
         (("&" o) (return-from builtin-expander
                    (if (fn-sym? o) o `(,(builtin-expander o)))))
         (("and" a b) `("if" ,a ,b 0))
@@ -1345,6 +1345,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
              (builtin-expander body))))
         (("leave" name value) (expand-leave name value))
         (("leave" value) (expand-leave *default-leave* value))
+        (("<=" (place) value) (expand-assign place value))
         (("!!" . as) (expand-assign-result as))
         (("on" keyform . cases) (expand-match keyform (group-by 2 cases) 0))
         (("shade" . xs) (expand-shade (butlast xs) (car (last xs))))
