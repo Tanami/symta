@@ -316,7 +316,7 @@ parse_delim =
 parse_semicolon =
 | P = GInput.locate{X => X^token_is{`|`} or X^token_is{`;`}}
 | M = when have P: GInput.P
-| when no P or M^token_is{`|`}: leave []
+| when no P or M^token_is{`|`}: leave 0
 | L = parse GInput.take{P}
 | R = parse GInput.drop{P+1}
 | GInput != []
@@ -326,9 +326,10 @@ parse_semicolon =
 parse_xs =
 | shade (GOutput [])
   | parse_semicolon
-  | while 1
-    | X = parse_delim or leave GOutput.reverse
-    | when have X: push X GOutput
+  | named loop // FIXME: implement unwind_protect
+    | while 1
+      | X = parse_delim or leave loop GOutput.reverse
+      | when have X: push X GOutput
 
 parse Input =
 | shade (GInput Input)
