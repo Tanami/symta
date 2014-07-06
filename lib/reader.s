@@ -23,7 +23,7 @@ reader_input.O next =
     | O.row !+ 1
   | O.last
 reader_input.O src = [O.row O.col O.origin]
-reader_input.O error Msg = bad "reader error at [O.src]: [Msg]"
+reader_input.O error Msg = bad "at [O.src]: [Msg]"
 
 data token symbol value src parsed
 token? O = O^tag_of >< token
@@ -71,7 +71,7 @@ init_tokenizer =
          ((&$Digit) integer)
          (($HeadChar @$TailChar) symbol)
          )
-| Ss = \((`if` `if`) (`then` `then`) (`else` `else`) (`and` `and`) (`or` `or`) (`Void` `kw`))
+| Ss = \((`if` `if`) (`then` `then`) (`else` `else`) (`and` `and`) (`or` `or`) (`Void` `void`))
 | GTable != table 256
 | GSpecs != table 256
 | Ss each:[A B] => GSpecs.A != B
@@ -183,18 +183,18 @@ read_multi_comment R Cs =
 
 parser_error Cause Tok =
 | [Row Col Orig] = Tok.src
-| bad "[Orig]:[Row],[Col]: [Cause] [Tok.value or 'eof']"
+| bad "at [Orig]:[Row],[Col]: [Cause] [Tok.value or 'eof']"
 
 expect What Head =
-| Tok = GInput.1
+| Tok = GInput.0
 | unless Tok^token_is{What}: parser_error "expected [What]; got" (Head or Tok)
 | pop GInput
 
 parse_if Sym =
 | Head = parse_xs
-| expect `then` Sym
+| expect `then` 0
 | Then = parse_xs
-| expect `else` Sym
+| expect `else` 0
 | Else = parse_xs
 | [Sym Head Then Else]
 
@@ -240,9 +240,9 @@ parse_term =
 | P = on Tok.symbol
          (in escape symbol text) | leave Tok
          integer | parse_integer V
-         kw | V
+         void | Void
          `()` | parse V
-         `[]` | new_token symbol `[]` Tok.src V^parse
+         `[]` | [(new_token symbol `[]` Tok.src 0) @V^parse]
          `|` | leave Tok^parse_bar
          `if` | leave Tok^parse_if
          `-` | leave Tok^parse_negate
@@ -275,7 +275,7 @@ binary_loop Ops Down E =
 
 parse_binary Down Ops = binary_loop Ops Down: &Down or leave 0
 suffix_loop E = suffix_loop [(parse_op [`!`] or leave E) E]
-parse_suffix = suffix_loop: parse_binary &parse_term [`:` `^` `->` `~` `{}`] or leave 0
+parse_suffix = suffix_loop: parse_binary &parse_term [`.` `^` `->` `~` `{}`] or leave 0
 parse_prefix =
 | O = parse_op [negate `\\` `$` `@` `&`] or leave (parse_suffix)
 | when O^token_is{negate}: leave O^parse_negate
@@ -350,8 +350,8 @@ parse_strip X =
        | X map:V => parse_strip V
   else X
 
-read_toplevel Chars =
-| R = parse_strip: parse: tokenize: newInput Chars
+read Chars =
+| R = parse_strip: parse: tokenize: newInput Chars test
 | R != R.0
 | on R [X S] S
        R R
@@ -359,6 +359,4 @@ read_toplevel Chars =
 normalize Expr = on Expr [`|` @As] Expr
                          X [`|` X]
 
-//read Xs = read_toplevel Xs
-
-export parse_strip parse tokenize newInput
+export read parse_strip parse tokenize newInput
