@@ -255,7 +255,7 @@ delim? X = X^token? and on X.symbol (in `:` `=` `=>` `,` `if` `then` `else`) 1
 
 parse_op Ops =
 | when GInput.end: leave 0
-| V = GInput.0.value
+| V = GInput.0.symbol
 | when no Ops.find{O => O><V}: leave 0
 | pop GInput
 
@@ -340,7 +340,7 @@ parse Input =
 parse_strip X =
 | if token? X
   then | P = X.parsed
-       | R = if P then parse_strip P else X.value
+       | R = if P then parse_strip P.0 else X.value
        //| when text? R: R != new_meta R X.src
        | leave R
   else if list? X
