@@ -367,15 +367,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (defparameter *ssa-inits* nil)
 (defparameter *ssa-raw-inits* nil)
 (defparameter *ssa-fns* nil)
-(defparameter *ssa-closure* nil) ; other lambdas', this lambda references
+(defparameter *ssa-closure* nil) ; other lambdas, this lambda references
 (defparameter *ssa-bases* nil)
-(defparameter *compiler-meta-info* (make-hash-table :test 'eq))
-
-(to set-meta meta object
-  ! (setf (gethash object *compiler-meta-info*) meta)
-  ! object)
-
-(to get-meta object ! gethash object *compiler-meta-info*)
 
 (to ssa-name name ! symbol-name (gensym name))
 
@@ -435,10 +428,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'bytes name (cstring src)
   ! name)
 
+(to ssa-var &optional (n "t")
+  ! v = ssa-name n
+  ! ssa 'var v
+  ! v)
+
 (to ssa-global name
-  ! var-name = ssa-name name
-  ! ssa 'global var-name
-  ! var-name)
+  ! v = ssa-name name
+  ! ssa 'global v
+  ! v)
 
 (to ssa-text k s
   ! bytes-name = ssa-cstring s
@@ -455,7 +453,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to ssa-resolved name ! cons name *ssa-ns*)
 
 (to ssa-fn-body k f args body o prologue epilogue
-  ! cs = nil
   ! *ssa-bases* = (list ())
   ! *ssa-out* = nil
   ! *ssa-ns* = f
@@ -467,11 +464,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! size-var = format nil "~a_size" f
   ! when prologue
       (if (stringp args)
-          (ssa 'check_varargs size-var (get-meta o))
-          (ssa 'check_nargs (length args) size-var (get-meta o)))
-  ! unless k
-     (setf k (ssa-name "result"))
-     (ssa 'var k)
+          (ssa 'check_varargs size-var nil #|(get-meta o)|#)
+          (ssa 'check_nargs (length args) size-var nil #|(get-meta o)|#))
+  ! unless k (setf k (ssa-var "result"))
   ! ssa-expr k body
   ! when epilogue (ssa 'return k)
   ! list *ssa-out* (car *ssa-closure*)
@@ -556,12 +551,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'move 'p save-p
   ! ssa 'move 'e save-e
   )
-
-
-(to ssa-var &optional (n "t")
-  ! v = ssa-name n
-  ! ssa 'var v
-  ! v)
 
 (to ssa-apply k f as &optional is-method
   ! unless is-method
@@ -1406,8 +1395,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   )
 
 (to symta filename
-  ;! compile-lib "prelude"
+  ! compile-lib "prelude"
   ! compile-lib "reader"
+  ! compile-lib "compiler"
   ! cache-folder = "{*root-folder*}cache/"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"
   ! runtime-path = "{cache-folder}runtime"

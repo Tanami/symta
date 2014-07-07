@@ -11,19 +11,21 @@
 #define GET_TAG(x) ((uintptr_t)(x)&TAG_MASK)
 #define ADD_TAG(src,tag) ((void*)((uintptr_t)(src) | (tag)))
 #define DEL_TAG(src) ((void*)((uintptr_t)(src) & ~TAG_MASK))
-#define IMMEDIATE(x) (GET_TAG(x) == T_FIXNUM || GET_TAG(x) == T_FIXTEXT)
+#define IMMEDIATE(x) (GET_TAG(x) <= T_FLOAT)
 
 #define T_FIXNUM  0
-#define T_CLOSURE 1
-#define T_LIST    2
-#define T_FLOAT   3
-#define T_VIEW    4
-#define T_PTR     5
-#define T_FIXTEXT 6 /* immediate text */
+#define T_FIXTEXT 1 /* immediate text */
+#define T_FLOAT   2
+#define T_CLOSURE 3
+#define T_LIST    4
+#define T_VIEW    5
+#define T_CONS    6
 #define T_DATA    7
 #define T_TEXT    8
-#define T_CONS    9
-#define T_VOID    10
+#define T_VOID    9
+#define T_GENERIC_LIST 10
+#define T_GENERIC_TEXT 11
+#define T_HARD_LIST 12
 
 #define T_INTEGER T_FIXNUM
 
@@ -230,6 +232,9 @@ typedef void *(*pfun)(REGS);
 #define VIEW_REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-T_VIEW)
 #define VIEW_REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-T_VIEW)
 #define VIEW_GET(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-T_VIEW)
+#define CONS_REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-T_CONS)
+#define CONS_REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-T_CONS)
+#define CONS_REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-T_CONS)
 #define CLOSURE_REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-T_CLOSURE)
 #define CLOSURE_REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-T_CLOSURE)
 #define CLOSURE_REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-T_CLOSURE)

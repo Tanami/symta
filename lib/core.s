@@ -1,5 +1,6 @@
 export text
        tag_of
+       address
        halt
        log
        rtstat

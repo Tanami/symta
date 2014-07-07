@@ -35,17 +35,21 @@
   if (GET_TAG(o) != T_LIST) \
     api->bad_type(REGS_ARGS(P), "cons", arg_index, meta)
 
-#define C_CONS(o,arg_index,meta) \
-  if (GET_TAG(o) != T_DATA || DATA_TAG(o) != T_CONS) \
-    api->bad_type(REGS_ARGS(P), "cons", arg_index, meta)
-
-
 #define BUILTIN_CLOSURE(dst,code) { ALLOC_CLOSURE(dst, code, 0); }
-#define getVal(x) ((uintptr_t)(x)&~TAG_MASK)
 
 #define MAX_TYPES (1024)
 #define MAX_METHODS (8*1024)
 #define MAX_LIBS 1024
+
+typedef struct {
+  int kids[MAX_TYPES];
+  int used;
+} subtyping_t;
+static subtyping_t subtypings[MAX_TYPES];
+
+static void add_subtype(int type, int subtype) {
+  subtypings[type].kids[subtypings[type].used++] = subtype;
+}
 
 #define MAX_SINGLE_CHARS (1<<8)
 static void *single_chars[MAX_SINGLE_CHARS];
@@ -136,14 +140,29 @@ static int resolve_type(api_t *api, char *name) {
   return i;
 }
 
-static void set_method(api_t *api, void *method, void *type, void *handler) {
+static void set_method_r(api_t *api, void *method, void *type, void *handler, int depth) {
+  int i;
   uintptr_t id = (uintptr_t)(type);
-  LIFT(method,(uintptr_t)(type),handler);
-  if (id == T_LIST) {
+  subtyping_t *st = subtypings+id;
+
+  if (!depth || *((void**)method+id) == undefined) {
+    LIFT(method,(uintptr_t)(type),handler);
+  }
+
+  for (i = 0; i < st->used; i++) {
+    set_method_r(api, method, (void*)(uintptr_t)st->kids[i], handler, depth+1);
+  }
+
+  /*if (id == T_LIST) {
     LIFT(method,(uintptr_t)(T_VIEW),handler);
+    //LIFT(method,(uintptr_t)(T_CONS),handler);
   } else if (id == T_TEXT) {
     LIFT(method,(uintptr_t)(T_FIXTEXT),handler);
-  }
+  }*/
+}
+
+static void set_method(api_t *api, void *method, void *type, void *handler) {
+  set_method_r(api, method, type, handler, 0);
 }
 
 static void set_type_size_and_name(struct api_t *api, intptr_t tag, intptr_t size, void *name) {
@@ -588,6 +607,23 @@ BUILTIN_VARARGS("list _",list)
   abort();
 RETURNS_VOID
 
+#define CAR(x) CONS_REF(o,-1)
+#define CDR(x) CONS_REF(o,0)
+#define CONS(dst, a, b) \
+  ALLOC_BASIC(dst, a, 1); \
+  dst = ADD_TAG(dst, T_CONS); \
+  CONS_REF(R,0) = b;
+BUILTIN1("cons head",cons_head,C_ANY,o)
+RETURNS(CAR(o))
+BUILTIN1("cons tail",cons_tail,C_ANY,o)
+RETURNS(CDR(o))
+BUILTIN1("cons end",cons_end,C_ANY,o)
+RETURNS(FIXNUM(0))
+BUILTIN2("cons pre",cons_pre,C_ANY,o,C_ANY,head)
+  CONS(R, head, o);
+RETURN(R)
+RETURNS(0)
+
 BUILTIN1("integer neg",integer_neg,C_ANY,o)
 RETURNS(-(intptr_t)o)
 BUILTIN2("integer +",integer_add,C_ANY,a,C_FIXNUM,b)
@@ -660,24 +696,6 @@ BUILTIN_VARARGS("integer _",integer)
   abort();
 RETURNS_VOID
 
-
-#define CAR(x) ((void**)getVal(x))[0]
-#define CDR(x) ((void**)getVal(x))[1]
-#define CONS(a, b) \
-  ALLOC_DATA(R, T_CONS, 2); \
-  DATA_REF(R,0) = a; \
-  DATA_REF(R,1) = b;
-BUILTIN1("cons head",cons_head,C_ANY,o)
-RETURNS(CAR(o))
-BUILTIN1("cons tail",cons_tail,C_ANY,o)
-RETURNS(CDR(o))
-BUILTIN1("cons end",cons_end,C_ANY,o)
-RETURNS(FIXNUM(0))
-BUILTIN2("cons pre",cons_pre,C_ANY,o,C_ANY,head)
-  R = CONS(head, o);
-RETURN(R)
-RETURNS(0)
-
 BUILTIN1("text",text,C_ANY,o)
   if (!IS_TEXT(o)) {
     TEXT(R, print_object(o));
@@ -691,6 +709,9 @@ BUILTIN1("tag_of",tag_of,C_ANY,o)
   R = tag_of(o);
 RETURN(R);
 RETURNS(0)
+
+BUILTIN1("address",address,C_ANY,o)
+RETURNS(DEL_TAG(o))
 
 BUILTIN0("halt",halt)
   printf("halted.\n");
@@ -820,6 +841,7 @@ static struct {
 } builtins[] = {
   {"text", b_text},
   {"tag_of", b_tag_of},
+  {"address", b_address},
   {"halt", b_halt},
   {"log", b_log},
   {"rtstat", b_rtstat},
@@ -835,6 +857,7 @@ static struct {
 static char *print_object_r(api_t *api, char *out, void *o) {
   int i;
   int tag = GET_TAG(o);
+  int open_par = 1;
 
   //fprintf(stderr, "%p = %d\n", o, tag);
   //if (print_depth > 4) abort();
@@ -845,7 +868,7 @@ static char *print_object_r(api_t *api, char *out, void *o) {
     fprintf(stderr, "MAX_PRINT_DEPTH reached: likely a recursive object\n");
     abort();
   }
-
+print_tail:
   if (o == Empty) {
     out += sprintf(out, "()");
   } else if (o == Void) {
@@ -859,21 +882,29 @@ static char *print_object_r(api_t *api, char *out, void *o) {
     out += sprintf(out, "%ld", (intptr_t)o>>TAG_BITS);
   } else if (tag == T_LIST) {
     int size = (int)UNFIXNUM(LIST_SIZE(o));
-    out += sprintf(out, "(");
+    if (open_par) out += sprintf(out, "(");
     for (i = 0; i < size; i++) {
-      if (i) out += sprintf(out, " ");
+      if (i || open_par) out += sprintf(out, " ");
       out = print_object_r(api, out, LIST_REF(o,i));
     }
     out += sprintf(out, ")");
   } else if (tag == T_VIEW) {
     uint32_t start = VIEW_START(o);
     int size = (int)UNFIXNUM(VIEW_SIZE(o));
-    out += sprintf(out, "(");
+    if (open_par) out += sprintf(out, "(");
     for (i = 0; i < size; i++) {
-      if (i) out += sprintf(out, " ");
+      if (i || open_par) out += sprintf(out, " ");
       out = print_object_r(api, out, VIEW_REF(o,start,i));
     }
     out += sprintf(out, ")");
+  } else if (tag == T_CONS) {
+    out += sprintf(out, "(");
+    for (;;) {
+      out = print_object_r(api, out, CAR(o));
+      o = CDR(o);
+      if (GET_TAG(o) != T_CONS) goto print_tail;
+      out += sprintf(out, " ");
+    }
   } else if (tag == T_FIXTEXT) {
     *out++ = '`';
     out += fixtext_decode(out, o);
@@ -886,15 +917,6 @@ static char *print_object_r(api_t *api, char *out, void *o) {
       *out++ = '`';
       while (size-- > 0) *out++ = *p++;
       *out++ = '`';
-    } else if (dtag == T_CONS) {
-      out += sprintf(out, "(");
-      for (;;) {
-        out = print_object_r(api, out, CAR(o));
-        o = CDR(o);
-        if (o == Empty) break;
-        out += sprintf(out, " ");
-      }
-      out += sprintf(out, ")");
     } else {
       out += sprintf(out, "#(data %ld %p)", dtag, o);
     }
@@ -1023,8 +1045,8 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
       p = alloc_bigtext(api, BIGTEXT_DATA(o), BIGTEXT_SIZE(o));
       DATA_REF(o,-2) = p;
     } else if (dtag == T_CONS) {
-      CONS(0, 0);
-      p = R;
+      CONS(p, 0, 0);
+      CONS_REF(o,-2) = p;
       CAR(p) = gc(api, gc_base, gc_end, CAR(o));
       CDR(p) = gc(api, gc_base, gc_end, CDR(o));
     } else {
@@ -1215,7 +1237,6 @@ int main(int argc, char **argv) {
     single_chars[i] = single_chars[0];
   }
 
-
   TEXT(n_int, "int");
   TEXT(n_fn, "fn");
   TEXT(n_list, "list");
@@ -1223,16 +1244,18 @@ int main(int argc, char **argv) {
   TEXT(n_void, "void");
 
   api->resolve_type(api, "int");
-  api->resolve_type(api, "fn");
-  api->resolve_type(api, "list");
+  api->resolve_type(api, "_fixtext_");
   api->resolve_type(api, "float");
-  api->resolve_type(api, "view");
-  api->resolve_type(api, "ptr");
-  api->resolve_type(api, "fixtext");
+  api->resolve_type(api, "fn");
+  api->resolve_type(api, "_list_");
+  api->resolve_type(api, "_view_");
+  api->resolve_type(api, "_cons_");
   api->resolve_type(api, "_data_");
-  api->resolve_type(api, "text");
-  api->resolve_type(api, "cons");
+  api->resolve_type(api, "_text_");
   api->resolve_type(api, "void");
+  api->resolve_type(api, "list");
+  api->resolve_type(api, "text");
+  api->resolve_type(api, "hard_list");
 
   METHOD_VAL("_size", 0, 0, 0, 0, 0, 0, 0, 0);
   METHOD_VAL("_name", n_int, n_fn, n_list, n_text, n_text, n_list, n_list, n_void);
@@ -1267,6 +1290,16 @@ int main(int argc, char **argv) {
   METHOD_FN("code", 0, 0, 0, b_fixtext_code, 0, 0, 0, 0);
   METHOD_FN("char", b_integer_char, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("unchars", 0, 0, b_list_unchars, 0, 0, 0, 0, 0);
+
+  add_subtype(T_GENERIC_LIST, T_LIST);
+  add_subtype(T_GENERIC_LIST, T_VIEW);
+
+  add_subtype(T_GENERIC_LIST, T_HARD_LIST);
+
+  add_subtype(T_GENERIC_TEXT, T_FIXTEXT);
+  add_subtype(T_GENERIC_TEXT, T_TEXT);
+
+  add_subtype(T_GENERIC_LIST, T_CONS);
 
   runtime_reserved0 = get_heap_used(0);
   runtime_reserved1 = get_heap_used(1);
