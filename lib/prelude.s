@@ -3,18 +3,18 @@ non F = X => if F X then 0 else 1
 no X = Void >< X
 have X = Void <> X
 
-text.O end = 1
-void.O end = 1
-void.O `.` K = Void
-void.O find F = Void
-void.O locate F = Void
+text.end O = 1
+void.end O = 1
+void.`.` O K = Void
+void.find O F = Void
+void.locate O F = Void
 
 int? O = O^tag_of >< int
 fn? O = O^tag_of >< fn
 list? O = O^tag_of >< list
 text? O = O^tag_of >< text
 
-int.N `.` F =
+int.`.` N F =
 | I = 0
 | Ys = N x 0
 | while I < N
@@ -22,7 +22,7 @@ int.N `.` F =
   | I! + 1
 | Ys
 
-hard_list.A `><` B = named `><`
+hard_list.`><` A B = named `><`
 | unless B^list?: leave `><` 0
 | N = A.size
 | unless N >< B.size: leave `><` 0
@@ -32,9 +32,9 @@ hard_list.A `><` B = named `><`
   | I !+ 1
 | 1
 
-list.As `<>` Bs = if As >< Bs then 0 else 1
+list.`<>` As Bs = if As >< Bs then 0 else 1
 
-hard_list.Xs reverse =
+hard_list.reverse Xs =
 | N = Xs.size
 | I = 0
 | Ys = N x 0
@@ -45,7 +45,7 @@ hard_list.Xs reverse =
   | I! + 1
 | Ys
 
-hard_list.Xs map F =
+hard_list.map Xs F =
 | N = Xs.size
 | I = 0
 | Ys = N x 0
@@ -54,7 +54,7 @@ hard_list.Xs map F =
   | I! + 1
 | Ys
 
-hard_list.Xs each F =
+hard_list.each Xs F =
 | N = Xs.size
 | I = 0
 | while I < N
@@ -62,7 +62,7 @@ hard_list.Xs each F =
   | I! + 1
 | Void
 
-hard_list.Xs sum =
+hard_list.sum Xs =
 | S = 0
 | I = 0
 | N = Xs.size
@@ -71,7 +71,7 @@ hard_list.Xs sum =
   | I !+ 1
 | S
 
-hard_list.Xs count F =
+hard_list.count Xs F =
 | S = 0
 | I = 0
 | N = Xs.size
@@ -80,7 +80,7 @@ hard_list.Xs count F =
   | I !+ 1
 | S
 
-hard_list.Xs countNot F =
+hard_list.countNot Xs F =
 | S = 0
 | I = 0
 | N = Xs.size
@@ -89,7 +89,7 @@ hard_list.Xs countNot F =
   | I !+ 1
 | S
 
-hard_list.Xs keep F =
+hard_list.keep Xs F =
 | N = Xs count F
 | Ys = N x 0
 | I = 0
@@ -102,7 +102,7 @@ hard_list.Xs keep F =
   | I !+ 1
 | Ys
 
-hard_list.Xs skip F =
+hard_list.skip Xs F =
 | N = Xs countNot F
 | Ys = N x 0
 | I = 0
@@ -115,7 +115,7 @@ hard_list.Xs skip F =
   | I !+ 1
 | Ys
 
-list.Xs join =
+list.join Xs =
 | Size = Xs.map{X=>X.size}.sum
 | Rs = Size x 0
 | I = 0
@@ -123,7 +123,7 @@ list.Xs join =
                              | I !+ 1
 | Rs
 
-list.Xs split F =
+list.split Xs F =
 | Ys = []
 | P = Xs.locate{F}
 | while have P
@@ -132,9 +132,9 @@ list.Xs split F =
   | P <= Xs.locate{F}
 | [Xs@Ys].reverse
 
-text.Xs split F = Xs.chars.split{F}.map{X=>X.unchars}
+text.split Xs F = Xs.chars.split{F}.map{X=>X.unchars}
 
-hard_list.Xs take N =
+hard_list.take Xs N =
 | Ys = N x 0
 | I = 0
 | while I < N
@@ -142,7 +142,7 @@ hard_list.Xs take N =
   | I !+ 1
 | Ys
 
-hard_list.Xs drop S =
+hard_list.drop Xs S =
 | N = Xs.size
 | Ys = N-S x 0
 | I = 0
@@ -152,11 +152,11 @@ hard_list.Xs drop S =
   | S !+ 1
 | Ys
 
-list.Xs last = Xs.(Xs.size-1)
-list.Xs suf X = [@Xs X]
-list.Xs lead = Xs take Xs.size-1
+list.last Xs = Xs.(Xs.size-1)
+list.suf Xs X = [@Xs X]
+list.lead Xs = Xs take Xs.size-1
 
-list.Xs infix Item =
+list.infix Xs Item =
 | I = 0
 | N = Xs.size*2-1
 | N = if N < 0 then 0 else N
@@ -166,7 +166,7 @@ list.Xs infix Item =
   | I !+ 1
 | Ys
 
-hard_list.Xs locate F = named locate
+hard_list.locate Xs F = named locate
 | N = Xs size
 | I = 0
 | while I < N
@@ -174,7 +174,7 @@ hard_list.Xs locate F = named locate
   | I !+ 1
 | Void
 
-hard_list.Xs find F = named find
+hard_list.find Xs F = named find
 | N = Xs size
 | I = 0
 | while I < N
@@ -183,7 +183,7 @@ hard_list.Xs find F = named find
   | I !+ 1
 | Void
 
-text.T chars =
+text.chars T =
 | N = T size
 | I = 0
 | R = N x 0
@@ -203,11 +203,11 @@ say @Xs =
 // hashtable
 data table buckets
 table Size = new_table: Size x Void
-table.T `.` K =
+table.`.` T K =
 | Bs = T.buckets
 | H = K.hash%Bs.size
 | Bs.H.find{X => X.0><K}.1
-table.T `!` K V =
+table.`!` T K V =
 | Bs = T.buckets
 | H = K.hash%Bs.size
 | Xs = Bs.H

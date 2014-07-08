@@ -1059,17 +1059,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to pattern-arg x ! not (stringp x))
 
-(to expand-block-item-data name fields
-  ! gs = m f fields (ssa-name "A")
-  ! o = ssa-name "O"
-  ! v = ssa-name "V"
-  ! i = -1
-  ! j = -1
-  ! k = -1
-  ! `(("=" (,"new_{name}" ,@gs) ("_data" ,name ,@gs))
-      ,@(m f fields `("=" (("." ,name ,o) ,f) ("_dget" ,o ,(incf j))))
-      ,@(m f fields `("=" (("." ,name ,o) ,"set_{f}" ,v) ("_dset" ,o ,(incf k) ,v)))))
-
 (to add-pattern-matcher args body
   ! default = match args
                ((("&" default) . tail)
@@ -1119,6 +1108,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! setf (nth p ys) v
   ! expand-assign v ys)
 
+(to expand-block-item-data name fields
+  ! gs = m f fields (ssa-name "A")
+  ! o = ssa-name "O"
+  ! v = ssa-name "V"
+  ! i = -1
+  ! j = -1
+  ! k = -1
+  ! `(("=" (,"new_{name}" ,@gs) ("_data" ,name ,@gs))
+      ,@(m f fields `("=" (("." ,name ,f ) ,o) ("_dget" ,o ,(incf j))))
+      ,@(m f fields `("=" (("." ,name ,"set_{f}") ,o ,v) ("_dset" ,o ,(incf k) ,v)))))
+
 (to expand-block-item x
   ! y = match x
      (("data" name . fields)
@@ -1127,8 +1127,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                (m x (expand-block-item-data name fields)
                   (expand-block-item x)))))
      (("=" ("!!" ("!" place)) value) (list nil (expand-assign place value)))
-     (("=" (("." type var) method . args) value)
-      (list nil `("_dmet" ,method ,type ("_fn" (,var ,@args) ,value))))
+     (("=" (("." type method) me . args) value)
+      (list nil `("_dmet" ,method ,type ("_fn" (,me ,@args) ,value))))
      (("=" (("[]" . bs)) value) (return-from expand-block-item (expand-destructuring value bs)))
      (("=" (name . args) value)
       (if (var-sym? name)

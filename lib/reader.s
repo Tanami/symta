@@ -11,9 +11,9 @@ headed&0 H [X@Xs] = H >< X
 
 data reader_input chars origin row col off last len
 newInput Text Origin = new_reader_input Text.chars Origin 0 0 0 Void Text.size
-reader_input.O `{}` K = O.chars.K
-reader_input.O peek = when O.off < O.len: O.chars.(O.off)
-reader_input.O next =
+reader_input.`{}` O K = O.chars.K
+reader_input.peek O = when O.off < O.len: O.chars.(O.off)
+reader_input.next O =
 | when O.off < O.len
   | O.last <= O.chars.(O.off)
   | O.col !+ 1
@@ -22,8 +22,8 @@ reader_input.O next =
     | O.col <= 0
     | O.row !+ 1
   | O.last
-reader_input.O src = [O.row O.col O.origin]
-reader_input.O error Msg = bad "at [O.src]: [Msg]"
+reader_input.src O = [O.row O.col O.origin]
+reader_input.error O Msg = bad "at [O.src]: [Msg]"
 
 data token symbol value src parsed
 token? O = O^tag_of >< token
