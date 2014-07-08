@@ -21,11 +21,12 @@
 #define T_VIEW    5
 #define T_CONS    6
 #define T_DATA    7
-#define T_TEXT    8
-#define T_VOID    9
-#define T_GENERIC_LIST 10
-#define T_GENERIC_TEXT 11
-#define T_HARD_LIST 12
+#define T_OBJECT  8
+#define T_TEXT    9
+#define T_VOID    10
+#define T_GENERIC_LIST 11
+#define T_GENERIC_TEXT 12
+#define T_HARD_LIST 13
 
 #define T_INTEGER T_FIXNUM
 

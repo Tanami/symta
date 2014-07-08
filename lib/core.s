@@ -8,3 +8,4 @@ export text
        _apply
        _no_method
        read_file_as_text
+       cons

@@ -14,7 +14,15 @@ fn? O = O^tag_of >< fn
 list? O = O^tag_of >< list
 text? O = O^tag_of >< text
 
-list.A `><` B = named `><`
+int.N `.` F =
+| I = 0
+| Ys = N x 0
+| while I < N
+  | Ys.I <= F I
+  | I! + 1
+| Ys
+
+hard_list.A `><` B = named `><`
 | unless B^list?: leave `><` 0
 | N = A.size
 | unless N >< B.size: leave `><` 0
@@ -26,7 +34,7 @@ list.A `><` B = named `><`
 
 list.As `<>` Bs = if As >< Bs then 0 else 1
 
-list.Xs reverse =
+hard_list.Xs reverse =
 | N = Xs.size
 | I = 0
 | Ys = N x 0
@@ -37,7 +45,7 @@ list.Xs reverse =
   | I! + 1
 | Ys
 
-list.Xs map F =
+hard_list.Xs map F =
 | N = Xs.size
 | I = 0
 | Ys = N x 0
@@ -46,7 +54,7 @@ list.Xs map F =
   | I! + 1
 | Ys
 
-list.Xs each F =
+hard_list.Xs each F =
 | N = Xs.size
 | I = 0
 | while I < N
@@ -54,15 +62,7 @@ list.Xs each F =
   | I! + 1
 | Void
 
-int.N `.` F =
-| I = 0
-| Ys = N x 0
-| while I < N
-  | Ys.I <= F I
-  | I! + 1
-| Ys
-
-list.Xs sum =
+hard_list.Xs sum =
 | S = 0
 | I = 0
 | N = Xs.size
@@ -71,7 +71,7 @@ list.Xs sum =
   | I !+ 1
 | S
 
-list.Xs count F =
+hard_list.Xs count F =
 | S = 0
 | I = 0
 | N = Xs.size
@@ -80,7 +80,7 @@ list.Xs count F =
   | I !+ 1
 | S
 
-list.Xs countNot F =
+hard_list.Xs countNot F =
 | S = 0
 | I = 0
 | N = Xs.size
@@ -89,7 +89,7 @@ list.Xs countNot F =
   | I !+ 1
 | S
 
-list.Xs keep F =
+hard_list.Xs keep F =
 | N = Xs count F
 | Ys = N x 0
 | I = 0
@@ -102,7 +102,7 @@ list.Xs keep F =
   | I !+ 1
 | Ys
 
-list.Xs skip F =
+hard_list.Xs skip F =
 | N = Xs countNot F
 | Ys = N x 0
 | I = 0
@@ -134,7 +134,7 @@ list.Xs split F =
 
 text.Xs split F = Xs.chars.split{F}.map{X=>X.unchars}
 
-list.Xs take N =
+hard_list.Xs take N =
 | Ys = N x 0
 | I = 0
 | while I < N
@@ -142,8 +142,8 @@ list.Xs take N =
   | I !+ 1
 | Ys
 
-list.Xs drop S =
-| N = Xs size
+hard_list.Xs drop S =
+| N = Xs.size
 | Ys = N-S x 0
 | I = 0
 | while S < N
@@ -166,7 +166,7 @@ list.Xs infix Item =
   | I !+ 1
 | Ys
 
-list.Xs locate F = named locate
+hard_list.Xs locate F = named locate
 | N = Xs size
 | I = 0
 | while I < N
@@ -174,7 +174,7 @@ list.Xs locate F = named locate
   | I !+ 1
 | Void
 
-list.Xs find F = named find
+hard_list.Xs find F = named find
 | N = Xs size
 | I = 0
 | while I < N
