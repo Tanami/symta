@@ -1128,7 +1128,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                   (expand-block-item x)))))
      (("=" ("!!" ("!" place)) value) (list nil (expand-assign place value)))
      (("=" (("." type method) . args) value)
-      (list nil `("_dmet" ,method ,type ("_fn" ("Me" ,@args) ,value))))
+      (list nil `("_dmet" ,method ,type ("_fn" ("Me" ,@args)
+                                           ("_default_leave" ,method
+                                             ,(expand-named method value))))))
      (("=" (("[]" . bs)) value) (return-from expand-block-item (expand-destructuring value bs)))
      (("=" (name . args) value)
       (if (var-sym? name)

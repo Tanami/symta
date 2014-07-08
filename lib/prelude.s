@@ -10,6 +10,8 @@ void.`.` K = Void
 void.find F = Void
 void.locate F = Void
 
+_.`<>` B = if Me >< B then 0 else 1
+
 _.is_int = 0
 int.is_int = 1
 
@@ -30,17 +32,15 @@ int.`.` F =
   | I! + 1
 | Ys
 
-hard_list.`><` B = named `><`
-| unless B.is_list: leave `><` 0 //FIXME: cons_list B will be O(n^2) slow
+hard_list.`><` B =
+| unless B.is_list: leave 0 //FIXME: cons_list B will be O(n^2) slow
 | N = Me.size
-| unless N >< B.size: leave `><` 0
+| unless N >< B.size: leave 0
 | I = 0
 | while I < N
-  | unless Me.I >< B.I: leave `><` 0
+  | unless Me.I >< B.I: leave 0
   | I !+ 1
 | 1
-
-list.`<>` B = if Me >< B then 0 else 1
 
 hard_list.reverse =
 | N = Me.size
@@ -167,20 +167,20 @@ list.infix Item =
   | I !+ 1
 | Ys
 
-hard_list.locate F = named locate
+hard_list.locate F =
 | N = Me.size
 | I = 0
 | while I < N
-  | when F Me.I: leave locate I
+  | when F Me.I: leave I
   | I !+ 1
 | Void
 
-hard_list.find F = named find
+hard_list.find F =
 | N = Me.size
 | I = 0
 | while I < N
   | X = Me.I
-  | when F X: leave find X
+  | when F X: leave X
   | I !+ 1
 | Void
 
