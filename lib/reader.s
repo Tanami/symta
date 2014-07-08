@@ -11,23 +11,24 @@ headed&0 H [X@Xs] = H >< X
 
 data reader_input chars origin row col off last len
 newInput Text Origin = new_reader_input Text.chars Origin 0 0 0 Void Text.size
-reader_input.`{}` O K = O.chars.K
-reader_input.peek O = when O.off < O.len: O.chars.(O.off)
-reader_input.next O =
-| when O.off < O.len
-  | O.last <= O.chars.(O.off)
-  | O.col !+ 1
-  | O.off !+ 1
-  | when O.last >< Newline
-    | O.col <= 0
-    | O.row !+ 1
-  | O.last
-reader_input.src O = [O.row O.col O.origin]
-reader_input.error O Msg = bad "at [O.src]: [Msg]"
+reader_input.`{}` K = Me.chars.K
+reader_input.peek = when Me.off < Me.len: Me.chars.(Me.off)
+reader_input.next =
+| when Me.off < Me.len
+  | Me.last <= Me.chars.(Me.off)
+  | Me.col !+ 1
+  | Me.off !+ 1
+  | when Me.last >< Newline
+    | Me.col <= 0
+    | Me.row !+ 1
+  | Me.last
+reader_input.src = [Me.row Me.col Me.origin]
+reader_input.error Msg = bad "at [Me.src]: [Msg]"
 
 data token symbol value src parsed
-token? O = O^tag_of >< token
-token_is What O = token? O and O.symbol >< What
+_.is_token = 0
+token.is_token = 1
+token_is What O = O.is_token and O.symbol >< What
 
 //FIXME: optimize memory usage
 add_lexeme Dst Pattern Type =
@@ -40,8 +41,8 @@ add_lexeme Dst Pattern Type =
                 | Next <= \(@$Cs $@Next)
         [`@` X] | Cs <= X
                 | Kleene <= 1
-| when text? Cs | Cs <= Cs.chars
-| Cs = if list? Cs then Cs else [Cs]
+| when Cs.is_text | Cs <= Cs.chars
+| Cs = if Cs.is_list then Cs else [Cs]
 | Cs each: C =>
   | T = Dst.C
   | when no T: 
@@ -77,8 +78,8 @@ init_tokenizer =
 | GSpecs <= table 256
 | Ss each:[A B] => GSpecs.A <= B
 | Ls each:L =>
-  | [Pattern Type] = if list? L then L else [L L]
-  | when text? Pattern: Pattern! chars
+  | [Pattern Type] = if L.is_list then L else [L L]
+  | when Pattern.is_text: Pattern! chars
   | add_lexeme GTable Pattern Type
 
 init_tokenizer
@@ -102,9 +103,9 @@ read_token R LeftSpaced =
       | Type <= \negate
     | when Type >< end and have C: Type <= 0
     | unless Type: R error "unexpected `[Value][C or '']`"
-    | when fn? Type
+    | when Type.is_fn
       | Value <= Type R Value
-      | when token? Value: leave Value
+      | when Value.is_token: leave Value
       | Type <= Value.0
       | Value <= Value.1
     | leave: new_token Type Value Src 0
@@ -140,10 +141,10 @@ read_list R Open Close =
   | when X^token_is{end}: GError "[Orig]:[Row],[Col]: unclosed `[Open]`"
   | Xs <= [X@Xs]
 
-str_empty? X = bad fixme
+str_is_empty X = bad fixme
 
 str_merge Left Middle Right =
-| Left = if str_empty? Left then [Middle] else [Left Middle]
+| Left = if Left^str_is_empty then [Middle] else [Left Middle]
 | if Right.size >< 1 and Right.1.size >< 0 then Left else [@Left @Right]
 
 read_string R Incut End =
@@ -167,10 +168,8 @@ read_string R Incut End =
        [] | R.error{'EOF in string'}
        Else | L <= [C@L]
 
-comment_char? C = C and not C >< '\n'
-read_comment R Cs =
-| while comment_char? R.next
-| read_token R 0
+is_comment_char C = C and not C >< '\n'
+read_comment R Cs = while R.next^is_comment_char: read_token R 0
 
 read_multi_comment R Cs =
 | O = 1
@@ -252,7 +251,7 @@ parse_term =
 | Tok.parsed <= P
 | Tok
 
-delim? X = X^token? and on X.symbol (in `:` `=` `=>` `<=` `,` `if` `then` `else`) 1
+is_delim X = X.is_token and on X.symbol (in `:` `=` `=>` `<=` `,` `if` `then` `else`) 1
 
 parse_op Ops =
 | when GInput.end: leave 0
@@ -264,7 +263,7 @@ binary_loop Ops Down E =
 | O = parse_op Ops or leave E
 | when O^token_is{`{}`}
   | As = parse O.value
-  | As <= if As.find{&delim?} then [As] else As //allows Xs.map{X=>...}
+  | As <= if As.find{&is_delim} then [As] else As //allows Xs.map{X=>...}
   | O.parsed <= [`{}`]
   | leave: binary_loop Ops Down [O E @As]
 | B = &Down or parser_error "no right operand for" o
@@ -289,7 +288,7 @@ parse_bool = parse_binary &parse_dots [`><` `<>` `<` `>` `<<` `>>`]
 parse_logic =
 | O = parse_op [`and` `or`] or leave (parse_bool)
 | GOutput <= GOutput.reverse
-| P = GInput.locate{&delim?} //hack LL(1) to speed-up parsing
+| P = GInput.locate{&is_delim} //hack LL(1) to speed-up parsing
 | Tok = have P and GInput.P
 | when no P or have [`if` `then` `else` ].locate{X => Tok^token_is{X}}:
   | GOutput <= [(parse_xs) GOutput O]
@@ -339,12 +338,12 @@ parse Input =
   | Xs
 
 parse_strip X =
-| if token? X
+| if X.is_token
   then | P = X.parsed
        | R = if P then parse_strip P.0 else X.value
-       //| when text? R: R <= new_meta R X.src
+       //| when R.is_text: R <= new_meta R X.src
        | leave R
-  else if list? X
+  else if X.is_list
   then | for V X
          | when (on V [U@Us] | X^token_is{`!`}) and not (on X [Z@Zs] X^token_is{`!`}):
            | leave [`!!`] 

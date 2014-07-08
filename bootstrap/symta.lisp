@@ -1116,8 +1116,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! j = -1
   ! k = -1
   ! `(("=" (,"new_{name}" ,@gs) ("_data" ,name ,@gs))
-      ,@(m f fields `("=" (("." ,name ,f ) ,o) ("_dget" ,o ,(incf j))))
-      ,@(m f fields `("=" (("." ,name ,"set_{f}") ,o ,v) ("_dset" ,o ,(incf k) ,v)))))
+      ,@(m f fields `("=" (("." ,name ,f )) ("_dget" "Me" ,(incf j))))
+      ,@(m f fields `("=" (("." ,name ,"set_{f}") ,v) ("_dset" "Me" ,(incf k) ,v)))))
 
 (to expand-block-item x
   ! y = match x
@@ -1127,8 +1127,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                (m x (expand-block-item-data name fields)
                   (expand-block-item x)))))
      (("=" ("!!" ("!" place)) value) (list nil (expand-assign place value)))
-     (("=" (("." type method) me . args) value)
-      (list nil `("_dmet" ,method ,type ("_fn" (,me ,@args) ,value))))
+     (("=" (("." type method) . args) value)
+      (list nil `("_dmet" ,method ,type ("_fn" ("Me" ,@args) ,value))))
      (("=" (("[]" . bs)) value) (return-from expand-block-item (expand-destructuring value bs)))
      (("=" (name . args) value)
       (if (var-sym? name)
@@ -1396,8 +1396,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to symta filename
   ! compile-lib "prelude"
-  ! compile-lib "reader"
-  ! compile-lib "compiler"
+  ;! compile-lib "reader"
+  ;! compile-lib "compiler"
   ! cache-folder = "{*root-folder*}cache/"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"
   ! runtime-path = "{cache-folder}runtime"

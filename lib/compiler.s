@@ -57,7 +57,7 @@ ssa_symbol K X Value =
        | bad "undefined variable: [X]"
 
 ssa_quote_list_rec Xs =
-| [list @(Xs map: X => if list? X then ssa_quote_list_rec X else [_quote X])]
+| [list @(Xs map: X => if X.is_list then ssa_quote_list_rec X else [_quote X])]
 
 ssa_quote_list K Xs =
 | Name = gensym list
@@ -87,14 +87,14 @@ ssa_text K S =
 | push [text Name BytesName] GRawInits
 | ssa move K Name
 
-ssa_quote K X = if text? X then ssa_text K X
-                else if list? X then ssa_quote_list K X
+ssa_quote K X = if X.is_text then ssa_text K X
+                else if X.is_list then ssa_quote_list K X
                 else ssa_expr K X
 
 ssa_resolve Name = [Name GNs]
 
 ssa_fn_body K F Args Body O Prologue Epilogue =
-| LocalEnv = if text? Args
+| LocalEnv = if Args.is_text
              then [[GAll [Args F]] @GEnv]
              else [Args.map{A=>[A F]} @GEnv]
 | shade (GBases [[]])
@@ -105,7 +105,7 @@ ssa_fn_body K F Args Body O Prologue Epilogue =
   | when have Prologue: ssa label GNs
   | SizeVar = "[F]_size"
   | when Prologue
-    | if text? Args
+    | if Args.is_text
       then ssa check_varargs SizeVar Void /*(get_meta O)*/
       else ssa check_nargs Args.size SizeVar Void /*(get_meta O)*/
   | when no K: K <= ssa_var "result"

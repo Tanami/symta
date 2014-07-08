@@ -42,10 +42,12 @@
 #define MAX_LIBS 1024
 
 typedef struct {
-  int kids[MAX_TYPES];
+  int items[MAX_TYPES];
   int used;
-} subtyping_t;
-static subtyping_t subtypings[MAX_TYPES];
+} typing_t;
+static typing_t subtypings[MAX_TYPES];
+static typing_t supertypings[MAX_TYPES];
+
 
 #define MAX_SINGLE_CHARS (1<<8)
 static void *single_chars[MAX_SINGLE_CHARS];
@@ -119,9 +121,7 @@ static void **resolve_method(api_t *api, char *name) {
   return methods[i].types;
 }
 
-static void add_subtype(int type, int subtype) {
-  subtypings[type].kids[subtypings[type].used++] = subtype;
-}
+static void add_subtype(api_t *api, int type, int subtype);
 
 static int resolve_type(api_t *api, char *name) {
   int i, j;
@@ -137,7 +137,7 @@ static int resolve_type(api_t *api, char *name) {
 
   for (j = 0; j < methods_used; j++) methods[j].types[i] = undefined;
 
-  add_subtype(T_OBJECT,i);
+  add_subtype(api, T_OBJECT, i);
 
   return i;
 }
@@ -145,24 +145,43 @@ static int resolve_type(api_t *api, char *name) {
 static void set_method_r(api_t *api, void *method, void *type, void *handler, int depth) {
   int i;
   uintptr_t id = (uintptr_t)(type);
-  subtyping_t *st = subtypings+id;
+  void *m = *((void**)method+id);
+  int inherited = 0;
 
-  if (!depth || *((void**)method+id) == undefined) {
+  if (depth) {
+    typing_t *psup = supertypings+id;
+    for (i = 0; i < psup->used; i++) {
+      uintptr_t sup_id = (uintptr_t)psup->items[i];
+      void *sup_m = *((void**)method+sup_id);
+      if (sup_m == undefined || sup_m == m) {
+        inherited = 1;
+        break;
+      }
+    }
+  }
+
+  if (!depth || inherited) {
+    typing_t *psub = subtypings+id;
+    for (i = 0; i < psub->used; i++) {
+      void *subtype = (void*)(uintptr_t)psub->items[i];
+      set_method_r(api, method, subtype, handler, depth+1);
+    }
+
     LIFT(method,(uintptr_t)(type),handler);
   }
+}
 
-  for (i = 0; i < st->used; i++) {
-    void *subtype = (void*)(uintptr_t)st->kids[i];
-    if (subtype == type) continue; //types can have themselves as subtypes
-    set_method_r(api, method, subtype, handler, depth+1);
+static void add_subtype(api_t *api, int type, int subtype) {
+  int j;
+  if (type == subtype) return;
+  subtypings[type].items[subtypings[type].used++] = subtype;
+  supertypings[subtype].items[supertypings[subtype].used++] = type;
+  for (j = 0; j < methods_used; j++) {
+    void *method = methods+j;
+    void *handler = *((void**)method+type);
+    if (handler == undefined) continue;
+    set_method_r(api, method,  (void*)(uintptr_t)subtype, handler, 1);
   }
-
-  /*if (id == T_LIST) {
-    LIFT(method,(uintptr_t)(T_VIEW),handler);
-    //LIFT(method,(uintptr_t)(T_CONS),handler);
-  } else if (id == T_TEXT) {
-    LIFT(method,(uintptr_t)(T_FIXTEXT),handler);
-  }*/
 }
 
 static void set_method(api_t *api, void *method, void *type, void *handler) {
@@ -957,11 +976,12 @@ static void *handle_args(REGS, void *E, intptr_t expected, intptr_t size, void *
   if (meta != Empty) {
   }
   if (UNFIXNUM(expected) < 0) {
-    printf("bad number of arguments: got %ld, expected at least %ld\n",
+    fprintf(stderr, "bad number of arguments: got %ld, expected at least %ld\n",
        UNFIXNUM(got)-1, -UNFIXNUM(expected)-1);
   } else {
-    printf("bad number of arguments: got %ld, expected %ld\n", UNFIXNUM(got), UNFIXNUM(expected));
+    fprintf(stderr, "bad number of arguments: got %ld, expected %ld\n", UNFIXNUM(got), UNFIXNUM(expected));
   }
+  print_stack_trace(api);
   fatal("during call to `%s`\n", print_object(tag));
 }
 
@@ -1305,15 +1325,15 @@ int main(int argc, char **argv) {
   METHOD_FN("char", b_integer_char, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("unchars", 0, 0, b_list_unchars, 0, 0, 0, 0, 0);
 
-  add_subtype(T_GENERIC_TEXT, T_FIXTEXT);
-  add_subtype(T_GENERIC_TEXT, T_TEXT);
+  add_subtype(api, T_GENERIC_TEXT, T_FIXTEXT);
+  add_subtype(api, T_GENERIC_TEXT, T_TEXT);
 
-  add_subtype(T_HARD_LIST, T_LIST);
-  add_subtype(T_HARD_LIST, T_VIEW);
+  add_subtype(api, T_HARD_LIST, T_LIST);
+  add_subtype(api, T_HARD_LIST, T_VIEW);
 
-  add_subtype(T_GENERIC_LIST, T_HARD_LIST);
+  add_subtype(api, T_GENERIC_LIST, T_HARD_LIST);
 
-  add_subtype(T_GENERIC_LIST, T_CONS);
+  add_subtype(api, T_GENERIC_LIST, T_CONS);
 
   runtime_reserved0 = get_heap_used(0);
   runtime_reserved1 = get_heap_used(1);
