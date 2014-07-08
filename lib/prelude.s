@@ -59,7 +59,7 @@ hard_list.map F =
 | Ys = N x 0
 | while I < N
   | Ys.I <= Me.I^F
-  | I! + 1
+  | I !+ 1
 | Ys
 
 hard_list.each F =
@@ -67,8 +67,7 @@ hard_list.each F =
 | I = 0
 | while I < N
   | F Me.I
-  | I! + 1
-| Void
+  | I !+ 1
 
 hard_list.sum =
 | S = 0
@@ -217,5 +216,6 @@ table.`!` K V =
        | if no Old then Bs.H <= [[K V]@Xs]
          else Old.1 <= V
 | Void
+
 
 export not non say bad no have table

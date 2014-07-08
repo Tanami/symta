@@ -406,8 +406,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (ssa 'add_tag k base 'T_LIST)
           (ret nil)
        ! unless value (return-from ssa-symbol (ssa 'arg_load k base pos))
-       ! ssa 'arg_store base pos value
-       ! if (eql base 'e)
+       ! if (and (eql base 'e) (= 1 (length *ssa-bases*)))
             (ssa 'arg_store base pos value)
             (ssa 'lift base pos value)
        ))
@@ -1002,7 +1001,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
              ,miss)))
   (when (equal (car hole) "[]")
     (return-from expand-hole
-      `("if" ("><" ("_quote" "list") ("tag_of" ,key))
+      `("if" ("_mcall" ,key ("_quote" "is_list"))
              ,(expand-list-hole key (cdr hole) hit miss)
              ,miss)))
   (error "bad hole: ~a" hole))

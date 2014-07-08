@@ -49,8 +49,7 @@ ssa_symbol K X Value =
          | ssa add_tag K Base \T_LIST
          | leave Void
        | when no Value: leave (ssa arg_load K Base Pos)
-       | ssa arg_store Base Pos Value
-       | if Base >< \E
+       | if Base >< \E and GBases.size >< 1
          then ssa arg_store Base Pos Value
          else ssa lift Base Pos Value // must be copied into parent environment
      Else

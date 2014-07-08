@@ -149,13 +149,17 @@ static void set_method_r(api_t *api, void *method, void *type, void *handler, in
   int inherited = 0;
 
   if (depth) {
-    typing_t *psup = supertypings+id;
-    for (i = 0; i < psup->used; i++) {
-      uintptr_t sup_id = (uintptr_t)psup->items[i];
-      void *sup_m = *((void**)method+sup_id);
-      if (sup_m == undefined || sup_m == m) {
-        inherited = 1;
-        break;
+    if (m == undefined) {
+      inherited = 1;
+    } else {
+      typing_t *psup = supertypings+id;
+      for (i = 0; i < psup->used; i++) {
+        uintptr_t sup_id = (uintptr_t)psup->items[i];
+        void *sup_m = *((void**)method+sup_id);
+        if (sup_m == m) {
+          inherited = 1;
+          break;
+        }
       }
     }
   }
@@ -166,7 +170,6 @@ static void set_method_r(api_t *api, void *method, void *type, void *handler, in
       void *subtype = (void*)(uintptr_t)psub->items[i];
       set_method_r(api, method, subtype, handler, depth+1);
     }
-
     LIFT(method,(uintptr_t)(type),handler);
   }
 }
@@ -177,10 +180,10 @@ static void add_subtype(api_t *api, int type, int subtype) {
   subtypings[type].items[subtypings[type].used++] = subtype;
   supertypings[subtype].items[supertypings[subtype].used++] = type;
   for (j = 0; j < methods_used; j++) {
-    void *method = methods+j;
-    void *handler = *((void**)method+type);
+    method_t *method = methods+j;
+    void *handler = method->types[type];
     if (handler == undefined) continue;
-    set_method_r(api, method,  (void*)(uintptr_t)subtype, handler, 1);
+    set_method_r(api, method->types, (void*)(uintptr_t)subtype, handler, 1);
   }
 }
 
@@ -314,7 +317,7 @@ static void *load_lib(struct api_t *api, char *name) {
   sprintf(path, "%s/%s", lib_path, name);
   libs[libs_used].name = name;
   libs[libs_used].exports = exec_module(api, path);
-
+  
   return libs[libs_used++].exports;
 }
 
@@ -570,12 +573,23 @@ RETURNS(Void)
 BUILTIN1("list end",list_end,C_ANY,o)
 RETURNS(FIXNUM(LIST_SIZE(o) == 0))
 BUILTIN1("list head",list_head,C_ANY,o)
+  intptr_t size = UNFIXNUM(LIST_SIZE(o));
+  if (size < 1) {
+    fprintf(stderr, "list head: list is empty\n");
+    TEXT(P, "head");
+    bad_call(REGS_ARGS(P),P);
+  }
 RETURNS(LIST_REF(o,0))
 BUILTIN1("list tail",list_tail,C_ANY,o)
   intptr_t size = UNFIXNUM(LIST_SIZE(o));
-  if (size == 1) R = Empty;
-  else {
+  if (size > 1) {
     VIEW(R, &LIST_REF(o,0), 1, FIXNUM(size-1));
+  } else if (size != 0) {
+    R = Empty;
+  } else {
+    fprintf(stderr, "list tail: list is empty\n");
+    TEXT(P, "tail");
+    bad_call(REGS_ARGS(P),P);
   }
 RETURN(R)
 RETURNS(0)
@@ -652,51 +666,53 @@ RETURN(R)
 RETURNS(0)
 
 
-BUILTIN1("integer neg",integer_neg,C_ANY,o)
+BUILTIN1("int neg",integer_neg,C_ANY,o)
 RETURNS(-(intptr_t)o)
-BUILTIN2("integer +",integer_add,C_ANY,a,C_FIXNUM,b)
-RETURNS((intptr_t)a + (intptr_t)b)
-BUILTIN2("integer -",integer_sub,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int +",integer_add,C_ANY,a,C_FIXNUM,b)
+  R = (void*)((intptr_t)a + (intptr_t)b);
+RETURN(R)
+RETURNS(0)
+BUILTIN2("int -",integer_sub,C_ANY,a,C_FIXNUM,b)
 RETURNS((intptr_t)a - (intptr_t)b)
-BUILTIN2("integer *",integer_mul,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int *",integer_mul,C_ANY,a,C_FIXNUM,b)
 RETURNS(UNFIXNUM(a) * (intptr_t)b)
-BUILTIN2("integer /",integer_div,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int /",integer_div,C_ANY,a,C_FIXNUM,b)
  if (!b) {
     fprintf(stderr, "division by zero\n");
     TEXT(R, "/");
     bad_call(REGS_ARGS(P),R);
   }
 RETURNS(FIXNUM((intptr_t)a / (intptr_t)b))
-BUILTIN2("integer %",integer_rem,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int %",integer_rem,C_ANY,a,C_FIXNUM,b)
  if (!b) {
     fprintf(stderr, "division by zero\n");
     TEXT(R, "/");
     bad_call(REGS_ARGS(P),R);
   }
 RETURNS((intptr_t)a % (intptr_t)b)
-BUILTIN2("integer ><",integer_eq,C_ANY,a,C_ANY,b)
+BUILTIN2("int ><",integer_eq,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a == b))
-BUILTIN2("integer <>",integer_ne,C_ANY,a,C_ANY,b)
+BUILTIN2("int <>",integer_ne,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a != b))
-BUILTIN2("integer <",integer_lt,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int <",integer_lt,C_ANY,a,C_FIXNUM,b)
 RETURNS(FIXNUM((intptr_t)a < (intptr_t)b))
-BUILTIN2("integer >",integer_gt,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int >",integer_gt,C_ANY,a,C_FIXNUM,b)
 RETURNS(FIXNUM((intptr_t)a > (intptr_t)b))
-BUILTIN2("integer <<",integer_lte,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int <<",integer_lte,C_ANY,a,C_FIXNUM,b)
 RETURNS(FIXNUM((intptr_t)a <= (intptr_t)b))
-BUILTIN2("integer >>",integer_gte,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int >>",integer_gte,C_ANY,a,C_FIXNUM,b)
 RETURNS(FIXNUM((intptr_t)a <= (intptr_t)b))
-BUILTIN2("integer mask",integer_mask,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int mask",integer_mask,C_ANY,a,C_FIXNUM,b)
 RETURNS((uintptr_t)a & (uintptr_t)b)
-BUILTIN2("integer ior",integer_ior,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int ior",integer_ior,C_ANY,a,C_FIXNUM,b)
 RETURNS((uintptr_t)a | (uintptr_t)b)
-BUILTIN2("integer xor",integer_xor,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int xor",integer_xor,C_ANY,a,C_FIXNUM,b)
 RETURNS((uintptr_t)a ^ (uintptr_t)b)
-BUILTIN2("integer shl",integer_shl,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int shl",integer_shl,C_ANY,a,C_FIXNUM,b)
 RETURNS((intptr_t)a<<UNFIXNUM(b))
-BUILTIN2("integer shr",integer_shr,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int shr",integer_shr,C_ANY,a,C_FIXNUM,b)
 RETURNS(((intptr_t)a>>UNFIXNUM(b))&~(TAG_MASK>>1))
-BUILTIN2("integer x",integer_x,C_ANY,size,C_ANY,init)
+BUILTIN2("int x",integer_x,C_ANY,size,C_ANY,init)
   void **p;
   intptr_t s = UNFIXNUM(size);
   if (s < 0) {
