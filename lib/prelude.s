@@ -23,6 +23,9 @@ list.is_list = 1
 _.is_text = 0
 text.is_text = 1
 
+//_.is_hard_list = 0
+//list.is_hard_list = 1
+
 int.`.` F =
 | I = 0
 | Ys = Me x 0
@@ -31,19 +34,22 @@ int.`.` F =
   | I! + 1
 | Ys
 
+list.`.` K =
+| while K > 0
+  | Me <= Me.tail
+  | K !- 1
+| Me.head
+
 list.size =
 | S = 0
 | till Me.end
-  | pop Me
+  | Me <= Me.tail
   | S !+ 1
 | S
 
 list.`><` B =
 | unless B.is_list: leave 0
-| till Me.end or B.end:
-  | unless Me.head >< B.head: leave 0
-  | pop Me
-  | pop B
+| till Me.end or B.end: unless Me^pop >< B^pop: leave 0
 | 1
 
 hard_list.`><` B =

@@ -1201,6 +1201,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to expand-list as
   ! incut-count = count-if #'incut? as
   ! when (= 0 incut-count)  (return-from expand-list `("_list" ,@as))
+  ! when (= 1 incut-count) 
+      (match (car (last as))
+        (("@" xs)
+         (setf as (cdr (reverse as)))
+         (while as
+           (setf xs `(,xs "pre" ,(car as)))
+           (setf as (cdr as)))
+         (return-from expand-list xs)))
   ! as = m a as (if (incut? a) (second a) `("_list" ,a))
   ! `(("_list" ,@as) "join"))
 

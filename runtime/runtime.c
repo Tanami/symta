@@ -497,6 +497,27 @@ BUILTIN_VARARGS("text _",fixtext)
   abort();
 RETURNS_VOID
 
+#define CONS(dst, a, b) \
+  ALLOC_BASIC(dst, a, 1); \
+  dst = ADD_TAG(dst, T_CONS); \
+  CONS_REF(dst,0) = b;
+#define CAR(x) CONS_REF(x,-1)
+#define CDR(x) CONS_REF(x,0)
+BUILTIN1("cons head",cons_head,C_ANY,o)
+RETURNS(CAR(o))
+BUILTIN1("cons tail",cons_tail,C_ANY,o)
+RETURNS(CDR(o))
+BUILTIN1("cons end",cons_end,C_ANY,o)
+RETURNS(FIXNUM(0))
+BUILTIN2("cons pre",cons_pre,C_ANY,o,C_ANY,head)
+  CONS(R, head, o);
+RETURN(R)
+RETURNS(0)
+BUILTIN2("cons",cons,C_ANY,head,C_ANY,o)
+  CONS(R, head, o);
+RETURN(R)
+RETURNS(0)
+
 BUILTIN1("view size",view_size,C_ANY,o)
 RETURNS((uintptr_t)VIEW_SIZE(o))
 BUILTIN2("view .",view_get,C_ANY,o,C_FIXNUM,index)
@@ -537,14 +558,8 @@ BUILTIN1("view tail",view_tail,C_ANY,o)
   }
 RETURN(R)
 RETURNS(0)
-BUILTIN2("view pre",view_pre,C_ANY,o,C_ANY,x)
-  void **p, **q;
-  int size = (int)UNFIXNUM(VIEW_SIZE(o));
-  LIST_ALLOC(R, size+1);
-  p = &LIST_REF(R,0);
-  *p++ = x;
-  q = &VIEW_REF(o,VIEW_START(o),0);
-  while(size-- > 0) *p++ = *q++;
+BUILTIN2("view pre",view_pre,C_ANY,o,C_ANY,head)
+  CONS(R, head, o);
 RETURN(R)
 RETURNS(0)
 
@@ -593,15 +608,8 @@ BUILTIN1("list tail",list_tail,C_ANY,o)
   }
 RETURN(R)
 RETURNS(0)
-BUILTIN2("list pre",list_pre,C_ANY,o,C_ANY,x)
-  void **p, **q;
-  intptr_t s = UNFIXNUM(LIST_SIZE(o));
-  A = x;
-  LIST_ALLOC(R, s+1);
-  p = &LIST_REF(R,0);
-  *p++ = A;
-  q = &LIST_REF(o,0);
-  while(s-- > 0) *p++ = *q++;
+BUILTIN2("list pre",list_pre,C_ANY,o,C_ANY,head)
+  CONS(R, head, o);
 RETURN(R)
 RETURNS(0)
 BUILTIN1("list unchars",list_unchars,C_ANY,o)
@@ -643,28 +651,6 @@ BUILTIN_VARARGS("list _",list)
   fprintf(stderr, "FIXME: list _\n");
   abort();
 RETURNS_VOID
-
-#define CONS(dst, a, b) \
-  ALLOC_BASIC(dst, a, 1); \
-  dst = ADD_TAG(dst, T_CONS); \
-  CONS_REF(dst,0) = b;
-#define CAR(x) CONS_REF(x,-1)
-#define CDR(x) CONS_REF(x,0)
-BUILTIN1("cons head",cons_head,C_ANY,o)
-RETURNS(CAR(o))
-BUILTIN1("cons tail",cons_tail,C_ANY,o)
-RETURNS(CDR(o))
-BUILTIN1("cons end",cons_end,C_ANY,o)
-RETURNS(FIXNUM(0))
-BUILTIN2("cons pre",cons_pre,C_ANY,o,C_ANY,head)
-  CONS(R, head, o);
-RETURN(R)
-RETURNS(0)
-BUILTIN2("cons",cons,C_ANY,head,C_ANY,o)
-  CONS(R, head, o);
-RETURN(R)
-RETURNS(0)
-
 
 BUILTIN1("int neg",integer_neg,C_ANY,o)
 RETURNS(-(intptr_t)o)
