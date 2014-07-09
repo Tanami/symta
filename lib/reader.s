@@ -324,7 +324,7 @@ parse_semicolon =
 | Void
 
 parse_xs =
-| shade (GOutput [])
+| let GOutput []
   | parse_semicolon
   | named loop // FIXME: implement unwind_protect
     | while 1
@@ -332,7 +332,7 @@ parse_xs =
       | when have X: push X GOutput
 
 parse Input =
-| shade (GInput Input)
+| let GInput Input
   | Xs = parse_xs
   | unless GInput.end: parser_error "unexpected" GInput.0
   | Xs

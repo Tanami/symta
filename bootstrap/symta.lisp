@@ -574,8 +574,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        (ssa 'call_tagged k h m))
 
 (to ssa-set k place value
-  ! r = ssa-name "r"
-  ! ssa 'var r
+  ! r = ssa-var "r"
   ! ssa-expr r value
   ! ssa-symbol nil place r
   ! ssa 'move k r)
@@ -583,8 +582,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 ;; FIXME: _label should be allowed only inside of _progn
 (to ssa-progn k xs
   ! unless xs (setf xs '(()))
-  ! d = ssa-name "dummy"
-  ! ssa 'var d
+  ! d = ssa-var "dummy"
   ! e x xs
       (match x
         (("_label" name)
@@ -1163,7 +1161,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! xs = reverse ys
   ! xs = m x xs (expand-block-item x)
   ! xs = apply #'concatenate 'list xs
-  ! `("let" ,(m x (remove-if-not #'car xs) `(,(first x) :void))
+  ! `("_let" ,(m x (remove-if-not #'car xs) `(,(first x) :void))
         ,@(m x xs (if (first x)
                       `("_set" ,(first x) ,(second x))
                       (second x)))))
@@ -1308,7 +1306,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("push" item o) (expand-push o item))
         (("and" a b) (expand-and a b))
         (("or" a b) (expand-or a b))
-        (("let" bs . body) `("_let" ,bs ,@body))
         (("|" . xs) (expand-block xs))
         (("[]" . as) (expand-list as))
         (("^" a b) `(,b ,a))
@@ -1338,7 +1335,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                    (if (fn-sym? o) o `(,(builtin-expander o)))))
         (("and" a b) `("if" ,a ,b 0))
         (("or" a b) (let ((n (ssa-name "T")))
-                      `("let" ((,n ,a)) ("if" ,n ,n ,b))))
+                      `("_let" ((,n ,a)) ("if" ,n ,n ,b))))
         (("named" name . body) (expand-named name `("_progn" ,@body)))
         (("_default_leave" name body)
          (return-from builtin-expander
@@ -1349,7 +1346,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("<=" (place) value) (expand-assign place value))
         (("!!" . as) (expand-assign-result as))
         (("on" keyform . cases) (expand-match keyform (group-by 2 cases) 0))
-        (("shade" . xs) (expand-shade (butlast xs) (car (last xs))))
+        (("let" . xs) (expand-shade (group-by 2 (butlast xs)) (car (last xs))))
         (("export" . xs) (expand-export xs))
         (else (return-from builtin-expander
                 (cons (builtin-expander (car xs) t)

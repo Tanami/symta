@@ -96,11 +96,11 @@ ssa_fn_body K F Args Body O Prologue Epilogue =
 | LocalEnv = if Args.is_text
              then [[GAll [Args F]] @GEnv]
              else [Args.map{A=>[A F]} @GEnv]
-| shade (GBases [[]])
-        (GOut [])
-        (GNs F)
-        (GEnv LocalEnv)
-        (GClosure [[]@GClosure])
+| let GBases   [[]]
+      GOut     []
+      GNs      F
+      GEnv     LocalEnv
+      GClosure [[]@GClosure]
   | when have Prologue: ssa label GNs
   | SizeVar = "[F]_size"
   | when Prologue
@@ -197,7 +197,7 @@ is_fn_sym T = T.is_text and T.size > 0 and T.0.is_upcase
 ssa_apply K F As IsMethod =
 | unless IsMethod: on F [_fn Bs @Body]: leave: ssa_let K Bs As Body
 | ssa push_base
-| shade (GBases [[] @GBases]): named block
+| let GBases [[] @GBases]: named block
   | H = ssa_var head
   | ssa_expr H F
   | Vs = As.map{A => | V = ssa_var a
@@ -221,6 +221,24 @@ ssa_apply K F As IsMethod =
     then ssa call_method K H M
     else ssa call_tagged K H M
 
+ssa_set K Place Value =
+| R = ssa_var r
+| ssa_expr R Value
+| ssa_symbol Void Place R
+| ssa move K R
+
+/*
+// FIXME: _label should be allowed only inside of _progn
+ssa_progn K Xs =
+| when Xs.size >< 0: Xs <= [[]]
+| D = ssa_var dummy
+| for X Xs: on X [_label Name] | GBases <= [[Name @GBases.head] @GBases.tail]
+| till Xs.end
+  | X = pop Xs
+  | when Xs.end: D <= K
+  | ssa_expr D X
+  | when Xs.end and on X [_label@Zs] 1: ssa move D 'Void'
+*/
 ssa_expr K X =
 
 ctest = 
