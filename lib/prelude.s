@@ -1,4 +1,3 @@
-not X = if X then 0 else 1
 non F = X => if F X then 0 else 1
 no X = Void >< X
 have X = Void <> X
@@ -32,6 +31,21 @@ int.`.` F =
   | I! + 1
 | Ys
 
+list.size =
+| S = 0
+| till Me.end
+  | pop Me
+  | S !+ 1
+| S
+
+list.`><` B =
+| unless B.is_list: leave 0
+| till Me.end or B.end:
+  | unless Me.head >< B.head: leave 0
+  | pop Me
+  | pop B
+| 1
+
 hard_list.`><` B =
 | unless B.is_list: leave 0 //FIXME: cons_list B will be O(n^2) slow
 | N = Me.size
@@ -41,6 +55,14 @@ hard_list.`><` B =
   | unless Me.I >< B.I: leave 0
   | I !+ 1
 | 1
+
+list.reverse =
+| N = Me.size
+| Ys = N x 0
+| while N > 0
+  | N !- 1
+  | Ys.N <= pop Me
+| Ys
 
 hard_list.reverse =
 | N = Me.size
@@ -53,6 +75,15 @@ hard_list.reverse =
   | I !+ 1
 | Ys
 
+list.map F =
+| N = Me.size
+| Ys = N x 0
+| I = 0
+| while I < N
+  | Ys.I <= F: pop Me
+  | I !+ 1
+| Ys
+
 hard_list.map F =
 | N = Me.size
 | I = 0
@@ -62,12 +93,19 @@ hard_list.map F =
   | I !+ 1
 | Ys
 
+list.each F = till Me.end: Me^pop^F
+
 hard_list.each F =
 | N = Me.size
 | I = 0
 | while I < N
   | F Me.I
   | I !+ 1
+
+list.sum =
+| S = 0
+| till Me.end: S !+ Me^pop
+| S
 
 hard_list.sum =
 | S = 0
@@ -78,6 +116,11 @@ hard_list.sum =
   | I !+ 1
 | S
 
+list.count F =
+| C = 0
+| till Me.end: when Me^pop^F: C !+ 1
+| C
+
 hard_list.count F =
 | S = 0
 | I = 0
@@ -87,7 +130,23 @@ hard_list.count F =
   | I !+ 1
 | S
 
+list.countNot F =
+| C = 0
+| till Me.end: unless Me^pop^F: C !+ 1
+| C
+
 hard_list.countNot F = Me.size - Me.count{F}
+
+list.keep F =
+| N = Me.count{F}
+| Ys = N x 0
+| J = 0
+| while J < N
+  | X = pop Me
+  | when F X
+    | Ys.J <= X
+    | J !+ 1
+| Ys
 
 hard_list.keep F =
 | N = Me.count{F}
@@ -100,6 +159,17 @@ hard_list.keep F =
     | Ys.J <= X
     | J !+ 1
   | I !+ 1
+| Ys
+
+list.skip F =
+| N = Me.countNot{F}
+| Ys = N x 0
+| J = 0
+| while J < N
+  | X = pop Me
+  | unless F X
+    | Ys.J <= X
+    | J !+ 1
 | Ys
 
 hard_list.skip F =
@@ -134,6 +204,14 @@ list.split F =
 
 text.split F = Me.chars.split{F}.map{X=>X.unchars}
 
+list.take N =
+| Ys = N x 0
+| I = 0
+| while I < N
+  | Ys.I <= Me^pop
+  | I !+ 1
+| Ys
+
 hard_list.take N =
 | Ys = N x 0
 | I = 0
@@ -141,6 +219,12 @@ hard_list.take N =
   | Ys.I <= Me.I
   | I !+ 1
 | Ys
+
+list.drop N =
+| while N > 0
+  | Me^pop
+  | N !- 1
+| Me
 
 hard_list.drop S =
 | N = Me.size
@@ -166,11 +250,27 @@ list.infix Item =
   | I !+ 1
 | Ys
 
+list.locate F =
+| I = 0
+| till Me.end
+  | when F Me^pop: leave I
+  | I !+ 1
+| Void
+
 hard_list.locate F =
 | N = Me.size
 | I = 0
 | while I < N
   | when F Me.I: leave I
+  | I !+ 1
+| Void
+
+list.find F =
+| N = Me.size
+| I = 0
+| till Me.end
+  | X = Me^pop
+  | when F X: leave X
   | I !+ 1
 | Void
 
@@ -218,4 +318,4 @@ table.`!` K V =
 | Void
 
 
-export not non say bad no have table
+export non say bad no have table
