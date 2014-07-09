@@ -26,6 +26,30 @@ text.is_text = 1
 //_.is_hard_list = 0
 //list.is_hard_list = 1
 
+
+DownA = 'a'.code
+DownZ = 'z'.code
+UpA = 'A'.code
+UpZ = 'Z'.code
+
+text.is_upcase =
+| N = Me.size
+| I = 0
+| while I < N
+  | C = Me.I.code
+  | when C < UpA or UpZ < C: leave 0
+  | I !+ 1
+| 1
+
+text.is_downcase =
+| N = Me.size
+| I = 0
+| while I < N
+  | C = Me.I.code
+  | when C < DownA or DownZ < C: leave 0
+  | I !+ 1
+| 1
+
 int.`.` F =
 | I = 0
 | Ys = Me x 0
@@ -297,6 +321,22 @@ text.chars =
   | R.I <= Me.I
   | I! + 1
 | R
+
+list.groupBy N =
+| MeSize = Me.size
+| YSize = (MeSize+N-1)/N
+| Y = []
+| Ys = []
+| I = 0
+| till Me.end
+  | push Me^pop Y
+  | I !+ 1
+  | when I >< N
+    | push Y.reverse Ys
+    | Y <= []
+    | I <= 0
+| when Y.size <> 0: push Y.reverse Ys
+| Ys.reverse
 
 bad @Xs =
 | log [bad @Xs].map{&text}.infix{` `}.unchars

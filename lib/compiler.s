@@ -66,7 +66,7 @@ ssa_quote_list K Xs =
 cstring S = [@S.chars.map{C => C.code} 0]
 
 ssa_cstring Src =
-| Name = gensym "b"
+| Name = gensym b
 | ssa bytes Name Src^cstring
 | Name
 
@@ -111,6 +111,115 @@ ssa_fn_body K F Args Body O Prologue Epilogue =
   | ssa_expr K Body
   | when Epilogue: ssa return K
   | [GOut GClosure.0]
+
+// FIXME:
+// check if we really need new closure here, because in some cases we can reuse parent's closure
+// a single argument to a function could be passed in register, while a closure would be created if required
+// a single reference closure could be itself held in a register
+// for now we just capture required parent's closure
+ssa_fn Name K Args Body O =
+| F = gensym f
+| [Body Cs] = ssa_fn_body Void F Args Body O 1 1
+| push Body GFns
+| NParents = Cs.size
+| ssa closure K F NParents
+| I = 0
+| for C Cs
+  | if C^address >< GNs^address //self?
+    then ssa store K I \E
+    else ssa copy K I \P C^get_parent_index
+  | I !+ 1
+
+ssa_if K Cnd Then Else =
+| ThenLabel = gensym `then`
+| EndLabel = gensym endif
+| C = ssa_var cnd
+| ssa_expr C Cnd
+| ssa branch C ThenLabel
+| ssa_expr K Else
+| ssa jmp EndLabel
+| ssa local_label ThenLabel
+| ssa_expr K Then
+| ssa local_label EndLabel
+
+ssa_hoist_decls Expr Hoist = // C/C++ style declaration hoisting
+| unless Expr.is_list: leave Expr
+| on Expr
+     [_fn @Xs] | Expr
+     [[fn As@Xs] @Vs]
+       | if As.is_text
+         then | Hoist [As]
+              | [_progn [_set As [_list @Vs]]
+                        @Xs.map{X => ssa_hoist_decls X Hoist}]
+         else | Hoist As
+              | [_progn @As.map{A => [_set A Vs^pop]}
+                        @Xs.map{X => ssa_hoist_decls X Hoist}]
+     Xs | Xs.map{X => ssa_hoist_decls X Hoist}
+
+ssa_let K Args Vals Xs =
+| Body = ssa_hoist_decls [_progn @Xs]: Hs =>
+         | Args <= [@Args @Hs]
+         | Vals <= [@Vals @Hs.map{H => 0}]
+| when Args.size >< 0
+  | ssa_expr K Body
+  | leave Void
+| F = gensym f
+| [SsaBody Cs] = ssa_fn_body K F Args Body [] 0 0
+| NParents = Cs.size
+| P = ssa_var p // parent environment
+| ssa local_closure P NParents
+| I = 0
+| for C Cs
+  | if C^address >< GNs^address // self?
+    then ssa store P I \E
+    else ssa copy P I \P C^get_parent_index
+  | I !+ 1
+| E = ssa_var env
+| ssa arglist E Args.size
+| I = 0
+| for V Vals
+  | Tmp = ssa_var tmp
+  | ssa_expr Tmp V
+  | ssa arg_store E I Tmp
+  | I !+ 1
+| SaveP = ssa_var save_p
+| SaveE = ssa_var save_e
+| ssa mave SaveP \P
+| ssa move SaveE \E
+| ssa move \E E
+| ssa move \P P
+| for S SsaBody.reverse: push S GOut
+| ssa move \P SaveP
+| ssa move \E SaveE
+
+is_fn_sym T = T.is_text and T.size > 0 and T.0.is_upcase
+
+ssa_apply K F As IsMethod =
+| unless IsMethod: on F [_fn Bs @Body]: leave: ssa_let K Bs As Body
+| ssa push_base
+| shade (GBases [[] @GBases]): named block
+  | H = ssa_var head
+  | ssa_expr H F
+  | Vs = As.map{A => | V = ssa_var a
+                     | ssa_expr V A
+                     | V}
+  | E = ssa_var env
+  | NArgs = As.size
+  | ssa arglist E NArgs
+  | I = 0
+  | for V Vs
+    | ssa arg_store E I V
+    | I !+ 1
+  | when F^is_fn_sym: leave block: ssa call K H
+  | MethodName = NArgs > 0
+             and on As [[_quote X @Renamed] @Xs] (X.is_text and X)
+  | unless MethodName: leave block: ssa call_tagged_dynamic K H
+  | MethodNameBytes = ssa_cstring MethodName
+  | M = ssa_global m
+  | push [resolve_method M MethodNameBytes] GRawInits
+  | if IsMethod
+    then ssa call_method K H M
+    else ssa call_tagged K H M
 
 ssa_expr K X =
 

@@ -489,8 +489,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to ssa-if k cnd then else
   ! then-label = ssa-name "then"
   ! end-label = ssa-name "endif"
-  ! c = ssa-name "cnd"
-  ! ssa 'var c
+  ! c = ssa-var "cnd"
   ! ssa-expr c cnd
   ! ssa 'branch c then-label
   ! ssa-expr k else
@@ -523,25 +522,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! f = ssa-name "f"
   ! (ssa-body cs) = ssa-fn-body k f args body () nil nil
   ! nparents = length cs
-  ! p = ssa-name "p" ;; parent environment
-  ! ssa 'var p
+  ! p = ssa-var "p" ;; parent environment
   ! ssa 'local_closure p nparents
   ! i = -1
   ! e c cs (! if (equal c *ssa-ns*) ; self?
                  (ssa 'store p (incf i) 'e)
                  (ssa 'copy p (incf i) 'p (ssa-get-parent-index c)))
-  ! e = ssa-name "env"
-  ! ssa 'var e
+  ! e = ssa-var "env"
   ! ssa 'arglist e (length args)
   ! i = -1
-  ! e v vals (! tmp = ssa-name "tmp"
-              ! ssa 'var tmp
+  ! e v vals (! tmp = ssa-var "tmp"
               ! ssa-expr tmp v
               ! ssa 'arg_store e (incf i) tmp)
-  ! save-p = ssa-name "save_p"
-  ! save-e = ssa-name "save_e"
-  ! ssa 'var save-p
-  ! ssa 'var save-e
+  ! save-p = ssa-var "save_p"
+  ! save-e = ssa-var "save_e"
   ! ssa 'move save-p 'p
   ! ssa 'move save-e 'e
   ! ssa 'move 'e e
@@ -1406,9 +1400,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   )
 
 (to symta filename
-  ! compile-lib "prelude"
+  ;! compile-lib "prelude"
   ;! compile-lib "reader"
-  ;! compile-lib "compiler"
+  ! compile-lib "compiler"
   ! cache-folder = "{*root-folder*}cache/"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"
   ! runtime-path = "{cache-folder}runtime"
