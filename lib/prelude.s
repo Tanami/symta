@@ -326,7 +326,7 @@ list.infix Item =
 | N = if N < 0 then 0 else N
 | Ys = N x 0
 | while I < N
-  | Ys.I <= if I%2 then Item else Me.(I/2)
+  | Ys.I <= if I%2 then Item else Me^pop
   | I !+ 1
 | Ys
 

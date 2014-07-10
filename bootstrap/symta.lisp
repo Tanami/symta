@@ -801,7 +801,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (defparameter *compiled* nil)
 
-(to to-c-emit &rest args ! (push (apply #'format nil args) *compiled*))
+(to to-c-emit x ! push x *compiled*)
+
+(to cnorm xs
+  ! (x . xs) = xs
+  ! to-c-emit (format nil '"  ~a(~{~a~^,~});" x xs))
 
 (to ssa-to-c xs
   ! *compiled* = nil
@@ -810,83 +814,39 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! imports = make-hash-table :test 'equal
   ! to-c-emit "BEGIN_CODE"
   ! e x xs
-       (match x
-         ((''entry name) (to-c-emit "ENTRY(~a)" name))
-         ((''var name) (to-c-emit "  VAR(~a);" name))
-         ((''return value) (to-c-emit "  RETURN(~a);" value))
-         ((''return_no_gc value) (to-c-emit "  RETURN_NO_GC(~a);" value))
-         ((''label name)
-          (push (format nil "DECL_LABEL(~a)" name) decls)
-          (to-c-emit "LABEL(~a)" name)
-          ;(to-c-emit "  D;")
-          )
-         ((''global name) (push (format nil "static void *~a;" name) decls))
-         ((''local_label name) (to-c-emit "  LOCAL_LABEL(~a);" name))
-         ((''branch cnd label) (to-c-emit "  BRANCH(~a, ~a);" cnd label))
-         ((''zbranch cnd label) (to-c-emit "  ZBRANCH(~a, ~a);" cnd label))
-         ((''jmp label) (to-c-emit "  JMP(~a);" label))
-         ((''gosub label) (to-c-emit "  GOSUB(~a);" label))
-         ((''push_base) (to-c-emit "  PUSH_BASE();"))
-         ((''pop_base) (to-c-emit "  POP_BASE();"))
-         ((''mark value) (to-c-emit "  MARK(~a);" value))
-         ((''unmark) (to-c-emit "  UNMARK();"))
-         ((''gc value) (to-c-emit "  GC(~a);" value))
-         ((''call k name) (to-c-emit "  CALL(~a, ~a);" k name))
-         ((''call_tagged k obj method) (to-c-emit "  CALL_TAGGED(~a, ~a, ~a);" k obj method))
-         ((''call_method k obj method) (to-c-emit "  CALL_METHOD(~a, ~a, ~a);" k obj method))
-         ((''call_tagged_dynamic k obj) (to-c-emit "  CALL_TAGGED_DYNAMIC(~a, ~a);" k obj))
-         ((''arglist place size) (to-c-emit "  ARGLIST(~a, ~a);" place size))
-         ((''lift base pos value) (to-c-emit "  LIFT(~a,~a,~a);" base pos value))
-         ((''tagged dst src tag) (to-c-emit "  TAGGED(~a,~a,~a);" dst src tag))
-         ((''local_closure place size) (to-c-emit "  LOCAL_CLOSURE(~a, ~a);" place size))
-         ((''alloc_closure place name size)
-          (push (format nil "#define ~a_size ~a" name size) decls)
-          (to-c-emit "  ALLOC_CLOSURE(~a, ~a, ~a);" place name size))
-         ((''alloc_data place type size) (to-c-emit "  ALLOC_DATA(~a, ~a, ~a);" place type size))
-         ((''type place name tagname size)
-          (let ((tname (ssa-name "n")))
-            (to-c-emit "  RESOLVE_TYPE(~a, ~a);" place name)
-            (to-c-emit "  VAR(~a);" tname)
-            (to-c-emit "  TEXT(~a, ~a);" tname tagname)
-            (to-c-emit "  SET_TYPE_SIZE_AND_NAME((intptr_t)~a, ~a, ~a);" place size tname)))
-         ((''dget dst src off) (to-c-emit "  DGET(~a, ~a, ~a);" dst src off))
-         ((''dset dst off src) (to-c-emit "  DSET(~a, ~a, ~a);" dst off src))
-         ((''dinit dst off src) (to-c-emit "  DINIT(~a, ~a, ~a);" dst off src))
-         ((''resolve_type place name) (to-c-emit "  RESOLVE_TYPE(~a, ~a);" place name))
-         ((''resolve_method place name) (to-c-emit "  RESOLVE_METHOD(~a, ~a);" place name))
-         ((''dmet method type handler) (to-c-emit "  DMET(~a, ~a, ~a);" method type handler))
-         ((''import dst lib symbol lib-cstr symbol-cstr)
-          (let* ((key (concatenate 'string lib "::" symbol))
-                 (import (gethash key imports))
-                 (lib-exports (gethash lib imports)))
-            (if import
-                (to-c-emit "  MOVE(~a, ~a);" dst import)
-                (progn
-                  (unless lib-exports
-                    (setf lib-exports (ssa-name "n"))
-                    (to-c-emit "  void *~a = api->load_lib(api,(char*)(~a));" lib-exports lib-cstr)
-                    (setf (gethash lib imports) lib-exports))
-                  (let ((symbol-text (ssa-name "s")))
-                    (to-c-emit "  VAR(~a);" symbol-text)
-                    (to-c-emit "  TEXT(~a, ~a);" symbol-text symbol-cstr)
-                    (to-c-emit "  ~a = api->find_export(api, ~a, ~a);" dst symbol-text lib-exports))
-                  (setf (gethash key imports) dst)
-                  ))))
-         ((''arg_load dst src off) (to-c-emit "  ARG_LOAD(~a, ~a, ~a);" dst src off))
-         ((''arg_store dst off src) (to-c-emit "  ARG_STORE(~a, ~a, ~a);" dst off src))
-         ((''load dst src off) (to-c-emit "  LOAD(~a, ~a, ~a);" dst src off))
-         ((''store dst off src) (to-c-emit "  STORE(~a, ~a, ~a);" dst off src))
-         ((''copy dst p src q) (to-c-emit "  COPY(~a, ~a, ~a, ~a);" dst p src q))
-         ((''move dst src) (to-c-emit "  MOVE(~a, ~a);" dst src))
-         ((''load_fixnum dst src) (to-c-emit "  LOAD_FIXNUM(~a, ~a);" dst src))
-         ((''bytes name values)
-          (push (format nil '"static uint8_t ~a[] = {~{~a~^,~}};" name values) decls))
-         ((''text name bytes) (to-c-emit "  TEXT(~a, ~a);" name bytes))
-         ((''check_nargs expected size meta) (to-c-emit "  CHECK_NARGS(~a, ~a, ~a);" expected size meta))
-         ((''check_varargs size meta) (to-c-emit "  CHECK_VARARGS(~a, ~a);" size meta))
-         ;;((''fixnum_add dst a b) (to-c-emit "  FIXNUM_ADD(~a, ~a, ~a);" dst a b))
-         (else (error "invalid ssa: ~a" x))
-         )
+    (match x
+      ((''entry name) (to-c-emit "ENTRY({name})"))
+      ((''label name)
+       (push "DECL_LABEL({name})" decls)
+       (to-c-emit "LABEL({name})"))
+      ((''global name) (push "static void *{name};" decls))
+      ((''alloc_closure place name size)
+       (push "#define {name}_size {size}" decls)
+       (cnorm x))
+      ((''type place name tagname size)
+       (! tname = ssa-name "n"
+        ! to-c-emit "  RESOLVE_TYPE({place}, {name});"
+        ! to-c-emit "  VAR({tname});"
+        ! to-c-emit "  TEXT({tname}, {tagname});"
+        ! to-c-emit "  SET_TYPE_SIZE_AND_NAME((intptr_t){place}, {size}, {tname});"))
+      ((''import dst lib symbol lib-cstr symbol-cstr)
+       (! key = "{lib}::{symbol}"
+        ! import = gethash key imports
+        ! lib-exports = gethash lib imports
+        ! if import
+             (to-c-emit "  MOVE({dst}, {import});")
+             (! unless lib-exports
+                  (setf lib-exports (ssa-name "n"))
+                  (to-c-emit "  void *{lib-exports} = api->load_lib(api,(char*)({lib-cstr}));")
+                  (setf (gethash lib imports) lib-exports)
+              ! symbol-text = ssa-name "s"
+              ! to-c-emit "  VAR({symbol-text});"
+              ! to-c-emit "  TEXT({symbol-text}, {symbol-cstr});"
+              ! to-c-emit "  {dst} = api->find_export(api, {symbol-text}, {lib-exports});"
+              ! setf (gethash key imports) dst)))
+      ((''bytes name values)
+       (push (format nil '"static uint8_t ~a[] = {~{~a~^,~}};" name values) decls))
+      (else (cnorm x)))
   ! to-c-emit "END_CODE"
   ! format nil '"~{~a~%~}" (reverse (append *compiled* decls)))
 
@@ -1148,7 +1108,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! xs = ssa-name "Xs"
   ! i = ssa-name "I"
   ! n = ssa-name "N"
-  ! `("|" ("=" (,xs) (,items))
+  ! `("|" ("=" (,xs) ("_mcall" ,items "harden"))
           ("=" (,i) (0))
           ("=" (,n) ("_mcall" ,xs "size"))
           ("while" ("<" ,i ,n)
@@ -1161,7 +1121,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ys = ssa-name "Ys"
   ! i = ssa-name "I"
   ! n = ssa-name "N"
-  ! `("|" ("=" (,xs) (,items))
+  ! `("|" ("=" (,xs) ("_mcall" ,items "harden"))
           ("=" (,i) (0))
           ("=" (,n) ("_mcall" ,xs "size"))
           ("=" (,ys) ("_mcall" ,n "x" 0))
