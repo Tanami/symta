@@ -50,6 +50,22 @@ text.is_downcase =
   | I !+ 1
 | 1
 
+int.i = //iota operator
+| Ys = Me x 0
+| I = 0
+| while I < Me
+  | Ys.I <= I
+  | I !+ 1
+| Ys
+
+list.enum =
+| Ys = Me.size x 0
+| I = 0
+| till Me.end
+  | Ys.I <= [I Me^pop]
+  | I !+ 1
+| Ys
+
 int.`.` F =
 | I = 0
 | Ys = Me x 0

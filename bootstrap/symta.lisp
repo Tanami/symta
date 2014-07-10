@@ -598,12 +598,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (defparameter *uniquify-stack* nil)
 
-(to uniquify-name s
-  ! e closure *uniquify-stack*
-     (e x closure
-        (when (equal (first x) s)
-          (return-from uniquify-name (second x)))))
-
 (to uniquify-form expr
   ! match expr
      (("_fn" as . body)
@@ -623,6 +617,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          (when (and (not (stringp as)) (/= (length as) (length vs)))
            (error "invalid number of arguments in ~a" expr))))
       (m x xs (uniquify-expr x))))
+
+(to uniquify-name s
+  ! e closure *uniquify-stack*
+     (e x closure
+        (when (equal (first x) s)
+          (return-from uniquify-name (second x)))))
 
 (to special-sym? x ! and (stringp x) (> (length x) 0) (eql (aref x 0) #\_))
 
@@ -644,21 +644,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! uniquify-expr expr)
 
 (to ssa-fixed k op a b
-  ! av = ssa-name "a"
-  ! bv = ssa-name "b"
-  ! ssa 'var av
-  ! ssa 'var bv
+  ! av = ssa-var "a"
+  ! bv = ssa-var "b"
   ! ssa-expr av a
   ! ssa-expr bv b
   ! ssa op k av bv)
 
 (to ssa-list k xs
-  ! l = ssa-name "l"
-  ! ssa 'var l
+  ! when (= (length xs) 0) (return-from ssa-list (ssa 'move k "Empty"))
+  ! l = ssa-var "l"
   ! ssa 'arglist l (length xs)
   ! i = -1
-  ! e x xs (! r = ssa-name "r"
-            ! ssa 'var r
+  ! e x xs (! r = ssa-var "r"
             ! ssa-expr r x
             ! ssa 'arg_store l (incf i) r)
   ! ssa 'add_tag k l 'T_LIST)
@@ -708,8 +705,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! push `(import ,g ,lib ,symbol ,(ssa-cstring lib) ,(ssa-cstring symbol)) *ssa-raw-inits*
   ! ssa 'move k g)
 
-(to ssa-label name
-  ! ssa 'local_label name)
+(to ssa-label name ! ssa 'local_label name)
 
 (to ssa-goto name
   ! n = position-if (fn b ! find name b :test 'equal) *ssa-bases*
@@ -760,26 +756,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-expr k x ! if (listp x) (ssa-form k x) (ssa-atom k x))
 
-(to shell command &rest args
-  ! s = (make-string-output-stream)
-  ! sb-ext:run-program command args :output s :search t :wait t
-  ! get-output-stream-string s)
 
-(defparameter *root-folder* "/Users/nikita/Documents/git/symta/")
-
-(to c-runtime-compiler dst src
-  ! rt-folder = "{*root-folder*}runtime"
-  ! shell "gcc" "-O1" "-I" rt-folder "-g" #|"-DNDEBUG"|# "-o" dst src)
-(to c-compiler dst src
-  ! rt-folder = "{*root-folder*}runtime"
-  ! shell "gcc" "-O1" "-I" rt-folder "-g" #|"-DNDEBUG"|# "-fpic" "-shared" "-o" dst src)
-
+(defparameter *lib-folder* nil)
 (defparameter *exports-cache* (make-hash-table :test 'equal))
 
 ;; FIXME: do caching
 (to get-lib-exports lib-name
-  ! lib-folder = "{*root-folder*}lib/"
-  ! lib-file = "{lib-folder}{lib-name}.s"
+  ! lib-file = "{*lib-folder*}{lib-name}.s"
   ! text = load-text-file lib-file
   ! expr = /normalize (/read text)
   ! match (first (last expr))
@@ -793,8 +776,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! *ssa-raw-inits* = nil
   ! *ssa-closure* = nil
   ! ssa 'entry entry
-  ! r = ssa-name "result"
-  ! ssa 'var r
+  ! r = ssa-var "result"
   ! expr = uniquify expr
   ! ssa = ssa-expr r expr
   ! ssa 'return r
@@ -803,8 +785,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (m x *ssa-inits*
         (! *ssa-inits* = nil
          ! *ssa-closure* = nil
-         ! name = first x
-         ! expr = second x
+         ! (name expr) = x
          ! l = "init_{name}"
          ! push l init-labels
          ! ssa 'label l
@@ -814,7 +795,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ! ssa 'global name))
   ! ssa 'entry "setup"
   ! setf *ssa-out* (append *ssa-raw-inits* *ssa-out*)
-  ! when init-labels (e l init-labels (ssa 'gosub l))
+  ! e l init-labels (ssa 'gosub l)
   ! ssa 'return_no_gc 0
   ! rs = apply #'concatenate 'list `(,@(reverse *ssa-fns*) ,*ssa-out*)
   ;;! rs = peephole-optimize rs
@@ -1055,7 +1036,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                ((("&" default) . tail)
                 (setf args tail)
                 default)
-               (else :empty)
+               (else `("_list"))
   ! match args
     ((("@" all)) (setf args all))
     (else
@@ -1079,16 +1060,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       (setf bs (butlast bs)))
   ! i = -1
   ! o = ssa-name "O"
-  ! ys = m b bs (list b `(,o ,'"." ,(incf i)))
-  ! when xs-var (setf ys `((,xs-var (,o "drop" ,(length bs))) ,@ys))
+  ! ys = m b bs (list b `("_mcall" ,o ,'"." ,(incf i)))
+  ! when xs-var (setf ys `((,xs-var ("_mcall" ,o "drop" ,(length bs))) ,@ys))
   ! `((,o ,value) ,@ys))
 
 (to expand-assign place value
  ! match place
     (("." object field)
      (if (fn-sym? field)
-         `(,object ,"set_{field}" ,value)
-         `(,object "!" ,field ,value)))
+         `("_mcall" ,object ,"set_{field}" ,value)
+         `("_mcall" ,object "!" ,field ,value)))
     (else `("_set" ,place ,value)))
 
 (to expand-assign-result as
@@ -1182,11 +1163,27 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! n = ssa-name "N"
   ! `("|" ("=" (,xs) (,items))
           ("=" (,i) (0))
-          ("=" (,n) (,xs "size"))
+          ("=" (,n) ("_mcall" ,xs "size"))
           ("while" ("<" ,i ,n)
             ("|" ("=" (,item) (,items "." ,i))
                  ,body
                  ("_set" ,i ("+" ,i 1))))))
+
+(to expand-map item items body
+  ! xs = ssa-name "Xs"
+  ! ys = ssa-name "Ys"
+  ! i = ssa-name "I"
+  ! n = ssa-name "N"
+  ! `("|" ("=" (,xs) (,items))
+          ("=" (,i) (0))
+          ("=" (,n) ("_mcall" ,xs "size"))
+          ("=" (,ys) ("_mcall" ,n "x" 0))
+          ("while" ("<" ,i ,n)
+            ("|" ("=" (,item) (,items "." ,i))
+                 ("<=" (("." ,ys ,i)) ,body)
+                 ("_set" ,i ("+" ,i 1))))
+          ,ys))
+
 
 (to incut? x ! match x (("@" x) t))
 
@@ -1302,6 +1299,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("while" . xs) (expand-while (butlast xs) (car (last xs))))
         (("till" . xs) (expand-while `("not" ,(butlast xs)) (car (last xs))))
         (("for" v . xs) (expand-for v (butlast xs) (car (last xs))))
+        (("map" v . xs) (expand-map v (butlast xs) (car (last xs))))
         (("pop" o) (expand-pop o))
         (("push" item o) (expand-push o item))
         (("and" a b) (expand-and a b))
@@ -1353,6 +1351,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                       (m x (cdr xs) (builtin-expander x)))))))
     (builtin-expander ys)))
 
+
+
+
+
+(defparameter *root-folder* "/Users/nikita/Documents/git/symta/")
+
+(to shell command &rest args
+  ! s = (make-string-output-stream)
+  ! sb-ext:run-program command args :output s :search t :wait t
+  ! get-output-stream-string s)
+
+(to c-runtime-compiler dst src
+  ! rt-folder = "{*root-folder*}runtime"
+  ! shell "gcc" "-O1" "-Wno-return-type" "-Wno-pointer-sign" "-I" rt-folder "-g" #|"-DNDEBUG"|# "-o" dst src)
+
+(to c-compiler dst src
+  ! rt-folder = "{*root-folder*}runtime"
+  ! shell "gcc" "-O1" "-Wno-return-type" "-Wno-pointer-sign" "-I" rt-folder "-g" #|"-DNDEBUG"|# "-fpic" "-shared" "-o" dst src)
+
 (to compile-runtime src-file dst-file
   ! result = c-runtime-compiler dst-file src-file
   ! when (string/= result "")
@@ -1397,6 +1414,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   )
 
 (to symta filename
+  ! *lib-folder* = "{*root-folder*}lib/"
   ;! compile-lib "prelude"
   ;! compile-lib "reader"
   ! compile-lib "compiler"

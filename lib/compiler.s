@@ -123,12 +123,9 @@ ssa_fn Name K Args Body O =
 | push Body GFns
 | NParents = Cs.size
 | ssa closure K F NParents
-| I = 0
-| for C Cs
-  | if C^address >< GNs^address //self?
-    then ssa store K I \E
-    else ssa copy K I \P C^get_parent_index
-  | I !+ 1
+| for [I C] Cs.enum: if C^address >< GNs^address // self?
+                     then ssa store K I \E
+                     else ssa copy K I \P C^get_parent_index
 
 ssa_if K Cnd Then Else =
 | ThenLabel = gensym `then`
@@ -168,20 +165,15 @@ ssa_let K Args Vals Xs =
 | NParents = Cs.size
 | P = ssa_var p // parent environment
 | ssa local_closure P NParents
-| I = 0
-| for C Cs
-  | if C^address >< GNs^address // self?
-    then ssa store P I \E
-    else ssa copy P I \P C^get_parent_index
-  | I !+ 1
+| for [I C] Cs.enum: if C^address >< GNs^address // self?
+                     then ssa store P I \E
+                     else ssa copy P I \P C^get_parent_index
 | E = ssa_var env
 | ssa arglist E Args.size
-| I = 0
-| for V Vals
+| for [I V] Vals.enum
   | Tmp = ssa_var tmp
   | ssa_expr Tmp V
   | ssa arg_store E I Tmp
-  | I !+ 1
 | SaveP = ssa_var save_p
 | SaveE = ssa_var save_e
 | ssa mave SaveP \P
@@ -206,13 +198,9 @@ ssa_apply K F As IsMethod =
   | E = ssa_var env
   | NArgs = As.size
   | ssa arglist E NArgs
-  | I = 0
-  | for V Vs
-    | ssa arg_store E I V
-    | I !+ 1
+  | for [I V] Vs.enum: ssa arg_store E I V
   | when F^is_fn_sym: leave block: ssa call K H
-  | MethodName = NArgs > 0
-             and on As [[_quote X @Renamed] @Xs] (X.is_text and X)
+  | MethodName = NArgs and on As [[_quote X @Renamed] @Xs] (X.is_text and X)
   | unless MethodName: leave block: ssa call_tagged_dynamic K H
   | MethodNameBytes = ssa_cstring MethodName
   | M = ssa_global m
@@ -227,10 +215,9 @@ ssa_set K Place Value =
 | ssa_symbol Void Place R
 | ssa move K R
 
-/*
 // FIXME: _label should be allowed only inside of _progn
 ssa_progn K Xs =
-| when Xs.size >< 0: Xs <= [[]]
+| when Xs.end: Xs <= [[]]
 | D = ssa_var dummy
 | for X Xs: on X [_label Name] | GBases <= [[Name @GBases.head] @GBases.tail]
 | till Xs.end
@@ -238,8 +225,188 @@ ssa_progn K Xs =
   | when Xs.end: D <= K
   | ssa_expr D X
   | when Xs.end and on X [_label@Zs] 1: ssa move D 'Void'
-*/
-ssa_expr K X =
+
+GUniquifyStack = Void
+
+uniquify_form Expr =
+| on Expr
+  [_fn As @Body]
+    | Bs = if As.is_text then [As] else As
+    | Rs = Bs.map{B => [B B^gensym]}
+    | let GUniquifyStack [Rs @GUniquifyStack]
+      | Bs = Rs.map{R => R.1}
+      | Bs = if As.is_text then Bs.0 else Bs
+      | [_fn Bs @Body.map{&uniquify_expr}]
+  [_quote X] Expr
+  [_label X] Expr
+  [_goto X] Expr
+  [_call @Xs] Xs^uniquify_form
+  Xs | on Xs [[_fn As @Body] @Vs]
+             | when not As.is_text and As.size <> Vs.size:
+               | bad "invalid number of arguments in [Expr]"
+     | Xs.map{&uniquify_expr}
+
+is_special_sym X = X.is
+
+uniquify_name S = for Closure GUniquifyStack: for X Closure: when X.0 >< S: leave X.1
+
+uniquify_atom Expr =
+| unless Expr.is_text: leave Expr
+| unless Expr.size and Expr.0 >< _: leave Expr
+| Renamed = uniquify_name Expr
+| when no Renamed: bad "undefined variable: [Expr]"
+| Renamed
+
+uniquify_expr Expr = if Expr.is_list
+                     then uniquify_form Expr
+                     else uniquify_atom Expr
+
+uniquify Expr = let GUniquifyStack []: uniquify_expr Expr
+
+ssa_fixed K Op A B =
+| AV = ssa_var a
+| BV = ssa_var b
+| ssa_expr AV A
+| ssa_expr BV B
+| ssa Op K AV BV
+
+ssa_list K Xs =
+| unless Xs.size: leave: ssa move K 'Empty'
+| L = ssa_var l
+| ssa arglist L Xs.size
+| for [I X] Xs.enum
+  | R = ssa_var r
+  | ssa_expr R X
+  | ssa arg_store L I R
+| ssa add_tag K L \T_LIST
+
+ssa_data K Type Xs =
+| Size = Xs.size
+| BytesName = ssa_cstring Type.1
+| TypeVar = ssa_global t
+| let GOut []
+  | ssa type TypeVar BytesName BytesName Size
+  | for X GOut.reverse: push X GRawInits
+| ssa data K TypeVar Size
+| Tmp = ssa_var v
+| for [I X] Xs.enum
+  | ssa_expr Tmp X
+  | ssa dinit K I Tmp
+
+ssa_dget K Src Off =
+| unless Off.is_int: bad "dget: offset must be integer"
+| S = ssa_var s
+| ssa_expr S Src
+| ssa dget K S Off
+
+ssa_dset K Dst Off Value =
+| unless Off.is_int: bad "dset: offset must be integer"
+| D = ssa_var d
+| ssa_expr D Dst
+| ssa_expr K Value
+| ssa dset D Off K
+
+ssa_dmet K MethodName TypeName Handler =
+| MethodNameBytes = ssa_cstring MethodName.1
+| MethodVar = ssa_global m
+| push [resolve_method MethodVar MethodNameBytes] GRawInits
+| TypeNameBytes = ssa_cstring TypeName.1
+| TypeVar = ssa_global t
+| push [resolve_type TypeVar TypeNameBytes] GRawInits
+| H = ssa_var h
+| ssa_expr H Handler
+| ssa dmet MethodVar TypeVar H
+| ssa move K 0
+
+ssa_import K Lib Symbol =
+| Lib <= Lib.1
+| Symbol <= Symbol.1
+| G = ssa_global i
+| push [import G Lib Symbol Lib^ssa_cstring Symbol^ssa_cstring] GRawInits
+| ssa move K G
+
+ssa_label Name = ssa local_label Name
+
+ssa_goto Name =
+| N = GBases.locate{B => have B.locate{X => X><Name}}
+| when no N: bad "cant find label [Name]"
+| for I N.i
+  | ssa gc 0 // FIXME: have to GC, simple pop_base wont LIFT
+  | ssa pop_base
+| ssa jmp Name
+
+ssa_mark Name =
+| V = ssa_var x
+| ssa_text V Name.1
+| ssa mark V
+
+ssa_form K Xs = on Xs
+  [_fn As Body] | ssa_fn n^gensym K As Body Xs
+  [_if Cnd Then Else] | ssa_if K Cnd Then Else
+  [_quote X @Xs] | ssa_quote K X
+  [_set Place Value] | ssa_set K Place Value
+  [_progn @Xs] | ssa_progn K Xs
+  [_label Name] | ssa_label Name
+  [_goto Name] | ssa_goto Name
+  [_mark Name] | ssa_mark Name
+  [_data Type @Xs] | ssa_data K Type Xs
+  [_dget Src Index] | ssa_dget K Src Index
+  [_dset Dst Index Value] | ssa_dset K Dst Index Value
+  [_dmet Method Type Handler] | ssa_dmet K Method Type Handler
+  [_mcall F @As] | ssa_apply K F As 1
+  [_list @Xs] | ssa_list K Xs
+  [_import Lib Symbol] | ssa_import K Lib Symbol
+  //[_add A B] | ssa_fixed K fixed_add A B
+  [F @As] | ssa_apply K F As 0
+  [] | ssa_atom K Void
+  Else | bad "special form: [Xs]"
+
+ssa_atom K X =
+| if X.is_int then ssa fixnum K X
+  else if X.is_text then ssa_symbol K X Void
+  else if X >< Void then ssa move K 'Void'
+  else if X.size >< 0 then ssa move K "Empty"
+  else bad "atom: [X]"
+
+ssa_expr K X = if X.is_list then ssa_form K X else ssa_atom K X
+
+GLibFolder = "/Users/nikita/Documents/git/symta/lib/"
+
+// FIXME: do caching
+get_lib_exports LibName =
+| LibFile = "[GLibFolder][LibName].s"
+| Text = //load_text_file LibFile
+| Expr = // normalize: read: text
+| on Expr.last [export @Xs] | Xs
+               Else | Void
+
+prdouce_ssa Entry Expr =
+| let GOut []
+      GFns []
+      GInits []
+      GRawInits []
+      GClosure []
+  | ssa entry Entry
+  | R = ssa_var result
+  | uniquify Expr!
+  | Ssa = ssa_expr R Expr
+  | ssa return R
+  | InitLabels = []
+  | GInits <= map [Name Expr] GInits:
+    let GInits []
+        GClosure []
+    | L = "init_[Name]"
+    | push L InitLabels
+    | ssa label L
+    | uniquify Expr!
+    | ssa_expr Name Expr
+    | ssa return_no_gc Name
+    | ssa global Name
+  | ssa entry setup
+  | for X GRawInits.reverse: push X GOut
+  | for L InitLabels: ssa gosub L
+  | ssa return_no_gc 0
+  | [GOut@GFns].reverse.join.reverse
 
 ctest = 
 
