@@ -1,5 +1,4 @@
-export text
-       tag_of
+export tag_of
        address
        halt
        log

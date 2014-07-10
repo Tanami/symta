@@ -345,7 +345,7 @@ parse_strip X =
        | leave R
   else if X.is_list
   then | for V X
-         | when (on V [U@Us] | X^token_is{`!`}) and not (on X [Z@Zs] X^token_is{`!`}):
+         | when on V [U@Us] V^token_is{`!`} and not on X [Z@Zs] Z^token_is{`!`}:
            | leave [`!!`] 
        | X map:V => parse_strip V
   else X

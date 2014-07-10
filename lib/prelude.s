@@ -9,7 +9,10 @@ void.`.` K = Void
 void.find F = Void
 void.locate F = Void
 
-_.`<>` B = if Me >< B then 0 else 1
+_.`<>` B = not Me >< B
+_.`<<` B = not B < Me
+_.`>` B = B < Me
+_.`>>` B = not Me < B
 
 _.is_int = 0
 int.is_int = 1
@@ -26,18 +29,24 @@ text.is_text = 1
 //_.is_hard_list = 0
 //list.is_hard_list = 1
 
-
-DownA = 'a'.code
-DownZ = 'z'.code
-UpA = 'A'.code
-UpZ = 'Z'.code
+text.`<` B =
+| unless B.is_text: bad "cant compare string `[Me]` with [B]"
+| AS = Me.size
+| BS = B.size
+| when AS <> BS: leave AS < BS
+| I = 0
+| while I < AS
+  | AC = Me.I.code
+  | BC = B.I.code
+  | when AC <> BC: leave AC < BC
+| 0
 
 text.is_upcase =
 | N = Me.size
 | I = 0
 | while I < N
   | C = Me.I.code
-  | when C < UpA or UpZ < C: leave 0
+  | when C < 'A'.code or 'Z'.code < C: leave 0
   | I !+ 1
 | 1
 
@@ -46,9 +55,21 @@ text.is_downcase =
 | I = 0
 | while I < N
   | C = Me.I.code
-  | when C < DownA or DownZ < C: leave 0
+  | when C < 'a'.code or 'z'.code < C: leave 0
   | I !+ 1
 | 1
+
+text.upcase =
+| Ys = map Char Me.chars
+  | C = Char.code
+  | if C < 'a'.code or 'z'.code < C then Char else (C - 'a'.code + 'A'.code).char
+| Ys.unchars
+
+text.downcase =
+| Ys = map Char Me.chars
+  | C = Char.code
+  | if C < 'A'.code or 'Z'.code < C then Char else (C - 'A'.code + 'a'.code).char
+| Ys.unchars
 
 int.i = //iota operator
 | Ys = Me x 0
@@ -239,6 +260,19 @@ list.join =
                              | I !+ 1
 | Rs
 
+_list_.harden = Me
+
+list.harden =
+| N = Me.size 
+| Ys = N x 0
+| I = 0
+| till Me.end
+  | Ys.I <= pop Me
+  | I !+ 1
+| Ys
+
+list.unchars = Me.harden.unchars
+
 list.split F =
 | Ys = []
 | P = Me.locate{F}
@@ -355,11 +389,11 @@ list.groupBy N =
 | Ys.reverse
 
 bad @Xs =
-| log [bad @Xs].map{&text}.infix{` `}.unchars
+| log (map X [bad @Xs] X.as_text).infix{` `}.unchars
 | halt
 
 say @Xs =
-| log Xs.map{&text}.infix{` `}.unchars
+| log (map X Xs X.as_text).infix{` `}.unchars
 | Void
 
 // hashtable

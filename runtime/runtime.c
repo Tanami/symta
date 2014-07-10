@@ -726,7 +726,7 @@ BUILTIN_VARARGS("integer _",integer)
   abort();
 RETURNS_VOID
 
-BUILTIN1("text",text,C_ANY,o)
+BUILTIN1("as_text",as_text,C_ANY,o)
   if (!IS_TEXT(o)) {
     TEXT(R, print_object(o));
   } else {
@@ -869,7 +869,6 @@ static struct {
   char *name;
   void *fun;
 } builtins[] = {
-  {"text", b_text},
   {"tag_of", b_tag_of},
   {"address", b_address},
   {"halt", b_halt},
@@ -1326,6 +1325,7 @@ int main(int argc, char **argv) {
   METHOD_FN("code", 0, 0, 0, b_fixtext_code, 0, 0, 0, 0);
   METHOD_FN("char", b_integer_char, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("unchars", 0, 0, b_list_unchars, 0, 0, 0, 0, 0);
+  METHOD_FN("as_text", b_as_text, b_as_text, b_as_text, b_as_text, b_as_text, b_as_text, b_as_text, b_as_text);
 
   add_subtype(api, T_GENERIC_TEXT, T_FIXTEXT);
   add_subtype(api, T_GENERIC_TEXT, T_TEXT);

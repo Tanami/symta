@@ -406,7 +406,59 @@ prdouce_ssa Entry Expr =
   | for X GRawInits.reverse: push X GOut
   | for L InitLabels: ssa gosub L
   | ssa return_no_gc 0
-  | [GOut@GFns].reverse.join.reverse
+  | Rs = [GOut@GFns].reverse.join.reverse
+  //| Rs <= peephole_optimize Rs
+  | Rs
+
+
+GCompiled = Void
+
+c Statement = push Statement GCompiled
+cnorm [X@Xs] = c "  [X.upcase]([(map X Xs X.as_text).infix{','}.unchars]);"
+
+ssa_to_c Xs = let GCompiled []
+| Statics = []
+| Decls = []
+| Imports = table 256
+| c 'BEGIN_CODE'
+| for X Xs: on X
+  [entry Name] | c "ENTRY([Name])"
+  [label Name] | push "DECL_LABEL([Name])" Decls
+               | c "LABEL([Name])"
+  [global Name] | push "static void *[Name];" Decls
+  [alloc_closure Place Name Size] | push "#define [Name]_size [Size]" Decls
+                                  | cnorm X
+  [type Place Name TagName Size]
+    | TName = gensym n
+    | c "  RESOLVE_TYPE([Place],[Name]);"
+    | c "  VAR([TName]);"
+    | c "  TEXT([TName],[TagName]);"
+    | c "  SET_TYPE_SIZE_AND_NAME((intptr_t)[Place],[Size],[TName]);"
+  [import Dst Lib Symbol LibCStr SymbolCStr]
+    | Key = "[Lib]::[Symbol]"
+    | Import = Imports.Key
+    | LibExports = Imports.Lib
+    | if have Import
+      then c "  MOVE([Dst], [Import])"
+      else | when no LibExports
+             | LibExports <= gensym n
+             | c "  void *[LibExports] = api->load_lib(api,(char*)([LibCStr]));"
+             | Imports.Lib <= LibExports
+           | SymbolText = gensym s
+           | c "  VAR([SymbolText]);"
+           | c "  TEXT([SymbolText],[SymbolCStr]);"
+           | c "  [Dst] = api->find_export(api,[SymbolText],[LibExports]);"
+           | Imports.Key <= Dst
+  [bytes Name Xs]
+    | Brackets = '[]'
+    | Values = (map X Xs X.as_text).infix{','}.unchars
+    | push "static uint8_t [Name][Brackets] = {[Values]};" Decls
+  Else | cnorm X //FIXME: check if it is known and has correct argnum
+| c 'END_CODE'
+| GCompiled <= GCompiled.reverse
+| for D Decls: push D GCompiled
+| GCompiled.infix{'\n'}.unchars
+
 
 ctest = 
 

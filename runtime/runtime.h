@@ -36,16 +36,16 @@
 #define FIXNUM(x) ASHL((intptr_t)(x),TAG_BITS)
 #define UNFIXNUM(x) ASHR((intptr_t)(x),TAG_BITS)
 
-#define FIXNUM_NEG(o) (void*)(-(intptr_t)(o))
-#define FIXNUM_ADD(a,b) (void*)((intptr_t)(a) + (intptr_t)(b))
-#define FIXNUM_SUB(a,b) (void*)((intptr_t)(a) - (intptr_t)(b))
-#define FIXNUM_MUL(a,b) (void*)(UNFIXNUM(a) * (intptr_t)(b))
-#define FIXNUM_DIV(a,b) (void*)(FIXNUM((intptr_t)(a) / (intptr_t)(b)))
-#define FIXNUM_REM(a,b) (void*)((intptr_t)(a) % (intptr_t)(b))
-#define FIXNUM_IS(a,b) (void*)FIXNUM((intptr_t)(a) == (intptr_t)(b))
-#define FIXNUM_ISNT(a,b) (void*)FIXNUM((intptr_t)(a) != (intptr_t)(b))
-#define FIXNUM_LT(a,b) (void*)FIXNUM((intptr_t)(a) < (intptr_t)(b))
-#define FIXNUM_GT(a,b) (void*)FIXNUM((intptr_t)(a) > (intptr_t)(b))
+#define FIXNUM_NEG(dst,o) dst = (void*)(-(intptr_t)(o))
+#define FIXNUM_ADD(dst,a,b) dst = (void*)((intptr_t)(a) + (intptr_t)(b))
+#define FIXNUM_SUB(dst,a,b) dst = (void*)((intptr_t)(a) - (intptr_t)(b))
+#define FIXNUM_MUL(dst,a,b) dst = (void*)(UNFIXNUM(a) * (intptr_t)(b))
+#define FIXNUM_DIV(dst,a,b) dst = (void*)(FIXNUM((intptr_t)(a) / (intptr_t)(b)))
+#define FIXNUM_REM(dst,a,b) dst = (void*)((intptr_t)(a) % (intptr_t)(b))
+#define FIXNUM_IS(dst,a,b) dst = (void*)FIXNUM((intptr_t)(a) == (intptr_t)(b))
+#define FIXNUM_ISNT(dst,a,b) dst = (void*)FIXNUM((intptr_t)(a) != (intptr_t)(b))
+#define FIXNUM_LT(dst,a,b) dst = (void*)FIXNUM((intptr_t)(a) < (intptr_t)(b))
+#define FIXNUM_GT(dst,a,b) dst = (void*)FIXNUM((intptr_t)(a) > (intptr_t)(b))
 
 #define HEAP_SIZE (32*1024*1024)
 #define BASE_HEAD_SIZE 2
@@ -121,7 +121,7 @@ typedef void *(*pfun)(REGS);
   dst = (void*)(intptr_t)api->resolve_type(api, (char*)(name));
 #define RESOLVE_METHOD(dst,name) dst = api->resolve_method(api, name);
 #define SET_TYPE_SIZE_AND_NAME(tag,size,name) api->set_type_size_and_name(api,tag,size,name);
-#define DATA_METHOD(method,type,handler) api->set_method(api,method,type,handler);
+#define DMET(method,type,handler) api->set_method(api,method,type,handler);
 
 #define IS_LIST(o) (GET_TAG(o) == T_LIST)
 
@@ -250,6 +250,11 @@ typedef void *(*pfun)(REGS);
 #define STORE(dst,dst_off,src) CLOSURE_REF(dst,dst_off) = (void*)(src)
 #define COPY(dst,dst_off,src,src_off) CLOSURE_REF(dst,dst_off) = CLOSURE_REF(src,src_off)
 #define MOVE(dst,src) dst = (void*)(src)
+#define TAGGED(dst,src,tag) dst = ADD_TAG(src,tag)
+#define DGET(dst,src,off) dst = DATA_REF(src, off)
+#define DSET(dst,off,src) DATA_SET(dst, off, src)
+#define DINIT(dst,off,src) DATA_REF(dst, off) = src
+
 
 #define CHECK_NARGS(expected,size,meta) \
   if (NARGS(E) != FIXNUM(expected)) { \

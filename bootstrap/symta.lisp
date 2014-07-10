@@ -403,7 +403,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (ssa 'load base 'p parent)
        ! when (eql pos :all)
           (when value (error "can't set ~a" x))
-          (ssa 'add_tag k base 'T_LIST)
+          (ssa 'tagged k base 'T_LIST)
           (ret nil)
        ! unless value (return-from ssa-symbol (ssa 'arg_load k base pos))
        ! if (and (eql base 'e) (= 1 (length *ssa-bases*)))
@@ -463,8 +463,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! size-var = format nil "~a_size" f
   ! when prologue
       (if (stringp args)
-          (ssa 'check_varargs size-var nil #|(get-meta o)|#)
-          (ssa 'check_nargs (length args) size-var nil #|(get-meta o)|#))
+          (ssa 'check_varargs size-var "Empty" #|(get-meta o)|#)
+          (ssa 'check_nargs (length args) size-var "Empty" #|(get-meta o)|#))
   ! unless k (setf k (ssa-var "result"))
   ! ssa-expr k body
   ! when epilogue (ssa 'return k)
@@ -480,7 +480,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ;; a single argument to a function could be passed in register, while a closure would be created if required
   ;; a single reference closure could be itself held in a register
   ;; for now we just capture required parent's closure
-  ! ssa 'closure k f nparents
+  ! ssa 'alloc_closure k f nparents
   ! i = -1
   ! e c cs (! if (equal c *ssa-ns*) ; self?
                  (ssa 'store k (incf i) 'e)
@@ -658,7 +658,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! e x xs (! r = ssa-var "r"
             ! ssa-expr r x
             ! ssa 'arg_store l (incf i) r)
-  ! ssa 'add_tag k l 'T_LIST)
+  ! ssa 'tagged k l 'T_LIST)
 
 (to ssa-data k type xs
   ! size = length xs
@@ -667,7 +667,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! (! *ssa-out* = nil
      ! ssa 'type type-var bytes-name bytes-name size
      ! setf *ssa-raw-inits* (append *ssa-out* *ssa-raw-inits*))
-  ! ssa 'data k type-var size
+  ! ssa 'alloc_data k type-var size
   ! tmp = ssa-var "v"
   ! i = -1
   ! e x xs (! ssa-expr tmp x
@@ -738,17 +738,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_mcall" f . as) (ssa-apply k f as t))
     (("_list" . xs) (ssa-list k xs))
     (("_import" lib symbol) (ssa-import k lib symbol))
-    #|(("_add" a b) (ssa-fixed k 'fixed_add a b))
-    (("_sub" a b) (ssa-fixed k 'fixed_sub a b))
-    (("_lt" a b) (ssa-fixed k 'fixed_lt a b))
-    (("_gt" a b) (ssa-fixed k 'fixed_gt a b))|#
+    ;;(("_add" a b) (ssa-fixed k 'fixnum_add a b))
     ((f . as) (ssa-apply k f as))
     (() (ssa-atom k :void))
     (else (error "invalid CPS form: ~a" xs)))
 
 (to ssa-atom k x
   ! cond
-    ((integerp x) (ssa 'fixnum k x))
+    ((integerp x) (ssa 'load_fixnum k x))
     ((stringp x) (ssa-symbol k x nil))
     ((eql x :void) (ssa 'move k "Void"))
     ((eql x :empty) (ssa 'move k "Empty"))
@@ -806,8 +803,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to to-c-emit &rest args ! (push (apply #'format nil args) *compiled*))
 
-(defparameter *pool-size* 64)
-
 (to ssa-to-c xs
   ! *compiled* = nil
   ! statics = nil
@@ -816,22 +811,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! to-c-emit "BEGIN_CODE"
   ! e x xs
        (match x
-         ((''entry label-name) (to-c-emit "ENTRY(~a)" label-name))
+         ((''entry name) (to-c-emit "ENTRY(~a)" name))
          ((''var name) (to-c-emit "  VAR(~a);" name))
          ((''return value) (to-c-emit "  RETURN(~a);" value))
          ((''return_no_gc value) (to-c-emit "  RETURN_NO_GC(~a);" value))
-         ((''label label-name)
-          (push (format nil "DECL_LABEL(~a)" label-name) decls)
-          (to-c-emit "LABEL(~a)" label-name)
+         ((''label name)
+          (push (format nil "DECL_LABEL(~a)" name) decls)
+          (to-c-emit "LABEL(~a)" name)
           ;(to-c-emit "  D;")
           )
          ((''global name) (push (format nil "static void *~a;" name) decls))
-         ((''local_label label-name) (to-c-emit "  LOCAL_LABEL(~a);" label-name))
-         ((''branch cnd label-name) (to-c-emit "  BRANCH(~a, ~a);" cnd label-name))
-         ((''zbranch cnd label-name) (to-c-emit "  ZBRANCH(~a, ~a);" cnd label-name))
-         ((''jmp label-name) (to-c-emit "  JMP(~a);" label-name))
-         ((''gosub label-name) (to-c-emit "  GOSUB(~a);" label-name))
-         ((''branch cond label) (to-c-emit "  BRANCH(~a, ~a);" cond label))
+         ((''local_label name) (to-c-emit "  LOCAL_LABEL(~a);" name))
+         ((''branch cnd label) (to-c-emit "  BRANCH(~a, ~a);" cnd label))
+         ((''zbranch cnd label) (to-c-emit "  ZBRANCH(~a, ~a);" cnd label))
+         ((''jmp label) (to-c-emit "  JMP(~a);" label))
+         ((''gosub label) (to-c-emit "  GOSUB(~a);" label))
          ((''push_base) (to-c-emit "  PUSH_BASE();"))
          ((''pop_base) (to-c-emit "  POP_BASE();"))
          ((''mark value) (to-c-emit "  MARK(~a);" value))
@@ -843,25 +837,24 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''call_tagged_dynamic k obj) (to-c-emit "  CALL_TAGGED_DYNAMIC(~a, ~a);" k obj))
          ((''arglist place size) (to-c-emit "  ARGLIST(~a, ~a);" place size))
          ((''lift base pos value) (to-c-emit "  LIFT(~a,~a,~a);" base pos value))
-         ((''get_tag dst src) (to-c-emit "  ~a = (void*)GET_TAG(~a);" dst src))
-         ((''add_tag dst src tag) (to-c-emit "  ~a = ADD_TAG(~a,~a);" dst src tag))
+         ((''tagged dst src tag) (to-c-emit "  TAGGED(~a,~a,~a);" dst src tag))
          ((''local_closure place size) (to-c-emit "  LOCAL_CLOSURE(~a, ~a);" place size))
-         ((''closure place name size)
+         ((''alloc_closure place name size)
           (push (format nil "#define ~a_size ~a" name size) decls)
           (to-c-emit "  ALLOC_CLOSURE(~a, ~a, ~a);" place name size))
-         ((''data place type size) (to-c-emit "  ALLOC_DATA(~a, ~a, ~a);" place type size))
+         ((''alloc_data place type size) (to-c-emit "  ALLOC_DATA(~a, ~a, ~a);" place type size))
          ((''type place name tagname size)
           (let ((tname (ssa-name "n")))
             (to-c-emit "  RESOLVE_TYPE(~a, ~a);" place name)
             (to-c-emit "  VAR(~a);" tname)
             (to-c-emit "  TEXT(~a, ~a);" tname tagname)
             (to-c-emit "  SET_TYPE_SIZE_AND_NAME((intptr_t)~a, ~a, ~a);" place size tname)))
-         ((''dget dst src off) (to-c-emit "  ~a = DATA_REF(~a, ~a);" dst src off))
-         ((''dset dst off src) (to-c-emit "  DATA_SET(~a, ~a, ~a);" dst off src))
-         ((''dinit dst off src) (to-c-emit "  DATA_REF(~a, ~a) = ~a;" dst off src))
+         ((''dget dst src off) (to-c-emit "  DGET(~a, ~a, ~a);" dst src off))
+         ((''dset dst off src) (to-c-emit "  DSET(~a, ~a, ~a);" dst off src))
+         ((''dinit dst off src) (to-c-emit "  DINIT(~a, ~a, ~a);" dst off src))
          ((''resolve_type place name) (to-c-emit "  RESOLVE_TYPE(~a, ~a);" place name))
          ((''resolve_method place name) (to-c-emit "  RESOLVE_METHOD(~a, ~a);" place name))
-         ((''dmet method type handler) (to-c-emit "  DATA_METHOD(~a, ~a, ~a);" method type handler))
+         ((''dmet method type handler) (to-c-emit "  DMET(~a, ~a, ~a);" method type handler))
          ((''import dst lib symbol lib-cstr symbol-cstr)
           (let* ((key (concatenate 'string lib "::" symbol))
                  (import (gethash key imports))
@@ -885,19 +878,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          ((''store dst off src) (to-c-emit "  STORE(~a, ~a, ~a);" dst off src))
          ((''copy dst p src q) (to-c-emit "  COPY(~a, ~a, ~a, ~a);" dst p src q))
          ((''move dst src) (to-c-emit "  MOVE(~a, ~a);" dst src))
-         ((''list_flip dst src) (to-c-emit "  ~a = LIST_FLIP(~a);" dst src))
-         ((''fixnum dst str) (to-c-emit "  LOAD_FIXNUM(~a, ~s);" dst str))
+         ((''load_fixnum dst src) (to-c-emit "  LOAD_FIXNUM(~a, ~a);" dst src))
          ((''bytes name values)
           (push (format nil '"static uint8_t ~a[] = {~{~a~^,~}};" name values) decls))
-         ((''text name bytes-name) (to-c-emit "  TEXT(~a, ~a);" name bytes-name))
-         ((''fatal msg) (to-c-emit "  api->fatal(api, ~a);" msg))
-         ((''check_nargs expected size meta)
-          (to-c-emit "  CHECK_NARGS(~a, ~a, ~a);" expected size (or meta "Empty")))
-         ((''check_varargs size meta) (to-c-emit "  CHECK_VARARGS(~a, ~a);" size (or meta "Empty")))
-         ((''fixed_add dst a b) (to-c-emit "  ~a = FIXNUM_ADD(~a, ~a);" dst a b))
-         ((''fixed_sub dst a b) (to-c-emit "  ~a = FIXNUM_SUB(~a, ~a);" dst a b))
-         ((''fixed_lt dst a b) (to-c-emit "  ~a = FIXNUM_LT(~a, ~a);" dst a b))
-         ((''fixed_gt dst a b) (to-c-emit "  ~a = FIXNUM_GT(~a, ~a);" dst a b))
+         ((''text name bytes) (to-c-emit "  TEXT(~a, ~a);" name bytes))
+         ((''check_nargs expected size meta) (to-c-emit "  CHECK_NARGS(~a, ~a, ~a);" expected size meta))
+         ((''check_varargs size meta) (to-c-emit "  CHECK_VARARGS(~a, ~a);" size meta))
+         ;;((''fixnum_add dst a b) (to-c-emit "  FIXNUM_ADD(~a, ~a, ~a);" dst a b))
          (else (error "invalid ssa: ~a" x))
          )
   ! to-c-emit "END_CODE"
@@ -1209,7 +1196,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       (! e = position #\] x
        ! unless e (error '"unterminated [")
        ! push `("_quote" ,(subseq x 0 s)) as
-       ! push `("text" ,(/read (subseq x (+ s 1) e))) as
+       ! push `("_mcall" ,(/read (subseq x (+ s 1) e)) "as_text") as
        ! setf x (subseq x (+ e 1) (length x))
        ! setf s (position #\[ x))
   ! when (/= 0 (length x)) (push `("_quote" ,x) as)
@@ -1293,7 +1280,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("_quote" x) (return-from builtin-expander xs))
         (("fn" as . body) `("_fn" ,as ("|" ,@body)))
         (("=>" as body) (expand-lambda as body))
-        (("not" x) `("_if" ,x 0 1))
+        (("not" . xs) `("_if" ,xs 0 1))
         (("when" . xs) `("_if" ,(butlast xs) ,@(last xs) :void))
         (("unless" . xs) `("_if" ,(butlast xs) :void ,@(last xs)))
         (("while" . xs) (expand-while (butlast xs) (car (last xs))))
