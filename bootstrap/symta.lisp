@@ -848,13 +848,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        (push (format nil '"static uint8_t ~a[] = {~{~a~^,~}};" name values) decls))
       (else (cnorm x)))
   ! to-c-emit "END_CODE"
-  ! format nil '"~{~a~%~}" (reverse (append *compiled* decls)))
+  ! format nil '"~{~a~%~}" (reverse (append *compiled* decls (list "#include \"runtime.h\""))))
 
 (to ssa-produce-file file src
   ! ssa = produce-ssa "entry" src
   ! text = ssa-to-c ssa
-  ! header = "#include \"runtime.h\""
-  ! save-text-file file (format nil "~a~%~%~a" header text))
+  ! save-text-file file text)
 
 
 

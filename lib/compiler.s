@@ -380,7 +380,7 @@ get_lib_exports LibName =
 | on Expr.last [export @Xs] | Xs
                Else | Void
 
-prdouce_ssa Entry Expr =
+produce_ssa Entry Expr =
 | let GOut []
       GFns []
       GInits []
@@ -457,8 +457,13 @@ ssa_to_c Xs = let GCompiled []
 | c 'END_CODE'
 | GCompiled <= GCompiled.reverse
 | for D Decls: push D GCompiled
+| push '#include "runtime.h"' GCompiled
 | GCompiled.infix{'\n'}.unchars
 
+ssa_produce_file File Src =
+| Ssa = produce_ssa entry Src
+| Text = ssa_to_c Ssa
+//| save_text_file File Text
 
 ctest = 
 
