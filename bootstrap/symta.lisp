@@ -643,13 +643,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! *uniquify-stack* = nil
   ! uniquify-expr expr)
 
-(to ssa-fixed k op a b
-  ! av = ssa-var "a"
-  ! bv = ssa-var "b"
-  ! ssa-expr av a
-  ! ssa-expr bv b
-  ! ssa op k av bv)
-
 (to ssa-list k xs
   ! when (= (length xs) 0) (return-from ssa-list (ssa 'move k "Empty"))
   ! l = ssa-var "l"
@@ -717,9 +710,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'jmp name)
 
 (to ssa-mark name
-  ! v = ssa-var "X"
+  ! v = ssa-var "m"
   ! ssa-text v (second name)
   ! ssa 'mark v)
+
+(to ev x
+  ! r = ssa-var "r"
+  ! ssa-expr r x
+  ! r)
+
+(to ssa-fixed1 k op x ! ssa op k (ev x))
+(to ssa-fixed2 k op a b ! ssa op k (ev a) (ev b))
+
+(to ssa-alloc k n
+  ! x = ssa-var "x"
+  ! ssa-fixed1 x 'fixnum_unfixnum n
+  ! ssa 'arglist k x)
+
+(to ssa-store base off value ! ssa 'untagged_store (ev base) (ev off) (ev value))
+(to ssa-tagged k tag x ! ssa 'tagged k (ev x) (second tag))
 
 (to ssa-form k xs
   ! match xs
@@ -737,8 +746,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_dmet" method type handler) (ssa-dmet k method type handler))
     (("_mcall" f . as) (ssa-apply k f as t))
     (("_list" . xs) (ssa-list k xs))
+    (("_alloc" n) (ssa-alloc k n))
+    (("_store" base off value) (ssa-store base off value))
+    (("_tagged" tag x) (ssa-tagged k tag x))
     (("_import" lib symbol) (ssa-import k lib symbol))
-    ;;(("_add" a b) (ssa-fixed k 'fixnum_add a b))
+    (("_add" a b) (ssa-fixed2 k 'fixnum_add a b))
+    (("_eq" a b) (ssa-fixed2 k 'fixnum_eq a b))
+    (("_lt" a b) (ssa-fixed2 k 'fixnum_lt a b))
+    (("_gte" a b) (ssa-fixed2 k 'fixnum_gte a b))
+    (("_tag" x) (ssa-fixed1 k 'fixnum_tag x))
+    (("_fatal" msg) (ssa 'fatal (ev msg)))
     ((f . as) (ssa-apply k f as))
     (() (ssa-atom k :void))
     (else (error "invalid CPS form: ~a" xs)))
@@ -763,7 +780,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! text = load-text-file lib-file
   ! expr = /normalize (/read text)
   ! match (first (last expr))
-     (("export" . xs) xs)
+     (("export" . xs)
+      (remove-if (fn x ! match x (("\\" x) t)) xs))
      (_ nil))
 
 (to produce-ssa entry expr
@@ -854,6 +872,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa = produce-ssa "entry" src
   ! text = ssa-to-c ssa
   ! save-text-file file text)
+
+
 
 
 
@@ -1034,7 +1054,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! j = -1
   ! k = -1
   ! `(("=" (,"new_{name}" ,@gs) ("_data" ,name ,@gs))
-      ,@(m f fields `("=" (("." ,name ,f )) ("_dget" "Me" ,(incf j))))
+      ("=" (("." ,name ,"is_{name}")) 1)
+      ("=" (("." "_" ,"is_{name}")) 0)
+      ,@(m f fields `("=" (("." ,name ,f)) ("_dget" "Me" ,(incf j))))
       ,@(m f fields `("=" (("." ,name ,"set_{f}") ,v) ("_dset" "Me" ,(incf k) ,v)))))
 
 (to expand-block-item x
@@ -1093,8 +1115,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                       `("_set" ,(first x) ,(second x))
                       (second x)))))
 
-(to expand-export xs ! `("_list" ,@(m x xs `("_list" ("_quote" ,x) ("&" ,x)))))
-
+(to expand-export xs
+  ! xs = m x xs
+         (match x
+           (("\\" x) `("_list" ("_quote" ,x) ("new_macro" ("_quote" ,x) ("&" ,x))))
+           (else `("_list" ("_quote" ,x) ("&" ,x))))
+  ! `("_list" ,@xs))
 
 (to expand-while head body
   ! l = ssa-name "l"
@@ -1103,32 +1129,51 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                       ("_progn" ,body ("_goto" ,l))
                       ())))
 
+;;FIXME: code can segfault if users sets i
+(to expand-times var count body
+  ! i = if var var (ssa-name "I")
+  ! n = ssa-name "N"
+  ! `("|" ("=" (,n) ,count)
+          ("=" (,i) (0))
+          ("unless" ("and" ("_eq" ("_tag" ,n) 0)
+                           ("_gte" ,n 0))
+            ("_fatal" "times: bad loop count"))
+          ("while" ("_lt" ,i ,n)
+             ("|" ,body
+                  ("_set" ,i ("_add" ,i 1))))))
+
+(to expand-dup var count body
+  ! i = if var var (ssa-name "I")
+  ! n = ssa-name "N"
+  ! ys = ssa-name "Ys"
+  ! `("|" ("=" (,n) ,count)
+          ("=" (,i) (0))
+          ("unless" ("and" ("_eq" ("_tag" ,n) 0)
+                           ("_gte" ,n 0))
+            ("_fatal" "dup: bad loop count"))
+          ("=" (,ys) ("_alloc" ,n))
+          ("while" ("_lt" ,i ,n)
+             ("|" ("_store" ,ys ,i ,body)
+                  ("_set" ,i ("_add" ,i 1))))
+          ("_tagged" ("_quote" "T_LIST") ,ys)))
+
+(to expand-map item items body
+  ! xs = ssa-name "Xs"
+  ! i = ssa-name "I"
+  ! n = ssa-name "N"
+  ! `("|" ("=" (,xs) ("_mcall" ,items "harden"))
+          ("dup" ,i ("_mcall" ,xs "size")
+            ("|" ("=" (,item) ("_mcall" ,xs "." ,i))
+                 ,body))))
+
 (to expand-for item items body
   ! xs = ssa-name "Xs"
   ! i = ssa-name "I"
   ! n = ssa-name "N"
   ! `("|" ("=" (,xs) ("_mcall" ,items "harden"))
-          ("=" (,i) (0))
-          ("=" (,n) ("_mcall" ,xs "size"))
-          ("while" ("<" ,i ,n)
-            ("|" ("=" (,item) (,items "." ,i))
-                 ,body
-                 ("_set" ,i ("+" ,i 1))))))
-
-(to expand-map item items body
-  ! xs = ssa-name "Xs"
-  ! ys = ssa-name "Ys"
-  ! i = ssa-name "I"
-  ! n = ssa-name "N"
-  ! `("|" ("=" (,xs) ("_mcall" ,items "harden"))
-          ("=" (,i) (0))
-          ("=" (,n) ("_mcall" ,xs "size"))
-          ("=" (,ys) ("_mcall" ,n "x" 0))
-          ("while" ("<" ,i ,n)
-            ("|" ("=" (,item) (,items "." ,i))
-                 ("<=" (("." ,ys ,i)) ,body)
-                 ("_set" ,i ("+" ,i 1))))
-          ,ys))
+          ("times" ,i ("_mcall" ,xs "size")
+            ("|" ("=" (,item) ("_mcall" ,xs "." ,i))
+                 ,body))))
 
 
 (to incut? x ! match x (("@" x) t))
@@ -1145,7 +1190,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
            (setf as (cdr as)))
          (return-from expand-list xs)))
   ! as = m a as (if (incut? a) (second a) `("_list" ,a))
-  ! `(("_list" ,@as) "join"))
+  ! `("_mcall" ("_list" ,@as) "join"))
 
 (to expand-string-splice x
   ! as = nil
@@ -1159,7 +1204,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        ! setf x (subseq x (+ e 1) (length x))
        ! setf s (position #\[ x))
   ! when (/= 0 (length x)) (push `("_quote" ,x) as)
-  ! `(("_list" ,@(reverse as)) "unchars"))
+  ! `("_mcall" ("_list" ,@(reverse as)) "unchars"))
 
 (to expand-and a b ! `("if" ,a ,b 0))
 (to expand-or a b
@@ -1221,7 +1266,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
             xs)))
     (setf ys
       (match xs
-        (("if" a b c) `("_if" ,a ,b ,c))
         (("_fn" as body)
          (return-from builtin-expander
            `("_fn" ,as ,(builtin-expander body))))
@@ -1237,7 +1281,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("_label" name) (return-from builtin-expander xs))
         (("_goto" name) (return-from builtin-expander xs))
         (("_quote" x) (return-from builtin-expander xs))
-        (("fn" as . body) `("_fn" ,as ("|" ,@body)))
+        (("_default_leave" name body)
+         (return-from builtin-expander
+           (let ((*default-leave* name))
+             (builtin-expander body))))
+        (("&" o) (return-from builtin-expander
+                   (if (fn-sym? o) o `(,(builtin-expander o)))))
+        (("if" a b c) `("_if" ,a ,b ,c))
         (("=>" as body) (expand-lambda as body))
         (("not" . xs) `("_if" ,xs 0 1))
         (("when" . xs) `("_if" ,(butlast xs) ,@(last xs) :void))
@@ -1246,6 +1296,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("till" . xs) (expand-while `("not" ,(butlast xs)) (car (last xs))))
         (("for" v . xs) (expand-for v (butlast xs) (car (last xs))))
         (("map" v . xs) (expand-map v (butlast xs) (car (last xs))))
+        (("dup" v . xs) (expand-dup v (butlast xs) (car (last xs))))
+        (("times" v . xs) (expand-times v (butlast xs) (car (last xs))))
         (("pop" o) (expand-pop o))
         (("push" item o) (expand-push o item))
         (("and" a b) (expand-and a b))
@@ -1275,16 +1327,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         ((">>" a b) `("_mcall" ,a  ">>" ,b))
         (("><" a b) `("_mcall" ,a "><" ,b))
         (("<>" a b) `("_mcall" ,a  "<>" ,b))
-        (("&" o) (return-from builtin-expander
-                   (if (fn-sym? o) o `(,(builtin-expander o)))))
         (("and" a b) `("if" ,a ,b 0))
         (("or" a b) (let ((n (ssa-name "T")))
                       `("_let" ((,n ,a)) ("if" ,n ,n ,b))))
         (("named" name . body) (expand-named name `("_progn" ,@body)))
-        (("_default_leave" name body)
-         (return-from builtin-expander
-           (let ((*default-leave* name))
-             (builtin-expander body))))
         (("leave" name value) (expand-leave name value))
         (("leave" value) (expand-leave *default-leave* value))
         (("<=" (place) value) (expand-assign place value))
@@ -1363,7 +1409,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! *lib-folder* = "{*root-folder*}lib/"
   ;! compile-lib "prelude"
   ;! compile-lib "reader"
-  ! compile-lib "compiler"
+  ;! compile-lib "compiler"
   ! cache-folder = "{*root-folder*}cache/"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"
   ! runtime-path = "{cache-folder}runtime"

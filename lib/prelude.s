@@ -34,26 +34,21 @@ text.`<` B =
 | AS = Me.size
 | BS = B.size
 | when AS <> BS: leave AS < BS
-| I = 0
-| while I < AS
+| times I AS
   | AC = Me.I.code
   | BC = B.I.code
   | when AC <> BC: leave AC < BC
 | 0
 
 text.is_upcase =
-| N = Me.size
-| I = 0
-| while I < N
+| times I Me.size
   | C = Me.I.code
   | when C < 'A'.code or 'Z'.code < C: leave 0
   | I !+ 1
 | 1
 
 text.is_downcase =
-| N = Me.size
-| I = 0
-| while I < N
+| times I Me.size
   | C = Me.I.code
   | when C < 'a'.code or 'z'.code < C: leave 0
   | I !+ 1
@@ -71,34 +66,17 @@ text.downcase =
   | if C < 'A'.code or 'Z'.code < C then Char else (C - 'A'.code + 'a'.code).char
 | Ys.unchars
 
-int.i = //iota operator
-| Ys = Me x 0
-| I = 0
-| while I < Me
-  | Ys.I <= I
-  | I !+ 1
-| Ys
+_.is_keyword = 0
+text.is_keyword = Me.size and Me.0.is_upcase
 
-list.enum =
-| Ys = Me.size x 0
-| I = 0
-| till Me.end
-  | Ys.I <= [I Me^pop]
-  | I !+ 1
-| Ys
+int.i = dup I Me: I //iota operator
 
-int.`.` F =
-| I = 0
-| Ys = Me x 0
-| while I < Me
-  | Ys.I <= F I
-  | I! + 1
-| Ys
+list.enum = dup I Me.size: [I Me^pop]
+
+int.`.` F = dup I Me: F I
 
 list.`.` K =
-| while K > 0
-  | Me <= Me.tail
-  | K !- 1
+| times I K: Me <= Me.tail
 | Me.head
 
 list.size =
@@ -117,15 +95,14 @@ hard_list.`><` B =
 | unless B.is_list: leave 0 //FIXME: cons_list B will be O(n^2) slow
 | N = Me.size
 | unless N >< B.size: leave 0
-| I = 0
-| while I < N
+| times I N
   | unless Me.I >< B.I: leave 0
   | I !+ 1
 | 1
 
 list.reverse =
 | N = Me.size
-| Ys = N x 0
+| Ys = dup I N: 0
 | while N > 0
   | N !- 1
   | Ys.N <= pop Me
@@ -133,41 +110,15 @@ list.reverse =
 
 hard_list.reverse =
 | N = Me.size
-| I = 0
-| Ys = N x 0
-| while I < N
+| dup I N
   | N !- 1
-  | Ys.I <= Me.N
-  | Ys.N <= Me.I
-  | I !+ 1
-| Ys
+  | Me.N
 
-list.map F =
-| N = Me.size
-| Ys = N x 0
-| I = 0
-| while I < N
-  | Ys.I <= F: pop Me
-  | I !+ 1
-| Ys
+list.map F = dup I Me.size: F Me^pop
+hard_list.map F = dup I Me.size: F Me.I
 
-hard_list.map F =
-| N = Me.size
-| I = 0
-| Ys = N x 0
-| while I < N
-  | Ys.I <= Me.I^F
-  | I !+ 1
-| Ys
-
-list.each F = till Me.end: Me^pop^F
-
-hard_list.each F =
-| N = Me.size
-| I = 0
-| while I < N
-  | F Me.I
-  | I !+ 1
+list.each F = till Me.end: F Me^pop
+hard_list.each F = times I Me.size: F Me.I
 
 list.sum =
 | S = 0
@@ -176,25 +127,18 @@ list.sum =
 
 hard_list.sum =
 | S = 0
-| I = 0
-| N = Me.size
-| while I < N
-  | S !+ Me.I
-  | I !+ 1
+| times I Me.size: S !+ Me.I
 | S
 
 list.count F =
 | C = 0
-| till Me.end: when Me^pop^F: C !+ 1
+| till Me.end: when F Me^pop: C !+ 1
 | C
 
 hard_list.count F =
 | S = 0
 | I = 0
-| N = Me.size
-| while I < N
-  | when F Me.I: S !+ 1
-  | I !+ 1
+| times I Me.size: when F Me.I: S !+ 1
 | S
 
 list.countNot F =
@@ -206,7 +150,7 @@ hard_list.countNot F = Me.size - Me.count{F}
 
 list.keep F =
 | N = Me.count{F}
-| Ys = N x 0
+| Ys = dup I N 0
 | J = 0
 | while J < N
   | X = pop Me
@@ -217,7 +161,7 @@ list.keep F =
 
 hard_list.keep F =
 | N = Me.count{F}
-| Ys = N x 0
+| Ys = dup I N 0
 | I = 0
 | J = 0
 | while J < N
@@ -230,7 +174,7 @@ hard_list.keep F =
 
 list.skip F =
 | N = Me.countNot{F}
-| Ys = N x 0
+| Ys = dup I N 0
 | J = 0
 | while J < N
   | X = pop Me
@@ -241,7 +185,7 @@ list.skip F =
 
 hard_list.skip F =
 | N = Me.countNot{F}
-| Ys = N x 0
+| Ys = dup I N 0
 | I = 0
 | J = 0
 | while J < N
@@ -254,21 +198,18 @@ hard_list.skip F =
 
 list.join =
 | Size = Me.map{X=>X.size}.sum
-| Rs = Size x 0
+| Rs = dup I Size 0
 | I = 0
-| Me map: Ys => Ys map: Y => | Rs.I <= Y
-                             | I !+ 1
+| for Ys Me: for Y Ys | Rs.I <= Y
+                      | I !+ 1
 | Rs
 
 _list_.harden = Me
 
 list.harden =
-| N = Me.size 
-| Ys = N x 0
-| I = 0
-| till Me.end
-  | Ys.I <= pop Me
-  | I !+ 1
+| N = Me.size
+| Ys = dup I N 0
+| times I N: Ys.I <= pop Me
 | Ys
 
 list.unchars = Me.harden.unchars
@@ -284,97 +225,49 @@ list.split F =
 
 text.split F = Me.chars.split{F}.map{X=>X.unchars}
 
-list.take N =
-| Ys = N x 0
-| I = 0
-| while I < N
-  | Ys.I <= Me^pop
-  | I !+ 1
-| Ys
-
-hard_list.take N =
-| Ys = N x 0
-| I = 0
-| while I < N
-  | Ys.I <= Me.I
-  | I !+ 1
-| Ys
+list.take N = dup I N: Me^pop
+hard_list.take N = dup I N: Me.I
 
 list.drop N =
-| while N > 0
-  | Me^pop
-  | N !- 1
+| times I N Me^pop
 | Me
 
 hard_list.drop S =
-| N = Me.size
-| Ys = N-S x 0
-| I = 0
-| while S < N
-  | Ys.I <= Me.S
-  | I !+ 1
+| dup I Me.size-S
+  | R = Me.S
   | S !+ 1
-| Ys
+  | R
 
 list.last = Me.(Me.size-1)
 list.suf X = [@Me X]
 list.lead = Me.take{Me.size-1}
 
 list.infix Item =
-| I = 0
 | N = Me.size*2-1
-| N = if N < 0 then 0 else N
-| Ys = N x 0
-| while I < N
-  | Ys.I <= if I%2 then Item else Me^pop
-  | I !+ 1
-| Ys
+| if N < 0 then [] else dup I N: if I%2 then Item else Me^pop
 
 list.locate F =
-| I = 0
 | till Me.end
   | when F Me^pop: leave I
   | I !+ 1
-| Void
 
-hard_list.locate F =
-| N = Me.size
-| I = 0
-| while I < N
-  | when F Me.I: leave I
-  | I !+ 1
-| Void
+hard_list.locate F = times I Me.size: when F Me.I: leave I
 
 list.find F =
-| N = Me.size
 | I = 0
 | till Me.end
   | X = Me^pop
   | when F X: leave X
   | I !+ 1
-| Void
 
 hard_list.find F =
-| N = Me.size
-| I = 0
-| while I < N
+| times I Me.size
   | X = Me.I
   | when F X: leave X
-  | I !+ 1
-| Void
 
-text.chars =
-| N = Me.size
-| I = 0
-| R = N x 0
-| while I < N
-  | R.I <= Me.I
-  | I! + 1
-| R
+text.chars = dup I Me.size Me.I
 
 list.groupBy N =
-| MeSize = Me.size
-| YSize = (MeSize+N-1)/N
 | Y = []
 | Ys = []
 | I = 0
@@ -385,8 +278,11 @@ list.groupBy N =
     | push Y.reverse Ys
     | Y <= []
     | I <= 0
-| when Y.size <> 0: push Y.reverse Ys
+| when Y.size: push Y.reverse Ys
 | Ys.reverse
+
+GGensymCount = 0
+gensym Name = "[Name]__[GGensymCount!+1]"
 
 bad @Xs =
 | log (map X [bad @Xs] X.as_text).infix{` `}.unchars
@@ -414,4 +310,4 @@ table.`!` K V =
 | Void
 
 
-export non say bad no have table
+export non say bad no have gensym table

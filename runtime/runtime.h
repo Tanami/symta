@@ -42,10 +42,14 @@
 #define FIXNUM_MUL(dst,a,b) dst = (void*)(UNFIXNUM(a) * (intptr_t)(b))
 #define FIXNUM_DIV(dst,a,b) dst = (void*)(FIXNUM((intptr_t)(a) / (intptr_t)(b)))
 #define FIXNUM_REM(dst,a,b) dst = (void*)((intptr_t)(a) % (intptr_t)(b))
-#define FIXNUM_IS(dst,a,b) dst = (void*)FIXNUM((intptr_t)(a) == (intptr_t)(b))
-#define FIXNUM_ISNT(dst,a,b) dst = (void*)FIXNUM((intptr_t)(a) != (intptr_t)(b))
+#define FIXNUM_EQ(dst,a,b) dst = (void*)FIXNUM((intptr_t)(a) == (intptr_t)(b))
+#define FIXNUM_NE(dst,a,b) dst = (void*)FIXNUM((intptr_t)(a) != (intptr_t)(b))
 #define FIXNUM_LT(dst,a,b) dst = (void*)FIXNUM((intptr_t)(a) < (intptr_t)(b))
 #define FIXNUM_GT(dst,a,b) dst = (void*)FIXNUM((intptr_t)(a) > (intptr_t)(b))
+#define FIXNUM_LTE(dst,a,b) dst = (void*)FIXNUM((intptr_t)(a) <= (intptr_t)(b))
+#define FIXNUM_GTE(dst,a,b) dst = (void*)FIXNUM((intptr_t)(a) >= (intptr_t)(b))
+#define FIXNUM_TAG(dst,x) dst = (void*)FIXNUM(GET_TAG(x))
+#define FIXNUM_UNFIXNUM(dst,x) dst = (void*)UNFIXNUM(x)
 
 #define HEAP_SIZE (32*1024*1024)
 #define BASE_HEAD_SIZE 2
@@ -104,7 +108,7 @@ typedef void *(*pfun)(REGS);
 #define OBJECT_LEVEL(x) ((uintptr_t)(((void**)((uintptr_t)(x)&~TAG_MASK)-2)[0]))
 
 #define ALLOC_BASIC(dst,code,count) \
-  Top = (void**)Top - ((count)+OBJ_HEAD_SIZE); \
+  Top = (void**)Top - ((uintptr_t)(count)+OBJ_HEAD_SIZE); \
   *((void**)Top+0) = (void*)Level; \
   *((void**)Top+1) = (void*)(code); \
   dst = (void**)Top+OBJ_HEAD_SIZE;
@@ -217,7 +221,8 @@ typedef void *(*pfun)(REGS);
     if (tag == T_CLOSURE) { \
       k = OBJECT_CODE(o)(REGS_ARGS(o)); \
     } else { \
-      CALL_METHOD_WITH_TAG(k,o,m,tag); \
+       api->fatal(api, "FIXME: overload funcall"); \
+      /*CALL_METHOD_WITH_TAG(k,o,m,tag);*/ \
     } \
   }
 #define CALL_TAGGED(k,o,m) CALL_TAGGED_NO_POP(k,o,m); POP_BASE();
@@ -254,7 +259,14 @@ typedef void *(*pfun)(REGS);
 #define DGET(dst,src,off) dst = DATA_REF(src, off)
 #define DSET(dst,off,src) DATA_SET(dst, off, src)
 #define DINIT(dst,off,src) DATA_REF(dst, off) = src
+#define UNTAGGED_STORE(dst,off,src) *(void**)((uint8_t*)(dst)+(uint64_t)(off)) = src
 
+#define IS_BIGTEXT(o) (GET_TAG(o) == T_DATA && DATA_TAG(o) == T_TEXT)
+#define IS_TEXT(o) (GET_TAG(o) == T_FIXTEXT || IS_BIGTEXT(o))
+#define BIGTEXT_SIZE(o) DATA_REF4(o,0)
+#define BIGTEXT_DATA(o) ((char*)&DATA_REF1(o,4))
+
+#define FATAL(msg) api->fatal(api, BIGTEXT_DATA(msg));
 
 #define CHECK_NARGS(expected,size,meta) \
   if (NARGS(E) != FIXNUM(expected)) { \

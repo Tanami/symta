@@ -9,9 +9,6 @@ GFns = Void
 GClosure = Void // other lambdas, this lambda references
 GBases = Void
 
-GGensymCount = 0
-gensym Name = "[Name]__[GGensymCount!+1]"
-
 GAll = gensym all
 
 ssa @As = | push As GOut
@@ -56,7 +53,7 @@ ssa_symbol K X Value =
        | bad "undefined variable: [X]"
 
 ssa_quote_list_rec Xs =
-| [list @(Xs map: X => if X.is_list then ssa_quote_list_rec X else [_quote X])]
+| [list @(map X Xs: if X.is_list then ssa_quote_list_rec X else [_quote X])]
 
 ssa_quote_list K Xs =
 | Name = gensym list
@@ -82,7 +79,7 @@ ssa_global Name =
 
 ssa_text K S =
 | BytesName = ssa_cstring S
-| Name = ssa_global "s"
+| Name = ssa_global s
 | push [text Name BytesName] GRawInits
 | ssa move K Name
 
@@ -107,7 +104,7 @@ ssa_fn_body K F Args Body O Prologue Epilogue =
     | if Args.is_text
       then ssa check_varargs SizeVar Void /*(get_meta O)*/
       else ssa check_nargs Args.size SizeVar Void /*(get_meta O)*/
-  | when no K: K <= ssa_var "result"
+  | when no K: K <= ssa_var result
   | ssa_expr K Body
   | when Epilogue: ssa return K
   | [GOut GClosure.0]
@@ -184,8 +181,6 @@ ssa_let K Args Vals Xs =
 | ssa move \P SaveP
 | ssa move \E SaveE
 
-is_fn_sym T = T.is_text and T.size > 0 and T.0.is_upcase
-
 ssa_apply K F As IsMethod =
 | unless IsMethod: on F [_fn Bs @Body]: leave: ssa_let K Bs As Body
 | ssa push_base
@@ -199,7 +194,7 @@ ssa_apply K F As IsMethod =
   | NArgs = As.size
   | ssa arglist E NArgs
   | for [I V] Vs.enum: ssa arg_store E I V
-  | when F^is_fn_sym: leave block: ssa call K H
+  | when F.is_keyword: leave block: ssa call K H
   | MethodName = NArgs and on As [[_quote X @Renamed] @Xs] (X.is_text and X)
   | unless MethodName: leave block: ssa call_tagged_dynamic K H
   | MethodNameBytes = ssa_cstring MethodName
@@ -377,7 +372,7 @@ get_lib_exports LibName =
 | LibFile = "[GLibFolder][LibName].s"
 | Text = //load_text_file LibFile
 | Expr = // normalize: read: text
-| on Expr.last [export @Xs] | Xs
+| on Expr.last [export @Xs] | Xs.skip{X => on X [`\\` X]}
                Else | Void
 
 produce_ssa Entry Expr =
@@ -439,7 +434,7 @@ ssa_to_c Xs = let GCompiled []
     | Import = Imports.Key
     | LibExports = Imports.Lib
     | if have Import
-      then c "  MOVE([Dst], [Import])"
+      then c "  MOVE([Dst], [Import]);"
       else | when no LibExports
              | LibExports <= gensym n
              | c "  void *[LibExports] = api->load_lib(api,(char*)([LibCStr]));"

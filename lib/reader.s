@@ -7,8 +7,6 @@ GOutput = Void
 GSpecs = Void
 Newline = '\n'
 
-headed&0 H [X@Xs] = H >< X
-
 data reader_input chars origin row col off last len
 newInput Text Origin = new_reader_input Text.chars Origin 0 0 0 Void Text.size
 reader_input.`{}` K = Me.chars.K
@@ -26,8 +24,6 @@ reader_input.src = [Me.row Me.col Me.origin]
 reader_input.error Msg = bad "at [Me.src]: [Msg]"
 
 data token symbol value src parsed
-_.is_token = 0
-token.is_token = 1
 token_is What O = O.is_token and O.symbol >< What
 
 //FIXME: optimize memory usage
@@ -43,7 +39,7 @@ add_lexeme Dst Pattern Type =
                 | Kleene <= 1
 | when Cs.is_text | Cs <= Cs.chars
 | Cs = if Cs.is_list then Cs else [Cs]
-| Cs each: C =>
+| for C Cs
   | T = Dst.C
   | when no T: 
     | T <= if Kleene then Dst else table 256
@@ -76,10 +72,10 @@ init_tokenizer =
 | Ss = \((`if` `if`) (`then` `then`) (`else` `else`) (`and` `and`) (`or` `or`) (`Void` `void`))
 | GTable <= table 256
 | GSpecs <= table 256
-| Ss each:[A B] => GSpecs.A <= B
-| Ls each:L =>
+| for [A B] Ss: GSpecs.A <= B
+| for L Ls
   | [Pattern Type] = if L.is_list then L else [L L]
-  | when Pattern.is_text: Pattern! chars
+  | when Pattern.is_text: Pattern <= Pattern.chars
   | add_lexeme GTable Pattern Type
 
 init_tokenizer
@@ -176,8 +172,8 @@ read_multi_comment R Cs =
 | while O > 0
   | on [R.next R.next]
        [X Void] | R.error{"`/*`: missing `*/`"}
-       [`*` `/`] | O!-1
-       [`/` `*`] | O!+1
+       [`*` `/`] | O !- 1
+       [`/` `*`] | O !+ 1
   | R.next
 | read_token R 0
 
@@ -347,7 +343,7 @@ parse_strip X =
   then | for V X
          | when on V [U@Us] V^token_is{`!`} and not on X [Z@Zs] Z^token_is{`!`}:
            | leave [`!!`] 
-       | X map:V => parse_strip V
+       | map V X: parse_strip V
   else X
 
 read Chars =

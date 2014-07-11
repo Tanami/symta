@@ -14,10 +14,6 @@
 
 #define LIST_SIZE(o) OBJECT_CODE(o)
 
-#define IS_BIGTEXT(o) (GET_TAG(o) == T_DATA && DATA_TAG(o) == T_TEXT)
-#define IS_TEXT(o) (GET_TAG(o) == T_FIXTEXT || IS_BIGTEXT(o))
-#define BIGTEXT_SIZE(o) DATA_REF4(o,0)
-#define BIGTEXT_DATA(o) ((char*)&DATA_REF1(o,4))
 
 #define DATA_SIZE(o) ((uintptr_t)methods[0].types[DATA_TAG(o)])
 
@@ -698,12 +694,12 @@ BUILTIN2("int shl",integer_shl,C_ANY,a,C_FIXNUM,b)
 RETURNS((intptr_t)a<<UNFIXNUM(b))
 BUILTIN2("int shr",integer_shr,C_ANY,a,C_FIXNUM,b)
 RETURNS(((intptr_t)a>>UNFIXNUM(b))&~(TAG_MASK>>1))
-BUILTIN2("int x",integer_x,C_ANY,size,C_ANY,init)
+BUILTIN2("int dup",integer_dup,C_ANY,size,C_ANY,init)
   void **p;
   intptr_t s = UNFIXNUM(size);
   if (s < 0) {
-    fprintf(stderr, "%ld\n", s);
-    TEXT(R,"integer x");
+    fprintf(stderr, "cant copy nagative number of times: %ld\n", s);
+    TEXT(R,"integer dup");
     bad_call(REGS_ARGS(P), R);
   } else if (size == 0) {
     R = Empty;
@@ -769,7 +765,7 @@ static uintptr_t show_runtime_info(api_t *api) {
          , heap0_used-runtime_reserved0
          , heap1_used-runtime_reserved1);
   fprintf(stderr, "total: %ld\n", (uintptr_t)(HEAP_SIZE)*2*8-total_reserved);
-  fprintf(stderr, "reserved: %ld\n", total_reserved);
+  fprintf(stderr, "runtime: %ld\n", total_reserved);
   fprintf(stderr, "types used: %d/%d\n", types_used, MAX_TYPES);
   fprintf(stderr, "methods used: %d/%d\n", methods_used, MAX_METHODS);
 }
@@ -1127,6 +1123,7 @@ static void *gc_entry(api_t *api, void *gc_base, void *gc_end, void *o) {
 
 static void fatal_error(api_t *api, char *msg) {
   fprintf(stderr, "%s\n", msg);
+  print_stack_trace(api);
   abort();
 }
 
@@ -1313,7 +1310,7 @@ int main(int argc, char **argv) {
   METHOD_FN("xor", b_integer_xor, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("shl", b_integer_shl, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("shr", b_integer_shr, 0, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("x", b_integer_x, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("dup", b_integer_dup, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("head", 0, 0, b_list_head, 0, 0, b_view_head, b_cons_head, 0);
   METHOD_FN("tail", 0, 0, b_list_tail, 0, 0, b_view_tail, b_cons_tail, 0);
   METHOD_FN("pre", 0, 0, b_list_pre, 0, 0, b_view_pre, b_cons_pre, 0);
