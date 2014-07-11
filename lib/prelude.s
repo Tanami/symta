@@ -247,6 +247,7 @@ list.infix Item =
 | if N < 0 then [] else dup I N: if I%2 then Item else Me^pop
 
 list.locate F =
+| I = 0
 | till Me.end
   | when F Me^pop: leave I
   | I !+ 1
@@ -294,7 +295,7 @@ say @Xs =
 
 // hashtable
 data table buckets
-table Size = new_table: Size x Void
+table Size = new_table: dup I Size Void
 table.`.` K =
 | Bs = Me.buckets
 | H = K.hash%Bs.size

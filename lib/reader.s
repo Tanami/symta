@@ -28,7 +28,7 @@ token_is What O = O.is_token and O.symbol >< What
 
 //FIXME: optimize memory usage
 add_lexeme Dst Pattern Type =
-| when Pattern end
+| when Pattern.end
   | Dst.'type' <= Type
   | leave Void
 | [Cs@Next] = Pattern

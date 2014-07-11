@@ -883,7 +883,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (defun expand-list-hole (key hole hit miss)
   (match hole
     (() (return-from expand-list-hole
-          `("if" (,key "end")
+          `("if" ("_mcall" ,key "end")
                  ,hit
                  ,miss)))
         ;;(return-from expand-list-hole (expand-hole key :empty hit miss)))
@@ -891,10 +891,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     ((("@" zs) . more) (error "@ in the middle isn't supported")))
   (let* ((h (ssa-name "X"))
          (hit (expand-list-hole key (cdr hole) hit miss)))
-    `("if" (,key "end")
+    `("if" ("_mcall" ,key "end")
            ,miss
-           ("_let" ((,h (,key "head"))
-                    (,key (,key "tail")))
+           ("_let" ((,h ("_mcall" ,key "head"))
+                    (,key ("_mcall" ,key "tail")))
                ,(expand-hole h (car hole) hit miss)))))
 
 (defun expand-hole (key hole hit miss)
@@ -1186,7 +1186,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("@" xs)
          (setf as (cdr (reverse as)))
          (while as
-           (setf xs `(,xs "pre" ,(car as)))
+           (setf xs `("_mcall" ,xs "pre" ,(car as)))
            (setf as (cdr as)))
          (return-from expand-list xs)))
   ! as = m a as (if (incut? a) (second a) `("_list" ,a))
@@ -1312,7 +1312,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                      (t `("_mcall" ,a "." ,b))))
         (("{}" ("." a b) . as) `("_mcall" ,a ,b ,@as))
         (("{}" ("^" a b) . as) `(,b ,@as ,a))
-        (("{}" h . as) `(,h "{}" ,as))
+        (("{}" h . as) `("_mcall" ,h "{}" ,as))
         (("{}" . else) (error "bad {}: ~%" xs))
         (("\\" o) (expand-quasiquote o))
         (("+" a b) `("_mcall" ,a "+" ,b))
@@ -1408,7 +1408,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to symta filename
   ! *lib-folder* = "{*root-folder*}lib/"
   ;! compile-lib "prelude"
-  ;! compile-lib "reader"
+  ! compile-lib "reader"
   ;! compile-lib "compiler"
   ! cache-folder = "{*root-folder*}cache/"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"
