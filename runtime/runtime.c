@@ -14,8 +14,7 @@
 
 #define LIST_SIZE(o) OBJECT_CODE(o)
 
-
-#define DATA_SIZE(o) ((uintptr_t)methods[0].types[DATA_TAG(o)])
+#define DATA_SIZE(o) ((uintptr_t)methods[0][DATA_TAG(o)])
 
 #define C_ANY(o,arg_index,meta)
 
@@ -26,10 +25,6 @@
 #define C_TEXT(o,arg_index,meta) \
   if (!IS_TEXT(o)) \
     api->bad_type(REGS_ARGS(P), "text", arg_index, meta)
-
-#define C_LIST(o,arg_index,meta) \
-  if (GET_TAG(o) != T_LIST) \
-    api->bad_type(REGS_ARGS(P), "cons", arg_index, meta)
 
 #define BUILTIN_CLOSURE(dst,code) { ALLOC_CLOSURE(dst, code, 0); }
 
@@ -60,17 +55,17 @@ static char *lib_path;
 
 static api_t apis[2]; // one for each heap
 
-typedef struct {
-  char *name;
-  void **types;
-} method_t;
+#define M_SIZE 0
+#define M_NAME 1
+#define M_SINK 2
 
 static int methods_used;
-static method_t methods[MAX_METHODS];
+static void **methods[MAX_METHODS];
 static int types_used;
 static char *typenames[MAX_TYPES];
 
 static void *undefined;
+static void *sink;
 
 
 // FIXME: use heap instead
@@ -101,8 +96,9 @@ static void fatal(char *fmt, ...) {
 static void **resolve_method(api_t *api, char *name) {
   int i, j;
   for (i = 0; i < methods_used; i++) {
-    if (!strcmp(methods[i].name, name)) {
-      return methods[i].types;
+    void **method = methods[i];
+    if (!strcmp(method[T_NAME], name)) {
+      return methods[i];
     }
   }
   if (methods_used == MAX_METHODS) {
@@ -111,10 +107,11 @@ static void **resolve_method(api_t *api, char *name) {
   }
   ++methods_used;
 
-  for (j = 0; j < types_used; j++) methods[i].types[j] = undefined;
+  for (j = 0; j < types_used; j++) methods[i][j] = undefined;
 
-  methods[i].name = strdup(name);
-  return methods[i].types;
+  methods[i][T_NAME] = strdup(name);
+  TEXT(methods[i][T_NAME_TEXT] ,name);
+  return methods[i];
 }
 
 static void add_subtype(api_t *api, int type, int subtype);
@@ -131,7 +128,8 @@ static int resolve_type(api_t *api, char *name) {
   ++types_used;
   typenames[i] = strdup(name);
 
-  for (j = 0; j < methods_used; j++) methods[j].types[i] = undefined;
+  for (j = 0; j < methods_used; j++) methods[j][i] = undefined;
+  methods[M_SINK][i] = sink;
 
   add_subtype(api, T_OBJECT, i);
 
@@ -176,10 +174,10 @@ static void add_subtype(api_t *api, int type, int subtype) {
   subtypings[type].items[subtypings[type].used++] = subtype;
   supertypings[subtype].items[supertypings[subtype].used++] = type;
   for (j = 0; j < methods_used; j++) {
-    method_t *method = methods+j;
-    void *handler = method->types[type];
+    void **method = methods[j];
+    void *handler = method[type];
     if (handler == undefined) continue;
-    set_method_r(api, method->types, (void*)(uintptr_t)subtype, handler, 1);
+    set_method_r(api, method, (void*)(uintptr_t)subtype, handler, 1);
   }
 }
 
@@ -188,8 +186,8 @@ static void set_method(api_t *api, void *method, void *type, void *handler) {
 }
 
 static void set_type_size_and_name(struct api_t *api, intptr_t tag, intptr_t size, void *name) {
-  methods[0].types[tag] = (void*)size;
-  methods[1].types[tag] = name;
+  methods[M_SIZE][tag] = (void*)size;
+  methods[M_NAME][tag] = name;
 }
 
 static void *tag_of(void *o) {
@@ -197,7 +195,7 @@ static void *tag_of(void *o) {
   if (tag == T_DATA) {
     tag = DATA_TAG(o);
   }
-  return methods[1].types[tag];
+  return methods[M_NAME][tag];
 }
 
 static int fixtext_size(void *o) {
@@ -506,10 +504,6 @@ RETURNS(CDR(o))
 BUILTIN1("cons end",cons_end,C_ANY,o)
 RETURNS(FIXNUM(0))
 BUILTIN2("cons pre",cons_pre,C_ANY,o,C_ANY,head)
-  CONS(R, head, o);
-RETURN(R)
-RETURNS(0)
-BUILTIN2("cons",cons,C_ANY,head,C_ANY,o)
   CONS(R, head, o);
 RETURN(R)
 RETURNS(0)
@@ -847,18 +841,30 @@ BUILTIN2("_apply",_apply,C_ANY,f,C_ANY,args)
   CALL_NO_POP(R,f);
 RETURNS(R)
 
-BUILTIN1("_no_method",_no_method,C_TEXT,name)
-  printf("method not found: %s\n", print_object(name));
-  STORE(E, 0, P);
-  bad_call(REGS_ARGS(P), name);
+BUILTIN2("_",sink,C_ANY,as,C_ANY,name)
+  void *o = LIST_REF(E,0);
+  fprintf(stderr, "%s has no method ", print_object(tag_of(o)));
+  fprintf(stderr, "%s\n", print_object(name));
+  print_stack_trace(api);
   abort();
-RETURNS(Void)
+RETURNS(0)
 
 BUILTIN_VARARGS("undefined",undefined)
-  fprintf(stderr, "%s has no method ", print_object(tag_of(getArg(0))));
-  fprintf(stderr, "%s\n", print_object(api->method));
-  bad_call(REGS_ARGS(P), api->method);
-  abort();
+  void *o = getArg(0);
+  void **m = methods[M_SINK];
+  uintptr_t tag = (uintptr_t)GET_TAG(o);
+  void *name = ((void**)api->method)[T_NAME_TEXT];
+  void *as = ADD_TAG(E, T_LIST);
+  void *e;
+  ARGLIST(e,2);
+  ARG_STORE(e,0,as);
+  ARG_STORE(e,1,name);
+  if (m[tag] == undefined) {
+    fprintf(stderr, "%ld lost sink method!\n", tag); 
+    abort();
+  }
+  CALL_METHOD_WITH_TAG(R,o,m,tag);
+  return (void*)R;
 RETURNS(0)
 
 static struct {
@@ -872,9 +878,7 @@ static struct {
   {"rtstat", b_rtstat},
   {"stack_trace", b_stack_trace},
   {"_apply", b__apply},
-  {"_no_method", b__no_method},
   {"read_file_as_text", b_read_file_as_text},
-  {"cons", b_cons},
 
   //{"save_string_as_file", b_save_text_as_file},
   {0, 0}
@@ -1225,6 +1229,8 @@ int main(int argc, char **argv) {
   api->other->level = 0;
 
   BUILTIN_CLOSURE(undefined, b_undefined);
+  BUILTIN_CLOSURE(sink, b_sink);
+
   ALLOC_DATA(Void, T_VOID, 0);
   LIST_ALLOC(Empty, 0);
 
@@ -1252,7 +1258,7 @@ int main(int argc, char **argv) {
   ++libs_used;
 
   for (i = 0; i < MAX_METHODS; i++) {
-    ALLOC_BASIC(methods[i].types, 0, MAX_TYPES);
+    ALLOC_BASIC(methods[i], 0, MAX_TYPES);
     api = api->other;
   }
   if (api->level != 1) api = api->other;
@@ -1288,9 +1294,14 @@ int main(int argc, char **argv) {
   api->resolve_type(api, "list");
   api->resolve_type(api, "text");
   api->resolve_type(api, "hard_list");
+  api->resolve_type(api, "_name_");
+  api->resolve_type(api, "_name_text_");
 
   METHOD_VAL("_size", 0, 0, 0, 0, 0, 0, 0, 0);
   METHOD_VAL("_name", n_int, n_fn, n_list, n_text, n_text, n_list, n_list, n_void);
+  METHOD_FN("_", b_sink, b_sink, b_sink, b_sink, b_sink, b_sink, b_sink, b_sink);
+  METHOD_FN("&", 0, 0, 0, 0, 0, 0, 0, 0);
+
   METHOD_FN("_gc", 0, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("_print", 0, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("neg", b_integer_neg, 0, 0, 0, 0, 0, 0, 0);
@@ -1336,6 +1347,9 @@ int main(int argc, char **argv) {
 
   runtime_reserved0 = get_heap_used(0);
   runtime_reserved1 = get_heap_used(1);
+
+  api->m_ampersand = api->other->m_ampersand = resolve_method(api, "&");
+  api->m_underscore = api->other->m_underscore = resolve_method(api, "_");
 
   R = exec_module(api, module);
 

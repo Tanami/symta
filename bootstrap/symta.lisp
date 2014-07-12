@@ -437,6 +437,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'global v
   ! v)
 
+(to ev x
+  ! r = ssa-var "r"
+  ! ssa-expr r x
+  ! r)
+
 (to ssa-text k s
   ! bytes-name = ssa-cstring s
   ! name = ssa-global "s"
@@ -468,8 +473,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! unless k (setf k (ssa-var "result"))
   ! ssa-expr k body
   ! when epilogue (ssa 'return k)
-  ! list *ssa-out* (car *ssa-closure*)
-  )
+  ! list *ssa-out* (car *ssa-closure*))
 
 (to ssa-fn name k args body o
   ! f = ssa-name "f"
@@ -489,9 +493,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to ssa-if k cnd then else
   ! then-label = ssa-name "then"
   ! end-label = ssa-name "endif"
-  ! c = ssa-var "cnd"
-  ! ssa-expr c cnd
-  ! ssa 'branch c then-label
+  ! ssa 'branch (ev cnd) then-label
   ! ssa-expr k else
   ! ssa 'jmp end-label
   ! ssa 'local_label then-label
@@ -531,9 +533,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! e = ssa-var "env"
   ! ssa 'arglist e (length args)
   ! i = -1
-  ! e v vals (! tmp = ssa-var "tmp"
-              ! ssa-expr tmp v
-              ! ssa 'arg_store e (incf i) tmp)
+  ! e v vals (ssa 'arg_store e (incf i) (ev v))
   ! save-p = ssa-var "save_p"
   ! save-e = ssa-var "save_e"
   ! ssa 'move save-p 'p
@@ -542,40 +542,37 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'move 'p p
   ! setf *ssa-out* `(,@ssa-body ,@*ssa-out*)
   ! ssa 'move 'p save-p
-  ! ssa 'move 'e save-e
-  )
+  ! ssa 'move 'e save-e)
 
-(to ssa-apply k f as &optional is-method
-  ! unless is-method
-     (match f (("_fn" bs . body)
-               (return-from ssa-apply (ssa-let k bs as body))))
+(to ssa-apply k f as
+  ! match f (("_fn" bs . body)
+             (return-from ssa-apply (ssa-let k bs as body)))
   ! ssa 'push_base
   ! *ssa-bases* = cons nil *ssa-bases*
-  ! h = ssa-var "head"
-  ! ssa-expr h f
-  ! vs = m a as
-        (! v = ssa-var "a"
-         ! ssa-expr v a
-         ! v)
+  ! h = ev f
+  ! vs = m a as (ev a)
   ! e = ssa-var "env"
-  ! nargs = length as
-  ! ssa 'arglist e nargs
+  ! ssa 'arglist e (length as)
   ! i = -1
   ! e v vs (ssa 'arg_store e (incf i) v)
-  ! when (fn-sym? f) (return-from ssa-apply (ssa 'call k h))
-  ! method-name = and (> nargs 0)
-                      (match as ((("_quote" x . renamed) . xs) (and (stringp x) x)))
-  ! unless method-name (return-from ssa-apply (ssa 'call_tagged_dynamic k h))
-  ! method-name-bytes = ssa-cstring method-name
+  ! if (fn-sym? f) (ssa 'call k h) (ssa 'call_tagged k h))
+
+(to ssa-apply-method k name o as
+  ! ssa 'push_base
+  ! *ssa-bases* = cons nil *ssa-bases*
+  ! setf as `(,o ,@as)
+  ! vs = m a as (ev a)
+  ! e = ssa-var "env"
+  ! ssa 'arglist e(length as)
+  ! i = -1
+  ! e v vs (ssa 'arg_store e (incf i) v)
+  ! method-name-bytes = ssa-cstring (second name)
   ! m = ssa-global "m"
   ! push `(resolve_method ,m ,method-name-bytes) *ssa-raw-inits*
-  ! if is-method
-       (ssa 'call_method k h m)
-       (ssa 'call_tagged k h m))
+  ! ssa 'call_method k (car vs) m)
 
 (to ssa-set k place value
-  ! r = ssa-var "r"
-  ! ssa-expr r value
+  ! r = ev value
   ! ssa-symbol nil place r
   ! ssa 'move k r)
 
@@ -648,9 +645,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! l = ssa-var "l"
   ! ssa 'arglist l (length xs)
   ! i = -1
-  ! e x xs (! r = ssa-var "r"
-            ! ssa-expr r x
-            ! ssa 'arg_store l (incf i) r)
+  ! e x xs (ssa 'arg_store l (incf i) (ev x))
   ! ssa 'tagged k l 'T_LIST)
 
 (to ssa-data k type xs
@@ -661,16 +656,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      ! ssa 'type type-var bytes-name bytes-name size
      ! setf *ssa-raw-inits* (append *ssa-out* *ssa-raw-inits*))
   ! ssa 'alloc_data k type-var size
-  ! tmp = ssa-var "v"
   ! i = -1
-  ! e x xs (! ssa-expr tmp x
-            ! ssa 'dinit k (incf i) tmp))
+  ! e x xs (ssa 'dinit k (incf i) (ev x)))
 
 (to ssa-dget k src off
   ! unless (integerp off) (error "dget: offset must be integer")
-  ! s = ssa-var "s"
-  ! ssa-expr s src
-  ! ssa 'dget k s off)
+  ! ssa 'dget k (ev src) off)
 
 (to ssa-dset k dst off value
   ! unless (integerp off) (error "dset: offset must be integer")
@@ -686,9 +677,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! type-name-bytes = ssa-cstring (second type-name)
   ! type-var = ssa-global "t"
   ! push `(resolve_type ,type-var ,type-name-bytes) *ssa-raw-inits*
-  ! h = ssa-var "h"
-  ! ssa-expr h handler
-  ! ssa 'dmet method-var type-var h
+  ! ssa 'dmet method-var type-var (ev handler)
   ! ssa 'move k 0)
 
 (to ssa-import k lib symbol
@@ -713,11 +702,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! v = ssa-var "m"
   ! ssa-text v (second name)
   ! ssa 'mark v)
-
-(to ev x
-  ! r = ssa-var "r"
-  ! ssa-expr r x
-  ! r)
 
 (to ssa-fixed1 k op x ! ssa op k (ev x))
 (to ssa-fixed2 k op a b ! ssa op k (ev a) (ev b))
@@ -744,7 +728,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_dget" src index) (ssa-dget k src index))
     (("_dset" dst index value) (ssa-dset k dst index value))
     (("_dmet" method type handler) (ssa-dmet k method type handler))
-    (("_mcall" f . as) (ssa-apply k f as t))
+    (("_mcall" o m . as) (ssa-apply-method k m o as))
     (("_list" . xs) (ssa-list k xs))
     (("_alloc" n) (ssa-alloc k n))
     (("_store" base off value) (ssa-store base off value))
@@ -1407,7 +1391,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to symta filename
   ! *lib-folder* = "{*root-folder*}lib/"
-  ;! compile-lib "prelude"
+  ! compile-lib "prelude"
   ! compile-lib "reader"
   ;! compile-lib "compiler"
   ! cache-folder = "{*root-folder*}cache/"

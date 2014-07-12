@@ -77,6 +77,11 @@ ssa_global Name =
 | ssa global V
 | V
 
+ev X =
+| R = ssa_var r
+| ssa_expr R X
+| R
+
 ssa_text K S =
 | BytesName = ssa_cstring S
 | Name = ssa_global s
@@ -127,9 +132,7 @@ ssa_fn Name K Args Body O =
 ssa_if K Cnd Then Else =
 | ThenLabel = gensym `then`
 | EndLabel = gensym endif
-| C = ssa_var cnd
-| ssa_expr C Cnd
-| ssa branch C ThenLabel
+| ssa branch Cnd^ev ThenLabel
 | ssa_expr K Else
 | ssa jmp EndLabel
 | ssa local_label ThenLabel
@@ -167,10 +170,7 @@ ssa_let K Args Vals Xs =
                      else ssa copy P I \P C^get_parent_index
 | E = ssa_var env
 | ssa arglist E Args.size
-| for [I V] Vals.enum
-  | Tmp = ssa_var tmp
-  | ssa_expr Tmp V
-  | ssa arg_store E I Tmp
+| for [I V] Vals.enum: ssa arg_store E I V^ev
 | SaveP = ssa_var save_p
 | SaveE = ssa_var save_e
 | ssa mave SaveP \P
@@ -181,32 +181,31 @@ ssa_let K Args Vals Xs =
 | ssa move \P SaveP
 | ssa move \E SaveE
 
-ssa_apply K F As IsMethod =
-| unless IsMethod: on F [_fn Bs @Body]: leave: ssa_let K Bs As Body
+ssa_apply K F As =
+| on F [_fn Bs @Body]: leave: ssa_let K Bs As Body
+| ssa push_base
+| let GBases [[] @GBases]
+  | H = ev F
+  | Vs = map A As: ev A
+  | E = ssa_var env
+  | ssa arglist E As.size
+  | for [I V] Vs.enum: ssa arg_store E I V
+  | if F.is_keyword then ssa call K H else ssa call_tagged K H
+
+ssa_apply_method K Name O As =
 | ssa push_base
 | let GBases [[] @GBases]: named block
-  | H = ssa_var head
-  | ssa_expr H F
-  | Vs = As.map{A => | V = ssa_var a
-                     | ssa_expr V A
-                     | V}
+  | As <= [O@As]
+  | Vs = map A As: ev A
   | E = ssa_var env
-  | NArgs = As.size
-  | ssa arglist E NArgs
+  | ssa arglist E As.size
   | for [I V] Vs.enum: ssa arg_store E I V
-  | when F.is_keyword: leave block: ssa call K H
-  | MethodName = NArgs and on As [[_quote X @Renamed] @Xs] (X.is_text and X)
-  | unless MethodName: leave block: ssa call_tagged_dynamic K H
-  | MethodNameBytes = ssa_cstring MethodName
   | M = ssa_global m
-  | push [resolve_method M MethodNameBytes] GRawInits
-  | if IsMethod
-    then ssa call_method K H M
-    else ssa call_tagged K H M
+  | push [resolve_method M Name.1^ssa_cstring] GRawInits
+  | ssa call_method K Vs.0 M
 
 ssa_set K Place Value =
-| R = ssa_var r
-| ssa_expr R Value
+| R = ev Value
 | ssa_symbol Void Place R
 | ssa move K R
 
@@ -258,21 +257,11 @@ uniquify_expr Expr = if Expr.is_list
 
 uniquify Expr = let GUniquifyStack []: uniquify_expr Expr
 
-ssa_fixed K Op A B =
-| AV = ssa_var a
-| BV = ssa_var b
-| ssa_expr AV A
-| ssa_expr BV B
-| ssa Op K AV BV
-
 ssa_list K Xs =
 | unless Xs.size: leave: ssa move K 'Empty'
 | L = ssa_var l
 | ssa arglist L Xs.size
-| for [I X] Xs.enum
-  | R = ssa_var r
-  | ssa_expr R X
-  | ssa arg_store L I R
+| for [I X] Xs.enum: ssa arg_store L I X^ev
 | ssa add_tag K L \T_LIST
 
 ssa_data K Type Xs =
@@ -283,21 +272,15 @@ ssa_data K Type Xs =
   | ssa type TypeVar BytesName BytesName Size
   | for X GOut.reverse: push X GRawInits
 | ssa data K TypeVar Size
-| Tmp = ssa_var v
-| for [I X] Xs.enum
-  | ssa_expr Tmp X
-  | ssa dinit K I Tmp
+| for [I X] Xs.enum: ssa dinit K I X^ev
 
 ssa_dget K Src Off =
 | unless Off.is_int: bad "dget: offset must be integer"
-| S = ssa_var s
-| ssa_expr S Src
-| ssa dget K S Off
+| ssa dget K Src^ev Off
 
 ssa_dset K Dst Off Value =
 | unless Off.is_int: bad "dset: offset must be integer"
-| D = ssa_var d
-| ssa_expr D Dst
+| D = ev Dst
 | ssa_expr K Value
 | ssa dset D Off K
 
@@ -308,9 +291,7 @@ ssa_dmet K MethodName TypeName Handler =
 | TypeNameBytes = ssa_cstring TypeName.1
 | TypeVar = ssa_global t
 | push [resolve_type TypeVar TypeNameBytes] GRawInits
-| H = ssa_var h
-| ssa_expr H Handler
-| ssa dmet MethodVar TypeVar H
+| ssa dmet MethodVar TypeVar Handler^ev
 | ssa move K 0
 
 ssa_import K Lib Symbol =
@@ -331,9 +312,20 @@ ssa_goto Name =
 | ssa jmp Name
 
 ssa_mark Name =
-| V = ssa_var x
+| V = ssa_var m
 | ssa_text V Name.1
 | ssa mark V
+
+ssa_fixed1 K Op X = ssa Op K X^ev
+ssa_fixed2 K Op A B = ssa Op K A^ev B^ev
+
+ssa_alloc K N =
+| X = ssa_var x
+| ssa_fixed1 X fixnum_unfixnum N
+| ssa arglist K X
+
+ssa_store Base Off Value = ssa untagged_store Base^ev Off^ev Value^ev
+ssa_tagged K Tag X = ssa tagged K X^ev Tag.1
 
 ssa_form K Xs = on Xs
   [_fn As Body] | ssa_fn n^gensym K As Body Xs
@@ -348,11 +340,19 @@ ssa_form K Xs = on Xs
   [_dget Src Index] | ssa_dget K Src Index
   [_dset Dst Index Value] | ssa_dset K Dst Index Value
   [_dmet Method Type Handler] | ssa_dmet K Method Type Handler
-  [_mcall F @As] | ssa_apply K F As 1
+  [_mcall O Method @As] | ssa_apply K Method O As
   [_list @Xs] | ssa_list K Xs
+  [_alloc N] | ssa_alloc K N
+  [_store Base Off Value] | ssa_store Base Off Value
+  [_tagged Tag X] | ssa_tagged K Tag X
   [_import Lib Symbol] | ssa_import K Lib Symbol
-  //[_add A B] | ssa_fixed K fixed_add A B
-  [F @As] | ssa_apply K F As 0
+  [_add A B] | ssa_fixed2 K fixed_add A B
+  [_eq A B] | ssa_fixed2 K fixed_eq A B
+  [_lt A B] | ssa_fixed2 K fixed_lt A B
+  [_gte A B] | ssa_fixed2 K fixed_gte A B
+  [_tag X] | ssa_fixed1 K fixed_tag X
+  [_fatal Msg] | ssa fatal Msg^ev
+  [F @As] | ssa_apply K F As
   [] | ssa_atom K Void
   Else | bad "special form: [Xs]"
 

@@ -27,6 +27,8 @@
 #define T_GENERIC_LIST 11
 #define T_GENERIC_TEXT 12
 #define T_HARD_LIST 13
+#define T_NAME 14
+#define T_NAME_TEXT 15
 
 #define T_INTEGER T_FIXNUM
 
@@ -74,6 +76,9 @@ typedef struct api_t {
   void *resolve_;
 
   void *method;
+
+  void *m_ampersand;
+  void *m_underscore;
 
   // runtime's C API
   void (*bad_type)(REGS, char *expected, int arg_index, char *name);
@@ -199,14 +204,13 @@ typedef void *(*pfun)(REGS);
 #define CALL_METHOD_WITH_TAG(k,o,m,tag) \
    { \
       void *p; \
-      ARG_LOAD(api->method, Top, 2); \
-      ARG_STORE(Top, 2, o); \
+      api->method = m; \
       if (tag == T_DATA) { \
         tag = DATA_TAG(o); \
       } \
       p = ((void**)(m))[tag]; \
       k = OBJECT_CODE(p)(REGS_ARGS(p)); \
-   } \
+   }
 
 #define CALL_METHOD(k,o,m) \
   { \
@@ -215,24 +219,22 @@ typedef void *(*pfun)(REGS);
     POP_BASE(); \
   }
 
-#define CALL_TAGGED_NO_POP(k,o,m) \
+#define CALL_TAGGED_NO_POP(k,o) \
   { \
     uintptr_t tag = (uintptr_t)GET_TAG(o); \
     if (tag == T_CLOSURE) { \
       k = OBJECT_CODE(o)(REGS_ARGS(o)); \
     } else { \
-       api->fatal(api, "FIXME: overload funcall"); \
-      /*CALL_METHOD_WITH_TAG(k,o,m,tag);*/ \
+      void *as = ADD_TAG((void**)Top+OBJ_HEAD_SIZE, T_LIST); \
+      void *e; \
+      ARGLIST(e,2); \
+      ARG_STORE(e,0,o); \
+      ARG_STORE(e,1,as); \
+      /*api->fatal(api, "FIXME: overload funcall");*/ \
+      CALL_METHOD_WITH_TAG(k,o,api->m_ampersand,tag); \
     } \
   }
-#define CALL_TAGGED(k,o,m) CALL_TAGGED_NO_POP(k,o,m); POP_BASE();
-#define CALL_TAGGED_DYNAMIC_NO_POP(k,o) \
-  if (GET_TAG(o) == T_CLOSURE) { \
-    k = OBJECT_CODE(o)(REGS_ARGS(o)); \
-  } else { \
-    api->fatal(api, "FIXME: resolve method at runtime"); \
-  }
-#define CALL_TAGGED_DYNAMIC(k,o) CALL_TAGGED_DYNAMIC_NO_POP(k,o); POP_BASE();
+#define CALL_TAGGED(k,o) CALL_TAGGED_NO_POP(k,o); POP_BASE();
 
 //FIXME: refactor these
 #define VIEW_REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-T_VIEW)
