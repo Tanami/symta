@@ -859,10 +859,6 @@ BUILTIN_VARARGS("undefined",undefined)
   ARGLIST(e,2);
   ARG_STORE(e,0,as);
   ARG_STORE(e,1,name);
-  if (m[tag] == undefined) {
-    fprintf(stderr, "%ld lost sink method!\n", tag); 
-    abort();
-  }
   CALL_METHOD_WITH_TAG(R,o,m,tag);
   return (void*)R;
 RETURNS(0)

@@ -8,6 +8,7 @@ void.end = 1
 void.`.` K = Void
 void.find F = Void
 void.locate F = Void
+void.size = 0
 
 _.`<>` B = not Me >< B
 _.`<<` B = not B < Me
@@ -141,60 +142,15 @@ hard_list.count F =
 | times I Me.size: when F Me.I: S !+ 1
 | S
 
-list.countNot F =
-| C = 0
-| till Me.end: unless Me^pop^F: C !+ 1
-| C
-
-hard_list.countNot F = Me.size - Me.count{F}
-
 list.keep F =
-| N = Me.count{F}
-| Ys = dup I N 0
-| J = 0
-| while J < N
-  | X = pop Me
-  | when F X
-    | Ys.J <= X
-    | J !+ 1
-| Ys
-
-hard_list.keep F =
-| N = Me.count{F}
-| Ys = dup I N 0
-| I = 0
-| J = 0
-| while J < N
-  | X = Me.I
-  | when F X
-    | Ys.J <= X
-    | J !+ 1
-  | I !+ 1
-| Ys
+| Ys = []
+| for X Me: when F X: Ys <= [X@Ys]
+| Ys.reverse
 
 list.skip F =
-| N = Me.countNot{F}
-| Ys = dup I N 0
-| J = 0
-| while J < N
-  | X = pop Me
-  | unless F X
-    | Ys.J <= X
-    | J !+ 1
-| Ys
-
-hard_list.skip F =
-| N = Me.countNot{F}
-| Ys = dup I N 0
-| I = 0
-| J = 0
-| while J < N
-  | X = Me.I
-  | unless F X
-    | Ys.J <= X
-    | J !+ 1
-  | I !+ 1
-| Ys
+| Ys = []
+| for X Me: unless F X: Ys <= [X@Ys]
+| Ys.reverse
 
 list.join =
 | Size = Me.map{X=>X.size}.sum
@@ -309,6 +265,13 @@ table.`!` K V =
        | if no Old then Bs.H <= [[K V]@Xs]
          else Old.1 <= V
 | Void
+
+table.size = Me.buckets.map{X=>X.size}.sum
+table.harden = Me.buckets.skip{X => X >< Void}.join
+
+list.uniq =
+| Seen = table Me.size*2
+| Me.skip{X => have Seen.X or (Seen.X <= 1) and 0}
 
 
 export non say bad no have gensym table
