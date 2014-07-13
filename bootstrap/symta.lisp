@@ -1043,6 +1043,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       ,@(m f fields `("=" (("." ,name ,f)) ("_dget" "Me" ,(incf j))))
       ,@(m f fields `("=" (("." ,name ,"set_{f}") ,v) ("_dset" "Me" ,(incf k) ,v)))))
 
+(to expand-block-itme-method type name args body
+  ! setf body `("_default_leave" ,name ,(expand-named name body))
+  ! list nil `("_dmet" ,name ,type ("_fn" ("Me" ,@args)
+                                      ("_progn" ("_mark" ,"{type}.{name}") ,body))))
+
 (to expand-block-item x
   ! y = match x
      (("data" name . fields)
@@ -1051,10 +1056,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                (m x (expand-block-item-data name fields)
                   (expand-block-item x)))))
      (("=" ("!!" ("!" place)) value) (list nil (expand-assign place value)))
-     (("=" (("." type method) . args) value)
-      (list nil `("_dmet" ,method ,type ("_fn" ("Me" ,@args)
-                                           ("_default_leave" ,method
-                                             ,(expand-named method value))))))
+     (("=" (("." type method) . args) body) (expand-block-itme-method type method args body))
      (("=" (("[]" . bs)) value) (return-from expand-block-item (expand-destructuring value bs)))
      (("=" (name . args) value)
       (if (var-sym? name)

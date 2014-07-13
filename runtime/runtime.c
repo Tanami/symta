@@ -842,7 +842,7 @@ BUILTIN2("_apply",_apply,C_ANY,f,C_ANY,args)
 RETURNS(R)
 
 BUILTIN2("_",sink,C_ANY,as,C_ANY,name)
-  void *o = LIST_REF(E,0);
+  void *o = LIST_REF(getArg(0),0);
   fprintf(stderr, "%s has no method ", print_object(tag_of(o)));
   fprintf(stderr, "%s\n", print_object(name));
   print_stack_trace(api);
