@@ -168,6 +168,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        `(,@left ,@right))
 
 (to /string r incut end
+  ! incut = or incut :none
   ! l = nil
   ! while t
     (! c = $ r peek
@@ -1280,10 +1281,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("unless" . xs) `("_if" ,(butlast xs) :void ,@(last xs)))
         (("while" . xs) (expand-while (butlast xs) (car (last xs))))
         (("till" . xs) (expand-while `("not" ,(butlast xs)) (car (last xs))))
-        (("for" v . xs) (expand-for v (butlast xs) (car (last xs))))
-        (("map" v . xs) (expand-map v (butlast xs) (car (last xs))))
-        (("dup" v . xs) (expand-dup v (butlast xs) (car (last xs))))
-        (("times" v . xs) (expand-times v (butlast xs) (car (last xs))))
+        (("for" x xs body) (expand-for x xs body))
+        (("map" x xs body) (expand-map x xs body))
+        (("dup" x xs body) (expand-dup x xs body))
+        (("dup" xs body) (expand-dup nil xs body))
+        (("dup" xs) (expand-dup nil xs 0))
+        (("times" x xs body) (expand-times x xs body))
         (("pop" o) (expand-pop o))
         (("push" item o) (expand-push o item))
         (("and" a b) (expand-and a b))
@@ -1393,9 +1396,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to symta filename
   ! *lib-folder* = "{*root-folder*}lib/"
-  ! compile-lib "prelude"
+  ;! compile-lib "prelude"
   ! compile-lib "reader"
   ;! compile-lib "compiler"
+  ;! compile-lib "macros"
   ! cache-folder = "{*root-folder*}cache/"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"
   ! runtime-path = "{cache-folder}runtime"

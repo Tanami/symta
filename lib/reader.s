@@ -5,7 +5,6 @@ GError = Msg => log Msg
 GInput = Void
 GOutput = Void
 GSpecs = Void
-Newline = '\n'
 
 data reader_input chars origin row col off last len
 newInput Text Origin = new_reader_input Text.chars Origin 0 0 0 Void Text.size
@@ -16,7 +15,7 @@ reader_input.next =
   | Me.last <= Me.chars.(Me.off)
   | Me.col !+ 1
   | Me.off !+ 1
-  | when Me.last >< Newline
+  | when Me.last >< '\n'
     | Me.col <= 0
     | Me.row !+ 1
   | Me.last
@@ -60,7 +59,7 @@ init_tokenizer =
          `]` (`[` $(R O => [`[]` (read_list R O ']')]))
          `}` (`{` $(R O => [`{}` (read_list R O '}')]))
          (`'` $(R Cs => [text [`\\` @(read_string R 0 `'`)]]))
-         (`"` $(R Cs => [text [`\`` @(read_string R 0 '`')]]))
+         (`"` $(R Cs => [text [`"` @(read_string R 0 '"')]]))
          ($'`' $(R Cs => [symbol (read_string R 0 '`').0]))
          (`//` $&read_comment)
          (`/*` $&read_multi_comment)
@@ -77,8 +76,6 @@ init_tokenizer =
   | [Pattern Type] = if L.is_list then L else [L L]
   | when Pattern.is_text: Pattern <= Pattern.chars
   | add_lexeme GTable Pattern Type
-
-init_tokenizer
 
 read_token R LeftSpaced =
 | Src = R.src
@@ -161,21 +158,26 @@ read_string R Incut End =
               | M = read_token{R 0}.value
               | E = read_string R Incut End
               | leave: str_merge L M E
-       [] | R.error{'EOF in string'}
+       Void | R.error{'EOF in string'}
        Else | L <= [C@L]
 
-is_comment_char C = C and not C >< '\n'
-read_comment R Cs = while R.next^is_comment_char: read_token R 0
+is_comment_char C = have C and C <> '\n'
+read_comment R Cs =
+| while R.next^is_comment_char:
+| read_token R 0
 
 read_multi_comment R Cs =
 | O = 1
 | while O > 0
-  | on [R.next R.next]
+  | on [R.next R.peek]
        [X Void] | R.error{"`/*`: missing `*/`"}
        [`*` `/`] | O !- 1
+                 | R.next
        [`/` `*`] | O !+ 1
-  | R.next
+                 | R.next
 | read_token R 0
+
+init_tokenizer
 
 parser_error Cause Tok =
 | [Row Col Orig] = Tok.src
@@ -244,7 +246,7 @@ parse_term =
          `-` | leave Tok^parse_negate
          Else | push Tok GInput
               | leave 0
-| Tok.parsed <= P
+| Tok.parsed <= [P]
 | Tok
 
 is_delim X = X.is_token and on X.symbol (in `:` `=` `=>` `<=` `,` `if` `then` `else`) 1
@@ -340,19 +342,17 @@ parse_strip X =
        //| when R.is_text: R <= new_meta R X.src
        | leave R
   else if X.is_list
-  then | for V X
-         | when on V [U@Us] V^token_is{`!`} and not on X [Z@Zs] Z^token_is{`!`}:
-           | leave [`!!`] 
-       | map V X: parse_strip V
+  then | Ys = map V X: parse_strip V
+       | for V X
+         | when on V [U@Us] U^token_is{`!`} and not on X [Z@Zs] Z^token_is{`!`}:
+           | leave [`!!` @Ys]
+       | Ys
   else X
 
 read Chars =
 | R = parse_strip: parse: tokenize: newInput Chars test
-| R <= R.0
+| unless R.end: R <= R.0
 | on R [X S] S
        R R
-
-normalize Expr = on Expr [`|` @As] Expr
-                         X [`|` X]
 
 export read parse_strip parse tokenize newInput

@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#define SYMTA_DEBUG 1
+
 // used for debugging
 #define D fprintf(stderr, "%d:%s\n", __LINE__, __FILE__);
 
@@ -112,7 +114,17 @@ typedef void *(*pfun)(REGS);
 #define DATA_TAG(o) ((uintptr_t)OBJECT_CODE(o)&0xFFFFFFFF)
 #define OBJECT_LEVEL(x) ((uintptr_t)(((void**)((uintptr_t)(x)&~TAG_MASK)-2)[0]))
 
+#ifdef SYMTA_DEBUG
+#define HEAP_GUARD() \
+  if ((uint8_t*)Top - (uint8_t*)api->heap < 1024*4) { \
+    api->fatal(api, "out of memory"); \
+  }
+#else
+#define HEAP_GUARD()
+#endif
+
 #define ALLOC_BASIC(dst,code,count) \
+  HEAP_GUARD(); \
   Top = (void**)Top - ((uintptr_t)(count)+OBJ_HEAD_SIZE); \
   *((void**)Top+0) = (void*)Level; \
   *((void**)Top+1) = (void*)(code); \

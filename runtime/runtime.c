@@ -269,6 +269,34 @@ static void *alloc_text(api_t *api, char *s) {
   return r;
 }
 
+static char *decode_text(char *out, void *o) {
+  int tag = GET_TAG(o);
+  if (tag == T_FIXTEXT) {
+    out += fixtext_decode(out, o);
+    *out = 0;
+  } else if (tag == T_DATA) {
+    uintptr_t dtag = DATA_TAG(o);
+    if (dtag == T_TEXT) {
+      int size = (int)BIGTEXT_SIZE(o);
+      char *p = BIGTEXT_DATA(o);
+      while (size-- > 0) *out++ = *p++;
+      *out = 0;
+    } else {
+      fprintf(stderr, "decode_text: invalid tag (%ld)\n", dtag);
+      abort();
+    }
+  } else {
+    fprintf(stderr, "decode_text: invalid tag (%d)\n", tag);
+    abort();
+  }
+  return out;
+}
+
+static char *text_to_cstring(void *o) {
+  decode_text(print_buffer, o);
+  return print_buffer;
+}
+
 static void *exec_module(struct api_t *api, void *path) {
   void *lib;
   pfun entry, setup;
@@ -787,6 +815,12 @@ BUILTIN0("stack_trace",stack_trace)
 RETURN(R)
 RETURNS(0)
 
+BUILTIN1("load_library",load_library,C_TEXT,name_text)
+  decode_text(print_buffer, name_text);
+  R = load_lib(api, print_buffer);
+RETURN(R)
+RETURNS(0)
+
 BUILTIN1("set_error_handler",set_error_handler,C_ANY,h)
   fatal("FIXME: implement set_error_handler\n");
 RETURNS(Void)
@@ -814,17 +848,7 @@ static char *read_whole_file_as_string(char *input_file_name) {
   return file_contents;
 }
 
-static char *text_to_cstring(void *o) {
-  int i;
-  int l = UNFIXNUM(*(uint32_t*)o);
-  char *p = (char*)o + 4;
-  char *out = print_buffer;
-  for (i = 0; i < l; i++) *out++ = *p++;
-  *out = 0;
-  return print_buffer;
-}
-
-BUILTIN1("read_file_as_text",read_file_as_text,C_TEXT,filename_text)
+BUILTIN1("load_text",load_text,C_TEXT,filename_text)
   char *filename = text_to_cstring(filename_text);
   char *contents = read_whole_file_as_string(filename);
   if (contents) {
@@ -833,7 +857,8 @@ BUILTIN1("read_file_as_text",read_file_as_text,C_TEXT,filename_text)
   } else {
     R = Void;
   }
-RETURNS(R)
+RETURN(R)
+RETURNS(0)
 
 BUILTIN2("_apply",_apply,C_ANY,f,C_ANY,args)
   // NOTE: no typecheck, because this function should be hidden from user
@@ -874,11 +899,13 @@ static struct {
   {"rtstat", b_rtstat},
   {"stack_trace", b_stack_trace},
   {"_apply", b__apply},
-  {"read_file_as_text", b_read_file_as_text},
+  {"load_text", b_load_text},
+  {"load_library", b_load_library},
 
   //{"save_string_as_file", b_save_text_as_file},
   {0, 0}
 };
+
 
 static char *print_object_r(api_t *api, char *out, void *o) {
   int i;
@@ -935,15 +962,13 @@ print_tail:
     }
   } else if (tag == T_FIXTEXT) {
     *out++ = '`';
-    out += fixtext_decode(out, o);
+    out = decode_text(out, o);
     *out++ = '`';
   } else if (tag == T_DATA) {
     uintptr_t dtag = DATA_TAG(o);
     if (dtag == T_TEXT) {
-      int size = (int)BIGTEXT_SIZE(o);
-      char *p = BIGTEXT_DATA(o);
       *out++ = '`';
-      while (size-- > 0) *out++ = *p++;
+      out = decode_text(out, o);
       *out++ = '`';
     } else {
       out += sprintf(out, "#(data %ld %p)", dtag, o);

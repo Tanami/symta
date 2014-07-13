@@ -103,7 +103,7 @@ hard_list.`><` B =
 
 list.reverse =
 | N = Me.size
-| Ys = dup I N: 0
+| Ys = dup N
 | while N > 0
   | N !- 1
   | Ys.N <= pop Me
@@ -111,11 +111,11 @@ list.reverse =
 
 hard_list.reverse =
 | N = Me.size
-| dup I N
+| dup N
   | N !- 1
   | Me.N
 
-list.map F = dup I Me.size: F Me^pop
+list.map F = dup Me.size: F Me^pop
 hard_list.map F = dup I Me.size: F Me.I
 
 list.each F = till Me.end: F Me^pop
@@ -154,7 +154,7 @@ list.skip F =
 
 list.join =
 | Size = Me.map{X=>X.size}.sum
-| Rs = dup I Size 0
+| Rs = dup Size
 | I = 0
 | for Ys Me: for Y Ys | Rs.I <= Y
                       | I !+ 1
@@ -164,7 +164,7 @@ _list_.harden = Me
 
 list.harden =
 | N = Me.size
-| Ys = dup I N 0
+| Ys = dup N
 | times I N: Ys.I <= pop Me
 | Ys
 
@@ -181,7 +181,7 @@ list.split F =
 
 text.split F = Me.chars.split{F}.map{X=>X.unchars}
 
-list.take N = dup I N: Me^pop
+list.take N = dup N: Me^pop
 hard_list.take N = dup I N: Me.I
 
 list.drop N =
@@ -189,7 +189,7 @@ list.drop N =
 | Me
 
 hard_list.drop S =
-| dup I Me.size-S
+| dup Me.size-S
   | R = Me.S
   | S !+ 1
   | R
@@ -251,7 +251,7 @@ say @Xs =
 
 // hashtable
 data table buckets
-table Size = new_table: dup I Size Void
+table Size = new_table: dup Size Void
 table.`.` K =
 | Bs = Me.buckets
 | H = K.hash%Bs.size
@@ -269,9 +269,15 @@ table.`!` K V =
 table.size = Me.buckets.map{X=>X.size}.sum
 table.harden = Me.buckets.skip{X => X >< Void}.join
 
+list.as_table =
+| T = table Me.size*2
+| for [K V] Me: T.K <= V
+| T
+
 list.uniq =
 | Seen = table Me.size*2
 | Me.skip{X => have Seen.X or (Seen.X <= 1) and 0}
 
+data macro name expander
 
-export non say bad no have gensym table
+export non say bad no have gensym table new_macro

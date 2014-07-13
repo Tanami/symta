@@ -365,13 +365,18 @@ ssa_atom K X =
 
 ssa_expr K X = if X.is_list then ssa_form K X else ssa_atom K X
 
+read_normalized Text =
+| Expr = read Text
+| on Expr [`|` @As] Expr
+          X [`|` X]
+
 GLibFolder = "/Users/nikita/Documents/git/symta/lib/"
 
 // FIXME: do caching
 get_lib_exports LibName =
 | LibFile = "[GLibFolder][LibName].s"
-| Text = //load_text_file LibFile
-| Expr = // normalize: read: text
+| Text = load_text LibFile
+| Expr = read_normalized Text
 | on Expr.last [export @Xs] | Xs.skip{X => on X [`\\` X]}
                Else | Void
 

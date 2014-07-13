@@ -5,5 +5,5 @@ export tag_of
        rtstat
        stack_trace
        _apply
-       read_file_as_text
-
+       load_text
+       load_library
