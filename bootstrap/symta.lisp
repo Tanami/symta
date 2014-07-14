@@ -770,6 +770,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (_ nil))
 
 (to produce-ssa entry expr
+  ! *ssa-env* = nil
   ! *ssa-out* = nil
   ! *ssa-fns* = nil
   ! *ssa-inits* = nil

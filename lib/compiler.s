@@ -387,7 +387,8 @@ load_macros Library = Library^load_library.keep{[K V]=>V.is_macro}.as_table
 load_macros macros
 
 produce_ssa Entry Expr =
-| let GOut []
+| let GEnv []
+      GOut []
       GFns []
       GInits []
       GRawInits []
@@ -469,8 +470,6 @@ ssa_to_c Xs = let GCompiled []
 ssa_produce_file File Src =
 | Ssa = produce_ssa entry Src
 | Text = ssa_to_c Ssa
-//| save_text File Text
+| save_text File Text
 
-ctest = 
-
-export ctest
+export produce_ssa ssa_to_c

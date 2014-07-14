@@ -1075,36 +1075,39 @@ static void *handle_args(REGS, void *E, intptr_t expected, intptr_t size, void *
   fatal("during call to `%s`\n", print_object(tag));
 }
 
-#define NEEDS_GC(o) (gc_base <= (void*)(o) && (void*)(o) < gc_end)
+static void *gc(api_t *api, void *o);
 
-static void *gc(api_t *api, void *gc_base, void *gc_end, void *o);
+#define GCLevel (api->level+1)
 
-static void *gc_arglist(api_t *api, void *gc_base, void *gc_end, void *o) {
+static void *gc_arglist(api_t *api, void *o) {
   void *p, *q;
   uintptr_t i;
   uintptr_t size;
   uintptr_t level;
 
-  if (!NEEDS_GC(o)) return o;
-
   level = OBJECT_LEVEL(o);
-  if (level > HEAP_SIZE) {
-    // already moved
-    return (void*)level;
+
+  if (level != GCLevel) {
+    if (level > HEAP_SIZE) {
+      // already moved
+      return (void*)level;
+    }
+    return o;
   }
+
 
   size = NARGS(o);
   ARGLIST(p, size);
   ARG_STORE(o, -2, p);
   for (i = 0; i < size; i++) {
     ARG_LOAD(q,o,i);
-    q = gc(api, gc_base, gc_end, q);
+    q = gc(api, q);
     ARG_STORE(p, i, q);
   }
   return p;
 }
 
-static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
+static void *gc(api_t *api, void *o) {
   void *p, *q, *e;
   int i, j, size, tag;
   void *E, *P, *A, *C, *R; // dummies
@@ -1119,16 +1122,17 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
     goto end;
   }
 
-  if (!NEEDS_GC(o)) {
+  level = OBJECT_LEVEL(o);
+  
+  if (level != GCLevel) {
+    if (level > HEAP_SIZE) {
+      // already moved
+      p = (void*)level;
+      goto end;
+    }
     // FIXME: validate this external reference (safe-check we haven't damaged anything)
     //fprintf(stderr, "external: %p\n", o);
     p = o;
-    goto end;
-  }
-  level = OBJECT_LEVEL(o);
-  if (level > HEAP_SIZE) {
-    // already moved
-    p = (void*)level;
     goto end;
   }
 
@@ -1143,14 +1147,14 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
     ALLOC_CLOSURE(p, OBJECT_CODE(o), size);
     STORE(o, -2, p);
     for (i = 0; i < size; i++) {
-      STORE(p, i, gc_arglist(api, gc_base, gc_end, CLOSURE_REF(o,i)));
+      STORE(p, i, gc_arglist(api, CLOSURE_REF(o,i)));
     }
   } else if (tag == T_LIST) {
     size = (int)UNFIXNUM(LIST_SIZE(o));
     LIST_ALLOC(p, size);
     LIST_REF(o,-2) = p;
     for (i = 0; i < size; i++) {
-      LIST_REF(p, i) = gc(api, gc_base, gc_end, LIST_REF(o,i));
+      LIST_REF(p, i) = gc(api, LIST_REF(o,i));
     }
   } else if (tag == T_VIEW) {
     uint32_t start = VIEW_START(o);
@@ -1158,13 +1162,13 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
     VIEW(p, 0, start, size);
     VIEW_GET(o,-2) = p;
     q = ADD_TAG(&VIEW_REF(o,0,0), T_LIST);
-    q = gc(api, gc_base, gc_end, q);
+    q = gc(api, q);
     VIEW_GET(p,-1) = &LIST_REF(q, 0);
   } else if (tag == T_CONS) {
     CONS(p, 0, 0);
     CONS_REF(o,-2) = p;
-    CAR(p) = gc(api, gc_base, gc_end, CAR(o));
-    CDR(p) = gc(api, gc_base, gc_end, CDR(o));
+    CAR(p) = gc(api, CAR(o));
+    CDR(p) = gc(api, CDR(o));
   } else if (tag == T_DATA) {
     uintptr_t dtag = DATA_TAG(o);
     if (dtag > MAX_TYPES) {
@@ -1177,7 +1181,7 @@ static void *gc(api_t *api, void *gc_base, void *gc_end, void *o) {
       ALLOC_DATA(p, OBJECT_CODE(o), size);
       DATA_REF(o,-2) = p;
       for (i = 0; i < size; i++) {
-        DATA_REF(p,i) = gc(api, gc_base, gc_end, DATA_REF(o,i));
+        DATA_REF(p,i) = gc(api, DATA_REF(o,i));
       }
     }
   } else {
@@ -1190,16 +1194,16 @@ end:
   return p;
 }
 
-#define ON_CURRENT_LEVEL(x) (Top <= (void*)(x) && (void*)(x) < Base)
-static void *gc_entry(api_t *api, void *gc_base, void *gc_end, void *o) {
+#define ON_CURRENT_LEVEL(x) (api->top <= (void*)(x) && (void*)(x) < api->base)
+static void *gc_entry(api_t *api, void *o) {
   int i;
-  api_t *other = api->other;
-  void *xs = LIFTS_LIST(gc_end);
+  void *xs = LIFTS_LIST(api->base);
+  api = api->other;
   if (xs) {
-    void *ys = LIFTS_LIST(Base);
+    void *ys = LIFTS_LIST(api->base);
     while (xs) {
       void **x = (void**)LIFTS_HEAD(xs);
-      *x = gc(api, gc_base, gc_end, *x);
+      *x = gc(api, *x);
       if (ON_CURRENT_LEVEL(x)) {
         // object got lifted to the level of it's holder
         //fprintf(stderr, "lifted!\n");
@@ -1208,10 +1212,9 @@ static void *gc_entry(api_t *api, void *gc_base, void *gc_end, void *o) {
       }
       xs = LIFTS_TAIL(xs);
     }
-    LIFTS_LIST(Base) = ys;
+    LIFTS_LIST(api->base) = ys;
   }
-
-  return gc(api, gc_base, gc_end, o);
+  return gc(api, o);
 }
 
 static void fatal_error(api_t *api, char *msg) {

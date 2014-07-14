@@ -86,7 +86,7 @@ typedef struct api_t {
   void (*bad_type)(REGS, char *expected, int arg_index, char *name);
   void* (*handle_args)(REGS, void *E, intptr_t expected, intptr_t size, void *tag, void *meta);
   char* (*print_object_f)(struct api_t *api, void *object);
-  void *(*gc)(struct api_t *api, void *base, void *end, void *root);
+  void *(*gc)(struct api_t *api, void *root);
   void *(*alloc_text)(struct api_t *api, char *s);
   void (*fatal)(struct api_t *api, char *msg);
   void **(*resolve_method)(struct api_t *api, char *name);
@@ -171,7 +171,7 @@ typedef void *(*pfun)(REGS);
 #define VAR(name) void *name;
 #define GC(dst,value) \
   /*fprintf(stderr, "GC %p:%p -> %p\n", Top, Base, api->other->top);*/ \
-  dst = api->gc(api->other, Top, Base, (void*)(value));
+  dst = api->gc(api, (void*)(value));
 #define RETURN(value) \
    if (IMMEDIATE(value) && !LIFTS_LIST(Base)) { \
      return (void*)(value); \
@@ -242,7 +242,6 @@ typedef void *(*pfun)(REGS);
       ARGLIST(e,2); \
       ARG_STORE(e,0,o); \
       ARG_STORE(e,1,as); \
-      /*api->fatal(api, "FIXME: overload funcall");*/ \
       CALL_METHOD_WITH_TAG(k,o,api->m_ampersand,tag); \
     } \
   }
