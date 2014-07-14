@@ -469,7 +469,7 @@ ssa_to_c Xs = let GCompiled []
 ssa_produce_file File Src =
 | Ssa = produce_ssa entry Src
 | Text = ssa_to_c Ssa
-//| save_text_file File Text
+//| save_text File Text
 
 ctest = 
 

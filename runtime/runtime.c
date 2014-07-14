@@ -198,17 +198,6 @@ static void *tag_of(void *o) {
   return methods[M_NAME][tag];
 }
 
-static int fixtext_size(void *o) {
-  uint64_t x = (uint64_t)o;
-  uint64_t m = 0x7F << 3;
-  int l = 0;
-  while (x & m) {
-    m <<= 7;
-    l++;
-  }
-  return l;
-}
-
 static void *fixtext_encode(char *p) {
   uint64_t r = 0;
   uint64_t c;
@@ -298,6 +287,35 @@ static int texts_equal(void *a, void *b) {
   al = BIGTEXT_SIZE(a);
   bl = BIGTEXT_SIZE(b);
   return al == bl && !memcmp(BIGTEXT_DATA(a), BIGTEXT_DATA(b), UNFIXNUM(al));
+}
+
+static int fixtext_size(void *o) {
+  uint64_t x = (uint64_t)o;
+  uint64_t m = 0x7F << 3;
+  int l = 0;
+  while (x & m) {
+    m <<= 7;
+    l++;
+  }
+  return l;
+}
+
+static int text_size(void *o) {
+  int tag = GET_TAG(o);
+  if (tag == T_FIXTEXT) {
+    return fixtext_size(o);
+  } else if (tag == T_DATA) {
+    uintptr_t dtag = DATA_TAG(o);
+    if (dtag == T_TEXT) {
+      return BIGTEXT_SIZE(o);
+    } else {
+      fprintf(stderr, "decode_text: invalid tag (%ld)\n", dtag);
+      abort();
+    }
+  }
+  fprintf(stderr, "decode_text: invalid tag (%d)\n", tag);
+  abort();
+  return 0;
 }
 
 static char *text_to_cstring(void *o) {
@@ -427,6 +445,28 @@ char* print_object_f(api_t *api, void *object) {
   return print_buffer;
 }
 
+static char *read_whole_file_as_string(char *input_file_name) {
+  char *file_contents;
+  long input_file_size;
+  FILE *input_file = fopen(input_file_name, "rb");
+  if (!input_file) return 0;
+  fseek(input_file, 0, SEEK_END);
+  input_file_size = ftell(input_file);
+  rewind(input_file);
+  file_contents = malloc(input_file_size + 1);
+  file_contents[input_file_size] = 0;
+  fread(file_contents, sizeof(char), input_file_size, input_file);
+  fclose(input_file);
+  return file_contents;
+}
+
+static int write_whole_file(char *file_name, void *content, int size) {
+  FILE *file = fopen(file_name, "wb");
+  if (!file) return 0;
+  fwrite(content, sizeof(char), size, file);
+  fclose(file);
+  return 1;
+}
 
 #define MOD_ADLER 65521
 uint32_t hash(uint8_t *data, int len) {
@@ -859,21 +899,6 @@ BUILTIN1("utf8_to_text",utf8_to_text,C_ANY,bytes)
   fatal("FIXME: implement utf8_to_text\n");
 RETURNS(Void)
 
-static char *read_whole_file_as_string(char *input_file_name) {
-  char *file_contents;
-  long input_file_size;
-  FILE *input_file = fopen(input_file_name, "rb");
-  if (!input_file) return 0;
-  fseek(input_file, 0, SEEK_END);
-  input_file_size = ftell(input_file);
-  rewind(input_file);
-  file_contents = malloc(input_file_size + 1);
-  file_contents[input_file_size] = 0;
-  fread(file_contents, sizeof(char), input_file_size, input_file);
-  fclose(input_file);
-  return file_contents;
-}
-
 BUILTIN1("load_text",load_text,C_TEXT,filename_text)
   char *filename = text_to_cstring(filename_text);
   char *contents = read_whole_file_as_string(filename);
@@ -885,6 +910,22 @@ BUILTIN1("load_text",load_text,C_TEXT,filename_text)
   }
 RETURN(R)
 RETURNS(0)
+
+BUILTIN2("save_text",save_text,C_TEXT,filename_text,C_TEXT,text)
+  char buf[32];
+  int size = text_size(text);
+  char *filename;
+  char *xs;
+  if (GET_TAG(text) == T_FIXTEXT) {
+    decode_text(buf, text);
+    xs = buf;
+  } else {
+    xs = (char*)BIGTEXT_DATA(text);
+  }
+  filename = text_to_cstring(filename_text);
+  write_whole_file(filename, xs, size);
+RETURNS(0)
+
 
 BUILTIN2("_apply",_apply,C_ANY,f,C_ANY,args)
   // NOTE: no typecheck, because this function should be hidden from user
@@ -926,6 +967,7 @@ static struct {
   {"stack_trace", b_stack_trace},
   {"_apply", b__apply},
   {"load_text", b_load_text},
+  {"save_text", b_save_text},
   {"load_library", b_load_library},
 
   //{"save_string_as_file", b_save_text_as_file},

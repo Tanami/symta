@@ -6,4 +6,5 @@ export tag_of
        stack_trace
        _apply
        load_text
+       save_text
        load_library
