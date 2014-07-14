@@ -292,12 +292,41 @@ static char *decode_text(char *out, void *o) {
   return out;
 }
 
+static int texts_equal(void *a, void *b) {
+  intptr_t al, bl;
+  if (GET_TAG(a) == T_FIXTEXT || GET_TAG(b) == T_FIXTEXT) return a == b;
+  al = BIGTEXT_SIZE(a);
+  bl = BIGTEXT_SIZE(b);
+  return al == bl && !memcmp(BIGTEXT_DATA(a), BIGTEXT_DATA(b), UNFIXNUM(al));
+}
+
 static char *text_to_cstring(void *o) {
   decode_text(print_buffer, o);
   return print_buffer;
 }
 
-static void *exec_module(struct api_t *api, void *path) {
+static uintptr_t runtime_reserved0;
+static uintptr_t runtime_reserved1;
+static uintptr_t get_heap_used(int i) {
+  return (void*)(apis[i].heap+HEAP_SIZE) - apis[i].top;
+}
+
+static uintptr_t show_runtime_info(api_t *api) {
+  uintptr_t heap0_used = get_heap_used(0);
+  uintptr_t heap1_used = get_heap_used(1);
+  uintptr_t total_reserved = runtime_reserved0+runtime_reserved1;
+  fprintf(stderr, "level: %ld\n", api->level);
+  fprintf(stderr, "usage: %ld = %ld+%ld\n"
+         , heap0_used+heap1_used-total_reserved
+         , heap0_used-runtime_reserved0
+         , heap1_used-runtime_reserved1);
+  fprintf(stderr, "total: %ld\n", (uintptr_t)(HEAP_SIZE)*2*8-total_reserved);
+  fprintf(stderr, "runtime: %ld\n", total_reserved);
+  fprintf(stderr, "types used: %d/%d\n", types_used, MAX_TYPES);
+  fprintf(stderr, "methods used: %d/%d\n", methods_used, MAX_METHODS);
+}
+
+static void *exec_module(struct api_t *api, char *path) {
   void *lib;
   pfun entry, setup;
   void *R, *P=0, *E=0;
@@ -312,7 +341,7 @@ static void *exec_module(struct api_t *api, void *path) {
   if (!setup) fatal("dlsym couldnt find symbol `setup` in %s\n", path);
 
   ARGLIST(E,0);
-  R = setup(REGS_ARGS(P)); // init module's statics
+  setup(REGS_ARGS(P)); // init module's statics
 
   PUSH_BASE();
   ARGLIST(E,0);
@@ -322,9 +351,12 @@ static void *exec_module(struct api_t *api, void *path) {
   return R;
 }
 
+//FIXME: resolve circular dependencies
+//       instead of exports list we may return lazy list
 static void *load_lib(struct api_t *api, char *name) {
   int i;
   char path[1024];
+  void *exports;
 
   for (i = 0; i < libs_used; i++) {
     if (strcmp(libs[i].name, name)) continue;
@@ -338,11 +370,34 @@ static void *load_lib(struct api_t *api, char *name) {
 
   sprintf(path, "%s/%s", lib_path, name);
   libs[libs_used].name = name;
-  libs[libs_used].exports = exec_module(api, path);
+  exports = exec_module(api, path);
+  libs[libs_used].exports = exports;
   
   return libs[libs_used++].exports;
 }
 
+static void *find_export(struct api_t *api, void *name, void *exports) {
+  intptr_t i;
+  int nexports;
+
+  nexports = UNFIXNUM(LIST_SIZE(exports));
+
+  for (i = 0; i < nexports; i++) {
+    void *pair = LIST_REF(exports,i);
+    if (GET_TAG(pair) != T_LIST || LIST_SIZE(pair) != (void*)FIXNUM(2)) {
+      fatal("bad export: %s", print_object(pair));
+    }
+    void *export_name = LIST_REF(pair,0);
+    if (!IS_TEXT(export_name)) {
+      fatal("bad export: %s", print_object(pair));
+    }
+    if (texts_equal(name, export_name)) {
+      return LIST_REF(pair,1);
+    }
+  }
+
+  fatal("Couldn't resolve `%s`\n", print_object(name));
+}
 
 static void bad_type(REGS, char *expected, int arg_index, char *name) {
   PROLOGUE;
@@ -450,14 +505,6 @@ uint32_t hash(uint8_t *data, int len) {
   BUILTIN_CHECK_VARARGS(0,0,sname);
 #define RETURNS(r) Top = Base; return (void*)(r); }
 #define RETURNS_VOID Top = Base; }
-
-static int texts_equal(void *a, void *b) {
-  intptr_t al, bl;
-  if (GET_TAG(a) == T_FIXTEXT || GET_TAG(b) == T_FIXTEXT) return a == b;
-  al = BIGTEXT_SIZE(a);
-  bl = BIGTEXT_SIZE(b);
-  return al == bl && !memcmp(BIGTEXT_DATA(a), BIGTEXT_DATA(b), UNFIXNUM(al));
-}
 
 BUILTIN2("void ><",void_eq,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a == b))
@@ -770,27 +817,6 @@ BUILTIN1("log",log,C_ANY,a)
   fprintf(stderr, "log: %s\n", print_object(a));
 RETURN(a)
 RETURNS(a)
-
-static uintptr_t runtime_reserved0;
-static uintptr_t runtime_reserved1;
-static uintptr_t get_heap_used(int i) {
-  return (void*)(apis[i].heap+HEAP_SIZE) - apis[i].top;
-}
-
-static uintptr_t show_runtime_info(api_t *api) {
-  uintptr_t heap0_used = get_heap_used(0);
-  uintptr_t heap1_used = get_heap_used(1);
-  uintptr_t total_reserved = runtime_reserved0+runtime_reserved1;
-  fprintf(stderr, "level: %ld\n", api->level);
-  fprintf(stderr, "usage: %ld = %ld+%ld\n"
-         , heap0_used+heap1_used-total_reserved
-         , heap0_used-runtime_reserved0
-         , heap1_used-runtime_reserved1);
-  fprintf(stderr, "total: %ld\n", (uintptr_t)(HEAP_SIZE)*2*8-total_reserved);
-  fprintf(stderr, "runtime: %ld\n", total_reserved);
-  fprintf(stderr, "types used: %d/%d\n", types_used, MAX_TYPES);
-  fprintf(stderr, "methods used: %d/%d\n", methods_used, MAX_METHODS);
-}
 
 BUILTIN0("rtstat",rtstat)
   show_runtime_info(api);
@@ -1150,29 +1176,6 @@ static void fatal_error(api_t *api, char *msg) {
   fprintf(stderr, "%s\n", msg);
   print_stack_trace(api);
   abort();
-}
-
-
-
-static void *find_export(struct api_t *api, void *name, void *exports) {
-  intptr_t i;
-  int nexports = UNFIXNUM(LIST_SIZE(exports));
-
-  for (i = 0; i < nexports; i++) {
-    void *pair = LIST_REF(exports,i);
-    if (GET_TAG(pair) != T_LIST || LIST_SIZE(pair) != (void*)FIXNUM(2)) {
-      fatal("bad export: %s", print_object(pair));
-    }
-    void *export_name = LIST_REF(pair,0);
-    if (!IS_TEXT(export_name)) {
-      fatal("bad export: %s", print_object(pair));
-    }
-    if (texts_equal(name, export_name)) {
-      return LIST_REF(pair,1);
-    }
-  }
-
-  fatal("Couldn't resolve `%s`\n", print_object(name));
 }
 
 static api_t *init_api(void *ptr) {

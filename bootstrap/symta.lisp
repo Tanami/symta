@@ -694,7 +694,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! n = position-if (fn b ! find name b :test 'equal) *ssa-bases*
   ! unless n (error "cant find label {name}")
   ! while (> n 0)
-     (ssa 'gc 0) ; have to GC, simple pop_base wont LIFT
+     (ssa 'gc (ssa-var "d") 0) ; have to GC, simple pop_base wont LIFT
      (ssa 'pop_base)
      (decf n)
   ! ssa 'jmp name)
@@ -1397,9 +1397,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to symta filename
   ! *lib-folder* = "{*root-folder*}lib/"
   ;! compile-lib "prelude"
-  ! compile-lib "reader"
-  ;! compile-lib "compiler"
-  ;! compile-lib "macros"
+  ;! compile-lib "reader"
+  ! compile-lib "compiler"
+  ! compile-lib "macros"
   ! cache-folder = "{*root-folder*}cache/"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"
   ! runtime-path = "{cache-folder}runtime"

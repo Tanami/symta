@@ -62,7 +62,7 @@ init_tokenizer =
          (`"` $(R Cs => [text [`"` @(read_string R 0 '"')]]))
          ($'`' $(R Cs => [symbol (read_string R 0 '`').0]))
          (`//` $&read_comment)
-         (`/*` $&read_multi_comment)
+         ((`/` `*`) $&read_multi_comment)
          ((&(` ` `\n`)) $(R Cs => read_token R 1))
          ((`#` &`0123456789ABCDEFabcdef`) hex)
          ((&$Digit) integer)
@@ -177,7 +177,6 @@ read_multi_comment R Cs =
                  | R.next
 | read_token R 0
 
-init_tokenizer
 
 parser_error Cause Tok =
 | [Row Col Orig] = Tok.src
@@ -350,9 +349,10 @@ parse_strip X =
   else X
 
 read Chars =
+| init_tokenizer
 | R = parse_strip: parse: tokenize: newInput Chars test
 | unless R.end: R <= R.0
 | on R [X S] S
        R R
 
-export read parse_strip parse tokenize newInput
+export read

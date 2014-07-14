@@ -1,4 +1,4 @@
-use prelude
+use prelude reader
 
 GEnv = Void
 GOut = Void // where resulting assembly code is stored
@@ -307,7 +307,7 @@ ssa_goto Name =
 | N = GBases.locate{B => have B.locate{X => X><Name}}
 | when no N: bad "cant find label [Name]"
 | for I N.i
-  | ssa gc 0 // FIXME: have to GC, simple pop_base wont LIFT
+  | ssa gc (ssa_var d) 0 // FIXME: have to GC, simple pop_base wont LIFT
   | ssa pop_base
 | ssa jmp Name
 
@@ -365,20 +365,26 @@ ssa_atom K X =
 
 ssa_expr K X = if X.is_list then ssa_form K X else ssa_atom K X
 
+
+GLibFolder = "/Users/nikita/Documents/git/symta/lib/"
+
 read_normalized Text =
 | Expr = read Text
 | on Expr [`|` @As] Expr
           X [`|` X]
 
-GLibFolder = "/Users/nikita/Documents/git/symta/lib/"
+skip_macros Xs = Xs.skip{X => on X [`\\` X]}
 
 // FIXME: do caching
 get_lib_exports LibName =
 | LibFile = "[GLibFolder][LibName].s"
 | Text = load_text LibFile
 | Expr = read_normalized Text
-| on Expr.last [export @Xs] | Xs.skip{X => on X [`\\` X]}
+| on Expr.last [export @Xs] | skip_macros Xs
                Else | Void
+
+load_macros Library = Library^load_library.keep{[K V]=>V.is_macro}.as_table
+load_macros macros
 
 produce_ssa Entry Expr =
 | let GOut []
@@ -467,4 +473,4 @@ ssa_produce_file File Src =
 
 ctest = 
 
-export ctest gensym
+export ctest
