@@ -990,9 +990,7 @@ static char *print_object_r(api_t *api, char *out, void *o) {
     abort();
   }
 print_tail:
-  if (o == Empty) {
-    out += sprintf(out, "()");
-  } else if (o == Void) {
+  if (o == Void) {
     out += sprintf(out, "Void");
   } else if (tag == T_CLOSURE) {
     //FIXME: check metainfo to see if this object has associated print routine
@@ -1094,7 +1092,6 @@ static void *gc_arglist(api_t *api, void *o) {
     }
     return o;
   }
-
 
   size = NARGS(o);
   ARGLIST(p, size);

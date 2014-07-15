@@ -24,8 +24,8 @@ get_parent_index Parent =
 path_to_sym X Es =
 | when Es.end: leave Void
 | [Head@Tail] = Es
-| when Head.0 >< GAll // reference to the whole arglist?
-  | Head <= Head.2
+| when on Head [U@Us] U >< GAll // reference to the whole arglist?
+  | Head <= Head.1
   | unless Head.0 >< X: leave (path_to_sym X Tail)
   | when Es^address >< GEnv^address: leave [GAll Void] // argument of the current function
   | leave [GAll (get_parent_index Head.1)]
@@ -107,8 +107,8 @@ ssa_fn_body K F Args Body O Prologue Epilogue =
   | SizeVar = "[F]_size"
   | when Prologue
     | if Args.is_text
-      then ssa check_varargs SizeVar Void /*(get_meta O)*/
-      else ssa check_nargs Args.size SizeVar Void /*(get_meta O)*/
+      then ssa check_varargs SizeVar 'Empty' /*(get_meta O)*/
+      else ssa check_nargs Args.size SizeVar 'Empty' /*(get_meta O)*/
   | when no K: K <= ssa_var result
   | ssa_expr K Body
   | when Epilogue: ssa return K
@@ -119,12 +119,12 @@ ssa_fn_body K F Args Body O Prologue Epilogue =
 // a single argument to a function could be passed in register, while a closure would be created if required
 // a single reference closure could be itself held in a register
 // for now we just capture required parent's closure
-ssa_fn Name K Args Body O =
+ssa_fn Name K Args Expr O =
 | F = gensym f
-| [Body Cs] = ssa_fn_body Void F Args Body O 1 1
+| [Body Cs] = ssa_fn_body Void F Args Expr O 1 1
 | push Body GFns
 | NParents = Cs.size
-| ssa closure K F NParents
+| ssa alloc_closure K F NParents
 | for [I C] Cs.enum: if C^address >< GNs^address // self?
                      then ssa store K I \E
                      else ssa copy K I \P C^get_parent_index
@@ -143,7 +143,7 @@ ssa_hoist_decls Expr Hoist = // C/C++ style declaration hoisting
 | unless Expr.is_list: leave Expr
 | on Expr
      [_fn @Xs] | Expr
-     [[fn As@Xs] @Vs]
+     [[fn As @Xs] @Vs]
        | if As.is_text
          then | Hoist [As]
               | [_progn [_set As [_list @Vs]]
@@ -240,13 +240,11 @@ uniquify_form Expr =
                | bad "invalid number of arguments in [Expr]"
      | Xs.map{&uniquify_expr}
 
-is_special_sym X = X.is
-
 uniquify_name S = for Closure GUniquifyStack: for X Closure: when X.0 >< S: leave X.1
 
 uniquify_atom Expr =
 | unless Expr.is_text: leave Expr
-| unless Expr.size and Expr.0 >< _: leave Expr
+| when Expr.size and Expr.0 >< _: leave Expr
 | Renamed = uniquify_name Expr
 | when no Renamed: bad "undefined variable: [Expr]"
 | Renamed
@@ -472,4 +470,4 @@ ssa_produce_file File Src =
 | Text = ssa_to_c Ssa
 | save_text File Text
 
-export produce_ssa ssa_to_c
+export produce_ssa ssa_to_c ssa_produce_file
