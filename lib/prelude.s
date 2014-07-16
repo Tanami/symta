@@ -68,7 +68,7 @@ text.downcase =
 | Ys.unchars
 
 _.is_keyword = 0
-text.is_keyword = Me.size and Me.0.is_upcase
+text.is_keyword = not: Me.size and Me.0.is_upcase
 
 int.i = dup I Me: I //iota operator
 
@@ -167,6 +167,8 @@ list.harden =
 | Ys = dup N
 | times I N: Ys.I <= pop Me
 | Ys
+
+list.apply F = Me.harden.apply{F}
 
 list.unchars = Me.harden.unchars
 

@@ -1226,12 +1226,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to expand-push o item ! `("_set" ,o ("_mcall" ,o "pre" ,item)))
 
-(to normalize-matryoshka o
-  ! match o ((x) (if (fn-sym? x)
-                     o
-                     (normalize-matryoshka x)))
-            (x x))
-
 (defparameter *default-leave* nil)
 
 (to expand-shade bs body
@@ -1243,24 +1237,22 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        ,@(m g gs `("_set" ,(second g) ,(first g)))
        ,r))
 
+(to normalize-matryoshka o
+  ! match o ((x) (if (fn-sym? x)
+                     o
+                     (normalize-matryoshka x)))
+            (x x))
+
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
   (let ((xs (normalize-matryoshka xs))
         (ys nil))
-    (when (atom xs)
-      (return-from builtin-expander
-        (if (and (fn-sym? xs) (not head))
-            `("_quote" ,xs)
-            xs)))
+    (when (atom xs) (return-from builtin-expander xs))
     (setf ys
       (match xs
         (("_fn" as body)
          (return-from builtin-expander
            `("_fn" ,as ,(builtin-expander body))))
-        (("_let" bs . xs)
-         `("_call"
-           ("_fn" ,(m b bs (first b)) ,`("_progn" ,@xs))
-           ,@(m b bs (second b))))
         (("_set" place value)
          (return-from builtin-expander
            `("_set" ,place ,(if (fn-sym? value)
@@ -1269,12 +1261,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("_label" name) (return-from builtin-expander xs))
         (("_goto" name) (return-from builtin-expander xs))
         (("_quote" x) (return-from builtin-expander xs))
+        (("_nomex" x) (return-from builtin-expander x))
+        (("&" o) (return-from builtin-expander
+                   (if (fn-sym? o) o `(,(builtin-expander o)))))
         (("_default_leave" name body)
          (return-from builtin-expander
            (let ((*default-leave* name))
              (builtin-expander body))))
-        (("&" o) (return-from builtin-expander
-                   (if (fn-sym? o) o `(,(builtin-expander o)))))
+        (("_let" bs . xs)
+         `("_call"
+           ("_fn" ,(m b bs (first b)) ,`("_progn" ,@xs))
+           ,@(m b bs (second b))))
         (("if" a b c) `("_if" ,a ,b ,c))
         (("=>" as body) (expand-lambda as body))
         (("not" . xs) `("_if" ,xs 0 1))
@@ -1329,8 +1326,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("let" . xs) (expand-shade (group-by 2 (butlast xs)) (car (last xs))))
         (("export" . xs) (expand-export xs))
         (else (return-from builtin-expander
-                (cons (builtin-expander (car xs) t)
-                      (m x (cdr xs) (builtin-expander x)))))))
+                (cons (builtin-expander (car xs))
+                      (m x (cdr xs)
+                         (if (fn-sym? x)
+                             `("_quote" ,x)
+                             (builtin-expander x))))))))
     (builtin-expander ys)))
 
 
@@ -1399,8 +1399,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! *lib-folder* = "{*root-folder*}lib/"
   ;! compile-lib "prelude"
   ;! compile-lib "reader"
-  ! compile-lib "compiler"
-  ! compile-lib "macros"
+  ;! compile-lib "compiler"
+  ;! compile-lib "macros"
   ! cache-folder = "{*root-folder*}cache/"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"
   ! runtime-path = "{cache-folder}runtime"

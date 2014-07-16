@@ -18,9 +18,13 @@
 
 #define C_ANY(o,arg_index,meta)
 
+#define C_FN(o,arg_index,meta) \
+  if (GET_TAG(o) != T_CLOSURE) \
+    api->bad_type(REGS_ARGS(P), "fn", arg_index, meta)
+
 #define C_FIXNUM(o,arg_index,meta) \
   if (GET_TAG(o) != T_FIXNUM) \
-    api->bad_type(REGS_ARGS(P), "integer", arg_index, meta)
+    api->bad_type(REGS_ARGS(P), "int", arg_index, meta)
 
 #define C_TEXT(o,arg_index,meta) \
   if (!IS_TEXT(o)) \
@@ -386,12 +390,17 @@ static void *load_lib(struct api_t *api, char *name) {
     abort();
   }
 
+  name = strdup(name);
   sprintf(path, "%s/%s", lib_path, name);
-  libs[libs_used].name = name;
   exports = exec_module(api, path);
+
+  libs[libs_used].name = name;
   libs[libs_used].exports = exports;
+  ++libs_used;
   
-  return libs[libs_used++].exports;
+  //fprintf(stderr, "%s = %p\n", name, exports);
+
+  return exports;
 }
 
 static void *find_export(struct api_t *api, void *name, void *exports) {
@@ -601,10 +610,6 @@ BUILTIN1("text hash",fixtext_hash,C_ANY,o)
 RETURNS(FIXNUM(((uint64_t)o&(((uint64_t)1<<32)-1))^((uint64_t)o>>32)))
 BUILTIN1("text code",fixtext_code,C_ANY,o)
 RETURNS(FIXNUM((uint64_t)o>>TAG_BITS))
-BUILTIN_VARARGS("text _",fixtext)
-  fprintf(stderr, "FIXME: fixtext _\n");
-  abort();
-RETURNS_VOID
 
 #define CONS(dst, a, b) \
   ALLOC_BASIC(dst, a, 1); \
@@ -752,10 +757,16 @@ BUILTIN1("list unchars",list_unchars,C_ANY,o)
   TEXT(R,q);
 RETURN(R)
 RETURNS(0)
-BUILTIN_VARARGS("list _",list)
-  fprintf(stderr, "FIXME: list _\n");
-  abort();
-RETURNS_VOID
+BUILTIN2("list apply",list_apply,C_ANY,as,C_FN,f)
+  int i;
+  intptr_t nargs = UNFIXNUM(LIST_SIZE(as));
+  void *e;
+  ARGLIST(e,nargs);  
+  for (i = 0; i < nargs; i++) {
+    ARG_STORE(e,i,LIST_REF(as,i));
+  }
+  CALL_TAGGED_NO_POP(R,f)
+RETURNS(R)
 
 BUILTIN1("int neg",integer_neg,C_ANY,o)
 RETURNS(-(intptr_t)o)
@@ -826,10 +837,6 @@ BUILTIN1("integer char",integer_char,C_ANY,o)
 RETURNS(ADD_TAG((uint64_t)o&~TAG_MASK,T_FIXTEXT))
 BUILTIN1("integer hash",integer_hash,C_ANY,o)
 RETURNS(o)
-BUILTIN_VARARGS("integer _",integer)
-  fprintf(stderr, "FIXME: integer _\n");
-  abort();
-RETURNS_VOID
 
 BUILTIN1("as_text",as_text,C_ANY,o)
   if (!IS_TEXT(o)) {
@@ -881,9 +888,11 @@ BUILTIN0("stack_trace",stack_trace)
 RETURN(R)
 RETURNS(0)
 
-BUILTIN1("load_library",load_library,C_TEXT,name_text)
-  decode_text(print_buffer, name_text);
-  R = load_lib(api, print_buffer);
+BUILTIN1("load_library",load_library,C_TEXT,path_text)
+  char path[1024];
+  decode_text(path, path_text);
+  fprintf(stderr, "%s\n", path);
+  R = exec_module(api, path);
 RETURN(R)
 RETURNS(0)
 
@@ -926,13 +935,6 @@ BUILTIN2("save_text",save_text,C_TEXT,filename_text,C_TEXT,text)
   write_whole_file(filename, xs, size);
 RETURNS(0)
 
-
-BUILTIN2("_apply",_apply,C_ANY,f,C_ANY,args)
-  // NOTE: no typecheck, because this function should be hidden from user
-  //       intended use is the fast re-apply in handlers
-  CALL_NO_POP(R,f);
-RETURNS(R)
-
 BUILTIN2("_",sink,C_ANY,as,C_ANY,name)
   void *o = LIST_REF(getArg(0),0);
   fprintf(stderr, "%s has no method ", print_object(tag_of(o)));
@@ -965,7 +967,6 @@ static struct {
   {"log", b_log},
   {"rtstat", b_rtstat},
   {"stack_trace", b_stack_trace},
-  {"_apply", b__apply},
   {"load_text", b_load_text},
   {"save_text", b_save_text},
   {"load_library", b_load_library},
@@ -1400,6 +1401,7 @@ int main(int argc, char **argv) {
   METHOD_FN("char", b_integer_char, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("unchars", 0, 0, b_list_unchars, 0, 0, 0, 0, 0);
   METHOD_FN("as_text", b_as_text, b_as_text, b_as_text, b_as_text, b_as_text, b_as_text, b_as_text, b_as_text);
+  METHOD_FN("apply", 0, 0, b_list_apply, 0, 0, 0, 0, 0);
 
   add_subtype(api, T_GENERIC_TEXT, T_FIXTEXT);
   add_subtype(api, T_GENERIC_TEXT, T_TEXT);

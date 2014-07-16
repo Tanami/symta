@@ -1,5 +1,8 @@
 use prelude reader
 
+GSrcFolder = "/Users/nikita/Documents/git/symta/lib/"
+GDstFolder = '/Users/nikita/Documents/git/symta/cache/lib/'
+
 GEnv = Void
 GOut = Void // where resulting assembly code is stored
 GNs = Void // unique name of current function
@@ -10,6 +13,22 @@ GClosure = Void // other lambdas, this lambda references
 GBases = Void
 
 GAll = gensym all
+
+read_normalized Text =
+| Expr = read Text
+| on Expr [`|` @As] Expr
+          X [`|` X]
+
+skip_macros Xs = Xs.skip{X => on X [`\\` X]}
+
+// FIXME: do caching
+get_lib_exports LibName =
+| LibFile = "[GSrcFolder][LibName].s"
+| Text = load_text LibFile
+| Expr = read_normalized Text
+| on Expr.last [export @Xs] | skip_macros Xs
+               Else | Void
+
 
 ssa @As = | push As GOut
           | Void
@@ -139,6 +158,8 @@ ssa_if K Cnd Then Else =
 | ssa_expr K Then
 | ssa local_label EndLabel
 
+//FIXME: currently hoistint may clobber sime toplevel syms;
+//       make new syms valid only downstream
 ssa_hoist_decls Expr Hoist = // C/C++ style declaration hoisting
 | unless Expr.is_list: leave Expr
 | on Expr
@@ -364,26 +385,6 @@ ssa_atom K X =
 ssa_expr K X = if X.is_list then ssa_form K X else ssa_atom K X
 
 
-GLibFolder = "/Users/nikita/Documents/git/symta/lib/"
-
-read_normalized Text =
-| Expr = read Text
-| on Expr [`|` @As] Expr
-          X [`|` X]
-
-skip_macros Xs = Xs.skip{X => on X [`\\` X]}
-
-// FIXME: do caching
-get_lib_exports LibName =
-| LibFile = "[GLibFolder][LibName].s"
-| Text = load_text LibFile
-| Expr = read_normalized Text
-| on Expr.last [export @Xs] | skip_macros Xs
-               Else | Void
-
-load_macros Library = Library^load_library.keep{[K V]=>V.is_macro}.as_table
-load_macros macros
-
 produce_ssa Entry Expr =
 | let GEnv []
       GOut []
@@ -470,4 +471,35 @@ ssa_produce_file File Src =
 | Text = ssa_to_c Ssa
 | save_text File Text
 
-export produce_ssa ssa_to_c ssa_produce_file
+load_macros Library = Library^load_library.keep{[K V]=>V.is_macro}.as_table
+
+GMacros = Void
+GDefaultLeave = Void
+
+normalize_matryoshka O =
+| on O [X] | if X.is_keyword then O else normalize_matryoshka X
+     X | X
+
+mex Expr =
+| Expr <= normalize_matryoshka Expr
+| unless Expr.is_list: leave Expr
+| on Expr
+  [_fn As Body] | [_fn As Body^mex]
+  [_set Place Value] | [_set Place (if Value.is_keyword then [_quote Value] else mex Value)]
+  [_label Name] | Expr
+  [_goto Name] | Expr
+  [_quote X] | Expr
+  [_nomex X] | X // no macroexpand
+  [`&` O] | if O.is_keyword then O else [O^mex]
+  [] | Expr
+  [X@Xs]
+    | Macro = GMacros.X
+    | if have Macro
+      then mex Xs.apply{Macro.expander}
+      else [X^mex @(map X Xs: if X.is_keyword then [_quote X] else mex X)]
+
+macroexpand Expr Macros =
+| let GMacros Macros
+  | mex Expr
+
+export macroexpand produce_ssa ssa_to_c ssa_produce_file
