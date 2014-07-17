@@ -1337,7 +1337,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 
 
-(defparameter *root-folder* "/Users/nikita/Documents/git/symta/")
+(defparameter *root-folder* nil)
+(defparameter *src-folders* nil)
+(defparameter *dst-folder* nil)
+(defparameter *header-timestamp* nil)
 
 (to shell command &rest args
   ! s = (make-string-output-stream)
@@ -1352,7 +1355,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! rt-folder = "{*root-folder*}runtime"
   ! shell "gcc" "-O1" "-Wno-return-type" "-Wno-pointer-sign" "-I" rt-folder "-g" #|"-DNDEBUG"|# "-fpic" "-shared" "-o" dst src)
 
+
+(to already-compiled src-file dst-file
+  ! dst-date = if (file-exists-p dst-file)
+                  (file-write-date dst-file)
+                  0
+  ! and (< (file-write-date src-file) dst-date)
+        (< *header-timestamp* dst-date))
+
 (to compile-runtime src-file dst-file
+  ! when (already-compiled src-file dst-file) (return-from compile-runtime)
+  ! format t "compiling runtime...~%"
+  ! (finish-output)
   ! result = c-runtime-compiler dst-file src-file
   ! when (string/= result "")
       (e l (split #\Newline result) (format t "~a~%" l)))
@@ -1380,7 +1394,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! result = c-compiler dst c-file
   ! when (string/= result "")
      (e l (split #\Newline result) (format t "~a~%" l))
-  )
+  ! cdr uses)
 
 (to symta-read-file filename
   ! text = load-text-file filename
@@ -1388,27 +1402,42 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! /normalize (/read text)
   )
 
-(to compile-lib name
-  ! filename = "{*root-folder*}lib/{name}.s"
-  ! dst = "{*root-folder*}cache/lib/{name}"
-  ! expr = symta-read-file filename
-  ! symta-compile-expr dst expr
-  )
+(to compile-module name
+  ! e folder *src-folders*
+    (! src-file = "{folder}{name}.s"
+     ! when (file-exists-p src-file)
+       (! dst-file = "{*dst-folder*}{name}"
+        ! dep-file = "{dst-file}.dep"
+        ! when (file-exists-p dep-file)
+          (! deps = second (symta-read-file dep-file)
+           ! e d deps (compile-module d))
+        ! when (already-compiled src-file dst-file)
+          (return-from compile-module dst-file)
+        ! format t "compiling {name}...~%"
+        ! (finish-output)
+        ! expr = symta-read-file src-file
+        ! deps = symta-compile-expr dst-file expr
+        ! e d deps (compile-module d)
+        ! deps-text = format nil '"~{~a~^ ~}"  deps
+        ! save-text-file dep-file deps-text
+        ! return-from compile-module dst-file))
+  ! error "cant find {name}.s")
 
-(to symta filename
+(to symta basedir
+  ! *root-folder* = "/Users/nikita/Documents/git/symta/"
+  ! *src-folders* = list basedir "{*root-folder*}lib/"
+  ! cache-folder = "{*root-folder*}cache/"
+  ! *dst-folder* = "{cache-folder}lib/"
   ! *lib-folder* = "{*root-folder*}lib/"
   ;! compile-lib "prelude"
   ;! compile-lib "reader"
   ;! compile-lib "compiler"
   ;! compile-lib "macros"
-  ! cache-folder = "{*root-folder*}cache/"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"
+  ! *header-timestamp* = file-write-date "{*root-folder*}/runtime/runtime.h"
   ! runtime-path = "{cache-folder}runtime"
   ! compile-runtime runtime-src runtime-path
-  ! lib-path = "{cache-folder}lib/"
-  ! bin-file = "{cache-folder}test"
-  ! expr = symta-read-file filename
-  ! symta-compile-expr bin-file expr
-  ! result = shell runtime-path lib-path bin-file
+  ! dst-file = compile-module "main"
+  ! result = shell runtime-path *dst-folder* "{*dst-folder*}main"
   ! e l (butlast (split #\Newline result)) (format t "~a~%" l)
   )

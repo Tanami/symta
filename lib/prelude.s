@@ -200,7 +200,7 @@ list.last = Me.(Me.size-1)
 list.suf X = [@Me X]
 list.lead = Me.take{Me.size-1}
 
-list.infix Item =
+list.infix Item = // intersperse from Haskell
 | N = Me.size*2-1
 | if N < 0 then [] else dup I N: if I%2 then Item else Me^pop
 
