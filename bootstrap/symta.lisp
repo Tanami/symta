@@ -1416,12 +1416,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (! deps = second (symta-read-file dep-file)
            ! compiled-deps = m d deps (compile-module d)
            ! when (and (file-older src-file dst-file)
-                       (every (fn x #|! print (list (file-write-date x)
-                                                  (file-write-date dst-file)
-                                                  (file-older x dst-file)
-                                                  x dst-file)
-                                    ! (finish-output)|#
-                                    ! file-older x dst-file)
+                       (every (fn x ! file-older x dst-file)
                               compiled-deps))
               (return-from compile-module dst-file))
         ! expr = symta-read-file src-file
@@ -1439,9 +1434,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! *lib-folder* = "{*root-folder*}lib/"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"
   ! *header-timestamp* = file-write-date "{*root-folder*}/runtime/runtime.h"
-  ! runtime-path = "{cache-folder}runtime"
+  ! runtime-path = "{cache-folder}run"
   ! compile-runtime runtime-src runtime-path
   ! dst-file = compile-module "main"
-  ! result = shell runtime-path *dst-folder* "{*dst-folder*}main"
+  ! result = shell runtime-path *dst-folder*
   ! e l (butlast (split #\Newline result)) (format t "~a~%" l)
   )

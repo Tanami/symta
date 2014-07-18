@@ -1264,7 +1264,7 @@ static api_t *init_api(void *ptr) {
 
 int main(int argc, char **argv) {
   int i, j;
-  char *module;
+  char module[1024];
   void *lib;
   pfun entry, setup;
   api_t *api;
@@ -1276,13 +1276,17 @@ int main(int argc, char **argv) {
   void *E = 0; // current environment
   void *P = 0; // parent environment
 
-  if (argc != 3) {
-    printf("usage: %s <lib_path> <start_module>\n", argv[0]);
+  if (argc > 2) {
+    printf("usage: %s [lib_path]\n", argv[0]);
     abort();
   }
 
-  lib_path = argv[1];
-  module = argv[2];
+  if (argc == 1) {
+    lib_path = "./lib";
+  } else {
+    lib_path = argv[1];
+  }
+  sprintf(module, "%s/%s", lib_path, "main");
 
   api = init_api(apis);
   api->other = init_api(apis+1);

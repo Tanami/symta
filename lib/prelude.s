@@ -240,6 +240,14 @@ list.groupBy N =
 | when Y.size: push Y.reverse Ys
 | Ys.reverse
 
+list.all F =
+| for X Me: unless F X: leave 0
+| 1
+
+list.any F =
+| for X Me: when F X: leave 1
+| 0
+
 GGensymCount = 0
 gensym Name = "[Name]__[GGensymCount!+1]"
 
