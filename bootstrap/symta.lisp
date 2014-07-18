@@ -1385,8 +1385,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
               `("|" ,@xs))
              (else expr)
   ! deps = cdr uses
-  ! e d deps (compile-module d)
-   ! format t "compiling {name}...~%"
+  ! e d deps (unless (compile-module d) (error "cant find {name}.s"))
+  ! format t "compiling {name}...~%"
   ! (finish-output)
   ! imports = apply #'concatenate 'list (m u uses
                                            (m e (get-lib-exports u)
@@ -1416,7 +1416,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (! deps = second (symta-read-file dep-file)
            ! compiled-deps = m d deps (compile-module d)
            ! when (and (file-older src-file dst-file)
-                       (every (fn x ! file-older x dst-file)
+                       (every (fn x ! and x (file-older x dst-file))
                               compiled-deps))
               (return-from compile-module dst-file))
         ! expr = symta-read-file src-file
@@ -1424,7 +1424,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         ! deps-text = format nil '"~{~a~^ ~}" deps
         ! save-text-file dep-file deps-text
         ! return-from compile-module dst-file))
-  ! error "cant find {name}.s")
+  ! nil)
 
 (to symta basedir
   ! *root-folder* = "/Users/nikita/Documents/git/symta/"
@@ -1437,6 +1437,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! runtime-path = "{cache-folder}run"
   ! compile-runtime runtime-src runtime-path
   ! dst-file = compile-module "main"
+  ! unless dst-file (error "cant find main.s")
   ! result = shell runtime-path *dst-folder*
   ! e l (butlast (split #\Newline result)) (format t "~a~%" l)
   )

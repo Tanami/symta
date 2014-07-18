@@ -47,13 +47,9 @@ static typing_t supertypings[MAX_TYPES];
 #define MAX_SINGLE_CHARS (1<<8)
 static void *single_chars[MAX_SINGLE_CHARS];
 
-typedef struct {
-  char *name;
-  void *exports;
-} lib_t;
-
 static int libs_used;
-static lib_t libs[MAX_LIBS];
+static char *lib_names[MAX_LIBS];
+static void *lib_exports;
 
 static char *lib_path;
 
@@ -353,6 +349,7 @@ static void *exec_module(struct api_t *api, char *path) {
   pfun entry, setup;
   void *R, *P=0, *E=0;
 
+
   lib = dlopen(path, RTLD_LAZY);
   if (!lib) fatal("dlopen couldnt load %s\n", path);
 
@@ -377,28 +374,30 @@ static void *exec_module(struct api_t *api, char *path) {
 //       instead of exports list we may return lazy list
 static void *load_lib(struct api_t *api, char *name) {
   int i;
-  char path[1024];
+  char tmp[1024];
   void *exports;
 
-  for (i = 0; i < libs_used; i++) {
-    if (strcmp(libs[i].name, name)) continue;
-    return libs[i].exports;
+  if (name[0] != '/' && strcmp(name,"core")) {
+    sprintf(tmp, "%s/%s", lib_path, name);
+    name = tmp;
   }
+
+  for (i = 0; i < libs_used; i++) {
+    if (strcmp(lib_names[i], name)) continue;
+    return LIST_REF(lib_exports,i);
+  }
+
+  name = strdup(name);
+  exports = exec_module(api, name);
 
   if (libs_used == MAX_LIBS) {
     fprintf(stderr, "module table overflow\n");
     abort();
   }
 
-  name = strdup(name);
-  sprintf(path, "%s/%s", lib_path, name);
-  exports = exec_module(api, path);
-
-  libs[libs_used].name = name;
-  libs[libs_used].exports = exports;
+  lib_names[libs_used] = name;
+  LIFT(&LIST_REF(lib_exports,0),libs_used,exports);
   ++libs_used;
-  
-  //fprintf(stderr, "%s = %p\n", name, exports);
 
   return exports;
 }
@@ -891,7 +890,7 @@ RETURNS(0)
 BUILTIN1("load_library",load_library,C_TEXT,path_text)
   char path[1024];
   decode_text(path, path_text);
-  R = exec_module(api, path);
+  R = load_lib(api, path);
 RETURN(R)
 RETURNS(0)
 
@@ -1323,8 +1322,10 @@ int main(int argc, char **argv) {
     LIST_REF(core,i) = pair;
   }
 
-  libs[libs_used].name = "core";
-  libs[libs_used].exports = core;
+  LIST_ALLOC(lib_exports, MAX_LIBS);
+
+  lib_names[libs_used] = "core";
+  LIST_REF(lib_exports,libs_used) = core;
   ++libs_used;
 
   for (i = 0; i < MAX_METHODS; i++) {
