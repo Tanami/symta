@@ -891,7 +891,6 @@ RETURNS(0)
 BUILTIN1("load_library",load_library,C_TEXT,path_text)
   char path[1024];
   decode_text(path, path_text);
-  fprintf(stderr, "%s\n", path);
   R = exec_module(api, path);
 RETURN(R)
 RETURNS(0)

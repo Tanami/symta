@@ -1356,15 +1356,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! shell "gcc" "-O1" "-Wno-return-type" "-Wno-pointer-sign" "-I" rt-folder "-g" #|"-DNDEBUG"|# "-fpic" "-shared" "-o" dst src)
 
 
-(to already-compiled src-file dst-file
+(to file-older src-file dst-file
   ! dst-date = if (file-exists-p dst-file)
                   (file-write-date dst-file)
                   0
-  ! and (< (file-write-date src-file) dst-date)
-        (< *header-timestamp* dst-date))
+  ! and (<= (file-write-date src-file) dst-date)
+        (<= *header-timestamp* dst-date))
 
 (to compile-runtime src-file dst-file
-  ! when (already-compiled src-file dst-file) (return-from compile-runtime)
+  ! when (file-older src-file dst-file) (return-from compile-runtime)
   ! format t "compiling runtime...~%"
   ! (finish-output)
   ! result = c-runtime-compiler dst-file src-file
@@ -1377,13 +1377,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       ,@(m d deps `("_import" ("_quote" ,(first d))
                               ("_quote" ,(second d))))))
 
-(to symta-compile-expr dst expr
+(to symta-compile-expr name dst expr
   ! uses = list "core"
   ! expr = match expr
              (("|" ("use" . us) . xs)
               (setf uses `(,@uses ,@us))
               `("|" ,@xs))
              (else expr)
+  ! deps = cdr uses
+  ! e d deps (compile-module d)
+   ! format t "compiling {name}...~%"
+  ! (finish-output)
   ! imports = apply #'concatenate 'list (m u uses
                                            (m e (get-lib-exports u)
                                               (list u e)))
@@ -1394,7 +1398,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! result = c-compiler dst c-file
   ! when (string/= result "")
      (e l (split #\Newline result) (format t "~a~%" l))
-  ! cdr uses)
+  ! deps)
 
 (to symta-read-file filename
   ! text = load-text-file filename
@@ -1410,15 +1414,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         ! dep-file = "{dst-file}.dep"
         ! when (file-exists-p dep-file)
           (! deps = second (symta-read-file dep-file)
-           ! e d deps (compile-module d))
-        ! when (already-compiled src-file dst-file)
-          (return-from compile-module dst-file)
-        ! format t "compiling {name}...~%"
-        ! (finish-output)
+           ! compiled-deps = m d deps (compile-module d)
+           ! when (and (file-older src-file dst-file)
+                       (every (fn x #|! print (list (file-write-date x)
+                                                  (file-write-date dst-file)
+                                                  (file-older x dst-file)
+                                                  x dst-file)
+                                    ! (finish-output)|#
+                                    ! file-older x dst-file)
+                              compiled-deps))
+              (return-from compile-module dst-file))
         ! expr = symta-read-file src-file
-        ! deps = symta-compile-expr dst-file expr
-        ! e d deps (compile-module d)
-        ! deps-text = format nil '"~{~a~^ ~}"  deps
+        ! deps = symta-compile-expr name dst-file expr
+        ! deps-text = format nil '"~{~a~^ ~}" deps
         ! save-text-file dep-file deps-text
         ! return-from compile-module dst-file))
   ! error "cant find {name}.s")
@@ -1429,10 +1437,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! cache-folder = "{*root-folder*}cache/"
   ! *dst-folder* = "{cache-folder}lib/"
   ! *lib-folder* = "{*root-folder*}lib/"
-  ;! compile-lib "prelude"
-  ;! compile-lib "reader"
-  ;! compile-lib "compiler"
-  ;! compile-lib "macros"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"
   ! *header-timestamp* = file-write-date "{*root-folder*}/runtime/runtime.h"
   ! runtime-path = "{cache-folder}runtime"
