@@ -365,11 +365,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (defparameter *ssa-env* nil)
 (defparameter *ssa-out* nil) ; where resulting assembly code is stored
 (defparameter *ssa-ns*  nil) ; unique name of current function
-(defparameter *ssa-inits* nil)
 (defparameter *ssa-raw-inits* nil)
 (defparameter *ssa-fns* nil)
 (defparameter *ssa-closure* nil) ; other lambdas, this lambda references
 (defparameter *ssa-bases* nil)
+(defparameter *uniquify-stack* nil)
+(defparameter *hoisted-texts* nil)
 
 (to ssa-name name ! symbol-name (gensym name))
 
@@ -416,10 +417,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to ssa-quote-list-rec xs
    ! `("_list" ,@(m x xs (if (listp x) (ssa-quote-list-rec x) `("_quote" ,x)))))
 
-(to ssa-quote-list k xs
-  ! name = ssa-name "list"
-  ! ssa 'move k name
-  ! push `(,name ,(ssa-quote-list-rec xs)) *ssa-inits*)
+(to ssa-quote-list k xs ! ssa-expr k (ssa-quote-list-rec xs))
 
 (to cstring s ! `(,@(m c (coerce s 'list) (char-code c)) 0))
 
@@ -443,15 +441,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa-expr r x
   ! r)
 
-(to ssa-text k s
-  ! bytes-name = ssa-cstring s
-  ! name = ssa-global "s"
-  ! push `(text ,name ,bytes-name) *ssa-raw-inits*
-  ! ssa 'move k name)
-
 (to ssa-quote k x
   ! cond
-     ((stringp x) (ssa-text k x))
+     ((stringp x) (ssa-expr k (gethash x *hoisted-texts*)))
      ((listp x) (ssa-quote-list k x))
      (t (ssa-expr k x)))
 
@@ -594,8 +586,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (ssa 'move d "Void")
       ! setf xs (cdr xs)))
 
-(defparameter *uniquify-stack* nil)
-
 (to uniquify-form expr
   ! match expr
      (("_fn" as . body)
@@ -605,7 +595,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        ! bs = m r rs (second r)
        ! bs = if (stringp as) (first bs) bs
        ! `("_fn" ,bs ,@(m x body (uniquify-expr x)))))
-     (("_quote" x) expr)
+     (("_quote" x)
+      (when (stringp x)
+        (setf (gethash x *hoisted-texts*) (ssa-name "T")))
+      expr)
      (("_label" x) expr)
      (("_goto" x) expr)
      (("_call" . xs) (uniquify-form xs))
@@ -639,7 +632,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 ;; give symbols unique names: allows non-local references
 (to uniquify expr
   ! *uniquify-stack* = nil
-  ! uniquify-expr expr)
+  ! r = uniquify-expr expr
+  ! ks = nil
+  ! vs = nil
+  ! maphash (fn k v ! push k ks ! push v vs) *hoisted-texts*
+  ! `(("_fn" ,vs ,r) ,@(m k ks `("_text" ,k))))
 
 (to ssa-list k xs
   ! when (= (length xs) 0) (return-from ssa-list (ssa 'move k "Empty"))
@@ -715,6 +712,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to ssa-store base off value ! ssa 'untagged_store (ev base) (ev off) (ev value))
 (to ssa-tagged k tag x ! ssa 'tagged k (ev x) (second tag))
 
+(to ssa-text k s ! ssa 'text k (ssa-cstring s))
+
 (to ssa-form k xs
   ! match xs
     (("_fn" as body) (ssa-fn (ssa-name "n") k as body xs))
@@ -731,6 +730,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_dmet" method type handler) (ssa-dmet k method type handler))
     (("_mcall" o m . as) (ssa-apply-method k m o as))
     (("_list" . xs) (ssa-list k xs))
+    (("_text" x) (ssa-text k x))
     (("_alloc" n) (ssa-alloc k n))
     (("_store" base off value) (ssa-store base off value))
     (("_tagged" tag x) (ssa-tagged k tag x))
@@ -773,35 +773,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! *ssa-env* = nil
   ! *ssa-out* = nil
   ! *ssa-fns* = nil
-  ! *ssa-inits* = nil
   ! *ssa-raw-inits* = nil
   ! *ssa-closure* = nil
+  ! *hoisted-texts* = make-hash-table :test 'equal
   ! ssa 'entry entry
   ! r = ssa-var "result"
   ! expr = uniquify expr
   ! ssa = ssa-expr r expr
   ! ssa 'return r
-  ! init-labels = nil
-  ! setf *ssa-inits*
-     (m x *ssa-inits*
-        (! *ssa-inits* = nil
-         ! *ssa-closure* = nil
-         ! (name expr) = x
-         ! l = "init_{name}"
-         ! push l init-labels
-         ! ssa 'label l
-         ! expr = uniquify expr
-         ! ssa-expr name expr
-         ! ssa 'return_no_gc name
-         ! ssa 'global name))
   ! ssa 'entry "setup"
   ! setf *ssa-out* (append *ssa-raw-inits* *ssa-out*)
-  ! e l init-labels (ssa 'gosub l)
   ! ssa 'return_no_gc 0
   ! rs = apply #'concatenate 'list `(,@(reverse *ssa-fns*) ,*ssa-out*)
   ;;! rs = peephole-optimize rs
   ! nreverse rs)
-
 
 (defparameter *compiled* nil)
 
@@ -1349,11 +1334,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to c-runtime-compiler dst src
   ! rt-folder = "{*root-folder*}runtime"
-  ! shell "gcc" "-O1" "-Wno-return-type" "-Wno-pointer-sign" "-I" rt-folder "-g" #|"-DNDEBUG"|# "-o" dst src)
+  ! shell "gcc" "-O1" "-Wno-return-type" "-Wno-pointer-sign" "-I" rt-folder #|"-DNDEBUG"|# "-g" "-o" dst src)
 
 (to c-compiler dst src
   ! rt-folder = "{*root-folder*}runtime"
-  ! shell "gcc" "-O1" "-Wno-return-type" "-Wno-pointer-sign" "-I" rt-folder "-g" #|"-DNDEBUG"|# "-fpic" "-shared" "-o" dst src)
+  ! shell "gcc" "-O1" "-Wno-return-type" "-Wno-pointer-sign" "-I" rt-folder #|"-DNDEBUG"|# "-g" "-fpic" "-shared" "-o" dst src)
 
 
 (to file-older src-file dst-file

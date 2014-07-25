@@ -6,12 +6,12 @@ GDstFolder = '/Users/nikita/Documents/git/symta/cache/lib/'
 GEnv = Void
 GOut = Void // where resulting assembly code is stored
 GNs = Void // unique name of current function
-GInits = Void
 GRawInits = Void
 GFns = Void
 GClosure = Void // other lambdas, this lambda references
 GBases = Void
-
+GUniquifyStack = Void
+GHoistedTexts = Void
 GAll = gensym all
 
 read_normalized Text =
@@ -74,10 +74,7 @@ ssa_symbol K X Value =
 ssa_quote_list_rec Xs =
 | [list @(map X Xs: if X.is_list then ssa_quote_list_rec X else [_quote X])]
 
-ssa_quote_list K Xs =
-| Name = gensym list
-| ssa move K Name
-| push [Name (ssa_quote_list_rec)] GInits
+ssa_quote_list K Xs = ssa_expr K: ssa_quote_list_rec Xs
 
 cstring S = [@S.chars.map{C => C.code} 0]
 
@@ -101,13 +98,7 @@ ev X =
 | ssa_expr R X
 | R
 
-ssa_text K S =
-| BytesName = ssa_cstring S
-| Name = ssa_global s
-| push [text Name BytesName] GRawInits
-| ssa move K Name
-
-ssa_quote K X = if X.is_text then ssa_text K X
+ssa_quote K X = if X.is_text then ssa_expr K GHoistedTexts.X
                 else if X.is_list then ssa_quote_list K X
                 else ssa_expr K X
 
@@ -241,8 +232,6 @@ ssa_progn K Xs =
   | ssa_expr D X
   | when Xs.end and on X [_label@Zs] 1: ssa move D 'Void'
 
-GUniquifyStack = Void
-
 uniquify_form Expr =
 | on Expr
   [_fn As @Body]
@@ -252,7 +241,8 @@ uniquify_form Expr =
       | Bs = Rs.map{R => R.1}
       | Bs = if As.is_text then Bs.0 else Bs
       | [_fn Bs @Body.map{&uniquify_expr}]
-  [_quote X] Expr
+  [_quote X] | when X.is_text: GHoistedTexts.X <= gensym 'T'
+             | Expr
   [_label X] Expr
   [_goto X] Expr
   [_call @Xs] Xs^uniquify_form
@@ -274,7 +264,10 @@ uniquify_expr Expr = if Expr.is_list
                      then uniquify_form Expr
                      else uniquify_atom Expr
 
-uniquify Expr = let GUniquifyStack []: uniquify_expr Expr
+uniquify Expr =
+| let GUniquifyStack []
+  | R = uniquify_expr Expr
+  | [[_fn (map [K V] GHoistedTexts V) R] @(map [K V] GHoistedTexts [_text K])]
 
 ssa_list K Xs =
 | unless Xs.size: leave: ssa move K 'Empty'
@@ -346,6 +339,8 @@ ssa_alloc K N =
 ssa_store Base Off Value = ssa untagged_store Base^ev Off^ev Value^ev
 ssa_tagged K Tag X = ssa tagged K X^ev Tag.1
 
+ssa_text K S = ssa text K S^cstring
+
 ssa_form K Xs = on Xs
   [_fn As Body] | ssa_fn n^gensym K As Body Xs
   [_if Cnd Then Else] | ssa_if K Cnd Then Else
@@ -361,6 +356,7 @@ ssa_form K Xs = on Xs
   [_dmet Method Type Handler] | ssa_dmet K Method Type Handler
   [_mcall O Method @As] | ssa_apply K Method O As
   [_list @Xs] | ssa_list K Xs
+  [_text X] | ssa_text K X
   [_alloc N] | ssa_alloc K N
   [_store Base Off Value] | ssa_store Base Off Value
   [_tagged Tag X] | ssa_tagged K Tag X
@@ -389,28 +385,16 @@ produce_ssa Entry Expr =
 | let GEnv []
       GOut []
       GFns []
-      GInits []
       GRawInits []
       GClosure []
+      GHoistedTexts (table 100)
   | ssa entry Entry
   | R = ssa_var result
   | uniquify Expr!
   | Ssa = ssa_expr R Expr
   | ssa return R
-  | InitLabels = []
-  | GInits <= map [Name Expr] GInits:
-    let GInits []
-        GClosure []
-    | L = "init_[Name]"
-    | push L InitLabels
-    | ssa label L
-    | uniquify Expr!
-    | ssa_expr Name Expr
-    | ssa return_no_gc Name
-    | ssa global Name
   | ssa entry setup
   | for X GRawInits.reverse: push X GOut
-  | for L InitLabels: ssa gosub L
   | ssa return_no_gc 0
   | Rs = [GOut@GFns].reverse.join.reverse
   //| Rs <= peephole_optimize Rs

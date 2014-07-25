@@ -179,7 +179,6 @@ typedef void *(*pfun)(REGS);
    GC(value,value); \
    return (void*)(value);
 #define RETURN_NO_GC(value) return (void*)(value);
-#define GOSUB(label) label(REGS_ARGS(P));
 #define LIFTS_CONS(dst,head,tail) \
   Top=(void**)Top-2; \
   *((void**)Top+0) = (head); \

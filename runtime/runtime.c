@@ -349,7 +349,6 @@ static void *exec_module(struct api_t *api, char *path) {
   pfun entry, setup;
   void *R, *P=0, *E=0;
 
-
   lib = dlopen(path, RTLD_LAZY);
   if (!lib) fatal("dlopen couldnt load %s\n", path);
 
@@ -362,10 +361,14 @@ static void *exec_module(struct api_t *api, char *path) {
   ARGLIST(E,0);
   setup(REGS_ARGS(P)); // init module's statics
 
+  //fprintf(stderr, "running %s\n", path);
+
   PUSH_BASE();
   ARGLIST(E,0);
   R = entry(REGS_ARGS(P)); 
   POP_BASE();
+
+  //fprintf(stderr, "done %s\n", path);
 
   return R;
 }
@@ -381,6 +384,7 @@ static void *load_lib(struct api_t *api, char *name) {
     sprintf(tmp, "%s/%s", lib_path, name);
     name = tmp;
   }
+
 
   for (i = 0; i < libs_used; i++) {
     if (strcmp(lib_names[i], name)) continue;
@@ -1092,11 +1096,12 @@ static void *gc_arglist(api_t *api, void *o) {
     return o;
   }
 
-  size = NARGS(o);
+  size = UNFIXNUM(NARGS(o));
   ARGLIST(p, size);
   ARG_STORE(o, -2, p);
   for (i = 0; i < size; i++) {
     ARG_LOAD(q,o,i);
+    void *z = q;
     q = gc(api, q);
     ARG_STORE(p, i, q);
   }
@@ -1117,6 +1122,7 @@ static void *gc(api_t *api, void *o) {
     p = o;
     goto end;
   }
+
 
   level = OBJECT_LEVEL(o);
   
@@ -1285,6 +1291,14 @@ int main(int argc, char **argv) {
   } else {
     lib_path = argv[1];
   }
+
+  lib_path = strdup(lib_path);
+  i = strlen(lib_path);
+
+  while (i > 0 && lib_path[i-1] == '/') {
+   lib_path[--i] = 0;
+  }
+
   sprintf(module, "%s/%s", lib_path, "main");
 
   api = init_api(apis);
