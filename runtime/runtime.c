@@ -937,6 +937,50 @@ BUILTIN2("save_text",save_text,C_TEXT,filename_text,C_TEXT,text)
   write_whole_file(filename, xs, size);
 RETURNS(0)
 
+static char *exec_command(char *cmd) {
+  char *r;
+  int rdsz = 1024;
+  int len = rdsz;
+  int pos = 0;
+  int s;
+  FILE *stdin = popen(cmd, "r");
+
+  if (!stdin) return 0;
+
+  r = (char*)malloc(len);
+
+  for(;;) {
+    if (pos + rdsz < len) {
+      char *t = r;
+      len = len*2;
+      r = (char*)malloc(len);
+      memcpy(r, t, pos);
+      free(t);
+    }
+    s = fread(r+pos,1,rdsz,stdin);
+    pos += s;
+    if (s != rdsz) break;
+  }
+  
+  pclose(stdin);
+
+  r[pos] = 0;
+
+  return r;
+}
+
+BUILTIN1("unix",unix,C_TEXT,command_text)
+  char *command = text_to_cstring(command_text);
+  char *contents = exec_command(command);
+  if (contents) {
+    TEXT(R, contents);
+    free(contents);
+  } else {
+    R = Void;
+  }
+RETURN(R)
+RETURNS(0)
+
 BUILTIN2("_",sink,C_ANY,as,C_ANY,name)
   void *o = LIST_REF(getArg(0),0);
   fprintf(stderr, "%s has no method ", print_object(tag_of(o)));
@@ -972,8 +1016,8 @@ static struct {
   {"load_text", b_load_text},
   {"save_text", b_save_text},
   {"load_library", b_load_library},
+  {"unix", b_unix},
 
-  //{"save_string_as_file", b_save_text_as_file},
   {0, 0}
 };
 

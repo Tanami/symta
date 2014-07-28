@@ -7,3 +7,4 @@ export tag_of
        load_text
        save_text
        load_library
+       unix

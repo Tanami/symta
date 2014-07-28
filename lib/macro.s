@@ -1,6 +1,5 @@
-use //prelude
+use prelude
 
-/*
 `+` A B = [_mcall A '+' B]
 `*` A B = [_mcall A '*' B]
 `/` A B = [_mcall A '/' B]
@@ -36,7 +35,6 @@ mex Expr =
 macroexpand Expr Macros =
 | let GMacros Macros
   | mex Expr
-*/
 
-yoba = \abc
-export yoba //macroexpand '+' '*' '/' '%'
+
+export macroexpand '+' '*' '/' '%'
