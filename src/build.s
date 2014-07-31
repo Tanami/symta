@@ -45,17 +45,17 @@ compile_runtime Src Dst =
 add_imports Expr Deps =
 | unless Deps.size > 0: leave Expr
 | [[_fn (map D Deps D.1) Expr]
-   (map D Deps [_import [_quote D.0] [_quote D.1]])]
+   @(map D Deps [_import [_quote D.0] [_quote D.1]])]
 
-symta_compile_expr Name Dst Expr =
+compile_expr Name Dst Expr =
 | Uses = [core]
-| Expr = on Expr
-           [`|` [use @Us] @Xs]
-              | Uses <= [@Uses @Us]
-              | [`|` @Xs]
-           Else | Expr
+| Expr <= on Expr
+            [`|` [use @Us] @Xs]
+               | Uses <= [@Uses @Us]
+               | [`|` @Xs]
+            Else | Expr
 | Deps = Uses.tail
-| for D Deps: unless compile_module D: bad "module [D].s"
+| for D Deps: unless compile_module D: bad "cant compile [D].s"
 | say "compiling [Name]..."
 | Imports = (map U Uses: map E U^get_lib_exports: [U E]).join
 | ExprWithDeps = add_imports Expr Imports
@@ -63,28 +63,29 @@ symta_compile_expr Name Dst Expr =
 | CFile = "[Dst].c"
 | ssa_produce_file CFile ExpandedExpr
 | Result = c_compiler Dst CFile
-| when Result <> "": bad Result
+| unless file_exists Dst: bad "[CFile]: [Result]"
 | Deps
 
-symta_read_file Filename =
+load_symta_file Filename =
 | Text = load_text Filename
 | read_normalized Text
 
 compile_module Name =
 | for Folder GSrcFolders
-  | SrcFile = "[Folder][Name]"
+  | SrcFile = "[Folder][Name].s"
   | when file_exists SrcFile
     | DstFile = "[GDstFolder][Name]"
     | DepFile = "[DstFile].dep"
     | when file_exists DepFile
-      | Deps DepFile^symta_read_file.1
+      | Deps = DepFile^load_symta_file.1
       | CompiledDeps = map D Deps: compile_module D
-      | when file_older SrcFile DstFile and CompiledDeps.all{X => X <> Void and file_older X DstFile}:
+      | when file_older SrcFile DstFile and CompiledDeps.all{X => have X and file_older X DstFile}:
         | leave DstFile
-    | Expr = symta_read_file SrcFile
-    | Deps = symta_compile_expr Name DstFile Expr
+    | Expr = load_symta_file SrcFile
+    | Deps = compile_expr Name DstFile Expr
     | DepsText = Deps.infix{' '}.unchars
     | save_text DepFile DepsText
+    | leave DstFile
 | Void
 
 build BuildFolder =
@@ -94,14 +95,11 @@ build BuildFolder =
       GSrcFolders ["[BuildFolder]src/" "[GRootFolder]src/"]
       GDstFolder "[BuildFolder]lib/"
       GHeaderTimestamp (file_time "[GRootFolder]/runtime/runtime.c")
-  | say [GRootFolder GDstFolder GSrcFolders]
-  | bad 123
   | RuntimeSrc = "[GRootFolder]/runtime/runtime.c"
   | RuntimePath = "[BuildFolder]run"
   | compile_runtime RuntimeSrc RuntimePath
   | DstFile = compile_module main
-  | when DstFile >< Void: bad "module main.s"
-  | Result = unix "[RuntimePath] '[GDstFolder]'"
-  | say Result
+  | when no DstFile: bad "cant compile main.s"
+  | unix "[RuntimePath] '[GDstFolder]'"
 
 export build

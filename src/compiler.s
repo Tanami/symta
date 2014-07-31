@@ -43,7 +43,7 @@ ssa_symbol K X Value =
          | ssa load Base \P Parent
        | when Pos >< GAll
          | when have Value: bad "cant set [X]"
-         | ssa add_tag K Base \T_LIST
+         | ssa tagged K Base \T_LIST
          | leave Void
        | when no Value: leave (ssa arg_load K Base Pos)
        | if Base >< \E and GBases.size >< 1
@@ -57,11 +57,11 @@ ssa_quote_list_rec Xs =
 
 ssa_quote_list K Xs = ssa_expr K: ssa_quote_list_rec Xs
 
-cstring S = [@S.chars.map{C => C.code} 0]
+cstring_bytes S = [@S.chars.map{C => C.code} 0]
 
 ssa_cstring Src =
 | Name = gensym b
-| ssa bytes Name Src^cstring
+| ssa bytes Name Src^cstring_bytes
 | Name
 
 ssa_var Name =
@@ -94,7 +94,7 @@ ssa_fn_body K F Args Body O Prologue Epilogue =
       GNs      F
       GEnv     LocalEnv
       GClosure [[]@GClosure]
-  | when have Prologue: ssa label GNs
+  | when Prologue: ssa label GNs
   | SizeVar = "[F]_size"
   | when Prologue
     | if Args.is_text
@@ -166,7 +166,7 @@ ssa_let K Args Vals Xs =
 | for [I V] Vals.enum: ssa arg_store E I V^ev
 | SaveP = ssa_var save_p
 | SaveE = ssa_var save_e
-| ssa mave SaveP \P
+| ssa move SaveP \P
 | ssa move SaveE \E
 | ssa move \E E
 | ssa move \P P
@@ -255,7 +255,7 @@ ssa_list K Xs =
 | L = ssa_var l
 | ssa arglist L Xs.size
 | for [I X] Xs.enum: ssa arg_store L I X^ev
-| ssa add_tag K L \T_LIST
+| ssa tagged K L \T_LIST
 
 ssa_data K Type Xs =
 | Size = Xs.size
@@ -320,7 +320,7 @@ ssa_alloc K N =
 ssa_store Base Off Value = ssa untagged_store Base^ev Off^ev Value^ev
 ssa_tagged K Tag X = ssa tagged K X^ev Tag.1
 
-ssa_text K S = ssa text K S^cstring
+ssa_text K S = ssa text K S^ssa_cstring
 
 ssa_form K Xs = on Xs
   [_fn As Body] | ssa_fn n^gensym K As Body Xs
@@ -353,7 +353,7 @@ ssa_form K Xs = on Xs
   Else | bad "special form: [Xs]"
 
 ssa_atom K X =
-| if X.is_int then ssa fixnum K X
+| if X.is_int then ssa load_fixnum K X
   else if X.is_text then ssa_symbol K X Void
   else if X >< Void then ssa move K 'Void'
   else if X.size >< 0 then ssa move K "Empty"

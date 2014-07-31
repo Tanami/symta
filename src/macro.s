@@ -29,7 +29,7 @@ mex Expr =
   [`&` O] | if O.is_keyword then O else [O^mex]
   [] | Expr
   [X@Xs]
-    | Macro = GMacros.X
+    | Macro = when X.is_keyword: GMacros.X
     | if have Macro
       then mex Xs.apply{Macro.expander}
       else [X^mex @(map X Xs: if X.is_keyword then [_quote X] else mex X)]
