@@ -1312,17 +1312,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (defparameter *src-folders* nil)
 (defparameter *dst-folder* nil)
 (defparameter *header-timestamp* nil)
-(defparameter *lib-folder* nil)
 
 ;; FIXME: do caching
 (to get-lib-exports lib-name
-  ! lib-file = "{*lib-folder*}{lib-name}.s"
-  ! text = load-text-file lib-file
-  ! expr = /normalize (/read text)
-  ! match (first (last expr))
-     (("export" . xs)
-      (remove-if (fn x ! match x (("\\" x) t)) xs))
-     (_ nil))
+  ! e folder *src-folders*
+    (! lib-file = "{folder}{lib-name}.s"
+     ! when (file-exists-p lib-file)
+       (return-from get-lib-exports
+         (! text = load-text-file lib-file
+          ! expr = /normalize (/read text)
+          ! match (first (last expr))
+             (("export" . xs)
+              (remove-if (fn x ! match x (("\\" x) t)) xs))
+             (_ nil))))
+  ! error "no {lib-name}.s")
 
 
 (to shell command &rest args
@@ -1368,7 +1371,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
               `("|" ,@xs))
              (else expr)
   ! deps = cdr uses
-  ! e d deps (unless (compile-module d) (error "cant find {name}.s"))
+  ! e d deps (unless (compile-module d) (error "cant compile {d}.s"))
   ! format t "compiling {name}...~%"
   ! (finish-output)
   ! imports = apply #'concatenate 'list (m u uses
@@ -1409,17 +1412,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         ! return-from compile-module dst-file))
   ! nil)
 
-(to symta basedir
+(to build build-folder
   ! *root-folder* = "/Users/nikita/Documents/git/symta/"
-  ! *src-folders* = list "{basedir}src/" "{*root-folder*}lib/"
-  ! *dst-folder* = "{basedir}lib/"
-  ! *lib-folder* = "{*root-folder*}lib/"
+  ! *src-folders* = list "{build-folder}src/" "{*root-folder*}src/"
+  ! *dst-folder* = "{build-folder}lib/"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"
   ! *header-timestamp* = file-write-date "{*root-folder*}/runtime/runtime.h"
-  ! runtime-path = "{basedir}run"
+  ! runtime-path = "{build-folder}run"
   ! compile-runtime runtime-src runtime-path
   ! dst-file = compile-module "main"
-  ! unless dst-file (error "cant find main.s")
+  ! unless dst-file (error "cant compile main.s")
   ! result = shell runtime-path *dst-folder*
   ! e l (butlast (split #\Newline result)) (format t "~a~%" l)
   )

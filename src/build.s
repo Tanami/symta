@@ -4,7 +4,6 @@ GRootFolder = Void
 GSrcFolders = Void
 GDstFolder = Void
 GHeaderTimestamp = Void
-GLibFolder = Void
 GMacros = Void
 
 read_normalized Text =
@@ -16,11 +15,14 @@ skip_macros Xs = Xs.skip{X => X.1.is_macro}
 
 // FIXME: do caching
 get_lib_exports LibName =
-| LibFile = "[GLibFolder][LibName].s"
-| Text = load_text LibFile
-| Expr = read_normalized Text
-| on Expr.last [export @Xs] | skip_macros Xs
-               Else | Void
+| for Folder GSrcFolders
+  | LibFile = "[Folder][LibName].s"
+  | when file_exists LibFile
+    | Text = load_text LibFile
+    | Expr = read_normalized Text
+    | leave: on Expr.last [export @Xs] | skip_macros Xs
+                          Else | Void
+| bad "no [LibName].s"
 
 c_runtime_compiler Dst Src =
 | RtFolder = "[GRootFolder]runtime"
@@ -53,7 +55,7 @@ symta_compile_expr Name Dst Expr =
               | [`|` @Xs]
            Else | Expr
 | Deps = Uses.tail
-| for D Deps: unless compile_module D: bad "module [Name].s"
+| for D Deps: unless compile_module D: bad "module [D].s"
 | say "compiling [Name]..."
 | Imports = (map U Uses: map E U^get_lib_exports: [U E]).join
 | ExprWithDeps = add_imports Expr Imports
@@ -85,22 +87,21 @@ compile_module Name =
     | save_text DepFile DepsText
 | Void
 
-symta BaseDir =
-| MacrosLib = '/Users/nikita/Documents/git/symta/cache/lib/macro'
+build BuildFolder =
+| MacrosLib = '/Users/nikita/Documents/git/symta/build/lib/macro'
 | let GMacros MacrosLib^load_library.keep{X => X.1.is_macro}.as_table
       GRootFolder "/Users/nikita/Documents/git/symta/"
-      GSrcFolders ["[BaseDir]src/" "[GRootFolder]lib/"]
-      GDstFolder "[BaseDir]lib/"
-      GLibFolder "[GRootFolder]lib/"
+      GSrcFolders ["[BuildFolder]src/" "[GRootFolder]src/"]
+      GDstFolder "[BuildFolder]lib/"
       GHeaderTimestamp (file_time "[GRootFolder]/runtime/runtime.c")
-  | say GHeaderTimestamp
+  | say [GRootFolder GDstFolder GSrcFolders]
   | bad 123
   | RuntimeSrc = "[GRootFolder]/runtime/runtime.c"
-  | RuntimePath = "[BaseDir]run"
+  | RuntimePath = "[BuildFolder]run"
   | compile_runtime RuntimeSrc RuntimePath
   | DstFile = compile_module main
-  | when DstFile >< Void: bad "no main.s"
+  | when DstFile >< Void: bad "module main.s"
   | Result = unix "[RuntimePath] '[GDstFolder]'"
   | say Result
 
-export symta
+export build
