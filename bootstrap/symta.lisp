@@ -755,20 +755,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-expr k x ! if (listp x) (ssa-form k x) (ssa-atom k x))
 
-
-(defparameter *lib-folder* nil)
-(defparameter *exports-cache* (make-hash-table :test 'equal))
-
-;; FIXME: do caching
-(to get-lib-exports lib-name
-  ! lib-file = "{*lib-folder*}{lib-name}.s"
-  ! text = load-text-file lib-file
-  ! expr = /normalize (/read text)
-  ! match (first (last expr))
-     (("export" . xs)
-      (remove-if (fn x ! match x (("\\" x) t)) xs))
-     (_ nil))
-
 (to produce-ssa entry expr
   ! *ssa-env* = nil
   ! *ssa-out* = nil
@@ -1326,6 +1312,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (defparameter *src-folders* nil)
 (defparameter *dst-folder* nil)
 (defparameter *header-timestamp* nil)
+(defparameter *lib-folder* nil)
+
+;; FIXME: do caching
+(to get-lib-exports lib-name
+  ! lib-file = "{*lib-folder*}{lib-name}.s"
+  ! text = load-text-file lib-file
+  ! expr = /normalize (/read text)
+  ! match (first (last expr))
+     (("export" . xs)
+      (remove-if (fn x ! match x (("\\" x) t)) xs))
+     (_ nil))
+
 
 (to shell command &rest args
   ! s = (make-string-output-stream)

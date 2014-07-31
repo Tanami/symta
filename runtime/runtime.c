@@ -1,5 +1,8 @@
 #include <dlfcn.h>
 #include <stdarg.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <time.h>
 
 #include "runtime.h"
 
@@ -965,6 +968,7 @@ static char *exec_command(char *cmd) {
   pclose(stdin);
 
   r[pos] = 0;
+  if (pos && r[pos-1] == '\n') r[pos-1] = 0;
 
   return r;
 }
@@ -980,6 +984,25 @@ BUILTIN1("unix",unix,C_TEXT,command_text)
   }
 RETURN(R)
 RETURNS(0)
+
+BUILTIN1("file_time",file_time,C_TEXT,filename_text)
+  char *filename = text_to_cstring(filename_text);
+  struct stat attrib;
+  R = Void;
+  if (!stat(filename, &attrib)) {
+    R = (void*)FIXNUM(attrib.st_mtime);
+  }
+RETURNS(R)
+
+BUILTIN1("file_exists",file_exists,C_TEXT,filename_text)
+  FILE *probe;
+  char *filename = text_to_cstring(filename_text);
+  if (access(filename, F_OK) != -1) {
+    R = (void*)FIXNUM(1);
+  } else {
+    R = (void*)FIXNUM(0);
+  }
+RETURNS(R)
 
 BUILTIN2("_",sink,C_ANY,as,C_ANY,name)
   void *o = LIST_REF(getArg(0),0);
@@ -1017,6 +1040,8 @@ static struct {
   {"save_text", b_save_text},
   {"load_library", b_load_library},
   {"unix", b_unix},
+  {"file_time", b_file_time},
+  {"file_exists", b_file_exists},
 
   {0, 0}
 };

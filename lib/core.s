@@ -4,7 +4,9 @@ export tag_of
        log
        rtstat
        stack_trace
+       load_library
        load_text
        save_text
-       load_library
+       file_time
+       file_exists
        unix
