@@ -278,6 +278,8 @@ table.`!` K V =
 
 table.size = Me.buckets.map{X=>X.size}.sum
 table.harden = Me.buckets.skip{X => X >< Void}.join
+table.as_text = "#table[Me.harden.as_text]"
+
 
 list.as_table =
 | T = table Me.size*2

@@ -5,6 +5,8 @@ use prelude
 `/` A B = [_mcall A '/' B]
 `%` A B = [_mcall A '%' B]
 
+`|` @Xs = [_list @Xs]
+
 load_macros Library = Library^load_library.keep{[K V]=>V.is_macro}.as_table
 
 GMacros = Void
@@ -37,4 +39,4 @@ macroexpand Expr Macros =
   | mex Expr
 
 
-export macroexpand '+' '*' '/' '%'
+export macroexpand '|' '+' '*' '/' '%'

@@ -1411,13 +1411,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to symta basedir
   ! *root-folder* = "/Users/nikita/Documents/git/symta/"
-  ! *src-folders* = list basedir "{*root-folder*}lib/"
-  ! cache-folder = "{*root-folder*}cache/"
-  ! *dst-folder* = "{cache-folder}lib/"
+  ! *src-folders* = list "{basedir}src/" "{*root-folder*}lib/"
+  ! *dst-folder* = "{basedir}lib/"
   ! *lib-folder* = "{*root-folder*}lib/"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"
   ! *header-timestamp* = file-write-date "{*root-folder*}/runtime/runtime.h"
-  ! runtime-path = "{cache-folder}run"
+  ! runtime-path = "{basedir}run"
   ! compile-runtime runtime-src runtime-path
   ! dst-file = compile-module "main"
   ! unless dst-file (error "cant find main.s")
