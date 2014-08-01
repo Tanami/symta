@@ -1,5 +1,6 @@
 export tag_of
        address
+       inspect
        halt
        log
        rtstat

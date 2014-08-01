@@ -556,7 +556,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! setf as `(,o ,@as)
   ! vs = m a as (ev a)
   ! e = ssa-var "env"
-  ! ssa 'arglist e(length as)
+  ! ssa 'arglist e (length as)
   ! i = -1
   ! e v vs (ssa 'arg_store e (incf i) v)
   ! method-name-bytes = ssa-cstring (second name)

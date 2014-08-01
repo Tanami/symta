@@ -15,7 +15,7 @@
 #define VIEW_SIZE(o) VIEW_REF4(o,1)
 #define VIEW_REF(o,start,i) *((void**)VIEW_GET(o,-1) + start + (i))
 
-#define LIST_SIZE(o) OBJECT_CODE(o)
+#define LIST_SIZE(o) ((uintptr_t)OBJECT_CODE(o))
 
 #define DATA_SIZE(o) ((uintptr_t)methods[0][DATA_TAG(o)])
 
@@ -336,7 +336,8 @@ static uintptr_t show_runtime_info(api_t *api) {
   uintptr_t heap0_used = get_heap_used(0);
   uintptr_t heap1_used = get_heap_used(1);
   uintptr_t total_reserved = runtime_reserved0+runtime_reserved1;
-  fprintf(stderr, "level: %ld\n", api->level);
+  fprintf(stderr, "-------------\n");
+  fprintf(stderr, "level: %ld\n", api->level-1);
   fprintf(stderr, "usage: %ld = %ld+%ld\n"
          , heap0_used+heap1_used-total_reserved
          , heap0_used-runtime_reserved0
@@ -345,6 +346,7 @@ static uintptr_t show_runtime_info(api_t *api) {
   fprintf(stderr, "runtime: %ld\n", total_reserved);
   fprintf(stderr, "types used: %d/%d\n", types_used, MAX_TYPES);
   fprintf(stderr, "methods used: %d/%d\n", methods_used, MAX_METHODS);
+  fprintf(stderr, "\n");
 }
 
 static void *exec_module(struct api_t *api, char *path) {
@@ -417,7 +419,7 @@ static void *find_export(struct api_t *api, void *name, void *exports) {
 
   for (i = 0; i < nexports; i++) {
     void *pair = LIST_REF(exports,i);
-    if (GET_TAG(pair) != T_LIST || LIST_SIZE(pair) != (void*)FIXNUM(2)) {
+    if (GET_TAG(pair) != T_LIST || LIST_SIZE(pair) != FIXNUM(2)) {
       fatal("bad export: %s", print_object(pair));
     }
     void *export_name = LIST_REF(pair,0);
@@ -644,7 +646,8 @@ BUILTIN2("view .",view_get,C_ANY,o,C_FIXNUM,index)
     TEXT(R, ".");
     bad_call(REGS_ARGS(P),R);
   }
-RETURNS(VIEW_REF(o, start, UNFIXNUM(index)))
+RETURN(VIEW_REF(o, start, UNFIXNUM(index)))
+RETURNS(0)
 BUILTIN3("view !",view_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   uint32_t start = VIEW_START(o);
   uint32_t size = VIEW_SIZE(o);
@@ -682,16 +685,17 @@ RETURNS(0)
 BUILTIN1("list size",list_size,C_ANY,o)
 RETURNS(LIST_SIZE(o))
 BUILTIN2("list .",list_get,C_ANY,o,C_FIXNUM,index)
-  if ((uintptr_t)LIST_SIZE(o) <= (uintptr_t)index) {
+  if (LIST_SIZE(o) <= (uintptr_t)index) {
     fprintf(stderr, "index out of bounds\n");
     TEXT(P, ".");
     bad_call(REGS_ARGS(P),P);
   }
-RETURNS(LIST_REF(o, UNFIXNUM(index)))
+RETURN(LIST_REF(o, UNFIXNUM(index)))
+RETURNS(0)
 BUILTIN3("list !",list_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   void **p;
   intptr_t i;
-  if ((uintptr_t)LIST_SIZE(o) <= (uintptr_t)index) {
+  if (LIST_SIZE(o) <= (uintptr_t)index) {
     fprintf(stderr, "list !: index out of bounds\n");
     TEXT(P, "!");
     bad_call(REGS_ARGS(P),P);
@@ -995,7 +999,6 @@ BUILTIN1("file_time",file_time,C_TEXT,filename_text)
 RETURNS(R)
 
 BUILTIN1("file_exists",file_exists,C_TEXT,filename_text)
-  FILE *probe;
   char *filename = text_to_cstring(filename_text);
   if (access(filename, F_OK) != -1) {
     R = (void*)FIXNUM(1);
@@ -1003,6 +1006,10 @@ BUILTIN1("file_exists",file_exists,C_TEXT,filename_text)
     R = (void*)FIXNUM(0);
   }
 RETURNS(R)
+
+BUILTIN1("inspect",inspect,C_ANY,o)
+  fprintf(stderr, "%p: tag=%ld, level=%ld\n", o, GET_TAG(o), OBJECT_LEVEL(o));
+RETURNS(0)
 
 BUILTIN2("_",sink,C_ANY,as,C_ANY,name)
   void *o = LIST_REF(getArg(0),0);
@@ -1032,6 +1039,7 @@ static struct {
 } builtins[] = {
   {"tag_of", b_tag_of},
   {"address", b_address},
+  {"inspect", b_inspect},
   {"halt", b_halt},
   {"log", b_log},
   {"rtstat", b_rtstat},

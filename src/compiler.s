@@ -335,7 +335,7 @@ ssa_form K Xs = on Xs
   [_dget Src Index] | ssa_dget K Src Index
   [_dset Dst Index Value] | ssa_dset K Dst Index Value
   [_dmet Method Type Handler] | ssa_dmet K Method Type Handler
-  [_mcall O Method @As] | ssa_apply K Method O As
+  [_mcall O Method @As] | ssa_apply_method K Method O As
   [_list @Xs] | ssa_list K Xs
   [_text X] | ssa_text K X
   [_alloc N] | ssa_alloc K N
