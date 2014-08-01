@@ -560,7 +560,7 @@ uint32_t hash(uint8_t *data, int len) {
   PROLOGUE; \
   void *A, *R; \
   BUILTIN_CHECK_VARARGS(0,0,sname);
-#define RETURNS(r) Top = Base; return (void*)(r); }
+#define RETURNS(r) R = (void*)(r); RETURN(R); }
 #define RETURNS_VOID Top = Base; }
 
 BUILTIN2("void ><",void_eq,C_ANY,a,C_ANY,b)
@@ -633,8 +633,7 @@ BUILTIN1("cons end",cons_end,C_ANY,o)
 RETURNS(FIXNUM(0))
 BUILTIN2("cons pre",cons_pre,C_ANY,o,C_ANY,head)
   CONS(R, head, o);
-RETURN(R)
-RETURNS(0)
+RETURNS(R)
 
 BUILTIN1("view size",view_size,C_ANY,o)
 RETURNS((uintptr_t)VIEW_SIZE(o))
@@ -646,8 +645,7 @@ BUILTIN2("view .",view_get,C_ANY,o,C_FIXNUM,index)
     TEXT(R, ".");
     bad_call(REGS_ARGS(P),R);
   }
-RETURN(VIEW_REF(o, start, UNFIXNUM(index)))
-RETURNS(0)
+RETURNS(VIEW_REF(o, start, UNFIXNUM(index)))
 BUILTIN3("view !",view_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   uint32_t start = VIEW_START(o);
   uint32_t size = VIEW_SIZE(o);
@@ -661,7 +659,6 @@ BUILTIN3("view !",view_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   p = &VIEW_REF(o, 0, 0);
   LIFT(p,start,value);
   R = 0;
-RETURN(R)
 RETURNS(Void)
 BUILTIN1("view end",view_end,C_ANY,o)
 RETURNS(FIXNUM(0))
@@ -675,12 +672,10 @@ BUILTIN1("view tail",view_tail,C_ANY,o)
     A = o;
     VIEW(R, &VIEW_REF(A,0,0), start+1, FIXNUM(size-1));
   }
-RETURN(R)
-RETURNS(0)
+RETURNS(R)
 BUILTIN2("view pre",view_pre,C_ANY,o,C_ANY,head)
   CONS(R, head, o);
-RETURN(R)
-RETURNS(0)
+RETURNS(R)
 
 BUILTIN1("list size",list_size,C_ANY,o)
 RETURNS(LIST_SIZE(o))
@@ -690,8 +685,7 @@ BUILTIN2("list .",list_get,C_ANY,o,C_FIXNUM,index)
     TEXT(P, ".");
     bad_call(REGS_ARGS(P),P);
   }
-RETURN(LIST_REF(o, UNFIXNUM(index)))
-RETURNS(0)
+RETURNS(LIST_REF(o, UNFIXNUM(index)))
 BUILTIN3("list !",list_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   void **p;
   intptr_t i;
@@ -703,8 +697,7 @@ BUILTIN3("list !",list_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   p = (void*)((uintptr_t)o - T_LIST);
   LIFT(p,UNFIXNUM(index),value);
   R = 0;
-RETURN(R)
-RETURNS(Void)
+RETURNS(R)
 BUILTIN1("list end",list_end,C_ANY,o)
 RETURNS(FIXNUM(LIST_SIZE(o) == 0))
 BUILTIN1("list head",list_head,C_ANY,o)
@@ -726,12 +719,10 @@ BUILTIN1("list tail",list_tail,C_ANY,o)
     TEXT(P, "tail");
     bad_call(REGS_ARGS(P),P);
   }
-RETURN(R)
-RETURNS(0)
+RETURNS(R)
 BUILTIN2("list pre",list_pre,C_ANY,o,C_ANY,head)
   CONS(R, head, o);
-RETURN(R)
-RETURNS(0)
+RETURNS(R)
 BUILTIN1("list unchars",list_unchars,C_ANY,o)
   int i;
   void *x, *t;
@@ -765,8 +756,7 @@ BUILTIN1("list unchars",list_unchars,C_ANY,o)
   }
   *p = 0;
   TEXT(R,q);
-RETURN(R)
-RETURNS(0)
+RETURNS(R)
 BUILTIN2("list apply",list_apply,C_ANY,as,C_FN,f)
   int i;
   intptr_t nargs = UNFIXNUM(LIST_SIZE(as));
@@ -782,8 +772,7 @@ BUILTIN1("int neg",integer_neg,C_ANY,o)
 RETURNS(-(intptr_t)o)
 BUILTIN2("int +",integer_add,C_ANY,a,C_FIXNUM,b)
   R = (void*)((intptr_t)a + (intptr_t)b);
-RETURN(R)
-RETURNS(0)
+RETURNS(R)
 BUILTIN2("int -",integer_sub,C_ANY,a,C_FIXNUM,b)
 RETURNS((intptr_t)a - (intptr_t)b)
 BUILTIN2("int *",integer_mul,C_ANY,a,C_FIXNUM,b)
@@ -839,8 +828,7 @@ BUILTIN2("int dup",integer_dup,C_ANY,size,C_ANY,init)
     p = &LIST_REF(R,0);
     while(s-- > 0) *p++ = init;
   }
-RETURN(R)
-RETURNS(0)
+RETURNS(R)
 BUILTIN1("integer end",integer_end,C_ANY,o)
 RETURNS(FIXNUM(1))
 BUILTIN1("integer char",integer_char,C_ANY,o)
@@ -854,13 +842,11 @@ BUILTIN1("as_text",as_text,C_ANY,o)
   } else {
     R = o;
   }
-RETURN(R)
-RETURNS(0)
+RETURNS(R)
 
 BUILTIN1("tag_of",tag_of,C_ANY,o)
   R = tag_of(o);
-RETURN(R);
-RETURNS(0)
+RETURNS(R);
 
 BUILTIN1("address",address,C_ANY,o)
 RETURNS(DEL_TAG(o))
@@ -872,7 +858,6 @@ RETURNS_VOID
 
 BUILTIN1("log",log,C_ANY,a)
   fprintf(stderr, "log: %s\n", print_object(a));
-RETURN(a)
 RETURNS(a)
 
 BUILTIN0("rtstat",rtstat)
@@ -895,15 +880,13 @@ BUILTIN0("stack_trace",stack_trace)
       *p++ = init;
     }
   }
-RETURN(R)
-RETURNS(0)
+RETURNS(R)
 
 BUILTIN1("load_library",load_library,C_TEXT,path_text)
   char path[1024];
   decode_text(path, path_text);
   R = load_lib(api, path);
-RETURN(R)
-RETURNS(0)
+RETURNS(R)
 
 BUILTIN1("set_error_handler",set_error_handler,C_ANY,h)
   fatal("FIXME: implement set_error_handler\n");
@@ -926,8 +909,7 @@ BUILTIN1("load_text",load_text,C_TEXT,filename_text)
   } else {
     R = Void;
   }
-RETURN(R)
-RETURNS(0)
+RETURNS(R)
 
 BUILTIN2("save_text",save_text,C_TEXT,filename_text,C_TEXT,text)
   char buf[32];
@@ -986,8 +968,7 @@ BUILTIN1("unix",unix,C_TEXT,command_text)
   } else {
     R = Void;
   }
-RETURN(R)
-RETURNS(0)
+RETURNS(R)
 
 BUILTIN1("file_time",file_time,C_TEXT,filename_text)
   char *filename = text_to_cstring(filename_text);
