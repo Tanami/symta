@@ -8,8 +8,8 @@ GMacros = Void
 
 read_normalized Text =
 | Expr = read Text
-| on Expr [`|` @As] Expr
-          X [`|` X]
+| case Expr [`|` @As] Expr
+            X [`|` X]
 
 skip_macros Xs = Xs.skip{X => X.1.is_macro}
 
@@ -20,8 +20,8 @@ get_lib_exports LibName =
   | when file_exists LibFile
     | Text = load_text LibFile
     | Expr = read_normalized Text
-    | leave: on Expr.last [export @Xs] | skip_macros Xs
-                          Else | Void
+    | leave: case Expr.last [export @Xs] | skip_macros Xs
+                            Else | Void
 | bad "no [LibName].s"
 
 c_runtime_compiler Dst Src =
@@ -49,7 +49,7 @@ add_imports Expr Deps =
 
 compile_expr Name Dst Expr =
 | Uses = [core]
-| Expr <= on Expr
+| Expr <= case Expr
             [`|` [use @Us] @Xs]
                | Uses <= [@Uses @Us]
                | [`|` @Xs]

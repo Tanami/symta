@@ -24,7 +24,7 @@ get_parent_index Parent =
 path_to_sym X Es =
 | when Es.end: leave Void
 | [Head@Tail] = Es
-| when on Head [U@Us] U >< GAll // reference to the whole arglist?
+| when case Head [U@Us] U >< GAll // reference to the whole arglist?
   | Head <= Head.1
   | unless Head.0 >< X: leave (path_to_sym X Tail)
   | when Es^address >< GEnv^address: leave [GAll Void] // argument of the current function
@@ -35,7 +35,7 @@ path_to_sym X Es =
 | [P (get_parent_index Head.P.1)]
 
 ssa_symbol K X Value =
-| on (path_to_sym X GEnv)
+| case (path_to_sym X GEnv)
      [Pos Parent]
        | Base = if have Parent then gensym "B" else \E
        | when have Parent
@@ -134,7 +134,7 @@ ssa_if K Cnd Then Else =
 //       make new syms valid only downstream
 ssa_hoist_decls Expr Hoist = // C/C++ style declaration hoisting
 | unless Expr.is_list: leave Expr
-| on Expr
+| case Expr
      [_fn @Xs] | Expr
      [[fn As @Xs] @Vs]
        | if As.is_text
@@ -175,7 +175,7 @@ ssa_let K Args Vals Xs =
 | ssa move \E SaveE
 
 ssa_apply K F As =
-| on F [_fn Bs @Body]: leave: ssa_let K Bs As Body
+| case F [_fn Bs @Body]: leave: ssa_let K Bs As Body
 | ssa push_base
 | let GBases [[] @GBases]
   | H = ev F
@@ -206,15 +206,15 @@ ssa_set K Place Value =
 ssa_progn K Xs =
 | when Xs.end: Xs <= [[]]
 | D = ssa_var dummy
-| for X Xs: on X [_label Name] | GBases <= [[Name @GBases.head] @GBases.tail]
+| for X Xs: case X [_label Name] | GBases <= [[Name @GBases.head] @GBases.tail]
 | till Xs.end
   | X = pop Xs
   | when Xs.end: D <= K
   | ssa_expr D X
-  | when Xs.end and on X [_label@Zs] 1: ssa move D 'Void'
+  | when Xs.end and case X [_label@Zs] 1: ssa move D 'Void'
 
 uniquify_form Expr =
-| on Expr
+| case Expr
   [_fn As @Body]
     | Bs = if As.is_text then [As] else As
     | Rs = Bs.map{B => [B B^gensym]}
@@ -227,9 +227,9 @@ uniquify_form Expr =
   [_label X] Expr
   [_goto X] Expr
   [_call @Xs] Xs^uniquify_form
-  Xs | on Xs [[_fn As @Body] @Vs]
-             | when not As.is_text and As.size <> Vs.size:
-               | bad "invalid number of arguments in [Expr]"
+  Xs | case Xs [[_fn As @Body] @Vs]
+       | when not As.is_text and As.size <> Vs.size:
+         | bad "invalid number of arguments in [Expr]"
      | Xs.map{&uniquify_expr}
 
 uniquify_name S = for Closure GUniquifyStack: for X Closure: when X.0 >< S: leave X.1
@@ -322,7 +322,7 @@ ssa_tagged K Tag X = ssa tagged K X^ev Tag.1
 
 ssa_text K S = ssa text K S^ssa_cstring
 
-ssa_form K Xs = on Xs
+ssa_form K Xs = case Xs
   [_fn As Body] | ssa_fn n^gensym K As Body Xs
   [_if Cnd Then Else] | ssa_if K Cnd Then Else
   [_quote X @Xs] | ssa_quote K X
@@ -390,7 +390,7 @@ ssa_to_c Xs = let GCompiled []
 | Decls = []
 | Imports = table 256
 | c 'BEGIN_CODE'
-| for X Xs: on X
+| for X Xs: case X
   [entry Name] | c "ENTRY([Name])"
   [label Name] | push "DECL_LABEL([Name])" Decls
                | c "LABEL([Name])"

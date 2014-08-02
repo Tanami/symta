@@ -1293,7 +1293,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("leave" value) (expand-leave *default-leave* value))
         (("<=" (place) value) (expand-assign place value))
         (("!!" . as) (expand-assign-result as))
-        (("on" keyform . cases) (expand-match keyform (group-by 2 cases) 0))
+        (("case" keyform . cases) (expand-match keyform (group-by 2 cases) 0))
         (("let" . xs) (expand-shade (group-by 2 (butlast xs)) (car (last xs))))
         (("export" . xs) (expand-export xs))
         (else (return-from builtin-expander

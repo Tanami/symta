@@ -32,11 +32,11 @@ add_lexeme Dst Pattern Type =
   | leave Void
 | [Cs@Next] = Pattern
 | Kleene = 0
-| on Cs [`&` X] | Cs <= X
-                | Next <= \(@$Cs $@Next)
-        [`@` X] | Cs <= X
-                | Kleene <= 1
-| when Cs.is_text | Cs <= Cs.chars
+| case Cs [`&` X] | Cs <= X
+                  | Next <= \(@$Cs $@Next)
+          [`@` X] | Cs <= X
+                  | Kleene <= 1
+| when Cs.is_text: Cs <= Cs.chars
 | Cs = if Cs.is_list then Cs else [Cs]
 | for C Cs
   | T = Dst.C
@@ -145,21 +145,21 @@ read_string R Incut End =
 | while 1
   | C = R.peek
   | unless C >< Incut: R.next
-  | on C
-       `\\` | on R.next
-                 `n` | L <= ['\n' @L]
-                 `t` | L <= ['\t' @L]
-                 `\\` | L <= ['\\' @L]
-                 C>(in &Incut &End) | L <= [C@L]
-                 Void | R.error{'EOF in string'}
-                 Else | R.error{"Invalid escape code: [Else]"}
-       &End | leave [L.reverse.unchars]
-       &Incut | L <= L.reverse.unchars
-              | M = read_token{R 0}.value
-              | E = read_string R Incut End
-              | leave: str_merge L M E
-       Void | R.error{'EOF in string'}
-       Else | L <= [C@L]
+  | case C
+     `\\` | case R.next
+             `n` | L <= ['\n' @L]
+             `t` | L <= ['\t' @L]
+             `\\` | L <= ['\\' @L]
+             C>(in &Incut &End) | L <= [C@L]
+             Void | R.error{'EOF in string'}
+             Else | R.error{"Invalid escape code: [Else]"}
+     &End | leave [L.reverse.unchars]
+     &Incut | L <= L.reverse.unchars
+            | M = read_token{R 0}.value
+            | E = read_string R Incut End
+            | leave: str_merge L M E
+     Void | R.error{'EOF in string'}
+     Else | L <= [C@L]
 
 is_comment_char C = have C and C <> '\n'
 read_comment R Cs =
@@ -169,12 +169,12 @@ read_comment R Cs =
 read_multi_comment R Cs =
 | O = 1
 | while O > 0
-  | on [R.next R.peek]
-       [X Void] | R.error{"`/*`: missing `*/`"}
-       [`*` `/`] | O !- 1
-                 | R.next
-       [`/` `*`] | O !+ 1
-                 | R.next
+  | case [R.next R.peek]
+      [X Void] | R.error{"`/*`: missing `*/`"}
+      [`*` `/`] | O !- 1
+                | R.next
+      [`/` `*`] | O !+ 1
+                | R.next
 | read_token R 0
 
 
@@ -234,7 +234,7 @@ parse_term =
 | Tok = pop GInput
 | when Tok.parsed: parser_error "already parsed token" Tok
 | V = Tok.value
-| P = on Tok.symbol
+| P = case Tok.symbol
          (in escape symbol text) | leave Tok
          integer | parse_integer V
          void | Void
@@ -248,7 +248,7 @@ parse_term =
 | Tok.parsed <= [P]
 | Tok
 
-is_delim X = X.is_token and on X.symbol (in `:` `=` `=>` `<=` `,` `if` `then` `else`) 1
+is_delim X = X.is_token and case X.symbol (in `:` `=` `=>` `<=` `,` `if` `then` `else`) 1
 
 parse_op Ops =
 | when GInput.end: leave 0
@@ -343,7 +343,7 @@ parse_strip X =
   else if X.is_list
   then | Ys = map V X: parse_strip V
        | for V X
-         | when on V [U@Us] U^token_is{`!`} and not on X [Z@Zs] Z^token_is{`!`}:
+         | when case V [U@Us] U^token_is{`!`} and not case X [Z@Zs] Z^token_is{`!`}:
            | leave [`!!` @Ys]
        | Ys
   else X
@@ -352,7 +352,7 @@ read Chars =
 | init_tokenizer
 | R = parse_strip: parse: tokenize: newInput Chars test
 | unless R.end: R <= R.0
-| on R [X S] S
-       R R
+| case R [X S] S
+         R R
 
 export read
