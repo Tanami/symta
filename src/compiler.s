@@ -137,6 +137,7 @@ ssa_hoist_decls Expr Hoist = // C/C++ style declaration hoisting
 | case Expr
      [_fn @Xs] | Expr
      [[fn As @Xs] @Vs]
+       | Vs <= Vs.map{V => ssa_hoist_decls V Hoist}
        | if As.is_text
          then | Hoist [As]
               | [_progn [_set As [_list @Vs]]
@@ -217,6 +218,7 @@ uniquify_form Expr =
 | case Expr
   [_fn As @Body]
     | Bs = if As.is_text then [As] else As
+    | when Bs.size <> Bs.uniq.size: bad "duplicate args in [Bs]"
     | Rs = Bs.map{B => [B B^gensym]}
     | let GUniquifyStack [Rs @GUniquifyStack]
       | Bs = Rs.map{R => R.1}

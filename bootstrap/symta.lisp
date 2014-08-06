@@ -450,7 +450,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to ssa-resolved name ! cons name *ssa-ns*)
 
 (to ssa-fn-body k f args body o prologue epilogue
-  ! *ssa-bases* = (list ())
+  ! *ssa-bases* = list ()
   ! *ssa-out* = nil
   ! *ssa-ns* = f
   ! *ssa-env* = if (stringp args)
@@ -468,15 +468,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! when epilogue (ssa 'return k)
   ! list *ssa-out* (car *ssa-closure*))
 
+;; check if we really need new closure here, because in some cases we can reuse parent's closure
+;; a single argument to a function could be passed in register, while a closure would be created if required
+;; a single reference closure could be itself held in a register
+;; for now we just capture required parent's closure
 (to ssa-fn name k args body o
   ! f = ssa-name "f"
   ! (body cs) = ssa-fn-body nil f args body o t t
   ! push body *ssa-fns*
   ! nparents = length cs
-  ;; check if we really need new closure here, because in some cases we can reuse parent's closure
-  ;; a single argument to a function could be passed in register, while a closure would be created if required
-  ;; a single reference closure could be itself held in a register
-  ;; for now we just capture required parent's closure
   ! ssa 'alloc_closure k f nparents
   ! i = -1
   ! e c cs (! if (equal c *ssa-ns*) ; self?
@@ -498,6 +498,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! match expr
      (("_fn" . xs) expr)
      ((("_fn" as . xs) . vs)
+      (setf vs (m v vs (ssa-hoist-decls v hoist)))
       (if (stringp as)
           (progn (funcall hoist `(,as))
                  `("_progn" ("_set" ,as ("_list" ,@vs))
@@ -590,6 +591,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! match expr
      (("_fn" as . body)
       (! bs = if (stringp as) `(,as) as
+       ! us = remove-duplicates bs :test 'equal
+       ! when (/= (length us) (length bs)) (error "duplicate args in {bs}")
        ! rs = m b bs (list b (ssa-name b))
        ! *uniquify-stack* = cons rs *uniquify-stack*
        ! bs = m r rs (second r)
@@ -850,7 +853,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          (hit (expand-list-hole key (cdr hole) hit miss)))
     `("if" ("_mcall" ,key "end")
            ,miss
-           ("_let" ((,h ("_mcall" ,key "head"))
+           ("let_" ((,h ("_mcall" ,key "head"))
                     (,key ("_mcall" ,key "tail")))
                ,(expand-hole h (car hole) hit miss)))))
 
@@ -861,7 +864,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       (if (equal hole "_")
           hit
           (if (var-sym? hole)
-              `("_let" ((,hole ,key))
+              `("let_" ((,hole ,key))
                         ,hit)
               `("if" ("><" ,hole ,key)
                      ,hit
@@ -882,11 +885,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   (when (equal (car hole) "bind")
     (return-from expand-hole
       (let ((g (ssa-name "G")))
-        `("_let" ((,g (,(second hole) ,key)))
+        `("let_" ((,g (,(second hole) ,key)))
            ,(expand-hole g (third hole) hit miss)))))
   (when (equal (car hole) "=>")
     (return-from expand-hole
-      `("_let" ((,(first (second hole)) ,key))
+      `("let_" ((,(first (second hole)) ,key))
          ("if" ("|" ,@(third hole))
              ,hit
              ,miss))))
@@ -915,7 +918,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                                               ("_goto" ,e))))
                          `(("_label" ,name) ,(expand-hole key (car case) hit miss) ,@next)))
                      (cons nil (reverse cases)))))
-    `("_let" ((,key ,keyform)
+    `("let_" ((,key ,keyform)
              (,r 0))
        ,@(cdr ys)
        ("_label" ,d)
@@ -942,7 +945,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to expand-named name body
   ! (r end) = result-and-label name
-  ! `("_let" ((,r 0))
+  ! `("let_" ((,r 0))
        ("_set" ,r ,body)
        ("_label" ,end)
        ,r))
@@ -951,8 +954,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! (r end) = result-and-label name
   ! `("_progn" ("_set" ,r ,value)
                ("_goto" ,end)))
-
-(to pattern-arg x ! not (stringp x))
 
 (to add-pattern-matcher args body
   ! default = match args
@@ -969,10 +970,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        ! setf args gs))
   ! list args body)
 
+(to pattern-arg x ! not (stringp x))
+
 (to expand-block-item-fn name args body
   ! kname = concatenate 'string "_k_" name
   ! (args body) = if (find-if #'pattern-arg args) (add-pattern-matcher args body) (list args body)
-  ! setf body `("_default_leave" ,name ,(expand-named name body))
+  ! setf body `("default_leave_" ,name ,(expand-named name body))
   ! list name `("_fn" ,args ("_progn" ("_mark" ,name) ,body)))
 
 (to expand-destructuring value bs
@@ -1007,7 +1010,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! gs = m f fields (ssa-name "A")
   ! o = ssa-name "O"
   ! v = ssa-name "V"
-  ! i = -1
   ! j = -1
   ! k = -1
   ! `(("=" (,"new_{name}" ,@gs) ("_data" ,name ,@gs))
@@ -1016,8 +1018,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       ,@(m f fields `("=" (("." ,name ,f)) ("_dget" "Me" ,(incf j))))
       ,@(m f fields `("=" (("." ,name ,"set_{f}") ,v) ("_dset" "Me" ,(incf k) ,v)))))
 
-(to expand-block-itme-method type name args body
-  ! setf body `("_default_leave" ,name ,(expand-named name body))
+(to expand-block-item-method type name args body
+  ! setf body `("default_leave_" ,name ,(expand-named name body))
   ! list nil `("_dmet" ,name ,type ("_fn" ("Me" ,@args)
                                       ("_progn" ("_mark" ,"{type}.{name}") ,body))))
 
@@ -1029,7 +1031,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                (m x (expand-block-item-data name fields)
                   (expand-block-item x)))))
      (("=" ("!!" ("!" place)) value) (list nil (expand-assign place value)))
-     (("=" (("." type method) . args) body) (expand-block-itme-method type method args body))
+     (("=" (("." type method) . args) body) (expand-block-item-method type method args body))
      (("=" (("[]" . bs)) value) (return-from expand-block-item (expand-destructuring value bs)))
      (("=" (name . args) value)
       (if (var-sym? name)
@@ -1051,8 +1053,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          (list (first as)
                `("_fn" ,(if (var-sym? (first as)) as `(,dummy ,@(cdr as)))
                        ,expr))))
-  ! key = ssa-name "K"
-  ! sel = expand-match `(,all "." 1) cases `("_no_method" ,key) :keyvar key
+  ! sel = expand-match `("_mcall" ,all "." 1) cases `("no_method_" ,key) :keyvar key
   ! `("_fn" ,all ("_apply" ,sel ,all)))
 
 (to expand-block xs
@@ -1069,10 +1070,27 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! xs = reverse ys
   ! xs = m x xs (expand-block-item x)
   ! xs = apply #'concatenate 'list xs
-  ! `("_let" ,(m x (remove-if-not #'car xs) `(,(first x) :void))
-        ,@(m x xs (if (first x)
-                      `("_set" ,(first x) ,(second x))
-                      (second x)))))
+  ! r = nil
+  ! e x (reverse xs)
+      (setf r
+        (match x
+          ((a b)
+           (if a
+               (if (fn-sym? a)
+                   `(("_set" ,a ,b) ,@r)
+                   `(("let_" ((,a ,b)) ,(if r `("_progn" ,@r) :void))))
+               `(,b ,@r)))))
+  ! setf r `("_progn" ,@r)
+  ! bs = remove-if-not (fn x ! fn-sym? (car X)) xs
+  ! when bs (setf r `("let_" ,(m b bs `(,(first b) :void)) ,r))
+  ! r)
+
+#  ! body = m x xs (if (first x)
+                    `("_set" ,(first x) ,(second x))
+                    (second x))
+  ! `("let_" ,(m x (remove-if-not #'car xs) `(,(first x) :void))
+        ,@body))
+|#
 
 (to expand-export xs
   ! xs = m x xs
@@ -1168,7 +1186,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to expand-and a b ! `("if" ,a ,b 0))
 (to expand-or a b
   ! v = ssa-name "V"
-  ! `("_let" ((,v ,a)) ("if" ,v ,v ,b)))
+  ! `("let_" ((,v ,a)) ("if" ,v ,v ,b)))
 
 (to expand-lambda as body
   ! body = `("|" ,body)
@@ -1202,7 +1220,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to expand-shade bs body
   ! gs = m b bs `(,(ssa-name "G") ,@b)
   ! r = ssa-name "R"
-  !`("_let" ((,r 0) ,@(m g gs `(,(first g) ,(second g))))
+  !`("let_" ((,r 0) ,@(m g gs `(,(first g) ,(second g))))
        ,@(m g gs `("_set" ,(second g) ,(third g)))
        ("_set" ,r ,body)
        ,@(m g gs `("_set" ,(second g) ,(first g)))
@@ -1235,11 +1253,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("_nomex" x) (return-from builtin-expander x))
         (("&" o) (return-from builtin-expander
                    (if (fn-sym? o) o `(,(builtin-expander o)))))
-        (("_default_leave" name body)
+        (("default_leave_" name body)
          (return-from builtin-expander
            (let ((*default-leave* name))
              (builtin-expander body))))
-        (("_let" bs . xs)
+        (("let_" bs . xs)
          `("_call"
            ("_fn" ,(m b bs (first b)) ,`("_progn" ,@xs))
            ,@(m b bs (second b))))
@@ -1287,7 +1305,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("<>" a b) `("_mcall" ,a  "<>" ,b))
         (("and" a b) `("if" ,a ,b 0))
         (("or" a b) (let ((n (ssa-name "T")))
-                      `("_let" ((,n ,a)) ("if" ,n ,n ,b))))
+                      `("let_" ((,n ,a)) ("if" ,n ,n ,b))))
         (("named" name . body) (expand-named name `("_progn" ,@body)))
         (("leave" name value) (expand-leave name value))
         (("leave" value) (expand-leave *default-leave* value))

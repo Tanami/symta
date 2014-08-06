@@ -117,6 +117,7 @@ hard_list.reverse =
 
 list.map F = dup Me.size: F Me^pop
 hard_list.map F = dup I Me.size: F Me.I
+text.map F = Me.chars.map{F}
 
 list.each F = till Me.end: F Me^pop
 hard_list.each F = times I Me.size: F Me.I
@@ -280,7 +281,6 @@ table.size = Me.buckets.map{X=>X.size}.sum
 table.harden = Me.buckets.skip{X => X >< Void}.join
 table.as_text = "#table[Me.harden.as_text]"
 
-
 list.as_table =
 | T = table Me.size*2
 | for [K V] Me: T.K <= V
@@ -289,6 +289,29 @@ list.as_table =
 list.uniq =
 | Seen = table Me.size*2
 | Me.skip{X => have Seen.X or (Seen.X <= 1) and 0}
+
+
+text.pad Count Item =
+| C = Item.as_text
+| when C.size > 1: bad "pad item: [C]"
+| N = Count - Me.size
+| when N < 0: bad "text is larger than [Count]: '[Me]'"
+| "[(dup N C).unchars][Me]"
+
+HexChars = '0123456789ABCDEF'
+
+int.x =
+| unless Me: leave '0'
+| Cs = []
+| S = ''
+| when Me < 0
+  | S <= '-'
+  | Me <= -Me
+| while Me > 0
+  | Cs <= [HexChars.(Me%16) @Cs]
+  | Me !/ 16
+| "[S][Cs.unchars]"
+
 
 data macro name expander
 
