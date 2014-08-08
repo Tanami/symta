@@ -4,6 +4,8 @@ GMacros = Void
 GDefaultLeave = Void
 
 
+is_var_sym X = X.is_text and not X.is_keyword
+
 expand_list_hole Key Hole Hit Miss = case Hole
   [] | [_if [_mcall Key end] Hit Miss]
   [[`@` Zs]] | expand_hole Key Zs Hit Miss
@@ -15,12 +17,50 @@ expand_list_hole Key Hole Hit Miss = case Hole
                  [let_ [[H [_mcall Key head]]
                         [Key [_mcall Key tail]]]
                    (expand_hole H X Hit Miss)]]
-   
 
-expand_hole Key Hole Hit Miss = bad 'FIXME'
+expand_hole Key Hole Hit Miss =
+| unless case Hole [X@Xs]
+  | when Hole.is_keyword: Hole <= [_quote Hole]
+  | leave: if Hole >< '_' then Hit
+           else if Hole.is_text then [let_ [[Hole Key]] Hit]
+           else [_if ['><' Hole Key] Hit Miss]
+| case Hole
+  [`>` A B] | expand_hole Key A (expand_hole Key B Hit Miss) Miss
+  [in @Xs] | [_if (expand_match Key (map X Xs [X 1]) 0 Void) Hit Miss]
+  [not @Xs] | [_if (expand_match Key (map X Xs [X 1]) 0 Void) Miss Hit]
+  [bind A B] | G = gensym 'G'
+             | [let_ [[G [A Key]]] (expand_hole G B Hit Miss)]
+  [`=>` A B] | [let_ [[A.0 Key]]
+                 [_if ['|' @B] Hit Miss]]
+  [`&` X] | [_if [`><` X Key] Hit Miss]
+  [`[]` @Xs] | [_if [_mcall Key is_list] 
+                    (expand_list_hole Key Xs Hit Miss)
+                    Miss]
+  Else | bad "hole: [Hole]"
 
-expand_match Keyform Cases Default Keyvar = bad 'FIXME'
+expand_match Keyform Cases Default Key =
+| when no Key: Key <= gensym 'Key'
+| E = gensym end
+| D = gensym default
+| R = gensym 'R'
+| Ys = []
+| for Case Cases.reverse
+  | Name = gensym c
+  | NextLabel = if Ys.size > 0 then Ys.0.1 else D
+  | Miss = [_goto NextLabel]
+  | Hit = [_progn [_set R [_progn @Case.tail]]
+                  [_goto E]]
+  | Ys <= [[_label Name] (expand_hole Key Case.head Hit Miss) @Ys]
+| [let_ [[Key Keyform]
+         [R 0]]
+    @Ys.tail
+    [_label D]
+    [_set R Default]
+    [_label E]
+    R]
 
+
+case @Xs = expand_match Xs.0 Xs.tail.groupBy{2} 0 Void
 
 `if` A B C = [_if A B C]
 not @Xs = [_if Xs 0 1]
@@ -179,8 +219,6 @@ expand_block_item X =
   Else | [Void X]
 | [Y]
 
-is_var_sym X = X.is_text and not X.is_keyword
-
 make_multimethod Xs =
 | when case Xs [[`=>` As Expr]] (As.size >< 0 or As.0^is_var_sym)
   | leave Xs.0
@@ -264,4 +302,4 @@ macroexpand Expr Macros =
   | mex Expr
 
 
-export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'if' '|' '+' '*' '/' '%'
+export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '|' '+' '*' '/' '%'

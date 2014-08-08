@@ -130,7 +130,7 @@ ssa_if K Cnd Then Else =
 | ssa_expr K Then
 | ssa local_label EndLabel
 
-//FIXME: currently hoistint may clobber sime toplevel syms;
+//FIXME: currently hoisting may clobber sime toplevel syms;
 //       make new syms valid only downstream
 ssa_hoist_decls Expr Hoist = // C/C++ style declaration hoisting
 | unless Expr.is_list: leave Expr

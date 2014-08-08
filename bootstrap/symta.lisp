@@ -1085,13 +1085,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! when bs (setf r `("let_" ,(m b bs `(,(first b) :void)) ,r))
   ! r)
 
-#  ! body = m x xs (if (first x)
-                    `("_set" ,(first x) ,(second x))
-                    (second x))
-  ! `("let_" ,(m x (remove-if-not #'car xs) `(,(first x) :void))
-        ,@body))
-|#
-
 (to expand-export xs
   ! xs = m x xs
          (match x
