@@ -110,11 +110,11 @@ let Bs Body =
 `><` A B = [_mcall A '><' B]
 `<>` A B = [_mcall A '<>' B]
 
-pattern_arg X = not X.is_text
+pattern_arg X = not X.is_text or X.is_keyword
 
 `=>` As Body =
 | Body <= [`|` Body]
-| [A B] = if As.find{&pattern_arg} then add_pattern_matcher As Body else [As Body]
+| [A B] = if no As.find{&pattern_arg} then [As Body] else add_pattern_matcher As Body
 | [_fn As Body]
 
 //FIXME: move it to compiler.s
@@ -160,7 +160,7 @@ add_pattern_matcher Args Body =
 
 expand_block_item_fn Name Args Body =
 | KName = "_k_[Name]"
-| [A B] = if Args.find{&pattern_arg} then add_pattern_matcher Args Body else [Args Body]
+| [A B] = if no Args.find{&pattern_arg} then [Args Body] else add_pattern_matcher Args Body
 | B <= [default_leave_ Name (expand_named Name B)]
 | [Name [_fn A [_progn [_mark Name] B]]]
 
@@ -233,8 +233,7 @@ make_multimethod Xs =
 | [_fn All [_mcall All apply Sel]]
 
 expand_block Xs =
-| leave [_progn @Xs]
-| when Xs.size >< 1 or not case Xs.0 [`=` @Zs] 1: leave Xs.0
+| when Xs.size >< 1 and not case Xs.0 [`=` @Zs] 1: leave Xs.0
 | Ms = []
 | Ys = []
 | for X Xs: case X

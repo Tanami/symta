@@ -970,7 +970,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        ! setf args gs))
   ! list args body)
 
-(to pattern-arg x ! not (stringp x))
+(to pattern-arg x ! or (not (stringp x)) (fn-sym? x))
 
 (to expand-block-item-fn name args body
   ! kname = concatenate 'string "_k_" name

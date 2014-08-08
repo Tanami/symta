@@ -17,8 +17,8 @@ ssa @As = | push As GOut
 get_parent_index Parent =
 | P = GClosure.0.locate{E => Parent >< E}
 | when have P: leave P
-| Parents = GClosure.0
-| GClosure.0 <= [@Parents Parent]
+| Parents = GClosure.head
+| GClosure <= [[@Parents Parent] @GClosure.tail]
 | Parents.size
 
 path_to_sym X Es =
