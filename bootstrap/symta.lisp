@@ -580,12 +580,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           (! (b . bs) = *ssa-bases*
            ! setf *ssa-bases* `((,name ,@b) ,@bs))))
   ! while xs
-     (! x = car xs
-      ! unless (cdr xs) (setf d k)
+     (! x = pop xs
+      ! unless xs (setf d k)
       ! ssa-expr d x
-      ! when (and (headed "_label" x) (not (cdr xs)))
-          (ssa 'move d "Void")
-      ! setf xs (cdr xs)))
+      ! when (and (headed "_label" x) (not xs))
+          (ssa 'move d "Void")))
 
 (to uniquify-form expr
   ! match expr
@@ -764,6 +763,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! *ssa-fns* = nil
   ! *ssa-raw-inits* = nil
   ! *ssa-closure* = nil
+  ! *ssa-bases* = '(())
   ! *hoisted-texts* = make-hash-table :test 'equal
   ! ssa 'entry entry
   ! r = ssa-var "result"

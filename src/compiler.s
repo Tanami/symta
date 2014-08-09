@@ -136,7 +136,7 @@ ssa_hoist_decls Expr Hoist = // C/C++ style declaration hoisting
 | unless Expr.is_list: leave Expr
 | case Expr
      [_fn @Xs] | Expr
-     [[fn As @Xs] @Vs]
+     [[_fn As @Xs] @Vs]
        | Vs <= Vs.map{V => ssa_hoist_decls V Hoist}
        | if As.is_text
          then | Hoist [As]
@@ -231,7 +231,7 @@ uniquify_form Expr =
   [_call @Xs] Xs^uniquify_form
   Xs | case Xs [[_fn As @Body] @Vs]
        | when not As.is_text and As.size <> Vs.size:
-         | bad "invalid number of arguments in [Expr]"
+         | bad "number of arguments in [Expr]"
      | Xs.map{&uniquify_expr}
 
 uniquify_name S = for Closure GUniquifyStack: for X Closure: when X.0 >< S: leave X.1
@@ -369,6 +369,7 @@ produce_ssa Entry Expr =
       GFns []
       GRawInits []
       GClosure []
+      GBases [[]]
       GHoistedTexts (table 100)
   | ssa entry Entry
   | R = ssa_var result

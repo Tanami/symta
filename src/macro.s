@@ -110,6 +110,20 @@ let Bs Body =
 `><` A B = [_mcall A '><' B]
 `<>` A B = [_mcall A '<>' B]
 
+
+is_incut X = case X [`@` Xs] 1
+
+`[]` @As =
+| IncutCount = As.count{&is_incut}
+| when IncutCount >< 0: leave [_list @As]
+| when IncutCount >< 1
+  | case As.last
+    [`@` Xs] | As = As.reverse.tail
+             | till As.end: Xs <= [_mcall Xs pre As^pop]
+             | leave Xs
+| As = map A As: if A^is_incut then A.1 else [_list A]
+| [_mcall [_list @As] join]
+
 pattern_arg X = not X.is_text or X.is_keyword
 
 `=>` As Body =
@@ -300,5 +314,5 @@ macroexpand Expr Macros =
 | let GMacros Macros
   | mex Expr
 
-
-export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '|' '+' '*' '/' '%'
+export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '[]'
+       '|' '+' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>'
