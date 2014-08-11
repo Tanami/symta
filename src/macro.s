@@ -1,4 +1,4 @@
-use prelude
+use prelude reader
 
 GMacros = Void
 GDefaultLeave = Void
@@ -59,7 +59,6 @@ expand_match Keyform Cases Default Key =
     [_label E]
     R]
 
-
 case @Xs = expand_match Xs.0 Xs.tail.groupBy{2} 0 Void
 
 `if` A B C = [_if A B C]
@@ -71,6 +70,61 @@ not @Xs = [_if Xs 0 1]
 when @Xs = [_if Xs.lead Xs.last Void]
 unless @Xs = [_if Xs.lead Void Xs.last]
 
+expand_while Head Body =
+| L = gensym l
+| [_progn [_label L]
+          [_if Head
+               [_progn Body [_goto L]]
+               Void]]
+
+while @As = expand_while As.lead As.last
+till @As = expand_while [not As.lead] As.last
+
+times Var Count Body =
+| I = if have Var then Var else gensym 'I'
+| N = gensym 'N'
+| ['|' ['=' [N] Count]
+       ['=' [I] [0]]
+       [unless [`and` [_eq [_tag N] 0]
+                      [_gte N 0]]
+         [_fatal 'dup: bad loop count']]
+       [while [_lt I N]
+         ['|' Body
+              [_set I [_add I 1]]]]]
+
+expand_dup Var Count Body =
+| I = if have Var then Var else gensym 'I'
+| N = gensym 'N'
+| Ys = gensym 'Ys'
+| ['|' ['=' [N] Count]
+       ['=' [I] [0]]
+       [unless [`and` [_eq [_tag N] 0]
+                      [_gte N 0]]
+         [_fatal 'dup: bad loop count']]
+       ['=' [Ys] [_alloc N]]
+       [while [_lt I N]
+         ['|' [_store Ys I Body]
+              [_set I [_add I 1]]]]
+       [_tagged [_quote 'T_LIST'] Ys]]
+
+dup @As = case As
+  [X Xs Body] | expand_dup X Xs Body
+  [Xs Body] | expand_dup Void Xs Body
+  [Xs] | expand_dup Void Xs 0
+  Else | bad "dup [As]"
+
+expand_map_for Type Item Items Body =
+| Xs = gensym 'Xs'
+| I = gensym 'I'
+| N = gensym 'N'
+| ['|' ['=' [Xs] [_mcall Items harden]]
+       [Type I [_mcall Xs size]
+          ['|' ['=' [Item] [_mcall Xs '.' I]]
+               Body]]]
+
+map Item Items Body = expand_map_for map Item Items Body
+for Item Items Body = expand_map_for for Item Items Body
+
 expand_quasiquote O =
 | unless O.is_list: leave [_quote O]
 | case O
@@ -78,6 +132,24 @@ expand_quasiquote O =
   Else | ['[]' @(map X O: expand_quasiquote X)]
 
 `\\` O = expand_quasiquote O
+
+expand_text_splice Text =
+| Xs = Text.chars
+| As = []
+| S = Xs.locate{X => X >< '['}
+| when no S: leave [_quote Text]
+| while have S
+  | push [_quote Xs.take{S}.unchars] As
+  | Xs <= Xs.drop{S+1}
+  | S <= Xs.locate{X => X >< ']'}
+  | when no S: bad 'unterminated ['
+  | push [_mcall Xs.take{S}.unchars^read as_text] As
+  | Xs <= Xs.drop{S+1}
+  | S <= Xs.locate{X => X >< '['}
+| when Xs.size > 0: push [_quote Xs.unchars] As
+| [_mcall [_list @As.reverse] unchars]
+
+`"` Text /*"*/ = expand_text_splice Text
 
 pop O =
 | R = gensym 'R'
@@ -109,6 +181,16 @@ let Bs Body =
 `>>` A B = [_mcall A '>>' B]
 `><` A B = [_mcall A '><' B]
 `<>` A B = [_mcall A '<>' B]
+`^` A B = [B A]
+`.` A B = if B.is_keyword then ['{}' ['.' A B]] else [_mcall A '.' B]
+`:` A B = [@A B]
+`{}` @Xs = case Xs
+  [[`.` A B] @As] | [_mcall A B @As]
+  [[`^` A B] @As] | [B @As A]
+  [H @As] | [_mcall H '{}' @As]
+  Else | bad "`{}` [Xs]"
+
+`!!` @As = expand_assign_result As
 
 
 is_incut X = case X [`@` Xs] 1
@@ -154,6 +236,8 @@ expand_named Name Body =
     [_label End]
     R]
 
+named As = expand_named As.head [_progn @As.tail]
+
 expand_leave Name Value =
 | [R End] = result_and_label Name
 | [_progn [_set R Value] [_goto End]]
@@ -194,6 +278,8 @@ expand_assign Place Value =
                        then [_mcall Object "set_[Field]" Value]
                        else [_mcall Object "!" Field Value]
   Else | [_set Place Value]
+
+`<=` Place Value = expand_assign Place.0 Value
 
 expand_assign_result As =
 | Ys = map A As A
@@ -283,10 +369,13 @@ leave @As = case As
           | expand_leave GDefaultLeave Value
   Else | bad "leave syntax"
 
+export @Xs =
+| Xs = map X Xs: case X
+        [`\\` N] | [_list [_quote N] [new_macro [_quote N] [`&` N]] ]
+        Else | [_list [_quote X] [`&` X]]
+| [_list @Xs]
+
 //load_macros Library = Library^load_library.keep{[K V]=>V.is_macro}.as_table
-
-
-
 
 normalize_matryoshka O =
 | case O [X] | if X.is_keyword then O else normalize_matryoshka X
@@ -315,4 +404,5 @@ macroexpand Expr Macros =
   | mex Expr
 
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '[]'
-       '|' '+' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>'
+       'not' 'and' 'or' 'when' 'unless' 'while' 'till' 'dup' 'times' 'map' 'for' 'export'
+       '|' '+' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '!!' '"'

@@ -2,8 +2,6 @@ non F = X => if F X then 0 else 1
 no X = Void >< X
 have X = Void <> X
 
-text.end = 1 //FIXME: this is wrong
-
 void.end = 1
 void.`.` K = Void
 void.find F = Void

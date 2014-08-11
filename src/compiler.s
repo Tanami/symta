@@ -344,11 +344,11 @@ ssa_form K Xs = case Xs
   [_store Base Off Value] | ssa_store Base Off Value
   [_tagged Tag X] | ssa_tagged K Tag X
   [_import Lib Symbol] | ssa_import K Lib Symbol
-  [_add A B] | ssa_fixed2 K fixed_add A B
-  [_eq A B] | ssa_fixed2 K fixed_eq A B
-  [_lt A B] | ssa_fixed2 K fixed_lt A B
-  [_gte A B] | ssa_fixed2 K fixed_gte A B
-  [_tag X] | ssa_fixed1 K fixed_tag X
+  [_add A B] | ssa_fixed2 K fixnum_add A B
+  [_eq A B] | ssa_fixed2 K fixnum_eq A B
+  [_lt A B] | ssa_fixed2 K fixnum_lt A B
+  [_gte A B] | ssa_fixed2 K fixnum_gte A B
+  [_tag X] | ssa_fixed1 K fixnum_tag X
   [_fatal Msg] | ssa fatal Msg^ev
   [F @As] | ssa_apply K F As
   [] | ssa_atom K Void
