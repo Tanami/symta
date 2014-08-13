@@ -1054,7 +1054,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                `("_fn" ,(if (var-sym? (first as)) as `(,dummy ,@(cdr as)))
                        ,expr))))
   ! sel = expand-match `("_mcall" ,all "." 1) cases `("no_method_" ,key) :keyvar key
-  ! `("_fn" ,all ("_apply" ,sel ,all)))
+  ! `("_fn" ,all ("_mcall" ,all "apply" ,sel)))
 
 (to expand-block xs
   ! when (and (= (length xs) 1)

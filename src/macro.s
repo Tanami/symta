@@ -3,7 +3,6 @@ use prelude reader
 GMacros = Void
 GDefaultLeave = Void
 
-
 is_var_sym X = X.is_text and not X.is_keyword
 
 expand_list_hole Key Hole Hit Miss = case Hole
@@ -218,9 +217,9 @@ mangle_name Name =
 | Cs = Name.chars
 | Rs = map C Cs
   | N = C.code
-  | if   'a'.code << N or N << 'z'.code
-      or 'A'.code << N or N << 'Z'.code
-      or '0'.code << N or N << '9'.code
+  | if   ('a'.code << N and N << 'z'.code)
+      or ('A'.code << N and N << 'Z'.code)
+      or ('0'.code << N and N << '9'.code)
     then C
     else "_[N.x.pad{2 0}]"
 | [_ @Rs].unchars
@@ -377,12 +376,13 @@ export @Xs =
 
 //load_macros Library = Library^load_library.keep{[K V]=>V.is_macro}.as_table
 
-normalize_matryoshka O =
-| case O [X] | if X.is_keyword then O else normalize_matryoshka X
+normalize_nesting O =
+| case O [X] | if X.is_keyword then O else normalize_nesting X
          X | X
 
 mex Expr =
-| Expr <= normalize_matryoshka Expr
+| when no GMacros: bad 'lib_path got clobbered again'
+| Expr <= normalize_nesting Expr
 | unless Expr.is_list: leave Expr
 | case Expr
   [_fn As Body] | [_fn As Body^mex]
@@ -401,8 +401,9 @@ mex Expr =
 
 macroexpand Expr Macros =
 | let GMacros Macros
-  | mex Expr
+  | R = mex Expr
+  | R
 
-export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '[]'
+export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '[]' '\\'
        'not' 'and' 'or' 'when' 'unless' 'while' 'till' 'dup' 'times' 'map' 'for' 'export'
-       '|' '+' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '!!' '"'
+       '|' '+' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!' '"'

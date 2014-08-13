@@ -50,7 +50,7 @@ ssa_symbol K X Value =
          then ssa arg_store Base Pos Value
          else ssa lift Base Pos Value // must be copied into parent environment
      Else
-       | bad "undefined variable: [X]"
+       | bad "unknown symbol: [X]"
 
 ssa_quote_list_rec Xs =
 | [list @(map X Xs: if X.is_list then ssa_quote_list_rec X else [_quote X])]

@@ -1327,7 +1327,7 @@ static api_t *init_api(void *ptr) {
 
 int main(int argc, char **argv) {
   int i, j;
-  char module[1024];
+  char tmp[1024];
   void *lib;
   pfun entry, setup;
   api_t *api;
@@ -1350,14 +1350,17 @@ int main(int argc, char **argv) {
     lib_path = argv[1];
   }
 
+  realpath(lib_path, tmp);
+  lib_path = tmp;
+
   lib_path = strdup(lib_path);
   i = strlen(lib_path);
+
+  //printf("lib_path: %s\n", lib_path);
 
   while (i > 0 && lib_path[i-1] == '/') {
    lib_path[--i] = 0;
   }
-
-  sprintf(module, "%s/%s", lib_path, "main");
 
   api = init_api(apis);
   api->other = init_api(apis+1);
@@ -1495,7 +1498,8 @@ int main(int argc, char **argv) {
   api->m_ampersand = api->other->m_ampersand = resolve_method(api, "&");
   api->m_underscore = api->other->m_underscore = resolve_method(api, "_");
 
-  R = exec_module(api, module);
+  sprintf(tmp, "%s/%s", lib_path, "main");
+  R = exec_module(api, tmp);
 
   fprintf(stderr, "%s\n", print_object(R));
 
