@@ -160,7 +160,10 @@ pop O =
 
 push Item O = [_set O [_mcall O pre Item]]
 
-let Bs Body =
+let @As =
+| when As.size < 2: bad 'let @As'
+| Bs = As.lead.groupBy{2}
+| Body = As.last
 | Gs = map B Bs [(gensym 'G') @B]
 | R = gensym 'R'
 | [let_ [[R 0] @(map G Gs [G.0 G.1])]
@@ -238,7 +241,7 @@ expand_named Name Body =
     [_label End]
     R]
 
-named As = expand_named As.head [_progn @As.tail]
+named @As = expand_named As.head [_progn @As.tail]
 
 expand_leave Name Value =
 | [R End] = result_and_label Name
@@ -409,5 +412,6 @@ macroexpand Expr Macros =
   | R
 
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '[]' '\\'
-       'not' 'and' 'or' 'when' 'unless' 'while' 'till' 'dup' 'times' 'map' 'for' 'export' 'pop' 'push'
+       'not' 'and' 'or' 'when' 'unless' 'while' 'till' 'dup' 'times' 'map' 'for'
+       'named' 'export' 'pop' 'push'
        '|' '+' '-' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!' '"'
