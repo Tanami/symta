@@ -1,5 +1,7 @@
 use prelude reader
 
+GExpansionDepth = Void
+GExpansionDepthLimit = 100
 GMacros = Void
 GDefaultLeave = Void
 
@@ -121,8 +123,8 @@ expand_map_for Type Item Items Body =
           ['|' ['=' [Item] [_mcall Xs '.' I]]
                Body]]]
 
-map Item Items Body = expand_map_for map Item Items Body
-for Item Items Body = expand_map_for for Item Items Body
+map Item Items Body = expand_map_for dup Item Items Body
+for Item Items Body = expand_map_for times Item Items Body
 
 expand_quasiquote O =
 | unless O.is_list: leave [_quote O]
@@ -169,8 +171,9 @@ let Bs Body =
 
 `+` A B = [_mcall A '+' B]
 `-` @As = case As
-  [`-` A] | [_mcall A neg]
-  [`-` A B] | [_mcall A '-' B]
+  [A] | [_mcall A neg]
+  [A B] | [_mcall A '-' B]
+  Else | bad "`-` got wrong number of args: [As]"
 `*` A B = [_mcall A '*' B]
 `/` A B = [_mcall A '/' B]
 `%` A B = [_mcall A '%' B]
@@ -263,7 +266,7 @@ expand_block_item_fn Name Args Body =
 
 expand_destructuring Value Bs =
 | XsVar = Void
-| when Bs.size: case Bs.last.1 [`@` X]
+| when Bs.size: case Bs.last [`@` X]
   | XsVar <= X
   | Bs <= Bs.lead
 | O = gensym 'O'
@@ -384,7 +387,7 @@ mex Expr =
 | when no GMacros: bad 'lib_path got clobbered again'
 | Expr <= normalize_nesting Expr
 | unless Expr.is_list: leave Expr
-| case Expr
+| let GExpansionDepth GExpansionDepth+1: case Expr
   [_fn As Body] | [_fn As Body^mex]
   [_set Place Value] | [_set Place (if Value.is_keyword then [_quote Value] else mex Value)]
   [_label Name] | Expr
@@ -401,9 +404,10 @@ mex Expr =
 
 macroexpand Expr Macros =
 | let GMacros Macros
+      GExpansionDepth 0
   | R = mex Expr
   | R
 
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '[]' '\\'
-       'not' 'and' 'or' 'when' 'unless' 'while' 'till' 'dup' 'times' 'map' 'for' 'export'
-       '|' '+' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!' '"'
+       'not' 'and' 'or' 'when' 'unless' 'while' 'till' 'dup' 'times' 'map' 'for' 'export' 'pop' 'push'
+       '|' '+' '-' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!' '"'

@@ -260,7 +260,7 @@ binary_loop Ops Down E =
 | O = parse_op Ops or leave E
 | when O^token_is{`{}`}
   | As = parse O.value
-  | As <= if As.find{&is_delim} then [As] else As //allows Xs.map{X=>...}
+  | As <= if have As.find{&is_delim} then [As] else As //allows Xs.map{X=>...}
   | O.parsed <= [`{}`]
   | leave: binary_loop Ops Down [O E @As]
 | B = &Down or parser_error "no right operand for" o

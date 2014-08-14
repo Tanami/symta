@@ -266,7 +266,7 @@ ssa_data K Type Xs =
 | let GOut []
   | ssa type TypeVar BytesName BytesName Size
   | for X GOut.reverse: push X GRawInits
-| ssa data K TypeVar Size
+| ssa alloc_data K TypeVar Size
 | for [I X] Xs.enum: ssa dinit K I X^ev
 
 ssa_dget K Src Off =
