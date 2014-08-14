@@ -289,7 +289,7 @@ static int texts_equal(void *a, void *b) {
   if (GET_TAG(a) == T_FIXTEXT || GET_TAG(b) == T_FIXTEXT) return a == b;
   al = BIGTEXT_SIZE(a);
   bl = BIGTEXT_SIZE(b);
-  return al == bl && !memcmp(BIGTEXT_DATA(a), BIGTEXT_DATA(b), UNFIXNUM(al));
+  return al == bl && !memcmp(BIGTEXT_DATA(a), BIGTEXT_DATA(b), al);
 }
 
 static int fixtext_size(void *o) {
@@ -592,10 +592,12 @@ BUILTIN2("text .",text_get,C_ANY,o,C_FIXNUM,index)
   }
 RETURNS(single_chars[DATA_REF1(o,4+UNFIXNUM(index))])
 BUILTIN1("text hash",text_hash,C_ANY,o)
+
+
 RETURNS(FIXNUM(hash(BIGTEXT_DATA(o), BIGTEXT_SIZE(o))))
-BUILTIN2("text eq",fixtext_eq,C_ANY,a,C_ANY,b)
+BUILTIN2("text ><",fixtext_eq,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(GET_TAG(b) == T_FIXTEXT ? texts_equal(a,b) : 0))
-BUILTIN2("text ne",fixtext_ne,C_ANY,a,C_ANY,b)
+BUILTIN2("text <>",fixtext_ne,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(GET_TAG(b) == T_FIXTEXT ? !texts_equal(a,b) : 1))
 BUILTIN1("text size",fixtext_size,C_ANY,o)
 RETURNS(FIXNUM(fixtext_size(o)))
