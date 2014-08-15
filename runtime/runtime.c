@@ -385,11 +385,12 @@ static void *load_lib(struct api_t *api, char *name) {
   char tmp[1024];
   void *exports;
 
-  if (name[0] != '/' && strcmp(name,"core")) {
+  if (name[0] != '/' && name[0] != '\\' && strcmp(name,"core")) {
     sprintf(tmp, "%s/%s", lib_path, name);
     name = tmp;
   }
 
+  //fprintf(stderr, "%s\n", name);
 
   for (i = 0; i < libs_used; i++) {
     if (strcmp(lib_names[i], name)) continue;
@@ -1360,7 +1361,7 @@ int main(int argc, char **argv) {
 
   //printf("lib_path: %s\n", lib_path);
 
-  while (i > 0 && lib_path[i-1] == '/') {
+  while (i > 0 && lib_path[i-1] == '/' || lib_path[i-1] == '\\') {
    lib_path[--i] = 0;
   }
 

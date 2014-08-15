@@ -43,7 +43,7 @@ compile_runtime Src Dst =
 | when Result <> "": bad Result
 
 add_imports Expr Deps =
-| unless Deps.size > 0: leave Expr
+| unless Deps.size: leave Expr
 | [[_fn (map D Deps D.1) Expr]
    @(map D Deps [_import [_quote D.0] [_quote D.1]])]
 
@@ -58,6 +58,7 @@ compile_expr Name Dst Expr =
 | for D Deps: unless compile_module D: bad "cant compile [D].s"
 | say "compiling [Name]..."
 | Imports = (map U Uses: map E U^get_lib_exports: [U E]).join
+| Imports = Imports.keep{X => X.1.is_text} // skip macros
 | ExprWithDeps = add_imports Expr Imports
 | ExpandedExpr = macroexpand ExprWithDeps GMacros
 | CFile = "[Dst].c"
@@ -89,9 +90,8 @@ compile_module Name =
 | Void
 
 build BuildFolder =
-| MacrosLib = '/Users/nikita/Documents/git/symta/build/lib/macro'
-| let GMacros MacrosLib^load_library.keep{X => X.1.is_macro}.as_table
-      GRootFolder "/Users/nikita/Documents/git/symta/"
+| let GMacros 'macro'^load_library.keep{X => X.1.is_macro}.as_table
+      GRootFolder '/Users/nikita/Documents/git/symta/'
       GSrcFolders ["[BuildFolder]src/" "[GRootFolder]src/"]
       GDstFolder "[BuildFolder]lib/"
       GHeaderTimestamp (file_time "[GRootFolder]/runtime/runtime.c")
