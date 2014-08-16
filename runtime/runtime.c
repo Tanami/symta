@@ -150,7 +150,7 @@ static void set_method_r(api_t *api, void *method, void *type, void *handler, in
   void *m = *((void**)method+id);
   int inherited = 0;
 
-  if (depth) {
+  //if (depth) {
     if (m == undefined) {
       inherited = 1;
     } else {
@@ -164,10 +164,15 @@ static void set_method_r(api_t *api, void *method, void *type, void *handler, in
         }
       }
     }
-  }
+  //}
 
   if (!depth || inherited) {
     typing_t *psub = subtypings+id;
+
+    if (!depth && !inherited && m != undefined) {
+       fprintf(stderr, "set_method: redefinition of %ld.%s\n", id, (char*)*((void**)method+T_NAME));
+    }
+
     for (i = 0; i < psub->used; i++) {
       void *subtype = (void*)(uintptr_t)psub->items[i];
       set_method_r(api, method, subtype, handler, depth+1);

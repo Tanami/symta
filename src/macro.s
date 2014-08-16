@@ -405,7 +405,7 @@ mex Expr =
       then [X^mex @(map X Xs: if X.is_keyword then [_quote X] else mex X)]
       else | Expander = Macro.expander
            | NArgs = Expander.nargs
-           | when NArgs >> 0 and NArgs <> Xs.size: bad "number of args to [X]: [NArgs] <> [Xs.size]"
+           | when NArgs >> 0 and NArgs <> Xs.size: bad "number of args to [X]: [Xs]"
            | mex Xs.apply{Expander}
 
 macroexpand Expr Macros =
