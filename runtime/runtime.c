@@ -35,6 +35,11 @@
 
 #define BUILTIN_CLOSURE(dst,code) { ALLOC_CLOSURE(dst, code, 0); }
 
+#define FN_GET_TAG   FIXNUM(-1)
+#define FN_GET_SIZE  FIXNUM(-2)
+#define FN_GET_META  FIXNUM(-3)
+#define FN_GET_NARGS FIXNUM(-4)
+
 #define MAX_TYPES (1024)
 #define MAX_METHODS (8*1024)
 #define MAX_LIBS 1024
@@ -576,6 +581,11 @@ BUILTIN2("fn ><",fn_eq,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a == b))
 BUILTIN2("fn <>",fn_ne,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a != b))
+BUILTIN1("fn nargs",fn_nargs,C_ANY,o)
+  void *dummy, *nargs;
+  ALLOC_CLOSURE(dummy, FN_GET_NARGS, 1);
+  CALL_NO_POP(nargs,o);
+RETURNS(nargs)
 
 
 BUILTIN2("text ><",text_eq,C_ANY,a,C_ANY,b)
@@ -805,7 +815,7 @@ RETURNS(FIXNUM((intptr_t)a > (intptr_t)b))
 BUILTIN2("int <<",integer_lte,C_ANY,a,C_FIXNUM,b)
 RETURNS(FIXNUM((intptr_t)a <= (intptr_t)b))
 BUILTIN2("int >>",integer_gte,C_ANY,a,C_FIXNUM,b)
-RETURNS(FIXNUM((intptr_t)a <= (intptr_t)b))
+RETURNS(FIXNUM((intptr_t)a >= (intptr_t)b))
 BUILTIN2("int mask",integer_mask,C_ANY,a,C_FIXNUM,b)
 RETURNS((uintptr_t)a & (uintptr_t)b)
 BUILTIN2("int ior",integer_ior,C_ANY,a,C_FIXNUM,b)
@@ -1123,12 +1133,14 @@ print_tail:
 static void *handle_args(REGS, void *E, intptr_t expected, intptr_t size, void *tag, void *meta) {
   intptr_t got = NARGS(E);
 
-  if (got == FIXNUM(-1)) { //request for tag
+  if (got == FN_GET_TAG) {
     RETURN_NO_GC(tag);
-  } else if (got == FIXNUM(-2)) {
+  } else if (got == FN_GET_SIZE) {
     RETURN_NO_GC(size)
-  } else if (got == FIXNUM(-3)) {
+  } else if (got == FN_GET_META) {
     RETURN_NO_GC(meta);
+  } else if (got == FN_GET_NARGS) {
+    RETURN_NO_GC(expected);
   }
 
   if (meta != Empty) {
@@ -1209,7 +1221,7 @@ static void *gc(api_t *api, void *o) {
   if (tag == T_CLOSURE) {
     void *fixed_size, *dummy;
     void *savedTop = Top;
-    ALLOC_CLOSURE(dummy, FIXNUM(-2), 1); // signal that we want closure size
+    ALLOC_CLOSURE(dummy, FN_GET_SIZE, 1);
     CALL_NO_POP(fixed_size,o);
     size = UNFIXNUM(fixed_size);
     Top = savedTop;
@@ -1490,6 +1502,7 @@ int main(int argc, char **argv) {
   METHOD_FN("unchars", 0, 0, b_list_unchars, 0, 0, 0, 0, 0);
   METHOD_FN("as_text", b_as_text, b_as_text, b_as_text, b_as_text, b_as_text, b_as_text, b_as_text, b_as_text);
   METHOD_FN("apply", 0, 0, b_list_apply, 0, 0, 0, 0, 0);
+  METHOD_FN("nargs", 0, b_fn_nargs, 0, 0, 0, 0, 0, 0);
 
   add_subtype(api, T_GENERIC_TEXT, T_FIXTEXT);
   add_subtype(api, T_GENERIC_TEXT, T_TEXT);

@@ -401,9 +401,12 @@ mex Expr =
   [] | Expr
   [X@Xs]
     | Macro = when X.is_keyword: GMacros.X
-    | if have Macro
-      then mex Xs.apply{Macro.expander}
-      else [X^mex @(map X Xs: if X.is_keyword then [_quote X] else mex X)]
+    | if no Macro
+      then [X^mex @(map X Xs: if X.is_keyword then [_quote X] else mex X)]
+      else | Expander = Macro.expander
+           | NArgs = Expander.nargs
+           | when NArgs >> 0 and NArgs <> Xs.size: bad "number of args to [X]: [NArgs] <> [Xs.size]"
+           | mex Xs.apply{Expander}
 
 macroexpand Expr Macros =
 | let GMacros Macros
