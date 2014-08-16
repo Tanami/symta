@@ -2,12 +2,6 @@ non F = X => if F X then 0 else 1
 no X = Void >< X
 have X = Void <> X
 
-void.end = 1
-void.`.` K = Void
-void.find F = Void
-void.locate F = Void
-void.size = 0
-
 _.`<>` B = not Me >< B
 _.`<<` B = not B < Me
 _.`>` B = B < Me
@@ -264,7 +258,11 @@ table Size = new_table: dup Size Void
 table.`.` K =
 | Bs = Me.buckets
 | H = K.hash%Bs.size
-| Bs.H.find{X => X.0><K}.1
+| Xs = Bs.H
+| when no Xs: leave Void
+| X = Xs.find{X => X.0><K}
+| when no X: leave Void
+| X.1
 table.`!` K V =
 | Bs = Me.buckets
 | H = K.hash%Bs.size

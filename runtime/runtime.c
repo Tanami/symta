@@ -995,6 +995,12 @@ BUILTIN1("inspect",inspect,C_ANY,o)
   fprintf(stderr, "%p: tag=%ld, level=%ld\n", o, GET_TAG(o), OBJECT_LEVEL(o));
 RETURNS(0)
 
+/*
+// that is how to use it:
+data dummy
+Dummy = new_dummy
+dummy._ Name = Dummy
+*/
 BUILTIN2("_",sink,C_ANY,as,C_ANY,name)
   void *o = LIST_REF(getArg(0),0);
   fprintf(stderr, "%s has no method ", print_object(tag_of(o)));
