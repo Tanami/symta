@@ -1409,7 +1409,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      ! when (file-exists-p src-file)
        (! dst-file = "{*dst-folder*}{name}"
         ! dep-file = "{dst-file}.dep"
-        ! when (file-exists-p dep-file)
+        ! when (and (file-exists-p dep-file)
+                    (file-older src-file dep-file))
           (! deps = second (symta-read-file dep-file)
            ! compiled-deps = m d deps (compile-module d)
            ! when (and (file-older src-file dst-file)

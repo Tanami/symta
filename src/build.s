@@ -77,7 +77,7 @@ compile_module Name =
   | when file_exists SrcFile
     | DstFile = "[GDstFolder][Name]"
     | DepFile = "[DstFile].dep"
-    | when file_exists DepFile
+    | when file_exists DepFile and file_older SrcFile DepFile:
       | Deps = DepFile^load_symta_file.1
       | CompiledDeps = map D Deps: compile_module D
       | when file_older SrcFile DstFile and CompiledDeps.all{X => have X and file_older X DstFile}:
