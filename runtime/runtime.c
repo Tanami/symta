@@ -75,10 +75,11 @@ static char *typenames[MAX_TYPES];
 static void *undefined;
 static void *sink;
 
+static int max_lifted;
 
 // FIXME: use heap instead
 static char print_buffer[1024*1024*2];
-int print_depth = 0;
+static int print_depth = 0;
 #define MAX_PRINT_DEPTH 32
 
 static void print_stack_trace(api_t *api) {
@@ -1286,6 +1287,7 @@ static void *gc_entry(api_t *api, void *o) {
   void *xs = LIFTS_LIST(api->base);
   api = api->other;
   if (xs) {
+    int lifted = 0;
     void *ys = LIFTS_LIST(api->base);
     while (xs) {
       void **x = (void**)LIFTS_HEAD(xs);
@@ -1297,6 +1299,11 @@ static void *gc_entry(api_t *api, void *o) {
         LIFTS_CONS(ys, x, ys);
       }
       xs = LIFTS_TAIL(xs);
+      lifted++;
+    }
+    if (lifted > max_lifted) {
+      max_lifted = lifted;
+      //fprintf(stderr,"max_lifted=%d\n", lifted);
     }
     LIFTS_LIST(api->base) = ys;
   }

@@ -94,7 +94,7 @@ build BuildFolder =
       GRootFolder '/Users/nikita/Documents/git/symta/'
       GSrcFolders ["[BuildFolder]src/" "[GRootFolder]src/"]
       GDstFolder "[BuildFolder]lib/"
-      GHeaderTimestamp (file_time "[GRootFolder]/runtime/runtime.c")
+      GHeaderTimestamp (file_time "[GRootFolder]/runtime/runtime.h")
   | RuntimeSrc = "[GRootFolder]/runtime/runtime.c"
   | RuntimePath = "[BuildFolder]run"
   | compile_runtime RuntimeSrc RuntimePath
