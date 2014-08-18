@@ -188,9 +188,12 @@ typedef void *(*pfun)(REGS);
 #define LIFTS_TAIL(xs) (*((void**)(xs)+1))
 #define LIFTS_LIST(base) (*((void**)(base)+1))
 #define LIFT(base,pos,value) \
-  *((void**)(base)+(pos)) = (value); \
-  if (!IMMEDIATE(value) && OBJECT_LEVEL(base) < OBJECT_LEVEL(value)) { \
-    LIFTS_CONS(LIFTS_LIST(Base), (void**)(base)+(pos), LIFTS_LIST(Base)); \
+  { \
+    void **p_ = (void**)(base)+(pos); \
+    *p_ = (value); \
+    if (!IMMEDIATE(value) && OBJECT_LEVEL(base) < OBJECT_LEVEL(value)) { \
+      LIFTS_CONS(LIFTS_LIST(Base), p_, LIFTS_LIST(Base)); \
+    } \
   }
 #define MARK(name) api->marks[Level>>1] = (void*)(name);
 #define HEAP_FLIP() api = api->other;

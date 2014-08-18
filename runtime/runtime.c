@@ -1285,25 +1285,34 @@ end:
 static void *gc_entry(api_t *api, void *o) {
   int i;
   void *xs = LIFTS_LIST(api->base);
+  void **lifted = (void**)api->top;
   api = api->other;
   if (xs) {
-    int lifted = 0;
+    int lifted_count = 0;
     void *ys = LIFTS_LIST(api->base);
     while (xs) {
       void **x = (void**)LIFTS_HEAD(xs);
-      *x = gc(api, *x);
+      if (IMMEDIATE(*x)) goto next;
+      *--lifted = gc(api, *x);
+      *--lifted = x;
+      *x = 0;
+      lifted_count++;
+    next:
+      xs = LIFTS_TAIL(xs);
+    }
+    for (i = 0; i < lifted_count; i++) {
+      void **x = (void**)*lifted++;
+      *x = (void*)*lifted++;
       if (ON_CURRENT_LEVEL(x)) {
         // object got lifted to the level of it's holder
         //fprintf(stderr, "lifted!\n");
       } else { // needs future lifting
         LIFTS_CONS(ys, x, ys);
       }
-      xs = LIFTS_TAIL(xs);
-      lifted++;
     }
-    if (lifted > max_lifted) {
-      max_lifted = lifted;
-      //fprintf(stderr,"max_lifted=%d\n", lifted);
+    if (lifted_count > max_lifted) {
+      max_lifted = lifted_count;
+      //fprintf(stderr,"max_lifted=%d\n", max_lifted);
     }
     LIFTS_LIST(api->base) = ys;
   }
