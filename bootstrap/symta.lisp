@@ -1170,7 +1170,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       (! e = position #\] x
        ! unless e (error '"unterminated [")
        ! push `("_quote" ,(subseq x 0 s)) as
-       ! push `("_mcall" ,(/read (subseq x (+ s 1) e)) "as_text") as
+       ! push `("_mcall" ,(/read (subseq x (+ s 1) e)) "textify_") as
        ! setf x (subseq x (+ e 1) (length x))
        ! setf s (position #\[ x))
   ! when (/= 0 (length x)) (push `("_quote" ,x) as)

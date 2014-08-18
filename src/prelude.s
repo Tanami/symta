@@ -161,6 +161,8 @@ list.harden =
 | times I N: Ys.I <= pop Me
 | Ys
 
+text.harden = Me.chars
+
 list.apply F = Me.harden.apply{F}
 
 list.unchars = Me.harden.unchars
@@ -241,6 +243,57 @@ list.any F =
 | for X Me: when F X: leave 1
 | 0
 
+HexChars = '0123456789ABCDEF'
+
+int.x =
+| unless Me: leave '0'
+| Cs = []
+| S = ''
+| when Me < 0
+  | S <= '-'
+  | Me <= -Me
+| while Me > 0
+  | Cs <= [HexChars.(Me%16) @Cs]
+  | Me !/ 16
+| [S@Cs].unchars
+
+_.as_text = ['#:' Me^address.x].unchars
+
+int.as_text =
+| unless Me: leave '0'
+| Cs = []
+| S = ''
+| when Me < 0
+  | S <= '-'
+  | Me <= -Me
+| while Me > 0
+  | Cs <= [HexChars.(Me%10) @Cs]
+  | Me !/ 10
+| [S@Cs].unchars
+
+plain_char C =
+| N = C.code
+| if   ('a'.code << N and N << 'z'.code)
+    or ('A'.code << N and N << 'Z'.code)
+    or ('0'.code << N and N << '9'.code)
+    or '_'.code >< N
+  then 1
+  else 0
+
+text.as_text =
+| Cs = []
+| Q = 0
+| for C Me
+  | unless plain_char C: Q <= 1
+  | when C >< '`': C <= '\\`'
+  | push C Cs
+| if Q then ['`' @['`' @Cs].reverse].unchars else Me
+
+list.as_text = "([(map X Me X.as_text).infix{' '}.unchars])"
+
+_.textify_ = Me.as_text
+text.textify_ = Me
+
 GGensymCount = 0
 gensym Name = "[Name]__[GGensymCount!+1]"
 
@@ -293,20 +346,6 @@ text.pad Count Item =
 | N = Count - Me.size
 | when N < 0: bad "text is larger than [Count]: '[Me]'"
 | "[(dup N C).unchars][Me]"
-
-HexChars = '0123456789ABCDEF'
-
-int.x =
-| unless Me: leave '0'
-| Cs = []
-| S = ''
-| when Me < 0
-  | S <= '-'
-  | Me <= -Me
-| while Me > 0
-  | Cs <= [HexChars.(Me%16) @Cs]
-  | Me !/ 16
-| "[S][Cs.unchars]"
 
 
 data macro name expander

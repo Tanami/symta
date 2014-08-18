@@ -855,14 +855,6 @@ RETURNS(ADD_TAG((uint64_t)o&~TAG_MASK,T_FIXTEXT))
 BUILTIN1("integer hash",integer_hash,C_ANY,o)
 RETURNS(o)
 
-BUILTIN1("as_text",as_text,C_ANY,o)
-  if (!IS_TEXT(o)) {
-    TEXT(R, print_object(o));
-  } else {
-    R = o;
-  }
-RETURNS(R)
-
 BUILTIN1("tag_of",tag_of,C_ANY,o)
   R = tag_of(o);
 RETURNS(R);
@@ -1521,7 +1513,6 @@ int main(int argc, char **argv) {
   METHOD_FN("code", 0, 0, 0, b_fixtext_code, 0, 0, 0, 0);
   METHOD_FN("char", b_integer_char, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("unchars", 0, 0, b_list_unchars, 0, 0, 0, 0, 0);
-  METHOD_FN("as_text", b_as_text, b_as_text, b_as_text, b_as_text, b_as_text, b_as_text, b_as_text, b_as_text);
   METHOD_FN("apply", 0, 0, b_list_apply, 0, 0, 0, 0, 0);
   METHOD_FN("nargs", 0, b_fn_nargs, 0, 0, 0, 0, 0, 0);
 
