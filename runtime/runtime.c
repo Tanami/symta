@@ -1292,12 +1292,12 @@ static void *gc_entry(api_t *api, void *o) {
     void *ys = LIFTS_LIST(api->base);
     while (xs) {
       void **x = (void**)LIFTS_HEAD(xs);
-      if (IMMEDIATE(*x)) goto next;
-      *--lifted = gc(api, *x);
-      *--lifted = x;
-      *x = 0;
-      lifted_count++;
-    next:
+      if (!IMMEDIATE(*x)) {
+        *--lifted = gc(api, *x);
+        *--lifted = x;
+        *x = 0;
+        lifted_count++;
+      }
       xs = LIFTS_TAIL(xs);
     }
     for (i = 0; i < lifted_count; i++) {
