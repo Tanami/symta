@@ -61,10 +61,8 @@ compile_expr Name Dst Expr =
 | Macros = Imports.skip{X => X.1.is_text}.map{X => X.0}.uniq // keep macros
 | Imports = Imports.keep{X => X.1.is_text} // skip macros
 | ExprWithDeps = add_imports Expr Imports
-| Ms = if Macros.size
-       then [GMacros.harden @(map M Macros "[GDstFolder][M]"^load_macros)].join.as_table
-       else GMacros
-| ExpandedExpr = macroexpand ExprWithDeps Ms
+| Ms = [GMacros @(map M Macros "[GDstFolder][M]"^load_macros)].join
+| ExpandedExpr = macroexpand ExprWithDeps Ms.as_table
 | CFile = "[Dst].c"
 | ssa_produce_file CFile ExpandedExpr
 | Result = c_compiler Dst CFile
@@ -94,7 +92,7 @@ compile_module Name =
 | Void
 
 build BuildFolder =
-| let GMacros 'macro'^load_macros.as_table
+| let GMacros 'macro'^load_macros
       GRootFolder '/Users/nikita/Documents/git/symta/'
       GSrcFolders ["[BuildFolder]src/" "[GRootFolder]src/"]
       GDstFolder "[BuildFolder]lib/"
