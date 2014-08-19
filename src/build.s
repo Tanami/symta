@@ -11,7 +11,7 @@ read_normalized Text =
 | case Expr [`|` @As] Expr
             X [`|` X]
 
-skip_macros Xs = Xs.skip{X => X.1.is_macro}
+load_macros Library = Library^load_library.keep{X => X.1.is_macro}
 
 // FIXME: do caching
 get_lib_exports LibName =
@@ -20,7 +20,7 @@ get_lib_exports LibName =
   | when file_exists LibFile
     | Text = load_text LibFile
     | Expr = read_normalized Text
-    | leave: case Expr.last [export @Xs] | skip_macros Xs
+    | leave: case Expr.last [export @Xs] | Xs
                             Else | Void
 | bad "no [LibName].s"
 
@@ -58,9 +58,13 @@ compile_expr Name Dst Expr =
 | for D Deps: unless compile_module D: bad "cant compile [D].s"
 | say "compiling [Name]..."
 | Imports = (map U Uses: map E U^get_lib_exports: [U E]).join
+| Macros = Imports.skip{X => X.1.is_text}.map{X => X.0}.uniq // keep macros
 | Imports = Imports.keep{X => X.1.is_text} // skip macros
 | ExprWithDeps = add_imports Expr Imports
-| ExpandedExpr = macroexpand ExprWithDeps GMacros
+| Ms = if Macros.size
+       then [GMacros.harden @(map M Macros "[GDstFolder][M]"^load_macros)].join.as_table
+       else GMacros
+| ExpandedExpr = macroexpand ExprWithDeps Ms
 | CFile = "[Dst].c"
 | ssa_produce_file CFile ExpandedExpr
 | Result = c_compiler Dst CFile
@@ -90,7 +94,7 @@ compile_module Name =
 | Void
 
 build BuildFolder =
-| let GMacros 'macro'^load_library.keep{X => X.1.is_macro}.as_table
+| let GMacros 'macro'^load_macros.as_table
       GRootFolder '/Users/nikita/Documents/git/symta/'
       GSrcFolders ["[BuildFolder]src/" "[GRootFolder]src/"]
       GDstFolder "[BuildFolder]lib/"
