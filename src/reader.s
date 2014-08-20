@@ -59,7 +59,7 @@ init_tokenizer =
          `]` (`[` $(R O => [`[]` (read_list R O ']')]))
          `}` (`{` $(R O => [`{}` (read_list R O '}')]))
          (`'` $(R Cs => [text [`\\` @(read_string R 0 `'`)]]))
-         (`"` $(R Cs => [text [`"` @(read_string R 0 '"')]]))
+         (`"` $(R Cs => [text [`"` @(read_string R 0 '"')]])) //"
          ($'`' $(R Cs => [symbol (read_string R 0 '`').0]))
          (`//` $&read_comment)
          ((`/` `*`) $&read_multi_comment)

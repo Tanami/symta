@@ -170,7 +170,7 @@ static void set_method_r(api_t *api, void *method, void *type, void *handler, in
   if (!depth || inherited) {
     typing_t *psub = subtypings+id;
 
-    if (!depth && !inherited && m != undefined) {
+    if (!depth && !inherited && m != undefined && m != sink) {
        fprintf(stderr, "set_method: redefinition of %ld.%s\n", id, (char*)*((void**)method+T_NAME));
     }
 
@@ -786,6 +786,25 @@ BUILTIN2("list apply",list_apply,C_ANY,as,C_FN,f)
   }
   CALL_TAGGED_NO_POP(R,f)
 RETURNS(R)
+BUILTIN2("list apply_method",list_apply_method,C_ANY,as,C_ANY,m)
+  int i;
+  intptr_t nargs = UNFIXNUM(LIST_SIZE(as));
+  void *o;
+  void *e;
+  uintptr_t tag;
+  m = DEL_TAG(m);
+  if (!nargs) {
+    fprintf(stderr, "apply_method: empty list\n");
+    bad_call(REGS_ARGS(P),P);
+  }
+  o = LIST_REF(as,i);
+  tag = (uintptr_t)GET_TAG(o);
+  ARGLIST(e,nargs);
+  for (i = 0; i < nargs; i++) {
+    ARG_STORE(e,i,LIST_REF(as,i));
+  }
+  CALL_METHOD_WITH_TAG(R,o,m,tag);
+RETURNS(R)
 
 BUILTIN1("int neg",integer_neg,C_ANY,o)
 RETURNS(-(intptr_t)o)
@@ -1004,10 +1023,12 @@ BUILTIN1("inspect",inspect,C_ANY,o)
 RETURNS(0)
 
 /*
-// that is how to use it:
-data dummy
-Dummy = new_dummy
-dummy._ Name = Dummy
+// that is how a method can be reapplied to other type:
+data meta object_ info_
+meta._ Name =
+| M = _this_method
+| Me.0 <= Me.0.object_
+| Me.apply_method{M}
 */
 BUILTIN2("_",sink,C_ANY,as,C_ANY,name)
   void *o = LIST_REF(getArg(0),0);
@@ -1027,7 +1048,7 @@ BUILTIN_VARARGS("undefined",undefined)
   ARGLIST(e,2);
   ARG_STORE(e,0,as);
   ARG_STORE(e,1,name);
-  CALL_METHOD_WITH_TAG(R,o,m,tag);
+  CALL_METHOD_WITH_TAG_NO_SAVE(R,o,m,tag);
   return (void*)R;
 RETURNS(0)
 
@@ -1438,7 +1459,7 @@ int main(int argc, char **argv) {
   ++libs_used;
 
   for (i = 0; i < MAX_METHODS; i++) {
-    ALLOC_BASIC(methods[i], 0, MAX_TYPES);
+    ALLOC_BASIC(methods[i], FIXNUM(MAX_TYPES), MAX_TYPES);
     api = api->other;
   }
   if (api->level != 1) api = api->other;
@@ -1514,6 +1535,7 @@ int main(int argc, char **argv) {
   METHOD_FN("char", b_integer_char, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("unchars", 0, 0, b_list_unchars, 0, 0, 0, 0, 0);
   METHOD_FN("apply", 0, 0, b_list_apply, 0, 0, 0, 0, 0);
+  METHOD_FN("apply_method", 0, 0, b_list_apply_method, 0, 0, 0, 0, 0);
   METHOD_FN("nargs", 0, b_fn_nargs, 0, 0, 0, 0, 0, 0);
 
   add_subtype(api, T_GENERIC_TEXT, T_FIXTEXT);

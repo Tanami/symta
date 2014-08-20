@@ -350,6 +350,8 @@ ssa_form K Xs = case Xs
   [_gte A B] | ssa_fixed2 K fixnum_gte A B
   [_tag X] | ssa_fixed1 K fixnum_tag X
   [_fatal Msg] | ssa fatal Msg^ev
+  [_this_method] | ssa this_method K
+  [_type_id O] | ssa type_id K O^ev
   [F @As] | ssa_apply K F As
   [] | ssa_atom K Void
   Else | bad "special form: [Xs]"

@@ -163,6 +163,15 @@ typedef void *(*pfun)(REGS);
 #define LIST_ALLOC(dst,size) \
   ARGLIST(dst,size); \
   dst = ADD_TAG(dst, T_LIST);
+#define THIS_METHOD(dst) dst = ADD_TAG(api->method, T_LIST);
+#define TYPE_ID(dst,o) \
+  { \
+    uintptr_t tag = (uintptr_t)GET_TAG(o); \
+    if (tag == T_DATA) { \
+      tag = DATA_TAG(o); \
+    } \
+    dst = (void*)FIXNUM(tag); \
+  }
 #define NARGS(e) ((intptr_t)*((void**)(e)-1))
 #define getArg(i) (*((void**)E+(i)))
 #define PROLOGUE void *E = (void**)Top+OBJ_HEAD_SIZE;
@@ -215,16 +224,19 @@ typedef void *(*pfun)(REGS);
 #define CALL_NO_POP(k,f) k = OBJECT_CODE(f)(REGS_ARGS(f));
 #define CALL(k,f) CALL_NO_POP(k,f); POP_BASE();
 
-#define CALL_METHOD_WITH_TAG(k,o,m,tag) \
+#define CALL_METHOD_WITH_TAG_NO_SAVE(k,o,m,tag) \
    { \
-      void *p; \
-      api->method = m; \
+      void *f_; \
       if (tag == T_DATA) { \
         tag = DATA_TAG(o); \
       } \
-      p = ((void**)(m))[tag]; \
-      k = OBJECT_CODE(p)(REGS_ARGS(p)); \
+      f_ = ((void**)(m))[tag]; \
+      k = OBJECT_CODE(f_)(REGS_ARGS(f_)); \
    }
+
+#define CALL_METHOD_WITH_TAG(k,o,m,tag) \
+   api->method = m; \
+   CALL_METHOD_WITH_TAG_NO_SAVE(k,o,m,tag);
 
 #define CALL_METHOD(k,o,m) \
   { \

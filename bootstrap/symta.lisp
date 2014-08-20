@@ -743,6 +743,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_gte" a b) (ssa-fixed2 k 'fixnum_gte a b))
     (("_tag" x) (ssa-fixed1 k 'fixnum_tag x))
     (("_fatal" msg) (ssa 'fatal (ev msg)))
+    (("_this_method") (ssa 'this_method k))
+    (("_type_id" o) (ssa 'type_id k (ev o)))
     ((f . as) (ssa-apply k f as))
     (() (ssa-atom k :void))
     (else (error "invalid CPS form: ~a" xs)))
