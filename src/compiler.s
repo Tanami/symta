@@ -9,6 +9,7 @@ GClosure = Void // other lambdas, this lambda references
 GBases = Void
 GUniquifyStack = Void
 GHoistedTexts = Void
+GSrc = [0 0 unknown]
 GAll = gensym all
 
 ssa @As = | push As GOut
@@ -214,25 +215,31 @@ ssa_progn K Xs =
   | ssa_expr D X
   | when Xs.end and case X [_label@Zs] 1: ssa move D 'Void'
 
+compiler_error Msg =
+| [Row Col Orig] = GSrc
+| bad "[Orig]:[Row],[Col]: [Msg]"
+
 uniquify_form Expr =
-| case Expr
-  [_fn As @Body]
-    | Bs = if As.is_text then [As] else As
-    | when Bs.size <> Bs.uniq.size: bad "duplicate args in [Bs]"
-    | Rs = Bs.map{B => [B B^gensym]}
-    | let GUniquifyStack [Rs @GUniquifyStack]
-      | Bs = Rs.map{R => R.1}
-      | Bs = if As.is_text then Bs.0 else Bs
-      | [_fn Bs @Body.map{&uniquify_expr}]
-  [_quote X] | when X.is_text: GHoistedTexts.X <= gensym 'T'
-             | Expr
-  [_label X] Expr
-  [_goto X] Expr
-  [_call @Xs] Xs^uniquify_form
-  Xs | case Xs [[_fn As @Body] @Vs]
-       | when not As.is_text and As.size <> Vs.size:
-         | bad "number of arguments in [Expr]"
-     | Xs.map{&uniquify_expr}
+| Src = when Expr.is_meta: Expr.info_
+| let GSrc (if have Src then Src else GSrc)
+  | case Expr
+    [_fn As @Body]
+      | Bs = if As.is_text then [As] else As
+      | when Bs.size <> Bs.uniq.size: compiler_error "duplicate args in [Bs]"
+      | Rs = Bs.map{B => [B B^gensym]}
+      | let GUniquifyStack [Rs @GUniquifyStack]
+        | Bs = Rs.map{R => R.1}
+        | Bs = if As.is_text then Bs.0 else Bs
+        | [_fn Bs @Body.map{&uniquify_expr}]
+    [_quote X] | when X.is_text: GHoistedTexts.X <= gensym 'T'
+               | Expr
+    [_label X] Expr
+    [_goto X] Expr
+    [_call @Xs] Xs^uniquify_form
+    Xs | case Xs [[_fn As @Body] @Vs]
+         | when not As.is_text and As.size <> Vs.size:
+           | compiler_error "bad number of arguments in [Expr]"
+       | Xs.map{&uniquify_expr}
 
 uniquify_name S = for Closure GUniquifyStack: for X Closure: when X.0 >< S: leave X.1
 
@@ -240,7 +247,7 @@ uniquify_atom Expr =
 | unless Expr.is_text: leave Expr
 | when Expr.size and Expr.0 >< _: leave Expr
 | Renamed = uniquify_name Expr
-| when no Renamed: bad "undefined variable: [Expr]"
+| when no Renamed: compiler_error "undefined variable `[Expr]`"
 | Renamed
 
 uniquify_expr Expr = if Expr.is_list

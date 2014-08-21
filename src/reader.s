@@ -180,7 +180,7 @@ read_multi_comment R Cs =
 
 parser_error Cause Tok =
 | [Row Col Orig] = Tok.src
-| bad "at [Orig]:[Row],[Col]: [Cause] [Tok.value or 'eof']"
+| bad "[Orig]:[Row],[Col]: [Cause] [Tok.value or 'eof']"
 
 expect What Head =
 | Tok = GInput.0
@@ -338,19 +338,22 @@ parse_strip X =
 | if X.is_token
   then | P = X.parsed
        | R = if P then parse_strip P.0 else X.value
-       //| when R.is_text: R <= new_meta R X.src
-       | leave R
+       | R
   else if X.is_list
-  then | Ys = map V X: parse_strip V
+  then | unless X.size: leave X
+       | Head = X.head
+       | Meta = when Head.is_token: Head.src
+       | Ys = map V X: parse_strip V
        | for V X
          | when case V [U@Us] U^token_is{`!`} and not case X [Z@Zs] Z^token_is{`!`}:
            | leave [`!!` @Ys]
+       | when have Head: Ys <= new_meta Ys Meta
        | Ys
   else X
 
 read Chars =
 | init_tokenizer
-| R = parse_strip: parse: tokenize: newInput Chars test
+| R = parse_strip: parse: tokenize: newInput Chars none
 | unless R.end: R <= R.0
 | case R [X S] S
          R R

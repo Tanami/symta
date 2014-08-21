@@ -386,6 +386,8 @@ normalize_nesting O =
 | case O [X] | if X.is_keyword then O else normalize_nesting X
          X | X
 
+GSrc = [0 0 unknown]
+
 mex Expr =
 | when no GMacros: bad 'lib_path got clobbered again'
 | Expr <= normalize_nesting Expr
@@ -400,14 +402,19 @@ mex Expr =
   [`&` O] | if O.is_keyword then O else [O^mex]
   [] | Expr
   [X@Xs]
-    | Macro = when X.is_keyword: GMacros.X
-    | if no Macro
-      then [X^mex @(map X Xs: if X.is_keyword then [_quote X] else mex X)]
-      else | Expander = Macro.expander
-           | NArgs = Expander.nargs
-           | when NArgs >> 0 and NArgs <> Xs.size: bad "number of args to [X]: [Xs]"
-           | mex Xs.apply{Expander}
-
+    | Src = when Expr.is_meta: Expr.info_ 
+    | let GSrc (if have Src then Src else GSrc)
+      | Macro = when X.is_keyword: GMacros.X
+      | Result = if no Macro
+        then [X^mex @(map X Xs: if X.is_keyword then [_quote X] else mex X)]
+        else | Expander = Macro.expander
+             | NArgs = Expander.nargs
+             | when NArgs >> 0 and NArgs <> Xs.size:
+               | [Row Col Orig] = GSrc
+               | bad "[Orig]:[Row],[Col]: bad number of args to macro [Expr]"
+             | mex Xs.apply{Expander}
+      | when have Src and Result.is_list: Result <= new_meta Result Src
+      | Result
 macroexpand Expr Macros =
 | let GMacros Macros
       GExpansionDepth 0

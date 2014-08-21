@@ -401,12 +401,12 @@ static void *load_lib(struct api_t *api, char *name) {
     name = tmp;
   }
 
-  //fprintf(stderr, "%s\n", name);
-
   for (i = 0; i < libs_used; i++) {
     if (strcmp(lib_names[i], name)) continue;
     return LIST_REF(lib_exports,i);
   }
+
+  //fprintf(stderr, "load_lib: %s\n", name);
 
   name = strdup(name);
   exports = exec_module(api, name);

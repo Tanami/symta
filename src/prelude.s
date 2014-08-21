@@ -298,11 +298,11 @@ GGensymCount = 0
 gensym Name = "[Name]__[GGensymCount!+1]"
 
 bad @Xs =
-| log (map X [bad @Xs] X.as_text).infix{` `}.unchars
+| log (map X [bad @Xs] "[X]").infix{` `}.unchars
 | halt
 
 say @Xs =
-| log (map X Xs X.as_text).infix{` `}.unchars
+| log (map X Xs "[X]").infix{` `}.unchars
 | Void
 
 // hashtable
@@ -350,4 +350,14 @@ text.pad Count Item =
 
 data macro name expander
 
-export non say bad no have gensym table new_macro
+data meta object_ info_
+meta._ Name =
+| M = _this_method
+| Me.0 <= Me.0.object_
+| Me.apply_method{M}
+
+meta.is_list = Me.object_.is_list
+meta.is_text = Me.object_.is_text
+meta.as_text = Me.object_.as_text
+
+export non say bad no have gensym table new_macro new_meta

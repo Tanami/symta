@@ -58,7 +58,7 @@ compile_expr Name Dst Expr =
 | for D Deps: unless compile_module D: bad "cant compile [D].s"
 | say "compiling [Name]..."
 | Imports = (map U Uses: map E U^get_lib_exports: [U E]).join
-| Macros = Imports.skip{X => X.1.is_text}.map{X => X.0}.uniq // keep macros
+| Macros = Imports.skip{X => X.1.is_text}.map{X => X.0}.uniq.skip{X => X><macro} // keep macros
 | Imports = Imports.keep{X => X.1.is_text} // skip macros
 | ExprWithDeps = add_imports Expr Imports
 | Ms = [GMacros @(map M Macros "[GDstFolder][M]"^load_macros)].join
