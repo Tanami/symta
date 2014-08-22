@@ -362,6 +362,7 @@ expand_block Xs =
 | R
 
 `|` @Xs = expand_block Xs
+`;` @Xs = expand_block Xs
 
 let_ @As = [_call [_fn (map B As.0 B.0) [_progn @As.tail]]
                   @(map B As.0 B.1)]

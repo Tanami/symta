@@ -1274,6 +1274,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("and" a b) (expand-and a b))
         (("or" a b) (expand-or a b))
         (("|" . xs) (expand-block xs))
+        ((";" . xs) (expand-block xs))
         (("[]" . as) (expand-list as))
         (("^" a b) `(,b ,a))
         ((":" a b) `(,@a ,b))
