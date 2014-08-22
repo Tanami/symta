@@ -144,7 +144,7 @@ expand_text_splice Text =
   | Xs <= Xs.drop{S+1}
   | S <= Xs.locate{X => X >< ']'}
   | when no S: bad 'unterminated ['
-  | push [_mcall Xs.take{S}.unchars^read textify_] As
+  | push [_mcall Xs.take{S}.unchars^parse textify_] As
   | Xs <= Xs.drop{S+1}
   | S <= Xs.locate{X => X >< '['}
 | when Xs.size > 0: push [_quote Xs.unchars] As

@@ -890,6 +890,18 @@ BUILTIN1("log",log,C_ANY,a)
   fprintf(stderr, "log: %s\n", print_object(a));
 RETURNS(a)
 
+BUILTIN1("say_",say_,C_TEXT,o)
+  int tag = GET_TAG(o);
+  if (tag == T_FIXTEXT) {
+    char *out = print_buffer;
+    out += fixtext_decode(out, o);
+    *out = 0;
+    fprintf(stderr, "%s", print_buffer);
+  } else {
+    fwrite(BIGTEXT_DATA(o), 1, (size_t)BIGTEXT_SIZE(o), stderr);
+  }
+RETURNS(0)
+
 BUILTIN0("rtstat",rtstat)
   show_runtime_info(api);
 RETURNS(0)
@@ -1061,6 +1073,7 @@ static struct {
   {"inspect", b_inspect},
   {"halt", b_halt},
   {"log", b_log},
+  {"say_", b_say_},
   {"rtstat", b_rtstat},
   {"stack_trace", b_stack_trace},
   {"load_text", b_load_text},

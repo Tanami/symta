@@ -6,8 +6,8 @@ GDstFolder = Void
 GHeaderTimestamp = Void
 GMacros = Void
 
-read_normalized Text =
-| Expr = read Text
+read_normalized Text Filename =
+| Expr = parse Text Filename
 | case Expr [`|` @As] Expr
             X [`|` X]
 
@@ -19,7 +19,7 @@ get_lib_exports LibName =
   | LibFile = "[Folder][LibName].s"
   | when file_exists LibFile
     | Text = load_text LibFile
-    | Expr = read_normalized Text
+    | Expr = read_normalized Text LibFile
     | leave: case Expr.last [export @Xs] | Xs
                             Else | Void
 | bad "no [LibName].s"
@@ -71,7 +71,7 @@ compile_expr Name Dst Expr =
 
 load_symta_file Filename =
 | Text = load_text Filename
-| read_normalized Text
+| read_normalized Text Filename
 
 compile_module Name =
 | for Folder GSrcFolders

@@ -3,6 +3,7 @@ export tag_of
        inspect
        halt
        log
+       say_
        rtstat
        stack_trace
        load_library

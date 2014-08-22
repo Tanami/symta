@@ -298,11 +298,11 @@ GGensymCount = 0
 gensym Name = "[Name]__[GGensymCount!+1]"
 
 bad @Xs =
-| log (map X [bad @Xs] "[X]").infix{` `}.unchars
+| say_ (map X ['error:' @Xs '\n'] "[X]").infix{` `}.unchars
 | halt
 
 say @Xs =
-| log (map X Xs "[X]").infix{` `}.unchars
+| say_ (map X [@Xs '\n'] "[X]").infix{` `}.unchars
 | Void
 
 // hashtable
@@ -338,7 +338,6 @@ list.as_table =
 list.uniq =
 | Seen = table Me.size*2
 | Me.skip{X => have Seen.X or (Seen.X <= 1) and 0}
-
 
 text.pad Count Item =
 | C = Item.as_text

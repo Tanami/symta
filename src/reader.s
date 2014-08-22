@@ -6,11 +6,10 @@ GInput = Void
 GOutput = Void
 GSpecs = Void
 
-data reader_input chars origin row col off last len
-newInput Text Origin = new_reader_input Text.chars Origin 0 0 0 Void Text.size
-reader_input.`{}` K = Me.chars.K
-reader_input.peek = when Me.off < Me.len: Me.chars.(Me.off)
-reader_input.next =
+data text_stream chars origin row col off last len
+text_stream.`{}` K = Me.chars.K
+text_stream.peek = when Me.off < Me.len: Me.chars.(Me.off)
+text_stream.next =
 | when Me.off < Me.len
   | Me.last <= Me.chars.(Me.off)
   | Me.col !+ 1
@@ -19,8 +18,10 @@ reader_input.next =
     | Me.col <= 0
     | Me.row !+ 1
   | Me.last
-reader_input.src = [Me.row Me.col Me.origin]
-reader_input.error Msg = bad "at [Me.src]: [Msg]"
+text_stream.src = [Me.row Me.col Me.origin]
+text_stream.error Msg = bad "at [Me.src]: [Msg]"
+
+makeTextStream Text Origin = new_text_stream Text.chars Origin 0 0 0 Void Text.size
 
 data token symbol value src parsed
 token_is What O = O.is_token and O.symbol >< What
@@ -201,7 +202,7 @@ parse_bar H =
 | while not GInput.end
   | Ys = []
   | while not GInput.end and GInput.0.src.1 > C: push GInput^pop Ys
-  | push Ys.reverse^parse Zs
+  | push Ys.reverse^parse_tokens Zs
   | when GInput.end: leave [H @Zs.reverse]
   | X = GInput.0
   | unless X^token_is{'|'} and X.src.1 >< C: leave [H @Zs.reverse]
@@ -238,8 +239,8 @@ parse_term =
          (in escape symbol text) | leave Tok
          integer | parse_integer V
          void | Void
-         `()` | parse V
-         `[]` | [(new_token symbol `[]` Tok.src 0) @V^parse]
+         `()` | parse_tokens V
+         `[]` | [(new_token symbol `[]` Tok.src 0) @V^parse_tokens]
          `|` | leave Tok^parse_bar
          `if` | leave Tok^parse_if
          `-` | leave Tok^parse_negate
@@ -259,7 +260,7 @@ parse_op Ops =
 binary_loop Ops Down E =
 | O = parse_op Ops or leave E
 | when O^token_is{`{}`}
-  | As = parse O.value
+  | As = parse_tokens O.value
   | As <= if have As.find{&is_delim} then [As] else As //allows Xs.map{X=>...}
   | O.parsed <= [`{}`]
   | leave: binary_loop Ops Down [O E @As]
@@ -293,8 +294,8 @@ parse_logic =
 | R = GInput.take{P}
 | GInput <= GInput.drop{P}
 | GOutput <= if Tok^token_is{`:`}
-             then [[O GOutput.tail R^parse] GOutput.head]
-             else [[O GOutput R^parse]]
+             then [[O GOutput.tail R^parse_tokens] GOutput.head]
+             else [[O GOutput R^parse_tokens]]
 | Void
 
 parse_delim =
@@ -314,8 +315,8 @@ parse_semicolon =
 | P = GInput.locate{X => X^token_is{`|`} or X^token_is{`;`}}
 | M = when have P: GInput.P
 | when no P or M^token_is{`|`}: leave 0
-| L = parse GInput.take{P}
-| R = parse GInput.drop{P+1}
+| L = parse_tokens GInput.take{P}
+| R = parse_tokens GInput.drop{P+1}
 | GInput <= []
 | GOutput <= if R.0^token_is{`};`} then [@R.tail.reverse L M] else [R L M]
 | Void
@@ -328,7 +329,7 @@ parse_xs =
       | X = parse_delim or leave loop GOutput.reverse
       | when have X: push X GOutput
 
-parse Input =
+parse_tokens Input =
 | let GInput Input
   | Xs = parse_xs
   | unless GInput.end: parser_error "unexpected" GInput.0
@@ -351,11 +352,15 @@ parse_strip X =
        | Ys
   else X
 
-read Chars =
+parse @As =
+| Stream = case As
+   [Chars Src] | makeTextStream Chars Src
+   [Chars] | makeTextStream Chars '<none>'
+   Else | bad "bad args to `read`: [As]"
 | init_tokenizer
-| R = parse_strip: parse: tokenize: newInput Chars none
+| R = parse_strip: parse_tokens: tokenize Stream
 | unless R.end: R <= R.0
 | case R [X S] S
          R R
 
-export read
+export parse
