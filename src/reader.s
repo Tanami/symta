@@ -60,7 +60,7 @@ init_tokenizer =
          `]` (`[` $(R O => [`[]` (read_list R O ']')]))
          `}` (`{` $(R O => [`{}` (read_list R O '}')]))
          (`'` $(R Cs => [text [`\\` @(read_string R 0 `'`)]]))
-         (`"` $(R Cs => [text [`"` @(read_string R 0 '"')]])) //"
+         (`"` $(R Cs => [splice (read_string R '[' '"')]))
          ($'`' $(R Cs => [symbol (read_string R 0 '`').0]))
          (`//` $&read_comment)
          ((`/` `*`) $&read_multi_comment)
@@ -137,9 +137,11 @@ read_list R Open Close =
 
 str_is_empty X = bad fixme
 
-str_merge Left Middle Right =
-| Left = if Left^str_is_empty then [Middle] else [Left Middle]
-| if Right.size >< 1 and Right.1.size >< 0 then Left else [@Left @Right]
+spliced_string_normalize Xs =
+| Ys = Xs.skip{X => '' >< X}
+| map Y Ys: if Y.is_text then new_token symbol Y [0 0 none] 0
+            else if Y.is_token then Y
+            else new_token '()' Y [0 0 none] 0
 
 read_string R Incut End =
 | L = []
@@ -154,11 +156,13 @@ read_string R Incut End =
              C>(in &Incut &End) | L <= [C@L]
              Void | R.error{'EOF in string'}
              Else | R.error{"Invalid escape code: [Else]"}
-     &End | leave [L.reverse.unchars]
+     &End | Ys = [L.reverse.unchars]
+          | when End >< '"': Ys <= spliced_string_normalize Ys //"
+          | leave Ys
      &Incut | L <= L.reverse.unchars
-            | M = read_token{R 0}.value
+            | M = (read_token R 0).value
             | E = read_string R Incut End
-            | leave: str_merge L M E
+            | leave: spliced_string_normalize [L M @E]
      Void | R.error{'EOF in string'}
      Else | L <= [C@L]
 
@@ -177,7 +181,6 @@ read_multi_comment R Cs =
       [`/` `*`] | O !+ 1
                 | R.next
 | read_token R 0
-
 
 parser_error Cause Tok =
 | [Row Col Orig] = Tok.src
@@ -237,6 +240,7 @@ parse_term =
 | V = Tok.value
 | P = case Tok.symbol
          (in escape symbol text) | leave Tok
+         splice | [(new_token symbol `"` Tok.src 0) @V^parse_tokens] //"
          integer | parse_integer V
          void | Void
          `()` | parse_tokens V

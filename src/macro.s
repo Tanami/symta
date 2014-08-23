@@ -1,4 +1,4 @@
-use prelude reader
+use prelude
 
 GExpansionDepth = Void
 GExpansionDepthLimit = 100
@@ -134,23 +134,14 @@ expand_quasiquote O =
 
 `\\` O = expand_quasiquote O
 
-expand_text_splice Text =
-| Xs = Text.chars
-| As = []
-| S = Xs.locate{X => X >< '['}
-| when no S: leave [_quote Text]
-| while have S
-  | push [_quote Xs.take{S}.unchars] As
-  | Xs <= Xs.drop{S+1}
-  | S <= Xs.locate{X => X >< ']'}
-  | when no S: bad 'unterminated ['
-  | push [_mcall Xs.take{S}.unchars^parse textify_] As
-  | Xs <= Xs.drop{S+1}
-  | S <= Xs.locate{X => X >< '['}
-| when Xs.size > 0: push [_quote Xs.unchars] As
-| [_mcall [_list @As.reverse] unchars]
+expand_text_splice Xs =
+| case Xs
+   [X] | when X.is_text: leave [_quote X]
+   [] | leave [_quote '']
+| As = map X Xs: if X.is_text then [_quote X] else [_mcall X textify_]
+| [_mcall [_list @As] unchars]
 
-`"` Text /*"*/ = expand_text_splice Text
+`"` @Xs /*"*/ = expand_text_splice Xs
 
 pop O =
 | R = gensym 'R'

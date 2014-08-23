@@ -88,7 +88,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
            "]" ("[" ,(fn r o ! `(:|[]| ,(/list r o :|]|))))
            "}" (,(string #\{) ,(fn r o ! `(:|{}| ,(/list r o :|}|))))
            ("'" ,(fn r cs ! `(:text ,(cons "\\" (/string r nil #\')))))
-           ("\"" ,(fn r cs ! `(:text ,(cons "\"" (/string r nil #\")))))
+           ("\"" ,(fn r cs ! `(:splice ,(/string r #\[ #\"))))
            ("`" ,(fn r cs ! `(:symbol ,(first (/string r nil #\`)))))
            ("//" ,#'/comment)
            ("/*" ,#'/multi-comment)
@@ -161,11 +161,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      ! when (token-is :end x) (error "{orig}:{row},{col}: unclosed `{open}`")
      ! push x xs))
 
-(to str-merge left middle right
-  ! left = if (str-empty? left) (list middle) (list left middle)
-  ! if (and (not (cdr right)) (zerop (length (car right))))
-       left
-       `(,@left ,@right))
+(to spliced-string-normalize xs
+  ! ys = remove-if (fn x ! equal x "") xs
+  ! m y ys (cond ((stringp y) `(:token :symbol :value ,y :src (0 0 nil)))
+                 ((headed :token y) y)
+                 (t `(:token :|()| :value ,y :src (0 0 nil)))))
 
 (to /string r incut end
   ! incut = or incut :none
@@ -181,11 +181,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
               ((= c (or #\n 'incut 'end)) (push c l))
               (nil ($ r error "EOF in string"))
               (else ($ r error "Invalid escape code: {else}"))))
-       ('end (ret (list (coerce (reverse l) 'string))))
+       ('end (! ys = (list (coerce (reverse l) 'string))
+              ! when (eq end #\") (setf ys (spliced-string-normalize ys))
+              ! ret ys))
        ('incut (! l = coerce (reverse l) 'string
-                ! m = cdr (/token r)
+                ! m = (getf (/token r) :value)
                 ! e = /string r incut end
-                ! ret (str-merge l m e)))
+                ! ret (spliced-string-normalize `(,l ,m ,@e))))
        (nil ($ r error "EOF in string"))
        (else (push c l))))
 
@@ -247,6 +249,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! v = getf tok :value
   ! p = case (second tok)
      ((:escape :symbol :text) (ret tok))
+     (:splice `((:token :symbol :value "\"" :src (getf tok :src)) ,@(/parse v)))
      (:integer (read-from-string v))
      (:kw (keywordize v))
      (:|()| (/parse v))
@@ -1203,19 +1206,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! as = m a as (if (incut? a) (second a) `("_list" ,a))
   ! `("_mcall" ("_list" ,@as) "join"))
 
-(to expand-string-splice x
-  ! as = nil
-  ! s = position #\[ x
-  ! unless s (return-from expand-string-splice `("_quote" ,x))
-  ! while s
-      (! e = position #\] x
-       ! unless e (error '"unterminated [")
-       ! push `("_quote" ,(subseq x 0 s)) as
-       ! push `("_mcall" ,(/read (subseq x (+ s 1) e)) "textify_") as
-       ! setf x (subseq x (+ e 1) (length x))
-       ! setf s (position #\[ x))
-  ! when (/= 0 (length x)) (push `("_quote" ,x) as)
-  ! `("_mcall" ("_list" ,@(reverse as)) "unchars"))
+(to expand-string-splice xs
+  ! match xs ((x) (when (stringp x) (return-from expand-string-splice `("_quote" ,x))))
+  ! as = m x xs (if (stringp x) `("_quote" ,x) `("_mcall" ,x "textify_"))
+  ! `("_mcall" ("_list" ,@as) "unchars"))
 
 (to expand-and a b ! `("if" ,a ,b 0))
 (to expand-or a b
@@ -1317,7 +1311,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("[]" . as) (expand-list as))
         (("^" a b) `(,b ,a))
         ((":" a b) `(,@a ,b))
-        (("\"" x) (expand-string-splice x))
+        (("\"" . xs) (expand-string-splice xs))
         (("." a b) (cond
                      ((fn-sym? b) `("{}" ,xs))
                      (t `("_mcall" ,a "." ,b))))
