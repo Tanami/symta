@@ -586,6 +586,42 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       ! when (and (headed "_label" x) (not xs))
           (ssa 'move d "Void")))
 
+(to expr-symbols-sub expr syms
+  ! cond ((stringp expr) (setf (gethash expr syms) t))
+         ((listp expr) (e x expr (expr-symbols-sub x syms))))
+
+(to expr-symbols expr
+  ! syms = make-hash-table :test 'equal
+  ! expr-symbols-sub expr syms
+  ! syms)
+
+(to uniquify-let xs
+  ! match xs
+    ((("_fn" as . body) . vs)
+     (unless (stringp as) (return-from uniquify-let xs))
+     (when (/= (length as) (length vs)) (error "invalid number of arguments in ~a" xs))
+     (unless (find-if (fn v ! match v (("_import" x y) 1)) vs)
+       (return-from uniquify-let xs))
+     (let ((used (expr-symbols body))
+           (new-as nil)
+           (new-vs nil))
+       (while as
+         (let* ((a (pop as))
+                (v (pop vs)))
+           (match v
+             (("_import" x ("_quote" y))
+              (when (gethash y used)
+                (push a new-as)
+                (push v new-vs)))
+             (else
+              (push a new-as)
+              (push v new-vs)))))
+       (setf as (reverse new-as))
+       (setf vs (reverse new-vs))
+       (setf xs `(("_fn" ,as ,@body) ,@vs))
+       ))
+  ! xs)
+
 (to uniquify-form expr
   ! match expr
      (("_fn" as . body)
@@ -605,10 +641,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (("_goto" x) expr)
      (("_call" . xs) (uniquify-form xs))
      (xs
-      (match xs
-        ((("_fn" as . body) . vs)
-         (when (and (not (stringp as)) (/= (length as) (length vs)))
-           (error "invalid number of arguments in ~a" expr))))
+      (setf xs (uniquify-let xs))
       (m x xs (uniquify-expr x))))
 
 (to uniquify-name s

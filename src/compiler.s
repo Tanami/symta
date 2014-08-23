@@ -219,6 +219,39 @@ compiler_error Msg =
 | [Row Col Orig] = GSrc
 | bad "[Orig]:[Row],[Col]: [Msg]"
 
+expr_symbols_sub Expr Syms =
+  if Expr.is_text then Syms.Expr <= 1
+  else when Expr.is_list: map X Expr: expr_symbols_sub X Syms 
+
+expr_symbols Expr =
+| Syms = table 1000
+| expr_symbols_sub Expr Syms
+| Syms
+
+uniquify_let Xs =
+| case Xs [[_fn As @Body] @Vs]
+  | when As.is_text: leave Xs
+  | when As.size <> Vs.size: compiler_error "bad number of arguments in [Xs]"
+  | when no Vs.find{V => case V [_import X Y] 1}: leave Xs
+  | Used = expr_symbols Body
+  | NewAs = []
+  | NewVs = []
+  | till As.end
+    | A = pop As
+    | V = pop Vs
+    | case V
+        [_import X [_quote Y]]
+          | when have Used.Y
+            | push A NewAs
+            | push V NewVs
+        Else
+          | push A NewAs
+          | push V NewVs
+  | As <= NewAs.reverse
+  | Vs <= NewVs.reverse
+  | Xs <= [[_fn As @Body] @Vs]
+| Xs
+
 uniquify_form Expr =
 | Src = when Expr.is_meta: Expr.info_
 | let GSrc (if have Src then Src else GSrc)
@@ -236,9 +269,7 @@ uniquify_form Expr =
     [_label X] Expr
     [_goto X] Expr
     [_call @Xs] Xs^uniquify_form
-    Xs | case Xs [[_fn As @Body] @Vs]
-         | when not As.is_text and As.size <> Vs.size:
-           | compiler_error "bad number of arguments in [Expr]"
+    Xs | Xs <= uniquify_let Xs
        | Xs.map{&uniquify_expr}
 
 uniquify_name S = for Closure GUniquifyStack: for X Closure: when X.0 >< S: leave X.1
