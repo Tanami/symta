@@ -9,6 +9,7 @@ GClosure = Void // other lambdas, this lambda references
 GBases = Void
 GUniquifyStack = Void
 GHoistedTexts = Void
+GResolvedMethods = Void
 GSrc = [0 0 unknown]
 GAll = gensym all
 
@@ -187,6 +188,14 @@ ssa_apply K F As =
   | for [I V] Vs.enum: ssa arg_store E I V
   | if F.is_keyword then ssa call K H else ssa call_tagged K H
 
+resolve_method Name =
+| M = GResolvedMethods.Name
+| when have M: leave M
+| M <= ssa_global m
+| GResolvedMethods.Name <= M
+| push [resolve_method M Name^ssa_cstring] GRawInits
+| M
+
 ssa_apply_method K Name O As =
 | ssa push_base
 | let GBases [[] @GBases]: named block
@@ -195,9 +204,7 @@ ssa_apply_method K Name O As =
   | E = ssa_var env
   | ssa arglist E As.size
   | for [I V] Vs.enum: ssa arg_store E I V
-  | M = ssa_global m
-  | push [resolve_method M Name.1^ssa_cstring] GRawInits
-  | ssa call_method K Vs.0 M
+  | ssa call_method K Vs.0 Name.1^resolve_method
 
 ssa_set K Place Value =
 | R = ev Value
@@ -318,9 +325,7 @@ ssa_dset K Dst Off Value =
 | ssa dset D Off K
 
 ssa_dmet K MethodName TypeName Handler =
-| MethodNameBytes = ssa_cstring MethodName.1
-| MethodVar = ssa_global m
-| push [resolve_method MethodVar MethodNameBytes] GRawInits
+| MethodVar = MethodName.1^resolve_method
 | TypeNameBytes = ssa_cstring TypeName.1
 | TypeVar = ssa_global t
 | push [resolve_type TypeVar TypeNameBytes] GRawInits
@@ -410,7 +415,8 @@ produce_ssa Entry Expr =
       GRawInits []
       GClosure []
       GBases [[]]
-      GHoistedTexts (table 100)
+      GHoistedTexts (table 1000)
+      GResolvedMethods (table 500)
   | ssa entry Entry
   | R = ssa_var result
   | uniquify Expr!

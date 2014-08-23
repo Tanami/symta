@@ -371,6 +371,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (defparameter *ssa-bases* nil)
 (defparameter *uniquify-stack* nil)
 (defparameter *hoisted-texts* nil)
+(defparameter *resolved-methods* nil)
 
 (to ssa-name name ! symbol-name (gensym name))
 
@@ -551,6 +552,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! e v vs (ssa 'arg_store e (incf i) v)
   ! if (fn-sym? f) (ssa 'call k h) (ssa 'call_tagged k h))
 
+(to resolve-method name
+  ! m = gethash name *resolved-methods*
+  ! when m (return-from resolve-method m)
+  ! setf m (ssa-global "m")
+  ! setf (gethash name *resolved-methods*) m
+  ! method-name-bytes = ssa-cstring name
+  ! push `(resolve_method ,m ,method-name-bytes) *ssa-raw-inits*
+  ! m)
+
 (to ssa-apply-method k name o as
   ! ssa 'push_base
   ! *ssa-bases* = cons nil *ssa-bases*
@@ -560,10 +570,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'arglist e (length as)
   ! i = -1
   ! e v vs (ssa 'arg_store e (incf i) v)
-  ! method-name-bytes = ssa-cstring (second name)
-  ! m = ssa-global "m"
-  ! push `(resolve_method ,m ,method-name-bytes) *ssa-raw-inits*
-  ! ssa 'call_method k (car vs) m)
+  ! ssa 'call_method k (car vs) (resolve-method (second name)))
 
 (to ssa-set k place value
   ! r = ev value
@@ -598,7 +605,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to uniquify-let xs
   ! match xs
     ((("_fn" as . body) . vs)
-     (unless (stringp as) (return-from uniquify-let xs))
+     (when (stringp as) (return-from uniquify-let xs))
      (when (/= (length as) (length vs)) (error "invalid number of arguments in ~a" xs))
      (unless (find-if (fn v ! match v (("_import" x y) 1)) vs)
        (return-from uniquify-let xs))
@@ -704,9 +711,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ssa 'dset d off k)
 
 (to ssa-dmet k method-name type-name handler
-  ! method-name-bytes = ssa-cstring (second method-name)
-  ! method-var = ssa-global "m"
-  ! push `(resolve_method ,method-var ,method-name-bytes) *ssa-raw-inits*
+  ! method-var = resolve-method (second method-name)
   ! type-name-bytes = ssa-cstring (second type-name)
   ! type-var = ssa-global "t"
   ! push `(resolve_type ,type-var ,type-name-bytes) *ssa-raw-inits*
@@ -800,6 +805,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! *ssa-closure* = nil
   ! *ssa-bases* = '(())
   ! *hoisted-texts* = make-hash-table :test 'equal
+  ! *resolved-methods* = make-hash-table :test 'equal
   ! ssa 'entry entry
   ! r = ssa-var "result"
   ! expr = uniquify expr
