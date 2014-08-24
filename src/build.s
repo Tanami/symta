@@ -48,12 +48,13 @@ add_imports Expr Deps =
    @(map D Deps [_import [_quote D.0] [_quote D.1]])]
 
 compile_expr Name Dst Expr =
-| Uses = [core]
+| Uses = [core prelude]
 | Expr <= case Expr
             [`|` [use @Us] @Xs]
                | Uses <= [@Uses @Us]
                | [`|` @Xs]
             Else | Expr
+| Uses <= Uses.skip{X => Name >< X}.uniq
 | Deps = Uses.tail
 | for D Deps: unless compile_module D: bad "cant compile [D].s"
 | say "compiling [Name]..."

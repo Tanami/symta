@@ -1411,12 +1411,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                               ("_quote" ,(second d))))))
 
 (to symta-compile-expr name dst expr
-  ! uses = list "core"
+  ! uses = list "core" "prelude"
   ! expr = match expr
              (("|" ("use" . us) . xs)
               (setf uses `(,@uses ,@us))
               `("|" ,@xs))
              (else expr)
+  ! setf uses (remove-if (fn x ! equal name x) uses)
+  ! setf uses (remove-duplicates uses :test 'equal)
   ! deps = cdr uses
   ! e d deps (unless (compile-module d) (error "cant compile {d}.s"))
   ! format t "compiling {name}...~%"
