@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <setjmp.h>
 
 #define SYMTA_DEBUG 1
 
@@ -70,15 +71,16 @@ typedef struct api_t {
 
   struct api_t *other;
 
-  intptr_t level;
+  intptr_t level; // stack frame depth
+
+  void *method; // current method, we execute
+
+  void *jmp_return;
 
   // constants
   void *void_;
   void *empty_;
   void *resolve_;
-
-  void *method;
-
   void *m_ampersand;
   void *m_underscore;
 
@@ -294,6 +296,36 @@ typedef void *(*pfun)(REGS);
 #define BIGTEXT_DATA(o) ((char*)&DATA_REF1(o,4))
 
 #define FATAL(msg) api->fatal(api, BIGTEXT_DATA(msg));
+
+typedef struct {
+  jmp_buf anchor;
+  intptr_t level;
+  api_t *api;
+} jmp_state;
+
+#define SETJMP(dst) { \
+    jmp_state *js_; \
+    ALLOC_BASIC(api->jmp_return, 0, ((sizeof(jmp_state)+TAG_MASK)>>TAG_BITS)); \
+    js_ = (jmp_state*)api->jmp_return; \
+    js_->level = api->level; \
+    js_->api = api; \
+    setjmp(js_->anchor); \
+    api = js_->api; \
+    dst = api->jmp_return; \
+  }
+
+#define LONGJMP(state,value) { \
+    jmp_state *js_; \
+    js_ = (jmp_state*)state; \
+    while (js_->level != api->level) { \
+      if (!IMMEDIATE(value) || LIFTS_LIST(Base)) { \
+        GC(value,value); \
+      } \
+      POP_BASE(); \
+    } \
+    api->jmp_return = value; \
+    longjmp(js_->anchor, 0); \
+  }
 
 #define CHECK_NARGS(expected,size,meta) \
   if (NARGS(E) != FIXNUM(expected)) { \

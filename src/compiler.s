@@ -395,6 +395,8 @@ ssa_form K Xs = case Xs
   [_fatal Msg] | ssa fatal Msg^ev
   [_this_method] | ssa this_method K
   [_type_id O] | ssa type_id K O^ev
+  [_setjmp] | ssa setjmp K
+  [_longjmp State Value] | ssa longjmp State^ev Value^ev
   [F @As] | ssa_apply K F As
   [] | ssa_atom K Void
   Else | bad "special form: [Xs]"

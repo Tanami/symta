@@ -366,6 +366,14 @@ leave @As = case As
           | expand_leave GDefaultLeave Value
   Else | bad "leave syntax"
 
+callcc F =
+| K = gensym 'K'
+| R = gensym 'R'
+| [`|` [`=` [K] [_setjmp]]
+       [`if` [_mcall K is_int]
+             [F [_fn [R] [_longjmp K [_list R]]]]
+             [_mcall K '.' 0]]]
+
 export @Xs =
 | Xs = map X Xs: case X
         [`\\` N] | [_list [_quote N] [new_macro [_quote N] [`&` N]] ]

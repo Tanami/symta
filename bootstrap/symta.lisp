@@ -786,6 +786,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_fatal" msg) (ssa 'fatal (ev msg)))
     (("_this_method") (ssa 'this_method k))
     (("_type_id" o) (ssa 'type_id k (ev o)))
+    (("_setjmp") (ssa 'setjmp k))
+    (("_longjmp" state value) (ssa 'longjmp (ev state) (ev value)))
     ((f . as) (ssa-apply k f as))
     (() (ssa-atom k :void))
     (else (error "invalid CPS form: ~a" xs)))
@@ -1254,6 +1256,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        ,@(m g gs `("_set" ,(second g) ,(first g)))
        ,r))
 
+(to expand-callcc f
+  ! k = ssa-name "K"
+  ! r = ssa-name "R"
+  ! `("|" ("=" (,k) ("_setjmp"))
+          ("if" ("_mcall" ,k "is_int")
+                (,f ("_fn" (,r) ("_longjmp" ,k ("_list" ,r))))
+                ("_mcall" ,k "." 0))))
+
 (to normalize-matryoshka o
   ! match o ((x) (if (fn-sym? x)
                      o
@@ -1343,6 +1353,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("case" keyform . cases) (expand-match keyform (group-by 2 cases) 0))
         (("let" . xs) (expand-shade (group-by 2 (butlast xs)) (car (last xs))))
         (("export" . xs) (expand-export xs))
+        (("callcc" f) (expand-callcc f))
         (else (return-from builtin-expander
                 (cons (builtin-expander (car xs))
                       (m x (cdr xs)
