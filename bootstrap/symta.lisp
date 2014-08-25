@@ -375,6 +375,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (defparameter *uniquify-stack* nil)
 (defparameter *hoisted-texts* nil)
 (defparameter *resolved-methods* nil)
+(defparameter *import-libs* nil)
 
 (to ssa-name name ! symbol-name (gensym name))
 
@@ -619,7 +620,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          (let* ((a (pop as))
                 (v (pop vs)))
            (match v
-             (("_import" x ("_quote" y))
+             (("_import" ("_quote" x) ("_quote" y))
+              (unless (gethash x *import-libs*)
+                (setf (gethash x *import-libs*) (ssa-name "lib")))
               (when (gethash y used)
                 (push a new-as)
                 (push v new-vs)))
@@ -725,7 +728,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! lib = second lib
   ! symbol = second symbol
   ! g = ssa-global "i"
-  ! push `(import ,g ,lib ,symbol ,(ssa-cstring lib) ,(ssa-cstring symbol)) *ssa-raw-inits*
+  ! push `(import ,g ,lib ,symbol ,(gethash lib *import-libs*) ,(ssa-cstring symbol)) *ssa-raw-inits*
   ! ssa 'move k g)
 
 (to ssa-label name ! ssa 'local_label name)
@@ -802,6 +805,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-expr k x ! if (listp x) (ssa-form k x) (ssa-atom k x))
 
+(to ssa-load-lib dst name
+  ! ssa 'var dst
+  ! ssa 'load_lib dst (ssa-cstring name))
+
 (to produce-ssa entry expr
   ! *ssa-env* = nil
   ! *ssa-out* = nil
@@ -811,12 +818,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! *ssa-bases* = '(())
   ! *hoisted-texts* = make-hash-table :test 'equal
   ! *resolved-methods* = make-hash-table :test 'equal
+  ! *import-libs* = make-hash-table :test 'equal
   ! ssa 'entry entry
   ! r = ssa-var "result"
   ! expr = uniquify expr
   ! ssa = ssa-expr r expr
   ! ssa 'return r
   ! ssa 'entry "setup"
+  ! maphash (fn name dst ! ssa-load-lib dst name) *import-libs*
   ! setf *ssa-out* (append *ssa-raw-inits* *ssa-out*)
   ! ssa 'return_no_gc 0
   ! rs = apply #'concatenate 'list `(,@(reverse *ssa-fns*) ,*ssa-out*)
@@ -853,17 +862,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         ! to-c-emit "  VAR({tname});"
         ! to-c-emit "  TEXT({tname}, {tagname});"
         ! to-c-emit "  SET_TYPE_SIZE_AND_NAME((intptr_t){place}, {size}, {tname});"))
-      ((''import dst lib symbol lib-cstr symbol-cstr)
+      ((''load_lib dst lib-cstr)
+       (to-c-emit "  {dst} = api->load_lib(api,(char*)({lib-cstr}));"))
+      ((''import dst lib symbol lib-exports symbol-cstr)
        (! key = "{lib}::{symbol}"
         ! import = gethash key imports
-        ! lib-exports = gethash lib imports
         ! if import
              (to-c-emit "  MOVE({dst}, {import});")
-             (! unless lib-exports
-                  (setf lib-exports (ssa-name "n"))
-                  (to-c-emit "  void *{lib-exports} = api->load_lib(api,(char*)({lib-cstr}));")
-                  (setf (gethash lib imports) lib-exports)
-              ! symbol-text = ssa-name "s"
+             (! symbol-text = ssa-name "s"
               ! to-c-emit "  VAR({symbol-text});"
               ! to-c-emit "  TEXT({symbol-text}, {symbol-cstr});"
               ! to-c-emit "  {dst} = api->find_export(api, {symbol-text}, {lib-exports});"

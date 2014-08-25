@@ -10,6 +10,7 @@ GBases = Void
 GUniquifyStack = Void
 GHoistedTexts = Void
 GResolvedMethods = Void
+GImportLibs = Void
 GSrc = [0 0 unknown]
 GAll = gensym all
 
@@ -247,7 +248,8 @@ uniquify_let Xs =
     | A = pop As
     | V = pop Vs
     | case V
-        [_import X [_quote Y]]
+        [_import [_quote X] [_quote Y]]
+          | when no GImportLibs.X: GImportLibs.X <= gensym lib
           | when have Used.Y
             | push A NewAs
             | push V NewVs
@@ -336,7 +338,7 @@ ssa_import K Lib Symbol =
 | Lib <= Lib.1
 | Symbol <= Symbol.1
 | G = ssa_global i
-| push [import G Lib Symbol Lib^ssa_cstring Symbol^ssa_cstring] GRawInits
+| push [import G Lib Symbol GImportLibs.Lib Symbol^ssa_cstring] GRawInits
 | ssa move K G
 
 ssa_label Name = ssa local_label Name
@@ -410,6 +412,10 @@ ssa_atom K X =
 
 ssa_expr K X = if X.is_list then ssa_form K X else ssa_atom K X
 
+ssa_load_lib Dst Name =
+| ssa var Dst
+| ssa load_lib Dst Name^ssa_cstring
+
 produce_ssa Entry Expr =
 | let GEnv []
       GOut []
@@ -419,12 +425,14 @@ produce_ssa Entry Expr =
       GBases [[]]
       GHoistedTexts (table 1000)
       GResolvedMethods (table 500)
+      GImportLibs (table 50)
   | ssa entry Entry
   | R = ssa_var result
   | uniquify Expr!
   | Ssa = ssa_expr R Expr
   | ssa return R
   | ssa entry setup
+  | for [Name Dst] GImportLibs: ssa_load_lib Dst Name
   | for X GRawInits.reverse: push X GOut
   | ssa return_no_gc 0
   | Rs = [GOut@GFns].reverse.join.reverse
@@ -454,17 +462,13 @@ ssa_to_c Xs = let GCompiled []
     | c "  VAR([TName]);"
     | c "  TEXT([TName],[TagName]);"
     | c "  SET_TYPE_SIZE_AND_NAME((intptr_t)[Place],[Size],[TName]);"
-  [import Dst Lib Symbol LibCStr SymbolCStr]
+  [load_lib Dst LibCStr] | c "  [Dst] = api->load_lib(api,(char*)([LibCStr]));"
+  [import Dst Lib Symbol LibExports SymbolCStr]
     | Key = "[Lib]::[Symbol]"
     | Import = Imports.Key
-    | LibExports = Imports.Lib
     | if have Import
       then c "  MOVE([Dst], [Import]);"
-      else | when no LibExports
-             | LibExports <= gensym n
-             | c "  void *[LibExports] = api->load_lib(api,(char*)([LibCStr]));"
-             | Imports.Lib <= LibExports
-           | SymbolText = gensym s
+      else | SymbolText = gensym s
            | c "  VAR([SymbolText]);"
            | c "  TEXT([SymbolText],[SymbolCStr]);"
            | c "  [Dst] = api->find_export(api,[SymbolText],[LibExports]);"
