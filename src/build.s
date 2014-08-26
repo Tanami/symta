@@ -103,7 +103,7 @@ build BuildFolder =
   | compile_runtime RuntimeSrc RuntimePath
   | DstFile = compile_module main
   | when no DstFile: bad "cant compile main.s"
-  | unix "[RuntimePath] '[GDstFolder]'"
+  | unix "[RuntimePath] ':[GDstFolder]'"
 
 
 export build

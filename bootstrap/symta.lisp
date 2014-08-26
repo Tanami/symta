@@ -1504,6 +1504,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! compile-runtime runtime-src runtime-path
   ! dst-file = compile-module "main"
   ! unless dst-file (error "cant compile main.s")
-  ! result = shell runtime-path *dst-folder*
+  ! result = shell runtime-path ":{*dst-folder*}"
   ! e l (butlast (split #\Newline result)) (format t "~a~%" l)
   )

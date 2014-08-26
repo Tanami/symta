@@ -44,6 +44,8 @@
 #define MAX_METHODS (8*1024)
 #define MAX_LIBS 1024
 
+static void *main_args;
+
 typedef struct {
   int items[MAX_TYPES];
   int used;
@@ -1030,6 +1032,10 @@ BUILTIN1("file_exists",file_exists,C_TEXT,filename_text)
   }
 RETURNS(R)
 
+BUILTIN0("main_args", main_args)
+RETURNS(main_args)
+
+
 BUILTIN1("inspect",inspect,C_ANY,o)
   fprintf(stderr, "%p: tag=%ld, level=%ld\n", o, GET_TAG(o), OBJECT_LEVEL(o));
 RETURNS(0)
@@ -1082,6 +1088,7 @@ static struct {
   {"unix", b_unix},
   {"file_time", b_file_time},
   {"file_exists", b_file_exists},
+  {"main_args", b_main_args},
 
   {0, 0}
 };
@@ -1407,15 +1414,15 @@ int main(int argc, char **argv) {
   void *E = 0; // current environment
   void *P = 0; // parent environment
 
-  if (argc > 2) {
-    printf("usage: %s [lib_path]\n", argv[0]);
-    abort();
-  }
+  int main_argc = argc-1;
+  char **main_argv = argv+1;
 
-  if (argc == 1) {
-    lib_path = "./lib";
+  if (argc > 1 && argv[1][0] == ':') {
+    lib_path = argv[1]+1;
+    --main_argc;
+    ++main_argv;
   } else {
-    lib_path = argv[1];
+    lib_path = "./lib";
   }
 
   realpath(lib_path, tmp);
@@ -1448,6 +1455,13 @@ int main(int argc, char **argv) {
 
   api->other->void_ = api->void_;
   api->other->empty_ = api->empty_;
+
+  LIST_ALLOC(main_args, main_argc);
+  for (i = 0; i < main_argc; i++) {
+    void *a;
+    TEXT(a, main_argv[i]);
+    LIFT(DEL_TAG(main_args),i,a);
+  }
 
   for (i = 0; builtins[i].name; i++) {
     void *t;

@@ -12,3 +12,4 @@ export tag_of
        file_time
        file_exists
        unix
+       main_args
