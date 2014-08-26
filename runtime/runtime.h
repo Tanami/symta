@@ -297,6 +297,12 @@ typedef void *(*pfun)(REGS);
 
 #define FATAL(msg) api->fatal(api, BIGTEXT_DATA(msg));
 
+#define SET_UNWIND_HANDLER(r,h) \
+  /*fprintf(stderr, "%ld = %p = %ld\n", Level, h, GET_TAG(h));*/  \
+  api->marks[Level>>1] = h;
+#define REMOVE_UNWIND_HANDLER(r) \
+  api->marks[Level>>1] = 0;
+
 typedef struct {
   jmp_buf anchor;
   intptr_t level;
@@ -318,6 +324,14 @@ typedef struct {
     jmp_state *js_; \
     js_ = (jmp_state*)state; \
     while (js_->level != api->level) { \
+      void *h_ = api->marks[Level>>1]; \
+      /*fprintf(stderr, "%ld = %ld = %p = %ld\n", js_->level, Level, h_, GET_TAG(h_));*/ \
+      if (GET_TAG(h_) == T_CLOSURE) { \
+          void *k_; \
+          PUSH_BASE(); \
+          ARGLIST(E,0); \
+          CALL(k_,h_) \
+      } \
       if (!IMMEDIATE(value) || LIFTS_LIST(Base)) { \
         GC(value,value); \
       } \

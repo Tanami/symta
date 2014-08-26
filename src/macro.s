@@ -374,6 +374,18 @@ callcc F =
              [F [_fn [R] [_longjmp K [_list R]]]]
              [_mcall K '.' 0]]]
 
+fin Finalizer Body =
+| B = gensym b
+| F = gensym f
+| R = gensym 'R'
+| [[_fn [B] [B [_fn [] Finalizer]]]
+   [_fn [F]
+     ['|' [_set_unwind_handler ['&' F]]
+          ['=' [R] Body]
+          [F]
+          [_remove_unwind_handler]
+          R]]]
+
 export @Xs =
 | Xs = map X Xs: case X
         [`\\` N] | [_list [_quote N] [new_macro [_quote N] [`&` N]] ]
@@ -423,5 +435,5 @@ macroexpand Expr Macros =
 
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '[]' '\\'
        'not' 'and' 'or' 'when' 'unless' 'while' 'till' 'dup' 'times' 'map' 'for'
-       'named' 'export' 'pop' 'push'
+       'named' 'export' 'pop' 'push' 'callcc' 'fin'
        '|' '+' '-' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!' '"'

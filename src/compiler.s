@@ -399,6 +399,8 @@ ssa_form K Xs = case Xs
   [_type_id O] | ssa type_id K O^ev
   [_setjmp] | ssa setjmp K
   [_longjmp State Value] | ssa longjmp State^ev Value^ev
+  [_set_unwind_handler H] | ssa set_unwind_handler K H^ev
+  [_remove_unwind_handler] | ssa set_unwind_handler K
   [F @As] | ssa_apply K F As
   [] | ssa_atom K Void
   Else | bad "special form: [Xs]"
