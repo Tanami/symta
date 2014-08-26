@@ -308,7 +308,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to /delim
   ! o = try (/op '(:|:| :|=| :|=>| :|<=| :|,|)) (/logic)
-  ! pref = or (nreverse g_output) '(:void)
+  ! pref = or (nreverse g_output) '()
   ! unless (token-is :|,| o) (! g_output := `(,(/xs) ,pref ,o) ! ret nil)
   ! pref = m x pref `(:token :escape :value ,(/strip x) :src ,(getf o :src))
   ! r = split-if (fn x ! token-is :|,| x) g_input

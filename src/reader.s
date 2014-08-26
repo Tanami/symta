@@ -304,7 +304,7 @@ parse_logic =
 
 parse_delim =
 | O = parse_op [`:` `=` `=>` `<=` `,`] or leave (parse_logic)
-| Pref = if GOutput.size > 0 then GOutput.reverse else [void]
+| Pref = if GOutput.size > 0 then GOutput.reverse else []
 | unless O^token_is{`,`}
   | GOutput <= [(parse_xs) Pref O]
   | leave Void
