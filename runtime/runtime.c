@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <time.h>
+#include <float.h>
 
 #include "runtime.h"
 
@@ -841,13 +842,39 @@ BUILTIN2("float /",float_div,C_ANY,a,C_FLOAT,b)
   float fa, fb;
   UNFLOAT(fa,a);
   UNFLOAT(fb,b);
-  if (fb == 0.0) {
-    fprintf(stderr, "division by zero\n");
-    TEXT(R, "/");
-    bad_call(REGS_ARGS(P),R);
-  }
+  if (fb == 0.0) fb = FLT_MIN;
   LOAD_FLOAT(R,fa/fb);
 RETURNS(R)
+BUILTIN2("float ><",float_eq,C_ANY,a,C_FLOAT,b)
+  float fa, fb;
+  UNFLOAT(fa,a);
+  UNFLOAT(fb,b);
+RETURNS(FIXNUM(fa == fb))
+BUILTIN2("float <>",float_ne,C_ANY,a,C_FLOAT,b)
+  float fa, fb;
+  UNFLOAT(fa,a);
+  UNFLOAT(fb,b);
+RETURNS(FIXNUM(fa != fb))
+BUILTIN2("float <",float_lt,C_ANY,a,C_FLOAT,b)
+  float fa, fb;
+  UNFLOAT(fa,a);
+  UNFLOAT(fb,b);
+RETURNS(FIXNUM(fa < fb))
+BUILTIN2("float >",float_gt,C_ANY,a,C_FLOAT,b)
+  float fa, fb;
+  UNFLOAT(fa,a);
+  UNFLOAT(fb,b);
+RETURNS(FIXNUM(fa > fb))
+BUILTIN2("float <<",float_lte,C_ANY,a,C_FLOAT,b)
+  float fa, fb;
+  UNFLOAT(fa,a);
+  UNFLOAT(fb,b);
+RETURNS(FIXNUM(fa <= fb))
+BUILTIN2("float >>",float_gte,C_ANY,a,C_FLOAT,b)
+  float fa, fb;
+  UNFLOAT(fa,a);
+  UNFLOAT(fb,b);
+RETURNS(FIXNUM(fa >= fb))
 BUILTIN1("float as_text",float_as_text,C_ANY,a)
   TEXT(R, print_object(a));
 RETURNS(R)
@@ -1639,12 +1666,12 @@ int main(int argc, char **argv) {
   METHOD_FN("*", b_integer_mul, b_float_mul, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("/", b_integer_div, b_float_div, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("%", b_integer_rem, 0, 0, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("><", b_integer_eq, 0, b_fn_eq, 0, b_fixtext_eq, b_text_eq, 0, 0, b_void_eq);
-  METHOD_FN("<>", b_integer_ne, 0, b_fn_ne, 0, b_fixtext_ne, b_text_ne, 0, 0, b_void_ne);
-  METHOD_FN("<", b_integer_lt, 0, 0, 0, 0, 0, 0, 0, 0);
-  METHOD_FN(">", b_integer_gt, 0, 0, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("<<", b_integer_lte, 0, 0, 0, 0, 0, 0, 0, 0);
-  METHOD_FN(">>", b_integer_gte, 0, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("><", b_integer_eq, b_float_eq, b_fn_eq, 0, b_fixtext_eq, b_text_eq, 0, 0, b_void_eq);
+  METHOD_FN("<>", b_integer_ne, b_float_ne, b_fn_ne, 0, b_fixtext_ne, b_text_ne, 0, 0, b_void_ne);
+  METHOD_FN("<", b_integer_lt, b_float_lt, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN(">", b_integer_gt, b_float_gt, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("<<", b_integer_lte, b_float_lte, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN(">>", b_integer_gte, b_float_gte, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("mask", b_integer_mask, 0, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("ior", b_integer_ior, 0, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("xor", b_integer_xor, 0, 0, 0, 0, 0, 0, 0, 0);
