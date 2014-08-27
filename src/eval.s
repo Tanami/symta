@@ -1,10 +1,11 @@
 use prelude compiler reader macro
 
-GRootFolder = Void
+GRootFolder = '/Users/nikita/Documents/git/symta/'
 GSrcFolders = Void
 GDstFolder = Void
 GHeaderTimestamp = Void
 GMacros = Void
+GShowInfo = 0
 
 read_normalized Text Filename =
 | Expr = parse Text Filename
@@ -57,7 +58,7 @@ compile_expr Name Dst Expr =
 | Uses <= Uses.skip{X => Name >< X}.uniq
 | Deps = Uses.tail
 | for D Deps: unless compile_module D: bad "cant compile [D].s"
-| say "compiling [Name]..."
+| when GShowInfo: say "compiling [Name]..."
 | Imports = (map U Uses: map E U^get_lib_exports: [U E]).join
 | Macros = Imports.skip{X => X.1.is_text}.map{X => X.0}.uniq.skip{X => X><macro} // keep macros
 | Imports = Imports.keep{X => X.1.is_text} // skip macros
@@ -92,18 +93,48 @@ compile_module Name =
     | leave DstFile
 | Void
 
-build BuildFolder =
+build_entry Entry =
 | let GMacros 'macro'^load_macros
-      GRootFolder '/Users/nikita/Documents/git/symta/'
-      GSrcFolders ["[BuildFolder]src/" "[GRootFolder]src/"]
-      GDstFolder "[BuildFolder]lib/"
+  | DstFile = compile_module Entry
+  | when no DstFile: bad "cant compile [Entry]"
+  | DstFile
+
+build @As =
+| SrcFolder = Void
+| DstFolder = Void
+| case As
+   [S D] | SrcFolder <= S
+         | DstFolder <= D
+   [S] | SrcFolder <= S
+       | DstFolder <= S
+   Else | bad "build: bad arglist = [As]"
+| let GDstFolder "[DstFolder]lib/"
+      GSrcFolders ["[SrcFolder]src/" "[GRootFolder]src/"]
       GHeaderTimestamp (file_time "[GRootFolder]/runtime/runtime.h")
-  | RuntimeSrc = "[GRootFolder]/runtime/runtime.c"
-  | RuntimePath = "[BuildFolder]run"
+      GShowInfo 1
+  | RuntimeSrc = "[GRootFolder]runtime/runtime.c"
+  | RuntimePath = "[DstFolder]run"
   | compile_runtime RuntimeSrc RuntimePath
-  | DstFile = compile_module main
-  | when no DstFile: bad "cant compile main.s"
-  | unix "[RuntimePath] ':[GDstFolder]'"
+  | build_entry main
+  //| unix "[RuntimePath] ':[GDstFolder]'"
 
-
-export build
+eval Expr Env =
+| BuildFolder = "[GRootFolder]build/tmp/"
+| let GMacros 'macro'^load_macros
+      GSrcFolders ["[GRootFolder]src/"]
+      GHeaderTimestamp (file_time "[GRootFolder]/runtime/runtime.h")
+      GDstFolder "[BuildFolder]lib/"
+  | Entry = gensym tmp
+  | DstFile = "[BuildFolder]lib/[Entry]"
+  | Vars = map [K V] Env K
+  | Values = map [K V] Env V
+  | Expr <= [_fn Vars
+              ['|' ['<=' ['Last_'] Expr]
+                   @(map V Vars ['<=' [['.' 'Env_' ['\\' V]]] V])
+                   0]]
+  | Expr <= ['|' [use @Env.'Uses_'] Expr]
+  | Deps = compile_expr Entry DstFile Expr
+  | unless file_exists DstFile: bad "cant compile [DstFile]"
+  | Values.apply{DstFile^load_library}
+  | Env.'Last_'
+export build eval

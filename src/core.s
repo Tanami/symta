@@ -13,3 +13,4 @@ export tag_of
        file_exists
        unix
        main_args
+       get_line

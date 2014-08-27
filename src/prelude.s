@@ -259,6 +259,8 @@ int.x =
 
 _.as_text = ['#:' Me^address.x].unchars
 
+void.as_text = 'Void'
+
 int.as_text =
 | unless Me: leave '0'
 | Cs = []

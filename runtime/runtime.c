@@ -1035,6 +1035,40 @@ RETURNS(R)
 BUILTIN0("main_args", main_args)
 RETURNS(main_args)
 
+static char *get_line() {
+  char *line = malloc(100), * linep = line;
+  size_t lenmax = 100, len = lenmax;
+  int c;
+
+  if(line == NULL) return NULL;
+
+  for(;;) {
+    c = fgetc(stdin);
+    if(c == EOF) break;
+
+    if(--len == 0) {
+      len = lenmax;
+      char *linen = realloc(linep, lenmax *= 2);
+      
+      if(linen == NULL) {
+        free(linep);
+        return NULL;
+      }
+      line = linen + (line - linep);
+      linep = linen;
+    }
+    
+    if((*line++ = c) == '\n') break;
+  }
+  line[-1] = '\0';
+  return linep;
+}
+
+BUILTIN0("get_line", get_line)
+  char *line = get_line();
+  TEXT(R,line);
+  free(line);
+RETURNS(R)
 
 BUILTIN1("inspect",inspect,C_ANY,o)
   fprintf(stderr, "%p: tag=%ld, level=%ld\n", o, GET_TAG(o), OBJECT_LEVEL(o));
@@ -1089,6 +1123,7 @@ static struct {
   {"file_time", b_file_time},
   {"file_exists", b_file_exists},
   {"main_args", b_main_args},
+  {"get_line", b_get_line},
 
   {0, 0}
 };
