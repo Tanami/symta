@@ -1273,7 +1273,7 @@ print_tail:
   } else if (tag == T_FLOAT) {
     float f;
     UNFLOAT(f,o);
-    out += sprintf(out, "%f", f);
+    out += sprintf(out, "%.7g", f);
   } else if (tag == T_DATA) {
     uintptr_t dtag = DATA_TAG(o);
     if (dtag == T_TEXT) {
