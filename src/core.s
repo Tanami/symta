@@ -14,3 +14,4 @@ export tag_of
        unix
        main_args
        get_line
+       parse_float

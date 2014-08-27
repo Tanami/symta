@@ -801,6 +801,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! cond
     ((integerp x) (ssa 'load_fixnum k x))
     ((stringp x) (ssa-symbol k x nil))
+    ((floatp x) (ssa 'load_float k x))
     ((eql x :void) (ssa 'move k "Void"))
     ((eql x :empty) (ssa 'move k "Empty"))
     (t (error "unexpected ~a" x)))

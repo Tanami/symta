@@ -225,8 +225,6 @@ parse_integer T =
   | I !+ 1
 | R*Sign
 
-parse_float T = bad 'parse_float isnt implemented'
-
 parse_negate H =
 | A = parse_mul or leave 0
 | unless A^token_is{integer} or A^token_is{float}: leave [H A]
