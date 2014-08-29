@@ -1,3 +1,6 @@
+#ifndef SYMTA_RUNTIME_H
+#define SYMTA_RUNTIME_H
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -15,6 +18,7 @@
 #define ADD_TAG(src,tag) ((void*)((uintptr_t)(src) | (tag)))
 #define DEL_TAG(src) ((void*)((uintptr_t)(src) & ~TAG_MASK))
 #define IMMEDIATE(x) (GET_TAG(x) <= T_FLOAT)
+
 
 #define T_FIXNUM  0
 #define T_FIXTEXT 1 /* immediate text */
@@ -66,7 +70,6 @@
     dst = *(float*)&tmp_; \
   }
 
-
 #define HEAP_SIZE (32*1024*1024)
 #define BASE_HEAD_SIZE 2
 #define OBJ_HEAD_SIZE 2
@@ -108,6 +111,7 @@ typedef struct api_t {
   void (*set_method)(struct api_t *api, void *method, void *type, void *handler);
   void *(*find_export)(struct api_t *api, void *name, void *exports);
   void *(*load_lib)(struct api_t *api, char *name);
+  char *(*text_chars)(struct api_t *api, void *text);
 
   void *marks[MAX_LEVEL];
 
@@ -357,4 +361,20 @@ typedef struct {
     return api->handle_args(REGS_ARGS(P), E, FIXNUM(-1), FIXNUM(size), Void, meta); \
   }
 
+
+#define FFI_TO_INT(dst,src) \
+  if (GET_TAG(src) != T_FIXNUM) \
+    api->bad_type(REGS_ARGS(P), "int", 0, 0); \
+  dst = (void*)UNFIXNUM(src);
+#define FFI_FROM_INT(dst,src) dst = (void*)FIXNUM(src);
+
+#define FFI_TO_TEXT(dst,src) dst = (void*)api->text_chars(api,src);
+#define FFI_FROM_TEXT(dst,src) dst = (void*)api->alloc_text(api,src);
+
+#define FFI_TO_PTR(dst,src) dst = (void*)(src);
+#define FFI_FROM_PTR(dst,src) dst = (void*)(src);
+
+
 void *entry(REGS);
+
+#endif //SYMTA_RUNTIME_H

@@ -760,6 +760,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-text k s ! ssa 'text k (ssa-cstring s))
 
+(to ssa-ffi-call k type f as
+  ! setf f (ev f)
+  ! setf as (m a as (ev a))
+  ! setf type (m x (cdr type) (second x))
+  ! (result-type . as-types) = type
+  ! unless (= (length as) (length as-types))
+    (error "_ffi_call: argument number doesn't match type signature")
+  ! r = unless (equal result-type "void") (ssa-var "r")
+  ! vs = m a as
+    (! v = ssa-var "v"
+     ! a-type = pop as-types
+     ! ssa (intern "FFI_TO_{string-upcase a-type}") v a
+     ! v)
+  ! ssa 'ffi_call r f vs
+  ! if (equal result-type "void")
+       (ssa 'move k 0)
+       (ssa (intern "FFI_FROM_{string-upcase result-type}") k r))
+
+
 (to ssa-form k xs
   ! match xs
     (("_fn" as body) (ssa-fn (ssa-name "n") k as body xs))
@@ -793,6 +812,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_longjmp" state value) (ssa 'longjmp (ev state) (ev value)))
     (("_set_unwind_handler" h) (ssa 'set_unwind_handler k (ev h)))
     (("_remove_unwind_handler") (ssa 'remove_unwind_handler k))
+    (("_ffi_call" type f . as) (ssa-ffi-call k type f as))
     ((f . as) (ssa-apply k f as))
     (() (ssa-atom k :void))
     (else (error "invalid CPS form: ~a" xs)))
@@ -879,6 +899,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
               ! setf (gethash key imports) dst)))
       ((''bytes name values)
        (push (format nil '"static uint8_t ~a[] = {~{~a~^,~}};" name values) decls))
+      ((''ffi_call dst f as)
+       (let* ((args-text (format nil '"~{~a~^,~}" as))
+              (args-types (format nil '"~{~a~^,~}" (m a as "void*")))
+              (return-type (if dst "void*" "void"))
+              (call "(({return-type}(*)({args-types})){f})({args-text});"))
+         (when dst (setf call "{dst} = {call}"))
+         (to-c-emit "  {call}")))
       (else (cnorm x)))
   ! to-c-emit "END_CODE"
   ! format nil '"~{~a~%~}" (reverse (append *compiled* decls (list "#include \"runtime.h\""))))

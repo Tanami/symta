@@ -5,7 +5,7 @@
 #include <time.h>
 #include <float.h>
 
-#include "runtime.h"
+#include "runtime_internal.h"
 
 #define VIEW(dst,base,start,size) \
   ALLOC_BASIC(dst, base, 1); \
@@ -16,38 +16,6 @@
 #define VIEW_SIZE(o) VIEW_REF4(o,1)
 #define VIEW_REF(o,start,i) *((void**)VIEW_GET(o,-1) + start + (i))
 
-#define LIST_SIZE(o) ((uintptr_t)OBJECT_CODE(o))
-
-#define DATA_SIZE(o) ((uintptr_t)methods[0][DATA_TAG(o)])
-
-#define C_ANY(o,arg_index,meta)
-
-#define C_FN(o,arg_index,meta) \
-  if (GET_TAG(o) != T_CLOSURE) \
-    api->bad_type(REGS_ARGS(P), "fn", arg_index, meta)
-
-#define C_FIXNUM(o,arg_index,meta) \
-  if (GET_TAG(o) != T_FIXNUM) \
-    api->bad_type(REGS_ARGS(P), "int", arg_index, meta)
-
-#define C_FLOAT(o,arg_index,meta) \
-  if (GET_TAG(o) != T_FLOAT) \
-    api->bad_type(REGS_ARGS(P), "float", arg_index, meta)
-
-#define C_TEXT(o,arg_index,meta) \
-  if (!IS_TEXT(o)) \
-    api->bad_type(REGS_ARGS(P), "text", arg_index, meta)
-
-#define BUILTIN_CLOSURE(dst,code) { ALLOC_CLOSURE(dst, code, 0); }
-
-#define FN_GET_TAG   FIXNUM(-1)
-#define FN_GET_SIZE  FIXNUM(-2)
-#define FN_GET_META  FIXNUM(-3)
-#define FN_GET_NARGS FIXNUM(-4)
-
-#define MAX_TYPES (1024)
-#define MAX_METHODS (8*1024)
-#define MAX_LIBS 1024
 
 static void *main_args;
 
@@ -57,7 +25,6 @@ typedef struct {
 } typing_t;
 static typing_t subtypings[MAX_TYPES];
 static typing_t supertypings[MAX_TYPES];
-
 
 #define MAX_SINGLE_CHARS (1<<8)
 static void *single_chars[MAX_SINGLE_CHARS];
@@ -70,14 +37,12 @@ static char *lib_path;
 
 static api_t apis[2]; // one for each heap
 
-#define M_SIZE 0
-#define M_NAME 1
-#define M_SINK 2
 
 static int methods_used;
 static void **methods[MAX_METHODS];
 static int types_used;
 static char *typenames[MAX_TYPES];
+#define DATA_SIZE(o) ((uintptr_t)methods[0][DATA_TAG(o)])
 
 static void *undefined;
 static void *sink;
@@ -339,6 +304,25 @@ static int text_size(void *o) {
   return 0;
 }
 
+static char *text_chars(struct api_t *api, void *text) {
+  int a;
+  char buf[32];
+  int size = text_size(text);
+  char *s, *d;
+  void *r;
+  if (GET_TAG(text) == T_FIXTEXT) {
+    decode_text(buf, text);
+    s = buf;
+  } else {
+    s = (char*)BIGTEXT_DATA(text);
+  }
+  a = (size+1+TAG_MASK)>>TAG_BITS;
+  ALLOC_BASIC(r, T_TEXT, a);
+  d = (char*)r;
+  memcpy(d, s, size);
+  d[size] = 0;
+  return d;
+}
 static char *text_to_cstring(void *o) {
   decode_text(print_buffer, o);
   return print_buffer;
@@ -514,73 +498,6 @@ uint32_t hash(uint8_t *data, int len) {
   } 
   return (b << 16) | a;
 }
-
-#define BUILTIN_CHECK_NARGS(expected,tag,name) \
-  if (NARGS(E) != FIXNUM(expected)) { \
-    void *meta, *ttag, *t; \
-    LIST_ALLOC(meta, 1); \
-    TEXT(t, name); \
-    LIST_REF(meta,0) = t; \
-    if (tag) { \
-      TEXT(ttag, tag); \
-    } else { \
-      ttag = Void; \
-    } \
-    return api->handle_args(REGS_ARGS(P), E, FIXNUM(expected), FIXNUM(0), ttag, meta); \
-  }
-#define BUILTIN_CHECK_VARARGS(expected,tag,name) \
-  if (NARGS(E) < FIXNUM(expected)) { \
-    void *meta, *ttag, *t; \
-    LIST_ALLOC(meta, 1); \
-    TEXT(t, name); \
-    LIST_REF(meta,0) = t; \
-    if (tag) { \
-      TEXT(ttag, tag); \
-    } else { \
-      ttag = Void; \
-    } \
-    return api->handle_args(REGS_ARGS(P), E, -FIXNUM(expected), FIXNUM(0), ttag, meta); \
-  }
-
-#define BUILTIN0(sname, name) \
-  static void *b_##name(REGS) { \
-  PROLOGUE; \
-  void *A, *R; \
-  BUILTIN_CHECK_NARGS(0,0,sname);
-#define BUILTIN1(sname,name,a_check,a) \
-  static void *b_##name(REGS) { \
-  PROLOGUE; \
-  void *A, *R, *a; \
-  BUILTIN_CHECK_NARGS(1,0,sname); \
-  a = getArg(0); \
-  a_check(a, 0, sname);
-#define BUILTIN2(sname,name,a_check,a,b_check,b) \
-  static void *b_##name(REGS) { \
-  PROLOGUE; \
-  void *A, *R, *a, *b; \
-  BUILTIN_CHECK_NARGS(2,0,sname); \
-  a = getArg(0); \
-  a_check(a, 0, sname); \
-  b = getArg(1); \
-  b_check(b, 1, sname);
-#define BUILTIN3(sname,name,a_check,a,b_check,b,c_check,c) \
-  static void *b_##name(REGS) { \
-  PROLOGUE; \
-  void *A, *R, *a, *b,*c; \
-  BUILTIN_CHECK_NARGS(3,0,sname); \
-  a = getArg(0); \
-  a_check(a, 0, sname); \
-  b = getArg(1); \
-  b_check(b, 1, sname); \
-  c = getArg(2); \
-  c_check(c, 2, sname);
-#define BUILTIN_VARARGS(sname,name) \
-  static void *b_##name(REGS) { \
-  PROLOGUE; \
-  void *A, *R; \
-  BUILTIN_CHECK_VARARGS(0,0,sname);
-#define RETURNS(r) R = (void*)(r); RETURN(R); }
-#define RETURNS_VOID Top = Base; }
 
 BUILTIN2("void ><",void_eq,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a == b))
@@ -998,6 +915,10 @@ BUILTIN0("stack_trace",stack_trace)
   }
 RETURNS(R)
 
+BUILTIN1("inspect",inspect,C_ANY,o)
+  fprintf(stderr, "%p: tag=%ld, level=%ld\n", o, GET_TAG(o), OBJECT_LEVEL(o));
+RETURNS(0)
+
 BUILTIN1("load_library",load_library,C_TEXT,path_text)
   char path[1024];
   decode_text(path, path_text);
@@ -1155,9 +1076,39 @@ BUILTIN0("get_line", get_line)
   free(line);
 RETURNS(R)
 
-BUILTIN1("inspect",inspect,C_ANY,o)
-  fprintf(stderr, "%p: tag=%ld, level=%ld\n", o, GET_TAG(o), OBJECT_LEVEL(o));
-RETURNS(0)
+typedef struct {
+  char *name;
+  void *handle;
+} ffi_lib_t;
+
+#define FFI_MAX_LIBS 1024
+static ffi_lib_t ffi_libs[FFI_MAX_LIBS];
+static int ffi_libs_used;
+
+BUILTIN2("ffi_load",ffi_load,C_TEXT,lib_name_text,C_TEXT,sym_name_text)
+  int i;
+  void *lib = 0;
+  char name[1024];
+  decode_text(name, lib_name_text);
+  for (i = 0; i < ffi_libs_used; i++) {
+    if (!strcmp(name, ffi_libs[i].name)) {
+      lib = ffi_libs[i].handle;
+      break;
+    }
+  }
+  if (!lib) {
+    lib = dlopen(name, RTLD_LAZY);
+    if (!lib) fatal("dlopen couldnt load %s\n", name);
+    ffi_libs[ffi_libs_used].name = strdup(name);
+    ffi_libs[ffi_libs_used].handle = lib;
+    ++ffi_libs_used;
+  }
+
+  decode_text(name, sym_name_text);
+  R = dlsym(lib, name);
+  if (!R) fatal("dlsym couldnt find symbol `%s` in %s\n", name, ffi_libs[ffi_libs_used-1]);
+RETURNS(R)
+
 
 /*
 // that is how a method can be reapplied to other type:
@@ -1210,6 +1161,7 @@ static struct {
   {"main_args", b_main_args},
   {"get_line", b_get_line},
   {"parse_float", b_parse_float},
+  {"ffi_load", b_ffi_load},
 
   {0, 0}
 };
@@ -1499,6 +1451,7 @@ static api_t *init_api(void *ptr) {
   api->set_method = set_method;
   api->find_export = find_export;
   api->load_lib = load_lib;
+  api->text_chars = text_chars;
 
   return api;
 }
