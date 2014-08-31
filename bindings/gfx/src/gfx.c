@@ -35,9 +35,11 @@ void gfx_clear(gfx_t *gfx, uint32_t color) {
   }
 }
 
-int test(char *name, int x) {
-  fprintf(stderr, "Hello, %s! %d\n", name, x);
-  return 123;
+uint32_t array[] = {123,456,789};
+
+void *test(char *name, int x, float y) {
+  fprintf(stderr, "%d:%f: Hello, %s! %d,%d,%d\n", x, y, name, array[0], array[1], array[2]);
+  return (void*)array;
 }
 
 

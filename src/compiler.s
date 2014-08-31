@@ -369,6 +369,30 @@ ssa_tagged K Tag X = ssa tagged K X^ev Tag.1
 
 ssa_text K S = ssa text K S^ssa_cstring
 
+ssa_ffi_var Type Name =
+| V = gensym v
+| ssa ffi_var Type V
+| V
+
+ssa_ffi_call K Type F As =
+| F <= ev F
+| As <= map A As: ev A
+| Type <= map X Type.tail
+          | case X.1
+            text | 'text_'
+            ptr | 'voidp_'
+            T | T
+| [ResultType @AsTypes] = Type
+| unless As.size >< AsTypes.size: bad "argument number doesn't match signature"
+| R = unless ResultType >< void: ssa_ffi_var r
+| ATs = AsTypes
+| Vs = map A As | AType = pop ATs
+                | V = ssa_ffi_var AType v
+                | ssa "ffi_to_[AType]" V A
+                | V
+| ssa ffi_call ResultType R F AsTypes Vs
+| if ResultType >< void then ssa move K 0 else ssa "ffi_from[ResultType]" K R
+
 ssa_form K Xs = case Xs
   [_fn As Body] | ssa_fn n^gensym K As Body Xs
   [_if Cnd Then Else] | ssa_if K Cnd Then Else
@@ -401,6 +425,10 @@ ssa_form K Xs = case Xs
   [_longjmp State Value] | ssa longjmp State^ev Value^ev
   [_set_unwind_handler H] | ssa set_unwind_handler K H^ev
   [_remove_unwind_handler] | ssa set_unwind_handler K
+  [_ffi_call Type F @As] | ssa_ffi_call K Type F As
+  [_ffi_get Type Ptr Off] | ssa ffi_get K Type.1 Ptr^ev Off^ev
+  [_ffi_set Type Ptr Off Val] | ssa ffi_get Type.1 Ptr^ev Off^ev Val^ev
+                              | ssa move K 0
   [F @As] | ssa_apply K F As
   [] | ssa_atom K Void
   Else | bad "special form: [Xs]"
@@ -479,6 +507,12 @@ ssa_to_c Xs = let GCompiled []
     | Brackets = '[]'
     | Values = (map X Xs X.as_text).infix{','}.unchars
     | push "static uint8_t [Name][Brackets] = {[Values]};" Decls
+  [ffi_call ResultType Dst F ArgsTypes Args]
+    | ArgsText = Args.infix{', '}.unchars
+    | ArgsTypesText = ArgsTypes.infix{', '}.unchars
+    | Call = "(([ResultType](*)([ArgsTypesText]))[F])([ArgsText]);"
+    | when have Dst: Call <= "[Dst] <= [Call]"
+    | c "  {Call}"
   Else | cnorm X //FIXME: check if it is known and has correct argnum
 | c 'END_CODE'
 | GCompiled <= GCompiled.reverse

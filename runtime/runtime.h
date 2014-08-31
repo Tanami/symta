@@ -361,19 +361,29 @@ typedef struct {
     return api->handle_args(REGS_ARGS(P), E, FIXNUM(-1), FIXNUM(size), Void, meta); \
   }
 
+// kludge for FFI identifiers
+#define text_ char*
+#define voidp_ void*
+
+#define FFI_VAR(type,name) type name;
 
 #define FFI_TO_INT(dst,src) \
   if (GET_TAG(src) != T_FIXNUM) \
     api->bad_type(REGS_ARGS(P), "int", 0, 0); \
-  dst = (void*)UNFIXNUM(src);
-#define FFI_FROM_INT(dst,src) dst = (void*)FIXNUM(src);
+  dst = (int)UNFIXNUM(src);
+#define FFI_FROM_INT(dst,src) dst = (void*)FIXNUM((intptr_t)src);
 
-#define FFI_TO_TEXT(dst,src) dst = (void*)api->text_chars(api,src);
-#define FFI_FROM_TEXT(dst,src) dst = (void*)api->alloc_text(api,src);
+#define FFI_TO_FLOAT(dst,src) UNFLOAT(dst,src);
+#define FFI_FROM_FLOAT(dst,src) LOAD_FLOAT(dst,src);
 
-#define FFI_TO_PTR(dst,src) dst = (void*)(src);
-#define FFI_FROM_PTR(dst,src) dst = (void*)(src);
+#define FFI_TO_TEXT_(dst,src) dst = api->text_chars(api,src);
+#define FFI_FROM_TEXT_(dst,src) dst = api->alloc_text(api,src);
 
+#define FFI_TO_VOIDP_(dst,src) dst = (void*)(src);
+#define FFI_FROM_VOIDP_(dst,src) dst = (void*)(src);
+
+#define FFI_GET(dst,type,ptr,off) dst = (void*)FIXNUM(((type*)(ptr))[UNFIXNUM(off)]);
+#define FFI_SET(type,ptr,off,val) ((type*)(ptr))[UNFIXNUM(off)] = (type)UNFIXNUM(val);
 
 void *entry(REGS);
 
