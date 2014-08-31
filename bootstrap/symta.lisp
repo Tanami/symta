@@ -78,6 +78,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to /init-tokenizer
   ! when g_table (return-from /init-tokenizer)
   ! digit = "0123456789"
+  ! hex-digit = "0123456789ABCDEF"
   ! head-char = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?"
   ! tail-char = "{head-char}{digit}"
   ! ls = `("+" "-" "*" "/" "%" "^" "." "->" "~" "|" ";" "," ":" "=" "=>" "<="
@@ -93,7 +94,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
            ("//" ,#'/comment)
            ("/*" ,#'/multi-comment)
            (((#\space #\newline) +) ,(fn r cs ! /token r t))
-           (("#" "0123456789ABCDEFabcdef" +) :hex)
+           (("#" ,hex-digit +) :hex)
            ((,digit +) :integer)
            ((,head-char ,tail-char *) :symbol))
   ! ss = '(("if" :if) ("then" :then) ("else" :else) ("and" :and) ("or" :or) ("Void" :kw))
@@ -237,9 +238,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to /negate h
   ! a = try (/mul) :fail
-  ! unless (or (token-is :integer a) (token-is :float a)) (ret `(,h ,a))
-  ! v = "{getf h :value}{getf a :value}"
-  ! r = list :token (second a) :value v :src (getf h :src) :parsed (read-from-string v)
+  ! unless (or (token-is :integer a) (token-is :float a) (token-is :hex a)) (ret `(,h ,a))
+  ! lex = getf a :value
+  ! v = "{getf h :value}{lex}"
+  ! when (token-is :hex a) (setf lex "#x{subseq lex 1}")
+  ! parsed = read-from-string lex
+  ! r = list :token (second a) :value v :src (getf h :src) :parsed (- parsed)
   ! ret r)
 
 (to /term
@@ -251,6 +255,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      ((:escape :symbol :text) (ret tok))
      (:splice `((:token :symbol :value "\"" :src (getf tok :src)) ,@(/parse v)))
      (:integer (read-from-string v))
+     (:hex (read-from-string "#x{subseq v 1}"))
      (:kw (keywordize v))
      (:|()| (/parse v))
      (:|[]| `((:token :symbol :value "[]" :src (getf tok :src)) ,@(/parse v)))

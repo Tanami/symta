@@ -191,6 +191,13 @@ hard_list.drop S =
   | S !+ 1
   | R
 
+text.drop S = Me.chars.drop{S}.unchars
+text.take S = Me.chars.take{S}.unchars
+text.last S = Me.(Me.size-1)
+text.head = Me.0
+text.tail = Me.drop{1}
+text.lead = Me.take{Me.size-1}
+
 list.last = Me.(Me.size-1)
 list.suf X = [@Me X]
 list.lead = Me.take{Me.size-1}

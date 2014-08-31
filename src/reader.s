@@ -49,6 +49,7 @@ add_lexeme Dst Pattern Type =
 init_tokenizer =
 | when have GTable: leave Void
 | Digit = "0123456789"
+| HexDigit = "0123456789ABCDEF"
 | HeadChar = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?"
 | TailChar = "[HeadChar][Digit]"
 | Ls = \(`+` `-` `*` `/` `%` `^` `.` `->` `~` `|` `;` `,` `:` `=` `=>` `<=`
@@ -65,7 +66,7 @@ init_tokenizer =
          (`//` $&read_comment)
          ((`/` `*`) $&read_multi_comment)
          ((&(` ` `\n`)) $(R Cs => read_token R 1))
-         ((`#` &`0123456789ABCDEFabcdef`) hex)
+         ((`#` &$HexDigit) hex)
          ((&$Digit) integer)
          (($HeadChar @$TailChar) symbol)
          )
@@ -211,7 +212,7 @@ parse_bar H =
   | unless X^token_is{'|'} and X.src.1 >< C: leave [H @Zs.reverse]
   | pop GInput
 
-parse_integer T =
+parse_integer T Radix =
 | N = T.size
 | I = 0
 | Sign = if T.I >< '-'
@@ -220,16 +221,18 @@ parse_integer T =
          else 1
 | R = 0
 | Base = '0'.code
+| AlphaBase = 'A'.code - 10
 | while I < N
-  | R <= R*10 + (T.I.code - Base)
+  | C = T.I.code
+  | V = if '0'.code << C and C << '9'.code then C - Base else C - AlphaBase
+  | R <= R*Radix + V
   | I !+ 1
 | R*Sign
 
 parse_negate H =
 | A = parse_mul or leave 0
-| unless A^token_is{integer} or A^token_is{float}: leave [H A]
-| V = "[H.value][A.value]"
-| new_token A.symbol V H.src [V^parse_integer]
+| unless A^token_is{integer} or A^token_is{hex} or A^token_is{float}: leave [H A]
+| new_token A.symbol "-[A.value]" H.src [-A.parsed.0]
 
 parse_term =
 | when GInput.end: leave 0
@@ -239,7 +242,8 @@ parse_term =
 | P = case Tok.symbol
          (in escape symbol text) | leave Tok
          splice | [(new_token symbol `"` Tok.src 0) @V^parse_tokens] //"
-         integer | parse_integer V
+         integer | parse_integer V 10
+         hex | parse_integer V.tail 16
          void | Void
          `()` | parse_tokens V
          `[]` | [(new_token symbol `[]` Tok.src 0) @V^parse_tokens]
