@@ -76,6 +76,8 @@
 
 #define MAX_LEVEL 512*1024
 
+// P holds points to closure of current function
+// E holds pointer to arglist of current function
 #define REGS void *P, struct api_t *api
 #define REGS_ARGS(P) P, api
 

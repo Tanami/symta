@@ -628,7 +628,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
              (("_import" ("_quote" x) ("_quote" y))
               (unless (gethash x *import-libs*)
                 (setf (gethash x *import-libs*) (ssa-name "lib")))
-              (when (gethash y used)
+              (when (gethash a used)
                 (push a new-as)
                 (push v new-vs)))
              (else
@@ -1187,8 +1187,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to expand-export xs
   ! xs = m x xs
          (match x
-           (("\\" x) `("_list" ("_quote" ,x) ("new_macro" ("_quote" ,x) ("&" ,x))))
-           (else `("_list" ("_quote" ,x) ("&" ,x))))
+           (("\\" x)
+            (let ((v (if (fn-sym? x) `("&" ,x) x)))
+              `("_list" ("_quote" ,x) ("new_macro" ("_quote" ,x) ,v))))
+           (else `("_list" ("_quote" ,x) ,(if (fn-sym? x) `("&" ,x) x))))
   ! `("_list" ,@xs))
 
 (to expand-while head body
@@ -1340,6 +1342,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   (let ((xs (normalize-matryoshka xs))
         (ys nil))
     (when (atom xs) (return-from builtin-expander xs))
+    (match xs
+      ((("." a b) . as)
+       (when (fn-sym? a)
+         (return-from builtin-expander
+           (builtin-expander
+            (let ((g (ssa-name "g")))
+              `("let_" ((,g ("_import" ("_quote" ,a) ("_quote" ,b))))
+                  (,g ,@as))))))))
     (setf ys
       (match xs
         (("_fn" as body)

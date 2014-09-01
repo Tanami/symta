@@ -10,6 +10,9 @@ _.`>>` B = not Me < B
 _.is_int = 0
 int.is_int = 1
 
+_.is_float = 0
+float.is_float = 1
+
 _.is_fn = 0
 fn.is_fn = 1
 

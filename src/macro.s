@@ -388,8 +388,10 @@ fin Finalizer Body =
 
 export @Xs =
 | Xs = map X Xs: case X
-        [`\\` N] | [_list [_quote N] [new_macro [_quote N] [`&` N]] ]
-        Else | [_list [_quote X] [`&` X]]
+        [`\\` N] | V = if N.is_keyword then [`&` N] else N
+                 | [_list [_quote N] [new_macro [_quote N] V] ]
+        Else | V = if X.is_keyword then [`&` X] else X
+             | [_list [_quote X] V]
 | [_list @Xs]
 
 //load_macros Library = Library^load_library.keep{[K V]=>V.is_macro}.as_table
@@ -403,7 +405,13 @@ GSrc = [0 0 unknown]
 mex Expr =
 | when no GMacros: bad 'lib_path got clobbered again'
 | Expr <= normalize_nesting Expr
+| when Expr.is_text and not Expr.is_keyword and have GMacros.Expr: Expr <= GMacros.Expr.expander
 | unless Expr.is_list: leave Expr
+| case Expr [[`.` A B] @As]:
+   when A.is_keyword
+   | G = gensym g
+   | [let_ [[G [_import [_quote A] [_quote B]]]] 
+       [G @As]]
 | let GExpansionDepth GExpansionDepth+1: case Expr
   [_fn As Body] | [_fn As Body^mex]
   [_set Place Value] | [_set Place (if Value.is_keyword then [_quote Value] else mex Value)]

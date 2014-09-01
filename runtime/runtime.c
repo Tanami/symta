@@ -144,6 +144,7 @@ static void set_method_r(api_t *api, void *method, void *type, void *handler, in
 
     if (!depth && !inherited && m != undefined && m != sink) {
        fprintf(stderr, "set_method: redefinition of %ld.%s\n", id, (char*)*((void**)method+T_NAME));
+       return; // avoid redefining
     }
 
     for (i = 0; i < psub->used; i++) {
@@ -762,12 +763,12 @@ BUILTIN2("float /",float_div,C_ANY,a,C_FLOAT,b)
   if (fb == 0.0) fb = FLT_MIN;
   LOAD_FLOAT(R,fa/fb);
 RETURNS(R)
-BUILTIN2("float ><",float_eq,C_ANY,a,C_FLOAT,b)
+BUILTIN2("float ><",float_eq,C_ANY,a,C_ANY,b)
   float fa, fb;
   UNFLOAT(fa,a);
   UNFLOAT(fb,b);
 RETURNS(FIXNUM(fa == fb))
-BUILTIN2("float <>",float_ne,C_ANY,a,C_FLOAT,b)
+BUILTIN2("float <>",float_ne,C_ANY,a,C_ANY,b)
   float fa, fb;
   UNFLOAT(fa,a);
   UNFLOAT(fb,b);

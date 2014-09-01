@@ -250,7 +250,7 @@ uniquify_let Xs =
     | case V
         [_import [_quote X] [_quote Y]]
           | when no GImportLibs.X: GImportLibs.X <= gensym lib
-          | when have Used.Y
+          | when have Used.A
             | push A NewAs
             | push V NewVs
         Else
@@ -437,8 +437,8 @@ ssa_atom K X =
 | if X.is_int then ssa load_fixnum K X
   else if X.is_text then ssa_symbol K X Void
   else if X >< Void then ssa move K 'Void'
-  else if X.size >< 0 then ssa move K "Empty"
-  else bad "atom: [X]"
+  else if X.is_float then ssa load_float K X
+  else bad "bad atom: [X]"
 
 ssa_expr K X = if X.is_list then ssa_form K X else ssa_atom K X
 
