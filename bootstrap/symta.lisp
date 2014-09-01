@@ -1136,7 +1136,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       (if (var-sym? name)
           (list name value) ;; FIXME: check that args are empty
           (expand-block-item-fn name args value)))
-     (else (list nil x))
+     (else
+      (let ((z (builtin-expander x)))
+        (match z
+          (("=" () ("|" . xs))
+           (return-from expand-block-item
+             (apply #'concatenate 'list (m x xs (expand-block-item x)))))
+          (else (list nil `("_nomex" ,z))))))
   ! list y)
 
 (to make-multimethod xs
@@ -1331,6 +1337,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
               ("_remove_unwind_handler")
               ,r))))
 
+(to expand-ffi lib symbol result args
+  ! (symbol name) = if (stringp symbol) (list symbol symbol) (cdr symbol)
+  ! f = ssa-name "F"
+  ! gs = m a args (ssa-name "A")
+  ! `("@" ("|" ("=" (,f) ("ffi_load" ,lib ,symbol))
+               ("=" (,name ,@gs) ("_ffi_call" ("\\" (,result ,@args)) ,f ,@gs)))))
+
 (to normalize-matryoshka o
   ! match o ((x) (if (fn-sym? x)
                      o
@@ -1429,7 +1442,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("let" . xs) (expand-shade (group-by 2 (butlast xs)) (car (last xs))))
         (("export" . xs) (expand-export xs))
         (("callcc" f) (expand-callcc f))
-        (("fin". xs) (expand-fin (butlast xs) (car (last xs))))
+        (("fin" . xs) (expand-fin (butlast xs) (car (last xs))))
+        (("ffi" lib symbol result . args) (expand-ffi lib symbol result args))
+        (("@" x) `("=" () ("_nomex" ,x)))
         (else (return-from builtin-expander
                 (cons (builtin-expander (car xs))
                       (m x (cdr xs)

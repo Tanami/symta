@@ -301,8 +301,8 @@ expand_block_item_method Type Name Args Body =
 | Body <= [default_leave_ Name (expand_named Name Body)]
 | [Void [_dmet Name Type [_fn [\Me @Args] [_progn [_mark "[Type].[Name]"] Body]]]]
 
-expand_block_item X =
-| Y = case X
+expand_block_item Expr =
+| Y = case Expr
   [data Name @Fields]
     | Ys = map X (expand_block_item_data Name Fields): expand_block_item X
     | leave Ys.join
@@ -312,7 +312,12 @@ expand_block_item X =
   [`=` [Name @Args] Value]
     | unless Name.is_text: bad "`=`: [Name] is not text"
     | if Name.is_keyword then expand_block_item_fn Name Args Value else [Name Value]
-  Else | [Void X]
+  Else
+    | Z = mex Expr
+    | case Z [`=` [] [`|` @Xs]]
+      | Ys = map X Xs: expand_block_item X
+      | leave Ys.join
+    | [Void [_nomex Z]]
 | [Y]
 
 make_multimethod Xs =
@@ -354,6 +359,7 @@ expand_block Xs =
 
 `|` @Xs = expand_block Xs
 `;` @Xs = expand_block Xs
+`@` X = [`=` [] [_nomex X]]
 
 let_ @As = [_call [_fn (map B As.0 B.0) [_progn @As.tail]]
                   @(map B As.0 B.1)]
@@ -385,6 +391,15 @@ fin Finalizer Body =
           [F]
           [_remove_unwind_handler]
           R]]]
+
+ffi @Xs = case Xs
+  [Lib Symbol Result @Args]
+    | [Symbol Name] = if Symbol.is_text then [Symbol Symbol] else Symbol.tail
+    | F = gensym 'F'
+    | Gs = map A Args: gensym 'A'
+    | [`@` [`|` [`=` [F] [ffi_load Lib Symbol]]
+                [`=` [Name @Gs] [_ffi_call [`\\` [Result @Args]] F @Gs]]]]
+  Else | bad "ffi: bad arglist = [Xs]"
 
 export @Xs =
 | Xs = map X Xs: case X
@@ -441,7 +456,7 @@ macroexpand Expr Macros =
   | R = mex Expr
   | R
 
-export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '[]' '\\'
+export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if'
        'not' 'and' 'or' 'when' 'unless' 'while' 'till' 'dup' 'times' 'map' 'for'
-       'named' 'export' 'pop' 'push' 'callcc' 'fin'
-       '|' ';' '+' '-' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!' '"'
+       'named' 'export' 'pop' 'push' 'callcc' 'fin' 'ffi' '|' ';' '@' '\\' '[]'
+       '+' '-' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!' '"'
