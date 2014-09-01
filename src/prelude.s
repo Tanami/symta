@@ -338,7 +338,7 @@ table.`!` K V =
          else Old.1 <= V
 | Void
 
-table.size = Me.buckets.map{X=>X.size}.sum
+table.size = Me.buckets.map{X => if have X then X.size else 0}.sum
 table.harden = Me.buckets.skip{X => X >< Void}.join
 table.as_text = "#table[Me.harden.as_text]"
 
