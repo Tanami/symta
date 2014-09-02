@@ -1311,7 +1311,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! when (var-sym? o) (return-from expand-form `("$" ,o))
   ! unless (listp o) (return-from expand-form o)
   ! match o
-     (("$" x) `("$" ("_list" ("_quote" "$") ,x)))
+     (("$" x) o)
      (else (m x o (expand-form x))))
 
 (to group-by n xs

@@ -149,7 +149,7 @@ expand_form O =
 | when O.is_text and not O.is_keyword: leave [`$` O]
 | unless O.is_list: leave O
 | case O
-  [`$` X] | [`$` [_list [_quote `$`] X]]
+  [`$` X] | O
   Else | map X O: expand_form X
 
 form O = [`\\` (expand_form O)]
