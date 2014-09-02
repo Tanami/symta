@@ -1374,6 +1374,22 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                      (normalize-matryoshka x)))
             (x x))
 
+(to expand-method-arg-r a arg-name
+  ! when (equal a "?") (return-from expand-method-arg-r (funcall arg-name a))
+  ! unless (listp a) (return-from expand-method-arg-r a)
+  ! match a
+     ((''"{}" x y) `(,(first a) ,(expand-method-arg-r x arg-name) ,y))
+     ((''"{}" . xs) a)
+     (("\\" . xs) a)
+     (("_quote" . xs) a)
+     (else (m x a (expand-method-arg-r x arg-name))))
+
+(to expand-method-arg a
+  ! g = nil
+  ! r = expand-method-arg-r a (fn x ! unless g (setf g (ssa-name "G")) ! g)
+  ! when g (setf a `("_fn" (,g) ,r))
+  ! a)
+
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
   (let ((xs (normalize-matryoshka xs))
@@ -1437,9 +1453,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("." a b) (cond
                      ((fn-sym? b) `("{}" ,xs))
                      (t `("_mcall" ,a "." ,b))))
-        (("{}" ("." a b) . as) `("_mcall" ,a ,b ,@as))
+        (("{}" ("." a b) . as) `("_mcall" ,a ,b ,@(m a as (expand-method-arg a))))
         (("{}" ("^" a b) . as) `(,b ,@as ,a))
-        (("{}" h . as) `("_mcall" ,h "{}" ,as))
+        (("{}" h . as) `("_mcall" ,h "{}" ,(m a as (expand-method-arg a))))
         (("{}" . else) (error "bad {}: ~%" xs))
         (("\\" o) (expand-quasiquote o))
         (("form" o) `("\\" ,(expand-form o)))

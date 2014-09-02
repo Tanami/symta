@@ -25,6 +25,8 @@ text.is_text = 1
 //_.is_hard_list = 0
 //list.is_hard_list = 1
 
+_.`{}` F = Me.map{F}
+
 text.`<` B =
 | unless B.is_text: bad "cant compare string `[Me]` with [B]"
 | AS = Me.size

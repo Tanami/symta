@@ -200,10 +200,29 @@ let @As =
 `^` A B = [B A]
 `.` A B = if B.is_keyword then ['{}' ['.' A B]] else [_mcall A '.' B]
 `:` A B = [@A B]
+
+expand_method_arg_r A ArgName =
+| when A >< '?': leave: ArgName A
+| unless A.is_list: leave A
+| case A
+   [`{}` X Y] | [A.0 (expand_method_arg_r X ArgName) Y]
+   [`{}` @Xs] | A
+   [`\\` @Xs] | A
+   [_quote @Xs] | A
+   Else | map X A: expand_method_arg_r X ArgName
+
+expand_method_arg A =
+| G = Void
+| R = expand_method_arg_r A: X =>
+      | when no G: G <= \?G
+      | G
+| when have G: A <= form: _fn (G) R
+| A
+
 `{}` @Xs = case Xs
-  [[`.` A B] @As] | [_mcall A B @As]
+  [[`.` A B] @As] | [_mcall A B @(map X As: expand_method_arg X)]
   [[`^` A B] @As] | [B @As A]
-  [H @As] | [_mcall H '{}' @As]
+  [H @As] | [_mcall H '{}' @(map X As: expand_method_arg X)]
   Else | bad "`{}` [Xs]"
 
 `!!` @As = expand_assign_result As
