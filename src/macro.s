@@ -145,6 +145,15 @@ expand_quasiquote O AGT =
 | when AGT.size > 0: R <= [let_ (map [K V] AGT [V [gensym [_quote K.tail]]]) R]
 | R
 
+expand_form O =
+| when O.is_text and not O.is_keyword: leave [`$` O]
+| unless O.is_list: leave O
+| case O
+  [`$` X] | O
+  Else | map X O: expand_form X
+
+form O = [`\\` (expand_form O)]
+
 expand_text_splice Xs =
 | case Xs
    [X] | when X.is_text: leave [_quote X]
@@ -469,5 +478,5 @@ macroexpand Expr Macros =
 
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if'
        'not' 'and' 'or' 'when' 'unless' 'while' 'till' 'dup' 'times' 'map' 'for'
-       'named' 'export' 'pop' 'push' 'callcc' 'fin' 'ffi' '|' ';' '@' '\\' '[]'
+       'named' 'export' 'pop' 'push' 'callcc' 'fin' 'ffi' '|' ';' '@' '[]' '\\' 'form'
        '+' '-' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!' '"'

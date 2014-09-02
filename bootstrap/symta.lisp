@@ -1307,6 +1307,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        (setf r `("let_" ,bs ,r)))
   ! r)
 
+(to expand-form o
+  ! when (var-sym? o) (return-from expand-form `("$" ,o))
+  ! unless (listp o) (return-from expand-form o)
+  ! match o
+     (("$" x) o)
+     (else (m x o (expand-form x))))
+
 (to group-by n xs
   ! ys = nil
   ! while xs
@@ -1435,6 +1442,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("{}" h . as) `("_mcall" ,h "{}" ,as))
         (("{}" . else) (error "bad {}: ~%" xs))
         (("\\" o) (expand-quasiquote o))
+        (("form" o) `("\\" ,(expand-form o)))
         (("+" a b) `("_mcall" ,a "+" ,b))
         (("-" a) `("_mcall" ,a "neg"))
         (("-" a b) `("_mcall" ,a "-" ,b))
