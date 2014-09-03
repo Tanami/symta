@@ -472,7 +472,7 @@ produce_ssa Entry Expr =
 GCompiled = Void
 
 c Statement = push Statement GCompiled
-cnorm [X@Xs] = c "  [X.upcase]([(map X Xs X.as_text).infix{','}.unchars]);"
+cnorm [X@Xs] = c "  [X.upcase]([(map X Xs X.as_text).text{','}]);"
 
 ssa_to_c Xs = let GCompiled []
 | Statics = []
@@ -505,11 +505,11 @@ ssa_to_c Xs = let GCompiled []
            | Imports.Key <= Dst
   [bytes Name Xs]
     | Brackets = '[]'
-    | Values = (map X Xs X.as_text).infix{','}.unchars
+    | Values = (map X Xs X.as_text).text{','}
     | push "static uint8_t [Name][Brackets] = {[Values]};" Decls
   [ffi_call ResultType Dst F ArgsTypes Args]
-    | ArgsText = Args.infix{', '}.unchars
-    | ArgsTypesText = ArgsTypes.infix{', '}.unchars
+    | ArgsText = Args.text{', '}
+    | ArgsTypesText = ArgsTypes.text{', '}
     | Call = "(([ResultType](*)([ArgsTypesText]))[F])([ArgsText]);"
     | when have Dst: Call <= "[Dst] <= [Call]"
     | c "  {Call}"
@@ -518,7 +518,7 @@ ssa_to_c Xs = let GCompiled []
 | GCompiled <= GCompiled.reverse
 | for D Decls: push D GCompiled
 | push '#include "runtime.h"' GCompiled
-| GCompiled.infix{'\n'}.unchars
+| GCompiled.text{'\n'}
 
 ssa_produce_file File Src =
 | Ssa = produce_ssa entry Src

@@ -91,7 +91,7 @@ read_token R LeftSpaced =
   | C <= R.peek
   | Next <= Next.C
   | when no Next
-    | Value = Cs.reverse.unchars
+    | Value = Cs.reverse.text
     | Type = GSpecs.Value
     | when no Type: Type <= Cur.'type'
     | when Value >< '-' and LeftSpaced and C <> '\n' and C <> ' ':
@@ -157,10 +157,10 @@ read_string R Incut End =
              C>(in &Incut &End) | L <= [C@L]
              Void | R.error{'EOF in string'}
              Else | R.error{"Invalid escape code: [Else]"}
-     &End | Ys = [L.reverse.unchars]
+     &End | Ys = [L.reverse.text]
           | when End >< '"': Ys <= spliced_string_normalize Ys //"
           | leave Ys
-     &Incut | L <= L.reverse.unchars
+     &Incut | L <= L.reverse.text
             | M = (read_token R 0).value
             | E = read_string R Incut End
             | leave: spliced_string_normalize [L M @E]

@@ -159,7 +159,7 @@ expand_text_splice Xs =
    [X] | when X.is_text: leave [_quote X]
    [] | leave [_quote '']
 | As = map X Xs: if X.is_text then [_quote X] else [_mcall X textify_]
-| [_mcall [_list @As] unchars]
+| [_mcall [_list @As] text]
 
 `"` @Xs /*"*/ = expand_text_splice Xs
 
@@ -214,7 +214,7 @@ expand_method_arg_r A ArgName =
 expand_method_arg A =
 | G = Void
 | R = expand_method_arg_r A: X =>
-      | when no G: G <= \?G
+      | when no G: G <= form ?G
       | G
 | when have G: A <= form: _fn (G) R
 | A
@@ -258,7 +258,7 @@ mangle_name Name =
       or ('0'.code << N and N << '9'.code)
     then C
     else "_[N.x.pad{2 0}]"
-| [_ @Rs].unchars
+| [_ @Rs].text
 
 result_and_label Name =
 | Mangled = mangle_name Name
@@ -337,8 +337,16 @@ expand_block_item_data Name Fields =
    @(map [I F] Fields.enum [`=` [[`.` Name "set_[F]"] V]  [_dset 'Me' I V]])]
 
 expand_block_item_method Type Name Args Body =
-| Body <= [default_leave_ Name (expand_named Name Body)]
-| [Void [_dmet Name Type [_fn [\Me @Args] [_progn [_mark "[Type].[Name]"] Body]]]]
+| case Args
+  [[`@` As]]
+    | G = form ?As
+    | Body <= form: let_ (($\Me (_mcall G head))
+                          (As (_mcall G tail)))
+                      Body
+    | Args <= G
+  Else | Args <= [\Me @Args]
+| Body <= form: default_leave_ Name $(expand_named Name Body)
+| [Void [_dmet Name Type [_fn Args [_progn [_mark "[Type].[Name]"] Body]]]]
 
 expand_block_item Expr =
 | Y = case Expr

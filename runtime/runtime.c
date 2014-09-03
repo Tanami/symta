@@ -296,11 +296,11 @@ static int text_size(void *o) {
     if (dtag == T_TEXT) {
       return BIGTEXT_SIZE(o);
     } else {
-      fprintf(stderr, "decode_text: invalid tag (%ld)\n", dtag);
+      fprintf(stderr, "text_size: invalid tag (%ld)\n", dtag);
       abort();
     }
   }
-  fprintf(stderr, "decode_text: invalid tag (%d)\n", tag);
+  fprintf(stderr, "text_size: invalid tag (%d)\n", tag);
   abort();
   return 0;
 }
@@ -667,35 +667,51 @@ RETURNS(R)
 BUILTIN2("list pre",list_pre,C_ANY,o,C_ANY,head)
   CONS(R, head, o);
 RETURNS(R)
-BUILTIN1("list unchars",list_unchars,C_ANY,o)
+
+BUILTIN_VARARGS("list.text",list_text)
   int i;
   void *x, *t;
   uint8_t *p, *q;
-  intptr_t s = UNFIXNUM(LIST_SIZE(o));
-  int l = 1;
-  for (i = 0; i < s; i++) {
-    x = LIST_REF(o,i);
+  void *words = getArg(0);
+  intptr_t words_size;
+  int l; // length of result text
+  void *sep; // separator
+  int sep_size;
+
+  if (NARGS(E) == FIXNUM(1)) {
+    sep = 0;
+    sep_size = 0;
+  } else if (NARGS(E) == FIXNUM(2)) {
+    sep = getArg(1);
+    if (!IS_TEXT(sep)) {
+      fprintf(stderr, "list.text: separator is not text (%s)\n", print_object(sep));
+    }
+    sep_size = text_size(sep);
+  } else {
+    fprintf(stderr, "list.text: bad number of args\n");
+  }
+
+  words_size = UNFIXNUM(LIST_SIZE(words));
+
+  l = 1;
+  if (sep && words_size) l += sep_size*(words_size-1);
+  for (i = 0; i < words_size; i++) {
+    x = LIST_REF(words,i);
     if (!IS_TEXT(x)) {
-      fprintf(stderr, "list unchars: not a text (%s)\n", print_object(x));
+      fprintf(stderr, "list.text: not a text (%s)\n", print_object(x));
       bad_call(REGS_ARGS(P),P);
     }
-    if (GET_TAG(x) == T_FIXTEXT) {
-      l += fixtext_size(x);
-    } else {
-      l += BIGTEXT_SIZE(x);
-    }
+    l += text_size(x);
   }
   l = (l+TAG_MASK-1) & ~TAG_MASK;
   Top = (uint8_t*)Top - l;
   p = q = (uint8_t*)Top;
-  for (i = 0; i < s; i++) {
-    x = LIST_REF(o,i);
-    if (GET_TAG(x) == T_FIXTEXT) {
-      p += fixtext_decode(p,x);
-    } else {
-      l = BIGTEXT_SIZE(x);
-      memcpy(p,BIGTEXT_DATA(x),l);
-      p += l;
+  for (i = 0; i < words_size; ) {
+    x = LIST_REF(words,i);
+    p = decode_text(p, x);
+    ++i;
+    if (sep && i < words_size) {
+      p = decode_text(p, sep);
     }
   }
   *p = 0;
@@ -892,7 +908,7 @@ BUILTIN1("say_",say_,C_TEXT,o)
   } else {
     fwrite(BIGTEXT_DATA(o), 1, (size_t)BIGTEXT_SIZE(o), stderr);
   }
-RETURNS(0)
+RETURNS(Void)
 
 BUILTIN0("rtstat",rtstat)
   show_runtime_info(api);
@@ -1642,7 +1658,7 @@ int main(int argc, char **argv) {
   METHOD_FN("hash", b_integer_hash, 0, 0, 0, b_fixtext_hash, b_text_hash, 0, 0, b_void_hash);
   METHOD_FN("code", 0, 0, 0, 0, b_fixtext_code, 0, 0, 0, 0);
   METHOD_FN("char", b_integer_char, 0, 0, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("unchars", 0, 0, 0, b_list_unchars, 0, 0, 0, 0, 0);
+  METHOD_FN("text", 0, 0, 0, b_list_text, 0, 0, 0, 0, 0);
   METHOD_FN("apply", 0, 0, 0, b_list_apply, 0, 0, 0, 0, 0);
   METHOD_FN("apply_method", 0, 0, 0, b_list_apply_method, 0, 0, 0, 0, 0);
   METHOD_FN("nargs", 0, 0, b_fn_nargs, 0, 0, 0, 0, 0, 0);

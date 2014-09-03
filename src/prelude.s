@@ -56,13 +56,13 @@ text.upcase =
 | Ys = map Char Me.chars
   | C = Char.code
   | if C < 'a'.code or 'z'.code < C then Char else (C - 'a'.code + 'A'.code).char
-| Ys.unchars
+| Ys.text
 
 text.downcase =
 | Ys = map Char Me.chars
   | C = Char.code
   | if C < 'A'.code or 'Z'.code < C then Char else (C - 'A'.code + 'a'.code).char
-| Ys.unchars
+| Ys.text
 
 _.is_keyword = 0
 text.is_keyword = not: Me.size and Me.0.is_upcase
@@ -170,7 +170,9 @@ text.harden = Me.chars
 
 list.apply F = Me.harden.apply{F}
 
-list.unchars = Me.harden.unchars
+list.text @As =
+| R = Me.harden
+| if As.size then R.text{As.0} else R.text
 
 list.split F =
 | Ys = []
@@ -181,7 +183,7 @@ list.split F =
   | P <= Me.locate{F}
 | [Me@Ys].reverse
 
-text.split F = Me.chars.split{F}.map{X=>X.unchars}
+text.split F = Me.chars.split{F}.map{X=>X.text}
 
 list.take N = dup N: Me^pop
 hard_list.take N = dup I N: Me.I
@@ -196,8 +198,8 @@ hard_list.drop S =
   | S !+ 1
   | R
 
-text.drop S = Me.chars.drop{S}.unchars
-text.take S = Me.chars.take{S}.unchars
+text.drop S = Me.chars.drop{S}.text
+text.take S = Me.chars.take{S}.text
 text.last S = Me.(Me.size-1)
 text.head = Me.0
 text.tail = Me.drop{1}
@@ -267,9 +269,9 @@ int.x =
 | while Me > 0
   | Cs <= [HexChars.(Me%16) @Cs]
   | Me !/ 16
-| [S@Cs].unchars
+| [S@Cs].text
 
-_.as_text = ['#:' Me^address.x].unchars
+_.as_text = ['#:' Me^address.x].text
 
 void.as_text = 'Void'
 
@@ -283,7 +285,7 @@ int.as_text =
 | while Me > 0
   | Cs <= [HexChars.(Me%10) @Cs]
   | Me !/ 10
-| [S@Cs].unchars
+| [S@Cs].text
 
 plain_char C =
 | N = C.code
@@ -301,9 +303,9 @@ text.as_text =
   | unless plain_char C: Q <= 1
   | when C >< '`': C <= '\\`'
   | push C Cs
-| if Q then ['`' @['`' @Cs].reverse].unchars else Me
+| if Q then ['`' @['`' @Cs].reverse].text else Me
 
-list.as_text = "([(map X Me X.as_text).infix{' '}.unchars])"
+list.as_text = "([(map X Me X.as_text).text{' '}])"
 
 _.textify_ = Me.as_text
 text.textify_ = Me
@@ -311,13 +313,10 @@ text.textify_ = Me
 GGensymCount = 0
 gensym Name = "[Name]__[GGensymCount!+1]"
 
-bad @Xs =
-| say_ (map X ['error:' @Xs '\n'] "[X]").infix{` `}.unchars
+say Text = say_ "[Text]\n"
+bad Text =
+| say_ "bad: [Text]\n"
 | halt
-
-say @Xs =
-| say_ (map X [@Xs '\n'] "[X]").infix{` `}.unchars
-| Void
 
 // hashtable
 data table buckets
@@ -358,7 +357,7 @@ text.pad Count Item =
 | when C.size > 1: bad "pad item: [C]"
 | N = Count - Me.size
 | when N < 0: bad "text is larger than [Count]: '[Me]'"
-| "[(dup N C).unchars][Me]"
+| "[(dup N C).text][Me]"
 
 
 data macro name expander

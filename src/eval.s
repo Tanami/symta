@@ -88,7 +88,7 @@ compile_module Name =
         | leave DstFile
     | Expr = load_symta_file SrcFile
     | Deps = compile_expr Name DstFile Expr
-    | DepsText = Deps.infix{' '}.unchars
+    | DepsText = Deps.text{' '}
     | save_text DepFile DepsText
     | leave DstFile
 | Void

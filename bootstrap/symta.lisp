@@ -1118,9 +1118,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       ,@(m f fields `("=" (("." ,name ,"set_{f}") ,v) ("_dset" "Me" ,(incf k) ,v)))))
 
 (to expand-block-item-method type name args body
+  ! match args
+     ((("@" as))
+      (let ((g (ssa-name "As")))
+        (setf body `("let_" (("Me" ("_mcall" ,g "head"))
+                             (,as ("_mcall" ,g "tail")))
+                      ,body))
+        (setf args g)))
+     (else (setf args `("Me" ,@args)))
   ! setf body `("default_leave_" ,name ,(expand-named name body))
-  ! list nil `("_dmet" ,name ,type ("_fn" ("Me" ,@args)
-                                      ("_progn" ("_mark" ,"{type}.{name}") ,body))))
+  ! list nil `("_dmet" ,name ,type ("_fn" ,args ("_progn" ("_mark" ,"{type}.{name}") ,body))))
 
 (to expand-block-item x
   ! y = match x
@@ -1272,7 +1279,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to expand-string-splice xs
   ! match xs ((x) (when (stringp x) (return-from expand-string-splice `("_quote" ,x))))
   ! as = m x xs (if (stringp x) `("_quote" ,x) `("_mcall" ,x "textify_"))
-  ! `("_mcall" ("_list" ,@as) "unchars"))
+  ! `("_mcall" ("_list" ,@as) "text"))
 
 (to expand-and a b ! `("if" ,a ,b 0))
 (to expand-or a b
