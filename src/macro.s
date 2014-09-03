@@ -126,33 +126,33 @@ expand_map_for Type Item Items Body =
 map Item Items Body = expand_map_for dup Item Items Body
 for Item Items Body = expand_map_for times Item Items Body
 
-expand_quasiquote O AGT =
+expand_quasiquote O =
+| unless O.is_list: leave [_quote O]
+| case O
+  [`$` X] | X
+  Else | ['[]' @(map X O: expand_quasiquote X)]
+
+`\\` O = expand_quasiquote O
+
+expand_form O AGT =
 | unless O.is_list: leave
-  if O.is_text and O.size > 1 and O.0 >< '?'
-  then | AG = AGT.O
-       | when no AG
-         | AG <= gensym O.tail
-         | AGT.O <= AG
-       | AG
+  if O.is_text and not O.is_keyword then O
+  else if O.is_text and O.size > 1 and O.0 >< '?' then
+    | AG = AGT.O
+    | when no AG
+      | AG <= gensym O.tail
+      | AGT.O <= AG
+    | AG
   else [_quote O]
 | case O
   [`$` X] | X
-  Else | ['[]' @(map X O: expand_quasiquote X AGT)]
+  Else | ['[]' @(map X O: expand_form X AGT)]
 
-`\\` O =
+form O =
 | AGT = table 10
-| R = expand_quasiquote O AGT
+| R = expand_form O AGT
 | when AGT.size > 0: R <= [let_ (map [K V] AGT [V [gensym [_quote K.tail]]]) R]
 | R
-
-expand_form O =
-| when O.is_text and not O.is_keyword: leave [`$` O]
-| unless O.is_list: leave O
-| case O
-  [`$` X] | O
-  Else | map X O: expand_form X
-
-form O = [`\\` (expand_form O)]
 
 expand_text_splice Xs =
 | case Xs

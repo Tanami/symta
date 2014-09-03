@@ -1291,9 +1291,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! (as body) = if (find-if #'pattern-arg as) (add-pattern-matcher as body) (list as body)
   ! `("_fn" ,as ,body))
 
-(to expand-quasiquote-r o agt
+(to expand-quasiquote o
+  ! unless (listp o) (return-from expand-quasiquote `("_quote" ,o))
+  ! match o
+     (("$" o) o)
+     (else `("[]" ,@(m x o (expand-quasiquote x)))))
+
+(to expand-form-r o agt
+  ! when (var-sym? o) (return-from expand-form-r o)
   ! unless (listp o)
-     (return-from expand-quasiquote-r
+     (return-from expand-form-r
        (if (and (stringp o) (> (length o) 1) (eql (aref o 0) #\?))
            (! o-gs = gethash o agt
             ! unless o-gs
@@ -1302,24 +1309,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
             ! o-gs)
            `("_quote" ,o)))
   ! match o
-     (("$" o) o)
-     (else `("[]" ,@(m x o (expand-quasiquote-r x agt)))))
+     (("$" x) x)
+     (else `("[]" ,@(m x o (expand-form-r x agt)))))
 
-(to expand-quasiquote o
+(to expand-form o
   ! agt = make-hash-table :test 'equal
-  ! r = expand-quasiquote-r o agt
-  ! when (> (hash-table-size agt) 0)
+  ! r = expand-form-r o agt
+  ! when (> (hash-table-count agt) 0)
      (let ((bs nil))
        (maphash (fn k v ! push `(,v ("gensym" ("_quote" ,(subseq k 1)))) bs) agt)
        (setf r `("let_" ,bs ,r)))
   ! r)
-
-(to expand-form o
-  ! when (var-sym? o) (return-from expand-form `("$" ,o))
-  ! unless (listp o) (return-from expand-form o)
-  ! match o
-     (("$" x) o)
-     (else (m x o (expand-form x))))
 
 (to group-by n xs
   ! ys = nil
@@ -1465,7 +1465,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("{}" h . as) `("_mcall" ,h "{}" ,(m a as (expand-method-arg a))))
         (("{}" . else) (error "bad {}: ~%" xs))
         (("\\" o) (expand-quasiquote o))
-        (("form" o) `("\\" ,(expand-form o)))
+        (("form" o) (expand-form o))
         (("+" a b) `("_mcall" ,a "+" ,b))
         (("-" a) `("_mcall" ,a "neg"))
         (("-" a b) `("_mcall" ,a "-" ,b))
