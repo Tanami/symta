@@ -18,6 +18,30 @@ gfx_t *new_gfx(int w, int h, int type) {
   return gfx;
 }
 
+uint32_t gfx_w(gfx_t *gfx) {
+  return gfx->w;
+}
+
+uint32_t gfx_h(gfx_t *gfx) {
+  return gfx->h;
+}
+
+uint32_t gfx_type(gfx_t *gfx) {
+  return gfx->type;
+}
+
+uint32_t gfx_key(gfx_t *gfx) {
+  return gfx->key;
+}
+
+uint32_t gfx_hs_x(gfx_t *gfx) {
+  return gfx->hs_x;
+}
+
+uint32_t gfx_hs_y(gfx_t *gfx) {
+  return gfx->hs_y;
+}
+
 uint32_t gfx_get(gfx_t *gfx, int x, int y) {
   return gfx->data[gfx->w*y+x];
 }

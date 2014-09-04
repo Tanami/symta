@@ -375,6 +375,13 @@ typedef struct {
   dst = (int)UNFIXNUM(src);
 #define FFI_FROM_INT(dst,src) dst = (void*)FIXNUM((intptr_t)src);
 
+#define FFI_TO_UINT32_T(dst,src) \
+  if (GET_TAG(src) != T_FIXNUM) \
+    api->bad_type(REGS_ARGS(P), "uint32_t", 0, 0); \
+  dst = (uint32_t)UNFIXNUM(src);
+#define FFI_FROM_UINT32_T(dst,src) dst = (void*)FIXNUM((intptr_t)src);
+
+
 #define FFI_TO_FLOAT(dst,src) UNFLOAT(dst,src);
 #define FFI_FROM_FLOAT(dst,src) LOAD_FLOAT(dst,src);
 

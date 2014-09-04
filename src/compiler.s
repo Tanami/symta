@@ -384,14 +384,14 @@ ssa_ffi_call K Type F As =
             T | T
 | [ResultType @AsTypes] = Type
 | unless As.size >< AsTypes.size: bad "argument number doesn't match signature"
-| R = unless ResultType >< void: ssa_ffi_var r
+| R = unless ResultType >< void: ssa_ffi_var ResultType r
 | ATs = AsTypes
 | Vs = map A As | AType = pop ATs
                 | V = ssa_ffi_var AType v
                 | ssa "ffi_to_[AType]" V A
                 | V
 | ssa ffi_call ResultType R F AsTypes Vs
-| if ResultType >< void then ssa move K 0 else ssa "ffi_from[ResultType]" K R
+| if ResultType >< void then ssa move K 0 else ssa "ffi_from_[ResultType]" K R
 
 ssa_form K Xs = case Xs
   [_fn As Body] | ssa_fn n^gensym K As Body Xs
@@ -512,7 +512,7 @@ ssa_to_c Xs = let GCompiled []
     | ArgsTypesText = ArgsTypes.text{', '}
     | Call = "(([ResultType](*)([ArgsTypesText]))[F])([ArgsText]);"
     | when have Dst: Call <= "[Dst] <= [Call]"
-    | c "  {Call}"
+    | c "  [Call]"
   Else | cnorm X //FIXME: check if it is known and has correct argnum
 | c 'END_CODE'
 | GCompiled <= GCompiled.reverse
