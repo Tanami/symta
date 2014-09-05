@@ -198,7 +198,9 @@ let @As =
 `><` A B = [_mcall A '><' B]
 `<>` A B = [_mcall A '<>' B]
 `^` A B = [B A]
-`.` A B = if B.is_keyword then ['{}' ['.' A B]] else [_mcall A '.' B]
+`.` A B = if A.is_keyword then [_import [_quote A] [_quote B]]
+          else if B.is_keyword then ['{}' ['.' A B]]
+          else [_mcall A '.' B]
 `:` A B = [@A B]
 
 expand_method_arg_r A ArgName =
@@ -442,10 +444,13 @@ fin Finalizer Body =
 ffi @Xs = case Xs
   [Lib Symbol Result @Args]
     | [Symbol Name] = if Symbol.is_text then [Symbol Symbol] else Symbol.tail
-    | F = gensym 'F'
+    | F = "FFI_[Name]"
     | Gs = map A Args: gensym 'A'
-    | [`@` [`|` [`=` [F] [ffi_load Lib Symbol]]
-                [`=` [Name @Gs] [_ffi_call [`\\` [Result @Args]] F @Gs]]]]
+    | Package = (current_package).1
+    | R = form @| F = ffi_load Lib \Symbol
+                | Name $@Gs = | ?X = \F
+                              | form (_ffi_call \(Result $@Args) Package.?X $@Gs)
+    | R
   Else | bad "ffi: bad arglist = [Xs]"
 
 export @Xs =
@@ -455,6 +460,13 @@ export @Xs =
         Else | V = if X.is_keyword then [`&` X] else X
              | [_list [_quote X] V]
 | [_list @Xs]
+
+GPackage = Void
+package Name =
+| GPackage <= Name
+| 0
+
+current_package = \\$GPackage
 
 //load_macros Library = Library^load_library.keep{[K V]=>V.is_macro}.as_table
 
@@ -469,11 +481,6 @@ mex Expr =
 | Expr <= normalize_nesting Expr
 | when Expr.is_text and not Expr.is_keyword and have GMacros.Expr: Expr <= GMacros.Expr.expander
 | unless Expr.is_list: leave Expr
-| case Expr [[`.` A B] @As]:
-   when A.is_keyword
-   | G = gensym g
-   | [let_ [[G [_import [_quote A] [_quote B]]]] 
-       [G @As]]
 | let GExpansionDepth GExpansionDepth+1: case Expr
   [_fn As Body] | [_fn As Body^mex]
   [_set Place Value] | [_set Place (if Value.is_keyword then [_quote Value] else mex Value)]
@@ -500,6 +507,7 @@ mex Expr =
 macroexpand Expr Macros =
 | let GMacros Macros
       GExpansionDepth 0
+      GPackage Void
   | R = mex Expr
   | R
 
@@ -507,3 +515,4 @@ export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if'
        'not' 'and' 'or' 'when' 'unless' 'while' 'till' 'dup' 'times' 'map' 'for'
        'named' 'export' 'pop' 'push' 'callcc' 'fin' 'ffi' '|' ';' '@' '[]' '\\' 'form'
        '+' '-' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!' '"'
+       'package' 'current_package'

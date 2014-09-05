@@ -1115,7 +1115,7 @@ BUILTIN2("ffi_load",ffi_load,C_TEXT,lib_name_text,C_TEXT,sym_name_text)
   }
   if (!lib) {
     lib = dlopen(name, RTLD_LAZY);
-    if (!lib) fatal("dlopen couldnt load %s\n", name);
+    if (!lib) fatal("ffi_load: dlopen couldnt load %s\n", name);
     ffi_libs[ffi_libs_used].name = strdup(name);
     ffi_libs[ffi_libs_used].handle = lib;
     ++ffi_libs_used;

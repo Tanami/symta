@@ -1402,14 +1402,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   (let ((xs (normalize-matryoshka xs))
         (ys nil))
     (when (atom xs) (return-from builtin-expander xs))
-    (match xs
-      ((("." a b) . as)
-       (when (fn-sym? a)
-         (return-from builtin-expander
-           (builtin-expander
-            (let ((g (ssa-name "g")))
-              `("let_" ((,g ("_import" ("_quote" ,a) ("_quote" ,b))))
-                  (,g ,@as))))))))
     (setf ys
       (match xs
         (("_fn" as body)
@@ -1458,6 +1450,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         ((":" a b) `(,@a ,b))
         (("\"" . xs) (expand-string-splice xs))
         (("." a b) (cond
+                     ((fn-sym? a) `("_import" ("_quote" ,a) ("_quote" ,b)))
                      ((fn-sym? b) `("{}" ,xs))
                      (t `("_mcall" ,a "." ,b))))
         (("{}" ("." a b) . as) `("_mcall" ,a ,b ,@(m a as (expand-method-arg a))))
