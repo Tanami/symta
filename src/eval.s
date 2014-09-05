@@ -21,7 +21,7 @@ get_lib_exports LibName =
   | when file_exists LibFile
     | Text = load_text LibFile
     | Expr = read_normalized Text LibFile
-    | leave: case Expr.last [export @Xs] | Xs
+    | leave: case Expr.last [export @Xs] | [@Xs (gensym 'Dummy')]
                             Else | Void
 | bad "no [LibName].s"
 

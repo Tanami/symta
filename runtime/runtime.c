@@ -421,14 +421,18 @@ static void *find_export(struct api_t *api, void *name, void *exports) {
 
   nexports = UNFIXNUM(LIST_SIZE(exports));
 
+  if (GET_TAG(exports) != T_LIST) {
+    fatal("exports ain't a list: %s\n", print_object(exports));
+  }
+
   for (i = 0; i < nexports; i++) {
     void *pair = LIST_REF(exports,i);
     if (GET_TAG(pair) != T_LIST || LIST_SIZE(pair) != FIXNUM(2)) {
-      fatal("bad export: %s", print_object(pair));
+      fatal("export contains invalid pair: %s\n", print_object(pair));
     }
     void *export_name = LIST_REF(pair,0);
     if (!IS_TEXT(export_name)) {
-      fatal("bad export: %s", print_object(pair));
+      fatal("export contains bad name: %s\n", print_object(pair));
     }
     if (texts_equal(name, export_name)) {
       return LIST_REF(pair,1);

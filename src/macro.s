@@ -441,32 +441,43 @@ fin Finalizer Body =
           [_remove_unwind_handler]
           R]]]
 
+FFI_Package = Void
+FFI_Lib = Void
+
+ffi_begin Package Lib =
+| FFI_Package <= Package
+| FFI_Lib <= Lib
+| 0
+
 ffi @Xs = case Xs
-  [Lib Symbol Result @Args]
+  [Symbol Result @Args]
     | [Symbol Name] = if Symbol.is_text then [Symbol Symbol] else Symbol.tail
-    | F = "FFI_[Name]"
+    | F = "FFI_[FFI_Package]_[Name]_"
     | Gs = map A Args: gensym 'A'
-    | Package = (current_package).1
-    | R = form @| F = ffi_load Lib \Symbol
+    | R = form @| F = ffi_load FFI_Lib \Symbol
                 | Name $@Gs = | ?X = \F
-                              | form (_ffi_call \(Result $@Args) Package.?X $@Gs)
+                              | form (_ffi_call \(Result $@Args) FFI_Package.?X $@Gs)
+                | export_hidden F \Name
     | R
   Else | bad "ffi: bad arglist = [Xs]"
 
-export @Xs =
-| Xs = map X Xs: case X
-        [`\\` N] | V = if N.is_keyword then [`&` N] else N
-                 | [_list [_quote N] [new_macro [_quote N] V] ]
-        Else | V = if X.is_keyword then [`&` X] else X
-             | [_list [_quote X] V]
-| [_list @Xs]
 
-GPackage = Void
-package Name =
-| GPackage <= Name
+GExports = Void
+
+exports_preprocess Xs = 
+| map X Xs: case X
+    [`\\` N] | V = if N.is_keyword then [`&` N] else N
+             | [_list [_quote N] [new_macro [_quote N] V] ]
+    Else | V = if X.is_keyword then [`&` X] else X
+         | [_list [_quote X] V]
+
+export_hidden @Xs =
+| GExports <= [@GExports @Xs]
 | 0
 
-current_package = \\$GPackage
+export @Xs =
+| GExports <= [@Xs @GExports]
+| [_list @GExports^exports_preprocess]
 
 //load_macros Library = Library^load_library.keep{[K V]=>V.is_macro}.as_table
 
@@ -507,12 +518,12 @@ mex Expr =
 macroexpand Expr Macros =
 | let GMacros Macros
       GExpansionDepth 0
-      GPackage Void
+      GExports []
   | R = mex Expr
   | R
 
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if'
        'not' 'and' 'or' 'when' 'unless' 'while' 'till' 'dup' 'times' 'map' 'for'
-       'named' 'export' 'pop' 'push' 'callcc' 'fin' 'ffi' '|' ';' '@' '[]' '\\' 'form'
+       'named' 'export_hidden' 'export' 'pop' 'push' 'callcc' 'fin' '|' ';' '@' '[]' '\\' 'form'
        '+' '-' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!' '"'
-       'package' 'current_package'
+       'ffi_begin' 'ffi'
