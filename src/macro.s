@@ -5,6 +5,11 @@ GExpansionDepthLimit = 100
 GMacros = Void
 GDefaultLeave = Void
 GModuleCompiler = Void
+GSrc = [0 0 unknown]
+
+mex_error Message =
+| [Row Col Orig] = GSrc
+| bad "[Orig]:[Row],[Col]: [Message]"
 
 is_var_sym X = X.is_text and not X.is_keyword
 
@@ -12,7 +17,7 @@ load_symbol Library Name =
 | Module = GModuleCompiler Library
 | when no Module: bad "couldn't compile [Library]"
 | Found = Module^load_library.find{X => X.0 >< Name}
-| unless have Found: bad "couldn't load `[Name]` from `[Library]`"
+| unless have Found: mex_error "couldn't load `[Name]` from `[Library]`"
 | Found.1
 
 expand_list_hole Key Hole Hit Miss = case Hole
@@ -45,7 +50,7 @@ expand_hole Key Hole Hit Miss =
   [`[]` @Xs] | [_if [_mcall Key is_list] 
                     (expand_list_hole Key Xs Hit Miss)
                     Miss]
-  Else | bad "hole: [Hole]"
+  Else | mex_error "bad match case: [Hole]"
 
 expand_match Keyform Cases Default Key =
 | when no Key: Key <= gensym 'Key'
@@ -120,7 +125,7 @@ dup @As = case As
   [X Xs Body] | expand_dup X Xs Body
   [Xs Body] | expand_dup Void Xs Body
   [Xs] | expand_dup Void Xs 0
-  Else | bad "dup [As]"
+  Else | mex_error "bad dup [As]"
 
 expand_map_for Type Item Items Body =
 | Xs = gensym 'Xs'
@@ -180,7 +185,7 @@ pop O =
 push Item O = [_set O [_mcall O pre Item]]
 
 let @As =
-| when As.size < 2: bad 'let @As'
+| when As.size < 2: mex_error "bad let @As"
 | Bs = As.lead.groupBy{2}
 | Body = As.last
 | Gs = map B Bs [(gensym 'G') @B]
@@ -195,7 +200,7 @@ let @As =
 `-` @As = case As
   [A] | [_mcall A neg]
   [A B] | [_mcall A '-' B]
-  Else | bad "`-` got wrong number of args: [As]"
+  Else | mex_error "`-` got wrong number of args: [As]"
 `*` A B = [_mcall A '*' B]
 `/` A B = [_mcall A '/' B]
 `%` A B = [_mcall A '%' B]
@@ -209,7 +214,7 @@ let @As =
 `.` A B = if A.is_keyword then
             | Sym = load_symbol A B
             | when Sym.is_macro
-              | when B.is_keyword: bad "[A].[B]: cant reference macro's value"
+              | when B.is_keyword: mex_error "cant reference macro's value in [A].[B]"
               | leave Sym.expander
             | form: let_ ((?R (_import (_quote A) (_quote B)))) ?R
           else if B.is_keyword then ['{}' ['.' A B]]
@@ -238,7 +243,7 @@ expand_method_arg A =
   [[`.` A B] @As] | [_mcall A B @(map X As: expand_method_arg X)]
   [[`^` A B] @As] | [B @As A]
   [H @As] | [_mcall H '{}' @(map X As: expand_method_arg X)]
-  Else | bad "`{}` [Xs]"
+  Else | mex_error "invalid `{}`"
 
 `!!` @As = expand_assign_result As
 
@@ -337,7 +342,7 @@ expand_assign_result As =
 | P = As.locate{X => case X [`!` X]
                      | V <= X
                      | 1}
-| when no P: bad '!!: no ! in [As]'
+| when no P: mex_error 'invalid !! - no ! in [As]'
 | Ys.P <= V
 | expand_assign V Ys
 
@@ -372,7 +377,7 @@ expand_block_item Expr =
   [`=` [[`.` Type Method] @Args] Body] | expand_block_item_method Type Method Args Body
   [`=` [[`[]` @Bs]] Value] | leave: expand_destructuring Value Bs
   [`=` [Name @Args] Value]
-    | unless Name.is_text: bad "`=`: [Name] is not text"
+    | unless Name.is_text: mex_error "[Name] is not text in `=`"
     | if Name.is_keyword then expand_block_item_fn Name Args Value else [Name Value]
   Else
     | Z = mex Expr
@@ -390,7 +395,7 @@ make_multimethod Xs =
 | Key = gensym 'K'
 | Cases = map X Xs: case X
     [`=>` As Expr] 
-      | when As.size >< 0: bad 'prototype doesnt support no args multimethods'
+      | when As.size >< 0: mex_error 'prototype doesnt support no args multimethods'
       | [As.0 [_fn (if As.0^is_var_sym then As else [Dummy As.tail]) Expr]]
 | Sel = expand_match [_mcall All '.' 1] Cases [no_method_ Key] Key
 | [_fn All [_mcall All apply Sel]]
@@ -430,9 +435,9 @@ default_leave_ Name Body = let GDefaultLeave Name [_nomex Body^mex]
 
 leave @As = case As
   [Name Value] | expand_leave Name Value
-  [Value] | when no GDefaultLeave: bad "missing default leave"
+  [Value] | when no GDefaultLeave: mex_error "missing default leave"
           | expand_leave GDefaultLeave Value
-  Else | bad "leave syntax"
+  Else | mex_error "errorneous leave syntax"
 
 callcc F =
 | K = gensym 'K'
@@ -475,7 +480,7 @@ expand_ffi Name Result Symbol Args =
 ffi @Xs = case Xs
   [[`.` Symbol Result] @Args] | expand_ffi Symbol Result Symbol Args
   [Name [[`.` Symbol Result] @Args]] | expand_ffi Name Result Symbol Args
-  Else | bad "ffi: bad arglist = [Xs]"
+  Else | mex_error "ffi: bad arglist = [Xs]"
 
 
 GExports = Void
@@ -499,10 +504,8 @@ normalize_nesting O =
 | case O [X] | if X.is_keyword then O else normalize_nesting X
          X | X
 
-GSrc = [0 0 unknown]
-
 mex_normal X Xs =
-| when GExpansionDepth > GExpansionDepthLimit: bad "macroexpansion depth exceed at [[X@Xs]]"
+| when GExpansionDepth > GExpansionDepthLimit: mex_error "macroexpansion depth exceed at [[X@Xs]]"
 | Macro = when X.is_keyword: GMacros.X
 | case X [`.` Library Name]: when Library.is_keyword and Name.is_keyword:
   | Sym = load_symbol Library Name
@@ -516,11 +519,11 @@ mex_normal X Xs =
 | NArgs = Expander.nargs
 | when NArgs >> 0 and NArgs <> Xs.size:
   | [Row Col Orig] = GSrc
-  | bad "[Orig]:[Row],[Col]: bad number of args to macro [Macro.name]"
+  | mex_error "bad number of args to macro [Macro.name]"
 | mex Xs.apply{Expander}
 
 mex Expr =
-| when no GMacros: bad 'lib_path got clobbered again'
+| when no GMacros: mex_error 'lib_path got clobbered again'
 | Expr <= normalize_nesting Expr
 | when Expr.is_text and not Expr.is_keyword and have GMacros.Expr: Expr <= GMacros.Expr.expander
 | unless Expr.is_list: leave Expr
