@@ -250,6 +250,7 @@ parse_term =
          `|` | leave Tok^parse_bar
          `if` | leave Tok^parse_if
          `-` | leave Tok^parse_negate
+         `,` | new_token symbol `,` Tok.src 0
          Else | push Tok GInput
               | leave 0
 | Tok.parsed <= [P]
@@ -305,16 +306,9 @@ parse_logic =
 | Void
 
 parse_delim =
-| O = parse_op [`:` `=` `=>` `<=` `,`] or leave (parse_logic)
+| O = parse_op [`:` `=` `=>` `<=`] or leave (parse_logic)
 | Pref = if GOutput.size > 0 then GOutput.reverse else []
-| unless O^token_is{`,`}
-  | GOutput <= [(parse_xs) Pref O]
-  | leave Void
-| Pref = Pref.map{X => new_token escape X^parse_strip O.src 0}
-| R = GInput.split{X => X^token_is{`,`}}
-| R = R.reverse.map{X => [@X (new_token `:` `:` O.src 0)]}
-| GInput <= [@R Pref].join
-| GOutput <= (parse_xs).reverse
+| GOutput <= [(parse_xs) Pref O]
 | Void
 
 parse_semicolon =
@@ -350,11 +344,12 @@ parse_strip X =
   then | unless X.size: leave X
        | Head = X.head
        | Meta = when Head.is_token: Head.src
+       | when have X.locate{?^token_is{`,`}}: X <= [',' @X.split{?^token_is{`,`}}]
        | Ys = map V X: parse_strip V
        | for V X
          | when case V [U@Us] U^token_is{`!`} and not case X [Z@Zs] Z^token_is{`!`}:
            | leave [`!!` @Ys]
-       | when have Head: Ys <= new_meta Ys Meta
+       | when have Meta: Ys <= new_meta Ys Meta
        | Ys
   else X
 

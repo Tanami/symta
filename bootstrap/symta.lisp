@@ -262,6 +262,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (:|\|| (ret (/bar tok)))
      (:if (ret (/if tok)))
      (:- (ret (/negate tok)))
+     (:|,| `(:token :symbol :value "," :src (getf tok :src)))
      (otherwise (push tok g_input) (ret :fail))
   ! `(,@tok :parsed ,p))
 
@@ -312,14 +313,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! nil)
 
 (to /delim
-  ! o = try (/op '(:|:| :|=| :|=>| :|<=| :|,|)) (/logic)
+  ! o = try (/op '(:|:| :|=| :|=>| :|<=|)) (/logic)
   ! pref = or (nreverse g_output) '()
-  ! unless (token-is :|,| o) (! g_output := `(,(/xs) ,pref ,o) ! ret nil)
-  ! pref = m x pref `(:token :escape :value ,(/strip x) :src ,(getf o :src))
-  ! r = split-if (fn x ! token-is :|,| x) g_input
-  ! r = m x (nreverse r) `(,@x (:token :|:| :value ":" :src ,(getf o :src)))
-  ! g_input := apply #'append `(,@r ,pref)
-  ! g_output := nreverse (/xs)
+  ! g_output := `(,(/xs) ,pref ,o)
   ! nil)
 
 (to /semicolon
@@ -353,6 +349,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      ! ret r)
   ! e v x (when (and (token-is :! (car v)) (not (token-is :! (car x))))
             (ret `("!!" ,@(mapcar #'/strip x))))
+  ! when (find-if (fn v ! token-is :|,| v) x)
+      (setf x `("," ,@(split-if (fn v ! token-is :|,| v) x)))
   ! mapcar #'/strip x)
 
 (to tokenize input ! /tokenize (new-input input))
@@ -1486,6 +1484,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("fin" . xs) (expand-fin (butlast xs) (car (last xs))))
         (("ffi" lib symbol result . args) (expand-ffi lib symbol result args))
         (("@" x) `("=" () ("_nomex" ,x)))
+        (("," (x . xs) . ys) `(,x ,xs ,@ys))
+        (("," . xs) (error "bad `,`"))
         (else (return-from builtin-expander
                 (cons (builtin-expander (car xs))
                       (m x (cdr xs)

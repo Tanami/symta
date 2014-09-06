@@ -220,6 +220,9 @@ let @As =
           else if B.is_keyword then ['{}' ['.' A B]]
           else [_mcall A '.' B]
 `:` A B = [@A B]
+`,` @As = case As
+  [[X@Xs] @Ys] | [X Xs @Ys]
+  Else | mex_error "invalid arglist to `,`"
 
 expand_method_arg_r A ArgName =
 | when A >< '?': leave: ArgName A
@@ -550,8 +553,8 @@ macroexpand Expr Macros ModuleCompiler =
   | R = mex Expr
   | R
 
-export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if'
+export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '@' '[]' '\\' 'form'
        'not' 'and' 'or' 'when' 'unless' 'while' 'till' 'dup' 'times' 'map' 'for'
-       'named' 'export_hidden' 'export' 'pop' 'push' 'callcc' 'fin' '|' ';' '@' '[]' '\\' 'form'
+       'named' 'export_hidden' 'export' 'pop' 'push' 'callcc' 'fin' '|' ';' ','
        '+' '-' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!' '"'
        'ffi_begin' 'ffi'
