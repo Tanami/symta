@@ -511,7 +511,7 @@ ssa_to_c Xs = let GCompiled []
     | ArgsText = Args.text{', '}
     | ArgsTypesText = ArgsTypes.text{', '}
     | Call = "(([ResultType](*)([ArgsTypesText]))[F])([ArgsText]);"
-    | when have Dst: Call <= "[Dst] <= [Call]"
+    | when have Dst: Call <= "[Dst] = [Call]"
     | c "  [Call]"
   Else | cnorm X //FIXME: check if it is known and has correct argnum
 | c 'END_CODE'
