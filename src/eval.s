@@ -6,6 +6,7 @@ GDstFolder = Void
 GHeaderTimestamp = Void
 GMacros = Void
 GShowInfo = 0
+GCompiledModules = Void
 
 read_normalized Text Filename =
 | Expr = parse Text Filename
@@ -64,7 +65,7 @@ compile_expr Name Dst Expr =
 | Imports = Imports.keep{X => X.1.is_text} // skip macros
 | ExprWithDeps = add_imports Expr Imports
 | Ms = [GMacros @(map M Macros "[GDstFolder][M]"^load_macros)].join
-| ExpandedExpr = macroexpand ExprWithDeps Ms.as_table
+| ExpandedExpr = macroexpand ExprWithDeps Ms.as_table &compile_module
 | CFile = "[Dst].c"
 | ssa_produce_file CFile ExpandedExpr
 | Result = c_compiler Dst CFile
@@ -75,11 +76,12 @@ load_symta_file Filename =
 | Text = load_text Filename
 | read_normalized Text Filename
 
-compile_module Name =
+compile_module_sub Name =
 | for Folder GSrcFolders
   | SrcFile = "[Folder][Name].s"
   | when file_exists SrcFile
     | DstFile = "[GDstFolder][Name]"
+    | GCompiledModules.Name <= DstFile
     | DepFile = "[DstFile].dep"
     | when file_exists DepFile and file_older SrcFile DepFile:
       | Deps = DepFile^load_symta_file.1
@@ -92,6 +94,11 @@ compile_module Name =
     | save_text DepFile DepsText
     | leave DstFile
 | Void
+
+compile_module Name =
+| DstFile = GCompiledModules.Name
+| when no DstFile: DstFile <= compile_module_sub Name
+| DstFile
 
 build_entry Entry =
 | let GMacros 'macro'^load_macros
@@ -112,6 +119,7 @@ build @As =
       GSrcFolders ["[SrcFolder]src/" "[GRootFolder]src/"]
       GHeaderTimestamp (file_time "[GRootFolder]/runtime/runtime.h")
       GShowInfo 1
+      GCompiledModules (table 100)
   | RuntimeSrc = "[GRootFolder]runtime/runtime.c"
   | RuntimePath = "[DstFolder]run"
   | compile_runtime RuntimeSrc RuntimePath
@@ -124,6 +132,7 @@ eval Expr Env =
       GSrcFolders ["[GRootFolder]src/"]
       GHeaderTimestamp (file_time "[GRootFolder]/runtime/runtime.h")
       GDstFolder "[BuildFolder]lib/"
+      GCompiledModules (table 100)
   | Entry = gensym tmp
   | DstFile = "[BuildFolder]lib/[Entry]"
   | Vars = map [K V] Env K

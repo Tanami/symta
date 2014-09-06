@@ -8,7 +8,7 @@
 #  define png_jmpbuf(png_ptr)   ((png_ptr)->jmpbuf)
 #endif
 
-gfx_t *load_png(char *filename) {
+gfx_t *gfx_load_png(char *filename) {
   gfx_t *gfx = 0;
   int x, y;
   png_structp png_ptr = NULL;
@@ -127,7 +127,7 @@ jmpbuf_fail:
   return gfx;
 }
 
-void save_png(char *filename, gfx_t *gfx) {
+void gfx_save_png(char *filename, gfx_t *gfx) {
   png_structp Png;
   png_infop Info;
   int I, X, Y, BPR;

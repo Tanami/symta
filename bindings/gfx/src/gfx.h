@@ -23,8 +23,8 @@ uint32_t gfx_get(gfx_t *gfx, int x, int y);
 void gfx_set(gfx_t *gfx, int x, int y, uint32_t color);
 void gfx_clear(gfx_t *gfx, uint32_t color);
 
-gfx_t *load_png(char *filename);
-void save_png(char *filename, gfx_t *gfx);
+gfx_t *gfx_load_png(char *filename);
+void gfx_save_png(char *filename, gfx_t *gfx);
 
 #define unless(x) if(!(x))
 #define times(i,e) for(i=0; i<(e); i++)

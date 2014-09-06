@@ -75,8 +75,8 @@ int main(int argc, char **argv) {
     printf("Usage: %s <infile> <outfile>\n", argv[0]);
   }
 
-  gfx = load_png(argv[1]);
-  save_png(argv[2], gfx);
+  gfx = gfx_load_png(argv[1]);
+  gfx_save_png(argv[2], gfx);
 
   fprintf(stderr, "%dx%dx%d\n", gfx->w, gfx->h, gfx->type);
 

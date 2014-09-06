@@ -4,8 +4,16 @@ GExpansionDepth = Void
 GExpansionDepthLimit = 100
 GMacros = Void
 GDefaultLeave = Void
+GModuleCompiler = Void
 
 is_var_sym X = X.is_text and not X.is_keyword
+
+load_symbol Library Name =
+| Module = GModuleCompiler Library
+| when no Module: bad "couldn't compile [Library]"
+| Found = Module^load_library.find{X => X.0 >< Name}
+| unless have Found: bad "couldn't load `[Name]` from `[Library]`"
+| Found.1
 
 expand_list_hole Key Hole Hit Miss = case Hole
   [] | [_if [_mcall Key end] Hit Miss]
@@ -198,7 +206,12 @@ let @As =
 `><` A B = [_mcall A '><' B]
 `<>` A B = [_mcall A '<>' B]
 `^` A B = [B A]
-`.` A B = if A.is_keyword then [_import [_quote A] [_quote B]]
+`.` A B = if A.is_keyword then
+            | Sym = load_symbol A B
+            | when Sym.is_macro
+              | when B.is_keyword: bad "[A].[B]: cant reference macro's value"
+              | leave Sym.expander
+            | form: let_ ((?R (_import (_quote A) (_quote B)))) ?R
           else if B.is_keyword then ['{}' ['.' A B]]
           else [_mcall A '.' B]
 `:` A B = [@A B]
@@ -449,16 +462,19 @@ ffi_begin Package Lib =
 | FFI_Lib <= Lib
 | 0
 
+expand_ffi Name Result Symbol Args =
+| F = "FFI_[FFI_Package]_[Name]_"
+| ATs = map A Args A.2 // argument types
+| ANs = map A Args A.1 // argument names
+| R = form @| F = ffi_load FFI_Lib \Symbol
+            | Name $@ANs = | ?X = \F
+                           | form (_ffi_call \(Result $@ATs) FFI_Package.?X $@ANs)
+            | export_hidden F \Name
+| R
+
 ffi @Xs = case Xs
-  [Symbol Result @Args]
-    | [Symbol Name] = if Symbol.is_text then [Symbol Symbol] else Symbol.tail
-    | F = "FFI_[FFI_Package]_[Name]_"
-    | Gs = map A Args: gensym 'A'
-    | R = form @| F = ffi_load FFI_Lib \Symbol
-                | Name $@Gs = | ?X = \F
-                              | form (_ffi_call \(Result $@Args) FFI_Package.?X $@Gs)
-                | export_hidden F \Name
-    | R
+  [[`.` Symbol Result] @Args] | expand_ffi Symbol Result Symbol Args
+  [Name [[`.` Symbol Result] @Args]] | expand_ffi Name Result Symbol Args
   Else | bad "ffi: bad arglist = [Xs]"
 
 
@@ -479,13 +495,29 @@ export @Xs =
 | GExports <= [@Xs @GExports]
 | [_list @GExports^exports_preprocess]
 
-//load_macros Library = Library^load_library.keep{[K V]=>V.is_macro}.as_table
-
 normalize_nesting O =
 | case O [X] | if X.is_keyword then O else normalize_nesting X
          X | X
 
 GSrc = [0 0 unknown]
+
+mex_normal X Xs =
+| when GExpansionDepth > GExpansionDepthLimit: bad "macroexpansion depth exceed at [[X@Xs]]"
+| Macro = when X.is_keyword: GMacros.X
+| case X [`.` Library Name]: when Library.is_keyword and Name.is_keyword:
+  | Sym = load_symbol Library Name
+  | when Sym.is_macro: Macro <= Sym
+| when no Macro
+  | Y = X^mex
+  | if (X.is_list and not Y.is_list) or (X.is_text and X <> Y)
+    then leave: mex [Y@Xs]
+    else leave [Y @(map X Xs: if X.is_keyword then [_quote X] else mex X)]
+| Expander = Macro.expander
+| NArgs = Expander.nargs
+| when NArgs >> 0 and NArgs <> Xs.size:
+  | [Row Col Orig] = GSrc
+  | bad "[Orig]:[Row],[Col]: bad number of args to macro [Macro.name]"
+| mex Xs.apply{Expander}
 
 mex Expr =
 | when no GMacros: bad 'lib_path got clobbered again'
@@ -501,24 +533,17 @@ mex Expr =
   [_nomex X] | X // no macroexpand
   [`&` O] | if O.is_keyword then O else [O^mex]
   [] | Expr
-  [X@Xs]
-    | Src = when Expr.is_meta: Expr.info_ 
-    | let GSrc (if have Src then Src else GSrc)
-      | Macro = when X.is_keyword: GMacros.X
-      | Result = if no Macro
-        then [X^mex @(map X Xs: if X.is_keyword then [_quote X] else mex X)]
-        else | Expander = Macro.expander
-             | NArgs = Expander.nargs
-             | when NArgs >> 0 and NArgs <> Xs.size:
-               | [Row Col Orig] = GSrc
-               | bad "[Orig]:[Row],[Col]: bad number of args to macro [Expr]"
-             | mex Xs.apply{Expander}
-      | when have Src and Result.is_list: Result <= new_meta Result Src
-      | Result
-macroexpand Expr Macros =
+  [X@Xs] | Src = when Expr.is_meta: Expr.info_ 
+         | let GSrc (if have Src then Src else GSrc)
+           | Result = mex_normal X Xs
+           | when have Src and Result.is_list: Result <= new_meta Result Src
+           | Result
+
+macroexpand Expr Macros ModuleCompiler =
 | let GMacros Macros
       GExpansionDepth 0
       GExports []
+      GModuleCompiler ModuleCompiler
   | R = mex Expr
   | R
 
