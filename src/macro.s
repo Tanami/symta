@@ -1,5 +1,3 @@
-use prelude
-
 GExpansionDepth = Void
 GExpansionDepthLimit = 100
 GMacros = Void

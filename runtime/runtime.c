@@ -33,7 +33,10 @@ static int libs_used;
 static char *lib_names[MAX_LIBS];
 static void *lib_exports;
 
-static char *lib_path;
+#define MAX_LIB_FOLDERS 256
+static int lib_folders_used;
+
+static char *lib_folders[MAX_LIB_FOLDERS];
 
 static api_t apis[2]; // one for each heap
 
@@ -381,6 +384,12 @@ static void *exec_module(struct api_t *api, char *path) {
   return R;
 }
 
+
+static int file_exists(char *filename) {
+  return access(filename, F_OK) != -1;
+}
+
+
 //FIXME: resolve circular dependencies
 //       instead of exports list we may return lazy list
 static void *load_lib(struct api_t *api, char *name) {
@@ -389,7 +398,29 @@ static void *load_lib(struct api_t *api, char *name) {
   void *exports;
 
   if (name[0] != '/' && name[0] != '\\' && strcmp(name,"core")) {
-    sprintf(tmp, "%s/%s", lib_path, name);
+    for (i = 0; i < lib_folders_used; i++) {
+      sprintf(tmp, "%s/%s", lib_folders[i], name);
+      if (file_exists(tmp)) break;
+    }
+    if (i == lib_folders_used) {
+      fprintf(stderr, "load_lib: couldnt locate library `%s` in:\n", name);
+      for (i = 0; i < lib_folders_used; i++) {
+        fprintf(stderr, "  %s\n", lib_folders[i]);
+      }
+      abort();
+    }
+
+    /*for (i = lib_folders_used-1; i >= 0; i--) {
+      sprintf(tmp, "%s/%s", lib_folders[i], name);
+      if (file_exists(tmp)) break;
+    }
+    if (i < 0) {
+      fprintf(stderr, "load_lib: couldnt locate library `%s` in:\n", name);
+      for (i = lib_folders_used-1; i >= 0; i--) {
+        fprintf(stderr, "  %s\n", lib_folders[i]);
+      }
+      abort();
+    }*/
     name = tmp;
   }
 
@@ -413,6 +444,10 @@ static void *load_lib(struct api_t *api, char *name) {
   ++libs_used;
 
   return exports;
+}
+
+static void add_lib_folder(char *folder) {
+  lib_folders[lib_folders_used++] = strdup(folder);
 }
 
 static void *find_export(struct api_t *api, void *name, void *exports) {
@@ -946,6 +981,12 @@ BUILTIN1("load_library",load_library,C_TEXT,path_text)
   R = load_lib(api, path);
 RETURNS(R)
 
+BUILTIN1("register_library_folder",register_library_folder,C_TEXT,path_text)
+  char path[1024];
+  decode_text(path, path_text);
+  add_lib_folder(path);
+RETURNS(Void)
+
 BUILTIN1("set_error_handler",set_error_handler,C_ANY,h)
   fatal("FIXME: implement set_error_handler\n");
 RETURNS(Void)
@@ -1038,13 +1079,7 @@ BUILTIN1("file_time",file_time,C_TEXT,filename_text)
 RETURNS(R)
 
 BUILTIN1("file_exists",file_exists,C_TEXT,filename_text)
-  char *filename = text_to_cstring(filename_text);
-  if (access(filename, F_OK) != -1) {
-    R = (void*)FIXNUM(1);
-  } else {
-    R = (void*)FIXNUM(0);
-  }
-RETURNS(R)
+RETURNS((void*)FIXNUM(file_exists(text_to_cstring(filename_text))))
 
 BUILTIN0("main_args", main_args)
 RETURNS(main_args)
@@ -1176,6 +1211,7 @@ static struct {
   {"load_text", b_load_text},
   {"save_text", b_save_text},
   {"load_library", b_load_library},
+  {"register_library_folder", b_register_library_folder},
   {"unix", b_unix},
   {"file_time", b_file_time},
   {"file_exists", b_file_exists},
@@ -1511,6 +1547,7 @@ int main(int argc, char **argv) {
   void **multi;
   void *n_int, *n_float, *n_fn, *n_list, *n_text, *n_void; // typenames
   void *core;
+  char *lib_path;
 
   void *E = 0; // current environment
   void *P = 0; // parent environment
@@ -1537,6 +1574,8 @@ int main(int argc, char **argv) {
   while (i > 0 && lib_path[i-1] == '/' || lib_path[i-1] == '\\') {
    lib_path[--i] = 0;
   }
+
+  add_lib_folder(lib_path);
 
   api = init_api(apis);
   api->other = init_api(apis+1);

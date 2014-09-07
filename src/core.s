@@ -7,6 +7,7 @@ export tag_of
        rtstat
        stack_trace
        load_library
+       register_library_folder
        load_text
        save_text
        file_time

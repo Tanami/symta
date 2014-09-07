@@ -1,7 +1,5 @@
-use prelude
-
 GTable = Void
-GError = Msg => log Msg
+GError = Msg => bad Msg
 GInput = Void
 GOutput = Void
 GSpecs = Void

@@ -5,7 +5,7 @@
 
 #define GFX_RGB     0
 #define GFX_RGBA    1
-#define GFX_INDEXED 2
+#define GFX_MAP     2
 
 typedef struct {
   int w; // width

@@ -1,4 +1,4 @@
-use prelude compiler reader macro
+use compiler reader macro
 
 GRootFolder = '/Users/nikita/Documents/git/symta/'
 GSrcFolders = Void
@@ -120,6 +120,7 @@ build @As =
       GHeaderTimestamp (file_time "[GRootFolder]/runtime/runtime.h")
       GShowInfo 1
       GCompiledModules (table 100)
+  | register_library_folder GDstFolder
   | RuntimeSrc = "[GRootFolder]runtime/runtime.c"
   | RuntimePath = "[DstFolder]run"
   | compile_runtime RuntimeSrc RuntimePath

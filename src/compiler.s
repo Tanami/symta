@@ -1,5 +1,3 @@
-use prelude
-
 GEnv = Void
 GOut = Void // where resulting assembly code is stored
 GNs = Void // unique name of current function

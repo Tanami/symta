@@ -134,7 +134,7 @@ void gfx_save_png(char *filename, gfx_t *gfx) {
   png_byte *Q, **Rows;
   FILE *F;
   png_color Pal[256];
-  int Bits = gfx->type == GFX_INDEXED ? 8 :
+  int Bits = gfx->type == GFX_MAP  ? 8 :
              gfx->type == GFX_RGBA ? 32 :
                           24;
 
@@ -150,7 +150,7 @@ void gfx_save_png(char *filename, gfx_t *gfx) {
                gfx->w,
                gfx->h,
                8, // depth of color channel
-               gfx->type == GFX_INDEXED ? PNG_COLOR_TYPE_PALETTE :
+               gfx->type == GFX_MAP ? PNG_COLOR_TYPE_PALETTE :
                gfx->type == GFX_RGBA ? PNG_COLOR_TYPE_RGB_ALPHA :
                             PNG_COLOR_TYPE_RGB,
                PNG_INTERLACE_NONE,
@@ -159,7 +159,7 @@ void gfx_save_png(char *filename, gfx_t *gfx) {
 
   BPR = (gfx->w*Bits + 7)/8;
   Rows = png_malloc(Png, gfx->h * sizeof(png_byte *));
-  if (gfx->type == GFX_INDEXED) {
+  if (gfx->type == GFX_MAP) {
     times (I, 256) {
       fromR8G8B8(Pal[I].red, Pal[I].green, Pal[I].blue, gfx->cmap[I]);
     }
