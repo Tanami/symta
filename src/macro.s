@@ -1,5 +1,5 @@
 GExpansionDepth = Void
-GExpansionDepthLimit = 100
+GExpansionDepthLimit = 1000
 GMacros = Void
 GDefaultLeave = Void
 GModuleCompiler = Void

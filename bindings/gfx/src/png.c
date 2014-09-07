@@ -164,7 +164,7 @@ void gfx_save_png(char *filename, gfx_t *gfx) {
       fromR8G8B8(Pal[I].red, Pal[I].green, Pal[I].blue, gfx->cmap[I]);
     }
     png_set_PLTE(Png, Info, Pal, 256);
-    if (gfx->key != -1) { // that is little ticky
+    if (gfx->key != GFX_NO_KEY) { // that is little ticky
       png_color_16 CK;
       CK.index = gfx->key; //just in case png uses it
       png_byte Alpha[256];

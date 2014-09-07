@@ -6,19 +6,20 @@
 #define GFX_RGB     0
 #define GFX_RGBA    1
 #define GFX_MAP     2
+#define GFX_NO_KEY  0xFFFFFFFF
 
 typedef struct {
-  int w; // width
-  int h; // height
-  int type;
-  int key; // color key
-  int hs_x; // hot spot x
-  int hs_y; // hot spot y
+  uint32_t w; // width
+  uint32_t h; // height
+  uint32_t type;
+  uint32_t key; // color key
+  uint32_t hotspot_x; // hot spot x
+  uint32_t hotspot_y; // hot spot y
   uint32_t *data; // pixels
   uint32_t *cmap; // color map
 } gfx_t;
 
-gfx_t *new_gfx(int w, int h, int type);
+gfx_t *new_gfx(uint32_t w, uint32_t h, uint32_t type);
 uint32_t gfx_get(gfx_t *gfx, int x, int y);
 void gfx_set(gfx_t *gfx, int x, int y, uint32_t color);
 void gfx_clear(gfx_t *gfx, uint32_t color);

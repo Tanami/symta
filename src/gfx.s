@@ -1,13 +1,24 @@
 use gfx_
 data gfx handle
 
-/*GFX_RGB  = 0
+GFX_RGB  = 0
 GFX_RGBA = 1
-GFX_MAP  = 2*/
+GFX_MAP  = 2
 
+gfx W H Type = new_gfx (new_gfx_ W H Type)
 gfx.w = gfx_w Me.handle
 gfx.h = gfx_h Me.handle
 gfx.type = gfx_type Me.handle
+gfx.key = gfx_key Me.handle
+gfx.hotspot = [(gfx_hotspot_x Me.handle) (gfx_hotspot_y Me.handle)]
+gfx.get X Y = gfx_get Me.handle X Y
+gfx.set X Y Color = gfx_set Me.handle X Y Color
+gfx.clear Color = gfx_clear Me.handle Color
+gfx.line Color A B = gfx_line Me.handle Color A.0 A.1 B.0 B.1
+gfx.rect Color Fill A B = gfx_rect Me.handle Color Fill A.0 A.1 B.0 B.1
+gfx.circle Color Fill C R = gfx_circle Me.handle Color Fill C.0 C.1 R
+gfx.resize W H = gfx_resize Me.handle W H
+
 
 load_png Filename =
 | Handle = gfx_load_png Filename
@@ -15,6 +26,7 @@ load_png Filename =
 
 save_png Filename Gfx = gfx_save_png Filename Gfx.handle
 
-abc X = X+1
+rgb R G B = form R*#10000 + G*#100 + B
+rgba R G B A = form A*#1000000 + R*#10000 + G*#100 + B
 
-export load_png save_png 'abc' //'GFX_RGB' 'GFX_RGBA' 'GFX_MAP'
+export gfx load_png save_png 'rgb' 'rgba' 'GFX_RGB' 'GFX_RGBA' 'GFX_MAP'

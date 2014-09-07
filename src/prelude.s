@@ -318,6 +318,21 @@ bad Text =
 | say_ "bad: [Text]\n"
 | halt
 
+path_parts Filename =
+| Name = ""
+| Ext = ""
+| Xs = Filename.chars.reverse
+| Sep = Xs.locate{?><'/'}
+| Dot = Xs.locate{?><'.'}
+| when have Dot and (no Sep or Dot < Sep):
+  | Ext <= Xs.take{Dot}.reverse.text
+  | Xs <= Xs.drop{Dot+1}
+  | Sep !- (Dot+1)
+| when have Sep
+ | Name <= Xs.take{Sep}.reverse.text
+ | Xs <= Xs.drop{Sep+1}
+| [Xs.reverse.text Name Ext]
+
 // hashtable
 data table buckets
 table Size = new_table: dup Size Void
@@ -372,4 +387,4 @@ meta.is_list = Me.object_.is_list
 meta.is_text = Me.object_.is_text
 meta.as_text = Me.object_.as_text
 
-export non say bad no have gensym table new_macro new_meta
+export non say bad no have gensym table new_macro new_meta path_parts
