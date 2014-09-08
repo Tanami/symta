@@ -15,6 +15,8 @@ static done_init;
 
 static char *title = "Symta";
 
+static char *show_events;
+
 static char *show_init() {
   if (done_init) return 0;
   if (SDL_Init(SDL_INIT_VIDEO) < 0) return (char*)SDL_GetError();
@@ -76,7 +78,7 @@ static char *upload_gfx(gfx_t *gfx) {
   SDL_UnlockSurface(surface);
 
   SDL_UpdateWindowSurface(window);
-  SDL_Delay(2000);
+  //SDL_Delay(2000);
 
   return 0;
 }
@@ -96,8 +98,65 @@ char *show_gfx(gfx_t *gfx) {
 void show_close() {
   if (!done_init) return;
   if (window) SDL_DestroyWindow(window);
+  if (show_events) {
+    free(show_events);
+    show_events = 0;
+  }
   SDL_Quit();
   window = NULL;
   surface = NULL;
   done_init = 0;
+}
+
+char *show_get_events() {
+  int i;
+  SDL_Event e;
+  char tmp[1024];
+  int xs_used = 0;
+  int xs_size = 10;
+  char **xs;
+  char *p;
+  int result_size = 1;
+
+  if (!done_init) return "error";
+
+  if (show_events) {
+    free(show_events);
+    show_events = 0;
+  }
+
+  xs = (char**)malloc(xs_size*sizeof(char*));
+
+  while (SDL_PollEvent(&e) != 0) {
+    tmp[0] = 0;
+    if (e.type == SDL_QUIT) sprintf(tmp, "quit");
+    if (!tmp[0]) continue;
+    
+    if (xs_used == xs_size) {
+      char **new_xs;
+      xs_size = 2*xs_size;
+      new_xs = (char**)malloc(xs_size*sizeof(char*));
+      memcpy(new_xs, xs, xs_used*sizeof(char*));
+      free(xs);
+      xs = new_xs;
+    }
+    xs[xs_used++] = strdup(tmp);
+  }
+
+  for (i = 0; i < xs_used; i++) {
+    result_size += strlen(xs[i]);
+  }
+
+  p = show_events = (char*)malloc((result_size+xs_used)*sizeof(char));
+
+  for (i = 0; i < xs_used; i++) {
+    p += sprintf(p, "%s", xs[i]);
+    if (i+1 != xs_used) *p++ = ' ';
+    free(xs[i]);
+  }
+  free(xs);
+
+  *p = 0;
+
+  return show_events;
 }
