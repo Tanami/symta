@@ -3,7 +3,7 @@
 gfx_t *new_gfx(uint32_t w, uint32_t h, uint32_t type) {
   gfx_t *gfx = (gfx_t*)malloc(sizeof(gfx_t));
   if (!gfx) return 0;
-  gfx->data = (uint32_t*)malloc(w*h*4);
+  gfx->data = (uint32_t*)malloc(w*h*sizeof(uint32_t));
   if (!gfx->data) {
     free(gfx);
     return 0;
@@ -12,15 +12,18 @@ gfx_t *new_gfx(uint32_t w, uint32_t h, uint32_t type) {
   gfx->h = h;
   gfx->type = type;
   gfx->cmap = 0;
-  gfx->key = GFX_NO_KEY;
   gfx->hotspot_x = 0;
   gfx->hotspot_y = 0;
+  if (type == GFX_MAP) {
+    gfx->cmap = malloc(sizeof(uint32_t)*GFX_CMAP_SIZE);
+    memset(gfx->cmap, 0, sizeof(uint32_t)*GFX_CMAP_SIZE);
+  }
   return gfx;
 }
 
 void gfx_resize(gfx_t *gfx, uint32_t w, uint32_t h) {
   free(gfx->data);
-  gfx->data = (uint32_t*)malloc(w*h*4);
+  gfx->data = (uint32_t*)malloc(w*h*sizeof(uint32_t));
   gfx->w = w;
   gfx->h = h;
 }
@@ -35,10 +38,6 @@ uint32_t gfx_h(gfx_t *gfx) {
 
 uint32_t gfx_type(gfx_t *gfx) {
   return gfx->type;
-}
-
-uint32_t gfx_key(gfx_t *gfx) {
-  return gfx->key;
 }
 
 uint32_t gfx_hotspot_x(gfx_t *gfx) {
@@ -247,6 +246,133 @@ void gfx_circle(gfx_t *gfx, uint32_t color, int fill, int x, int y, int r) {
   if (fill) gfx_circle_filled(gfx, color, x, y, r);
   else gfx_circle_empty(gfx, color, x, y, r);
 }
+
+#define begin_blit() \
+  while (y < ey) { \
+    pd = y*dw + x; \
+    ex = pd + w; \
+    ps = sy*sw + sx; \
+    while (pd < ex) {
+
+#define end_blit(output) \
+      DC = (output); \
+      pd += 1; \
+      ps += xi; \
+    } \
+    y += 1; \
+    sy += yi; \
+  } \
+
+//source and destination colors
+#define SC s[ps]
+#define DC d[pd]
+
+void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int h,
+              int flip_x, int flip_y, uint32_t *map) {
+  int i, r, g, b, a;
+  gfx_t *dst = gfx;
+  int cx = 0;
+  int cy = 0;
+  int cw = dst->w;
+  int ch = dst->h;
+  int ow = w;
+  int oh = h;
+  int xi = 1; // x increment
+  int yi = 1; // y increment
+  int ex = 0;
+  int ey = 0;
+  uint32_t *d = dst->data;
+  int dw = dst->w;
+  int dc = dst->type;
+  uint32_t *s = src->data;
+  int sw = src->w;
+  int sc = src->type;
+  uint32_t *m = map ? map : src->cmap;
+  int pd = 0; // destination pointer
+  int ps = 0; // sorce pointer
+
+  if (x >= cw || y >= ch) return;
+  if (x+w <= cx || y+h <= cy) return;
+
+  if (x < cx) {
+    int i = cx - x;
+    if (flip_y) ow -= i;
+    else sx += i;
+    w -= i;
+    x = cx;
+  }
+
+  if (y < cy) {
+    int i = cy - y;
+    if (flip_y) oh -= i;
+    else sy += i;
+    h -= i;
+    y = cy;
+  }
+
+  ey = y + h;
+
+  if (x+w > cw) w = cw - x;
+  if (ey > ch) ey = ch;
+
+  if (flip_x) {
+    sx = sx + ow - 1;
+    xi = -1;
+  }
+
+  if (flip_y) {
+    sy = sy + oh - 1;
+    yi = -1;
+  }
+
+  if (dc == GFX_MAP) {
+    if (sc != GFX_MAP) {
+      fprintf(stderr, "can't blit truecolor into indexed\n");
+      abort();
+    }
+    begin_blit()
+    end_blit(SC)    
+  } else if(dc == GFX_RGB || dc == GFX_RGBA) {
+    if (sc == GFX_RGB) {
+      begin_blit()
+      end_blit(SC)
+    } else if (sc == GFX_RGBA) {
+        begin_blit()
+        int sm; // source multiplier
+        int c; // result color
+        int sr, sg, sb, sa;
+        fromR8G8B8A8(sr,sg,sb,sa,SC);
+        if (sa) {
+          int dr, dg, db, da;
+          fromR8G8B8A8(dr,dg,db,da,DC);
+          sm = 0xFF - sa;
+          r = (sr*sm + dr*sa)>>8;
+          g = (sg*sm + dg*sa)>>8;
+          b = (sb*sm + db*sa)>>8;
+          c = R8G8B8(r,g,b);
+        } else {
+          c = DC;
+        }
+        end_blit(c);
+    } else if (sc == GFX_MAP) {
+      begin_blit()
+      int c = m[SC];
+      int sr, sg, sb, sa;
+      fromR8G8B8A8(sr,sg,sb,sa,c);
+      if (sa) {
+        c = DC;
+      }
+      end_blit(c)
+    } else {
+      fprintf(stderr, "can't blit %d into %d\n", sc, dc);
+    }
+  } else {
+    fprintf(stderr, "can't blit %d into %d\n", sc, dc);
+  }
+}
+
+#undef SC
+#undef DC
 
 uint32_t array[] = {123,456,789};
 

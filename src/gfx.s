@@ -9,7 +9,6 @@ gfx W H Type = new_gfx (new_gfx_ W H Type)
 gfx.w = gfx_w Me.handle
 gfx.h = gfx_h Me.handle
 gfx.type = gfx_type Me.handle
-gfx.key = gfx_key Me.handle
 gfx.hotspot = [(gfx_hotspot_x Me.handle) (gfx_hotspot_y Me.handle)]
 gfx.get X Y = gfx_get Me.handle X Y
 gfx.set X Y Color = gfx_set Me.handle X Y Color
@@ -18,7 +17,10 @@ gfx.line Color A B = gfx_line Me.handle Color A.0 A.1 B.0 B.1
 gfx.rect Color Fill A B = gfx_rect Me.handle Color Fill A.0 A.1 B.0 B.1
 gfx.circle Color Fill C R = gfx_circle Me.handle Color Fill C.0 C.1 R
 gfx.resize W H = gfx_resize Me.handle W H
-
+gfx.blit P Gfx Rect FlipX FlipY =
+| Map = 0
+| [SX SY SW SH] = if Rect then Rect else [0 0 Gfx.w Gfx.h]
+| gfx_blit Me.handle P.0 P.1 Gfx.handle SX SY SW SH FlipX FlipY Map
 
 load_png Filename =
 | Handle = gfx_load_png Filename

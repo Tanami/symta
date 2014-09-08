@@ -6,13 +6,12 @@
 #define GFX_RGB     0
 #define GFX_RGBA    1
 #define GFX_MAP     2
-#define GFX_NO_KEY  0xFFFFFFFF
+#define GFX_CMAP_SIZE 256
 
 typedef struct {
   uint32_t w; // width
   uint32_t h; // height
   uint32_t type;
-  uint32_t key; // color key
   uint32_t hotspot_x; // hot spot x
   uint32_t hotspot_y; // hot spot y
   uint32_t *data; // pixels

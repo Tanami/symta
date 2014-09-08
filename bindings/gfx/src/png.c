@@ -10,7 +10,7 @@
 
 gfx_t *gfx_load_png(char *filename) {
   gfx_t *gfx = 0;
-  int x, y;
+  int i, x, y;
   png_structp png_ptr = NULL;
   png_infop info_ptr = NULL;
   png_infop end_info = NULL;
@@ -99,10 +99,7 @@ jmpbuf_fail:
 
   png_read_image(png_ptr, row_pointers);
 
-  png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
-  fclose(infile);
-
-  if (bit_depth != 8) {
+  if (bit_depth != 8 && color_type != PNG_COLOR_TYPE_PALETTE) {
     fprintf(stderr, "load_png: unsupported bit_depth=%d\n", bit_depth);
     goto fail;
   }
@@ -116,10 +113,52 @@ jmpbuf_fail:
         row += 3;
       }
     }
+  } else if (color_type == PNG_COLOR_TYPE_RGB_ALPHA) {
+    fprintf(stderr, "load_png: implement PNG_COLOR_TYPE_RGB_ALPHA\n");
+    abort();
+  } else if (color_type == PNG_COLOR_TYPE_PALETTE) {
+    png_colorp palette;
+    int num_palette; // palette size
+    png_bytep trans;
+    int num_trans;
+    png_color_16p trans_values;
+
+    gfx = new_gfx(width, height, GFX_MAP);
+
+    if (png_get_PLTE(png_ptr, info_ptr, &palette, &num_palette) == 0) {
+      fprintf(stderr, "load_png: couldn't retrieve palette\n");
+      png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+      goto fail;
+    }
+
+    if (png_get_tRNS(png_ptr, info_ptr, &trans, &num_trans, &trans_values) == 0) {
+      num_trans = 0;
+    }
+
+    for (i = 0; i < num_palette; i++) {
+      int a = i < num_trans ? 0xFF - trans[i] : 0;
+      gfx->cmap[i] = R8G8B8A8(palette[i].red, palette[i].green, palette[i].blue, a);
+    }
+
+    if (bit_depth == 8) {
+      for (y = 0; y < height; y++) {
+        png_byte *row = row_pointers[y];
+        for (x = 0; x < width; x++) {
+          gfx_set(gfx, x, y, row[0]);
+          row++;
+        }
+      }
+    } else {
+      fprintf(stderr, "load_png: implement indexed bit_depth=%d\n", bit_depth);
+      abort();
+    }
   } else {
     fprintf(stderr, "load_png: unsupported color_type=%d\n", color_type);
     goto fail;
   }
+
+  png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+  fclose(infile);
 
   free(image_data);
   free(row_pointers);
@@ -134,6 +173,8 @@ void gfx_save_png(char *filename, gfx_t *gfx) {
   png_byte *Q, **Rows;
   FILE *F;
   png_color Pal[256];
+  png_color_16 CK;
+  png_byte Alpha[256];
   int Bits = gfx->type == GFX_MAP  ? 8 :
              gfx->type == GFX_RGBA ? 32 :
                           24;
@@ -160,17 +201,14 @@ void gfx_save_png(char *filename, gfx_t *gfx) {
   BPR = (gfx->w*Bits + 7)/8;
   Rows = png_malloc(Png, gfx->h * sizeof(png_byte *));
   if (gfx->type == GFX_MAP) {
+    CK.index = 0;
     times (I, 256) {
-      fromR8G8B8(Pal[I].red, Pal[I].green, Pal[I].blue, gfx->cmap[I]);
+      fromR8G8B8A8(Pal[I].red, Pal[I].green, Pal[I].blue, Alpha[I], gfx->cmap[I]);
+      if (Alpha[I] == 0xFF && !CK.index) CK.index = I;
+      Alpha[I] = 0xFF - Alpha[I];
     }
+    png_set_tRNS(Png, Info, Alpha, 256, &CK);
     png_set_PLTE(Png, Info, Pal, 256);
-    if (gfx->key != GFX_NO_KEY) { // that is little ticky
-      png_color_16 CK;
-      CK.index = gfx->key; //just in case png uses it
-      png_byte Alpha[256];
-      times (I, 256) Alpha[I] = I==gfx->key ? 0 : 0xFF;
-      png_set_tRNS(Png, Info, Alpha, 256, &CK);
-    }
     times (Y, gfx->h) {
       Rows[Y] = Q = png_malloc(Png, BPR);
       times (X, gfx->w) *Q++ = (uint8_t)gfx_get(gfx,X,Y);
@@ -188,6 +226,7 @@ void gfx_save_png(char *filename, gfx_t *gfx) {
       Rows[Y] = Q = png_malloc(Png, BPR);
       times (X, gfx->w) {
         fromR8G8B8A8(Q[0],Q[1],Q[2],Q[3], gfx_get(gfx,X,Y));
+        Q[3] = 0xFF - Q[3];
         Q += 4;
       }
     }
