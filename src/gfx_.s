@@ -1,10 +1,9 @@
 ffi_begin gfx_ '/Users/nikita/Documents/git/symta/bindings/gfx/lib/main'
-ffi new_gfx_: new_gfx.ptr W.uint32_t H.uint32_t Type.uint32_t
+ffi new_gfx_: new_gfx.ptr W.uint32_t H.uint32_t
 ffi gfx_load_png.ptr Filename.text
 ffi gfx_save_png.void Filename.text Gfx.ptr
 ffi gfx_w.uint32_t Gfx.ptr
 ffi gfx_h.uint32_t Gfx.ptr
-ffi gfx_type.uint32_t Gfx.ptr
 ffi gfx_hotspot_x.uint32_t Gfx.ptr
 ffi gfx_hotspot_y.uint32_t Gfx.ptr
 ffi gfx_get.uint32_t Gfx.ptr X.int Y.int

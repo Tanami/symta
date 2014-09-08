@@ -105,7 +105,7 @@ jmpbuf_fail:
   }
 
   if (color_type == PNG_COLOR_TYPE_RGB) { //RGB
-    gfx = new_gfx(width, height, GFX_RGB);
+    gfx = new_gfx(width, height);
     for (y = 0; y < height; y++) {
       png_byte *row = row_pointers[y];
       for (x = 0; x < width; x++) {
@@ -117,13 +117,14 @@ jmpbuf_fail:
     fprintf(stderr, "load_png: implement PNG_COLOR_TYPE_RGB_ALPHA\n");
     abort();
   } else if (color_type == PNG_COLOR_TYPE_PALETTE) {
+    uint32_t cmap[GFX_CMAP_SIZE];
     png_colorp palette;
     int num_palette; // palette size
     png_bytep trans;
     int num_trans;
     png_color_16p trans_values;
 
-    gfx = new_gfx(width, height, GFX_MAP);
+    gfx = new_gfx(width, height);
 
     if (png_get_PLTE(png_ptr, info_ptr, &palette, &num_palette) == 0) {
       fprintf(stderr, "load_png: couldn't retrieve palette\n");
@@ -137,8 +138,10 @@ jmpbuf_fail:
 
     for (i = 0; i < num_palette; i++) {
       int a = i < num_trans ? 0xFF - trans[i] : 0;
-      gfx->cmap[i] = R8G8B8A8(palette[i].red, palette[i].green, palette[i].blue, a);
+      cmap[i] = R8G8B8A8(palette[i].red, palette[i].green, palette[i].blue, a);
     }
+
+    gfx_set_cmap(gfx, cmap);
 
     if (bit_depth == 8) {
       for (y = 0; y < height; y++) {
@@ -175,15 +178,31 @@ void gfx_save_png(char *filename, gfx_t *gfx) {
   png_color Pal[256];
   png_color_16 CK;
   png_byte Alpha[256];
-  int Bits = gfx->type == GFX_MAP  ? 8 :
-             gfx->type == GFX_RGBA ? 32 :
-                          24;
+  int Bits;
+
+  if (gfx->cmap) {
+    Bits = 8;
+  } else {
+    Bits = 24;
+    times (Y, gfx->h) {
+      times (X, gfx->w) {
+        int r, g, b, a;
+        fromR8G8B8A8(r,g,b,a, gfx_get(gfx,X,Y));
+        if (a) {
+          Bits = 32;
+          goto bits32;
+        }
+      }
+    }
+    bits32:;
+  }
 
   F = fopen(filename, "wb");
   if (!F) {
     printf("cant create %s\n", filename);
     abort();
   }
+
   Png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
   Info = png_create_info_struct(Png);
   png_set_IHDR(Png,
@@ -191,8 +210,8 @@ void gfx_save_png(char *filename, gfx_t *gfx) {
                gfx->w,
                gfx->h,
                8, // depth of color channel
-               gfx->type == GFX_MAP ? PNG_COLOR_TYPE_PALETTE :
-               gfx->type == GFX_RGBA ? PNG_COLOR_TYPE_RGB_ALPHA :
+               Bits == 8 ? PNG_COLOR_TYPE_PALETTE :
+               Bits == 32 ? PNG_COLOR_TYPE_RGB_ALPHA :
                             PNG_COLOR_TYPE_RGB,
                PNG_INTERLACE_NONE,
                PNG_COMPRESSION_TYPE_DEFAULT,
@@ -200,7 +219,7 @@ void gfx_save_png(char *filename, gfx_t *gfx) {
 
   BPR = (gfx->w*Bits + 7)/8;
   Rows = png_malloc(Png, gfx->h * sizeof(png_byte *));
-  if (gfx->type == GFX_MAP) {
+  if (Bits == 8) {
     CK.index = 0;
     times (I, 256) {
       fromR8G8B8A8(Pal[I].red, Pal[I].green, Pal[I].blue, Alpha[I], gfx->cmap[I]);
@@ -213,7 +232,7 @@ void gfx_save_png(char *filename, gfx_t *gfx) {
       Rows[Y] = Q = png_malloc(Png, BPR);
       times (X, gfx->w) *Q++ = (uint8_t)gfx_get(gfx,X,Y);
     }
-  } else if (gfx->type == GFX_RGB) {
+  } else if (Bits == 24) {
     times (Y, gfx->h) {
       Rows[Y] = Q = png_malloc(Png, BPR);
       times (X, gfx->w) {
@@ -221,7 +240,7 @@ void gfx_save_png(char *filename, gfx_t *gfx) {
         Q += 3;
       }
     }
-  } else if (gfx->type == GFX_RGBA) {
+  } else if (Bits == 32) {
     times (Y, gfx->h) {
       Rows[Y] = Q = png_malloc(Png, BPR);
       times (X, gfx->w) {
@@ -231,7 +250,7 @@ void gfx_save_png(char *filename, gfx_t *gfx) {
       }
     }
   } else {
-    printf("  Cant save %d-typed PNGs\n", gfx->type);
+    printf("  png_save: cant save %d-bits PNGs\n", Bits);
     abort();
   }
 

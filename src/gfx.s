@@ -5,10 +5,9 @@ GFX_RGB  = 0
 GFX_RGBA = 1
 GFX_MAP  = 2
 
-gfx W H Type = new_gfx (new_gfx_ W H Type)
+gfx W H = new_gfx (new_gfx_ W H)
 gfx.w = gfx_w Me.handle
 gfx.h = gfx_h Me.handle
-gfx.type = gfx_type Me.handle
 gfx.hotspot = [(gfx_hotspot_x Me.handle) (gfx_hotspot_y Me.handle)]
 gfx.get X Y = gfx_get Me.handle X Y
 gfx.set X Y Color = gfx_set Me.handle X Y Color
