@@ -335,7 +335,7 @@ path_parts Filename =
 
 // hashtable
 data table buckets
-table Size = new_table: dup Size Void
+table_ Size = new_table: dup Size Void
 table.`.` K =
 | Bs = Me.buckets
 | H = K.hash%Bs.size
@@ -359,12 +359,12 @@ table.harden = Me.buckets.skip{X => X >< Void}.join
 table.as_text = "#table[Me.harden.as_text]"
 
 list.as_table =
-| T = table Me.size*2
+| T = table size/(Me.size*2)
 | for [K V] Me: T.K <= V
 | T
 
 list.uniq =
-| Seen = table Me.size*2
+| Seen = table size/(Me.size*2)
 | Me.skip{X => have Seen.X or (Seen.X <= 1) and 0}
 
 text.pad Count Item =
@@ -387,4 +387,4 @@ meta.is_list = Me.object_.is_list
 meta.is_text = Me.object_.is_text
 meta.as_text = Me.object_.as_text
 
-export non say bad no have gensym table new_macro new_meta path_parts
+export non say bad no have gensym table_ new_macro new_meta path_parts

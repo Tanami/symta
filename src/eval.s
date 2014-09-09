@@ -119,7 +119,7 @@ build @As =
       GSrcFolders ["[SrcFolder]src/" "[GRootFolder]src/"]
       GHeaderTimestamp (file_time "[GRootFolder]/runtime/runtime.h")
       GShowInfo 1
-      GCompiledModules (table 100)
+      GCompiledModules (table)
   | register_library_folder GDstFolder
   | RuntimeSrc = "[GRootFolder]runtime/runtime.c"
   | RuntimePath = "[DstFolder]run"
@@ -133,7 +133,7 @@ eval Expr Env =
       GSrcFolders ["[GRootFolder]src/"]
       GHeaderTimestamp (file_time "[GRootFolder]/runtime/runtime.h")
       GDstFolder "[BuildFolder]lib/"
-      GCompiledModules (table 100)
+      GCompiledModules (table)
   | Entry = gensym tmp
   | DstFile = "[BuildFolder]lib/[Entry]"
   | Vars = map [K V] Env K

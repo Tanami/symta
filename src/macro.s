@@ -160,7 +160,7 @@ expand_form O AGT =
   Else | ['[]' @(map X O: expand_form X AGT)]
 
 form O =
-| AGT = table 10
+| AGT = table
 | R = expand_form O AGT
 | when AGT.size > 0: R <= [let_ (map [K V] AGT [V [gensym [_quote K.tail]]]) R]
 | R
@@ -261,6 +261,22 @@ is_incut X = case X [`@` Xs] 1
              | leave Xs
 | As = map A As: if A^is_incut then A.1 else [_list A]
 | [_mcall [_list @As] join]
+
+table @As_ =
+| As = As_
+| Size = 256
+| case As [[`/` size S] @Xs]
+  | Size <= S
+  | As <= Xs
+| T = form ?T
+| As <= As.groupBy{2}
+| if As.size
+  then form: `|` (T = table_ Size)
+                 $@(map [K V] As
+                   | when K.is_text: K <= form \K
+                   | form: T.K <= V)
+                 T
+  else form: table_ Size
 
 pattern_arg X = not X.is_text or X.is_keyword
 
@@ -551,7 +567,7 @@ macroexpand Expr Macros ModuleCompiler =
   | R = mex Expr
   | R
 
-export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '@' '[]' '\\' 'form'
+export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '@' '[]' 'table' '\\' 'form'
        'not' 'and' 'or' 'when' 'unless' 'while' 'till' 'dup' 'times' 'map' 'for'
        'named' 'export_hidden' 'export' 'pop' 'push' 'callcc' 'fin' '|' ';' ','
        '+' '-' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!' '"'

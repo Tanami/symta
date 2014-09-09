@@ -1484,6 +1484,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("fin" . xs) (expand-fin (butlast xs) (car (last xs))))
         (("ffi" lib symbol result . args) (expand-ffi lib symbol result args))
         (("@" x) `("=" () ("_nomex" ,x)))
+        (("table" . as)
+         (match as
+           ((("/" "size" size)) `("table_" ,size))
+           (() `("table_" 256))
+           (else (error "bad ~a" xs))))
         (("," (x . xs) . ys) `(,x ,xs ,@ys))
         (("," . xs) (error "bad `,`"))
         (else (return-from builtin-expander

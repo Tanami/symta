@@ -422,9 +422,15 @@ char *show_get_events() {
         sprintf(tmp2, "%d", e.button.button);
         name = tmp2;
       }
-      sprintf(tmp, "(mice_%s %s)", name, state);
+      sprintf(tmp, "(mice %s %s)", name, state);
     } else if (e.type == SDL_MOUSEWHEEL) {
       sprintf(tmp, "(mice_wheel %d)", e.wheel.y);
+    } else if (e.type == SDL_WINDOWEVENT) {
+      if (e.window.event == SDL_WINDOWEVENT_RESIZED) {
+        sprintf(tmp, "(resize %d %d)", e.window.data1, e.window.data2);
+      } else {
+        continue;
+      }
     } else {
       continue;
     }
