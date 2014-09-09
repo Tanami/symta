@@ -330,13 +330,12 @@ add_pattern_matcher Args Body =
     [[`&` D] @Tail]
       | Args <= Tail
       | D
-    Else | [_list]
+    Else | form: _fatal 'couldnt match args list'
 | case Args
    [[`@` All]] | Args <= All
-   Else | Gs = map A Args: gensym 'A'
-        | // FIXME: value gets duplicated - potentially exponential code growth
-        | for G Gs: Body <= expand_match G [[Args^pop Body]] Default Void
-        | Args <= Gs
+   Else | G = gensym 'As'
+        | Body <= expand_match G [[['[]' @Args] Body]] Default Void
+        | Args <= G
 | [Args Body]
 
 expand_block_item_fn Name Args Body =

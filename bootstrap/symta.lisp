@@ -1058,14 +1058,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                ((("&" default) . tail)
                 (setf args tail)
                 default)
-               (else `("_list"))
+               (else `("_fatal" ("_quote" "couldnt match args list")))
   ! match args
     ((("@" all)) (setf args all))
     (else
-      (! gs = m a args (ssa-name "A")
-       ;; FIXME: value gets duplicated - potentially exponential code growth
-       ! e g gs (setf body (expand-match g `((,(pop args) ,body)) default))
-       ! setf args gs))
+      (! g = ssa-name "As"
+       ! setf body (expand-match g `((("[]" ,@args) ,body)) default)
+       ! setf args g))
   ! list args body)
 
 (to pattern-arg x ! or (not (stringp x)) (fn-sym? x))

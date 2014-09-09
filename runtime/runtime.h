@@ -106,7 +106,7 @@ typedef struct api_t {
   char* (*print_object_f)(struct api_t *api, void *object);
   void *(*gc)(struct api_t *api, void *root);
   void *(*alloc_text)(struct api_t *api, char *s);
-  void (*fatal)(struct api_t *api, char *msg);
+  void (*fatal)(struct api_t *api, void *msg);
   void **(*resolve_method)(struct api_t *api, char *name);
   int (*resolve_type)(struct api_t *api, char *name);
   void (*set_type_size_and_name)(struct api_t *api, intptr_t tag, intptr_t size, void *name);
@@ -312,7 +312,7 @@ typedef void *(*pfun)(REGS);
 #define BIGTEXT_SIZE(o) DATA_REF4(o,0)
 #define BIGTEXT_DATA(o) ((char*)&DATA_REF1(o,4))
 
-#define FATAL(msg) api->fatal(api, BIGTEXT_DATA(msg));
+#define FATAL(msg) api->fatal(api, msg);
 
 #define SET_UNWIND_HANDLER(r,h) api->marks[Level>>1] = h;
 #define REMOVE_UNWIND_HANDLER(r) api->marks[Level>>1] = 0;

@@ -62,8 +62,8 @@ static void print_stack_trace(api_t *api) {
   intptr_t s = Level-1;
   intptr_t parity = s&1;
   fprintf(stderr, "Stack Trace:\n");
-  while (s-- > 1) {
-    intptr_t l = s + 1;
+  while (s-- > 0) {
+    intptr_t l = s + 2;
     api_t *a = ((l&1)^parity) ? api : api->other;
     void *init = a->marks[l>>1];
     fprintf(stderr, "  %s\n", print_object(init));
@@ -1554,8 +1554,8 @@ static void *gc_entry(api_t *api, void *o) {
   return gc(api, o);
 }
 
-static void fatal_error(api_t *api, char *msg) {
-  fprintf(stderr, "%s\n", msg);
+static void fatal_error(api_t *api, void *msg) {
+  fprintf(stderr, "fatal_error: %s\n", print_object(msg));
   print_stack_trace(api);
   abort();
 }
