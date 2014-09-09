@@ -73,6 +73,13 @@ expand_match Keyform Cases Default Key =
 
 case @Xs = expand_match Xs.0 Xs.tail.groupBy{2} 0 Void
 
+min A B = form | ?A = A
+               | ?B = B
+               | if ?A < ?B then ?A else ?B
+max A B = form | ?A = A
+               | ?B = B
+               | if ?A > ?B then ?A else ?B
+
 `if` A B C = [_if A B C]
 not @Xs = [_if Xs 0 1]
 `and` A B = [_if A B 0]
@@ -264,19 +271,22 @@ is_incut X = case X [`@` Xs] 1
 
 table @As_ =
 | As = As_
-| Size = 256
+| Size = 0
 | case As [[`/` size S] @Xs]
   | Size <= S
   | As <= Xs
 | T = form ?T
 | As <= As.groupBy{2}
 | if As.size
-  then form: `|` (T = table_ Size)
-                 $@(map [K V] As
-                   | when K.is_text: K <= form \K
-                   | form: T.K <= V)
+  then | unless Size: Size <= 2*As.size
+       | form: `|` (T = table_ Size)
+                   $@(map [K V] As
+                     | when K.is_text: K <= form \K
+                     | when V.is_text: V <= form \V
+                     | form: T.K <= V)
                  T
-  else form: table_ Size
+  else | unless Size: Size <= 256
+       | form: table_ Size
 
 pattern_arg X = not X.is_text or X.is_keyword
 
@@ -570,5 +580,5 @@ macroexpand Expr Macros ModuleCompiler =
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '@' '[]' 'table' '\\' 'form'
        'not' 'and' 'or' 'when' 'unless' 'while' 'till' 'dup' 'times' 'map' 'for'
        'named' 'export_hidden' 'export' 'pop' 'push' 'callcc' 'fin' '|' ';' ','
-       '+' '-' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!' '"'
-       'ffi_begin' 'ffi'
+       '+' '-' '*' '/' '%' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
+       'ffi_begin' 'ffi' 'min' 'max' '"'
