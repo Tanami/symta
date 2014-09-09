@@ -27,6 +27,19 @@ text.is_text = 1
 
 _.`{}` F = Me.map{F}
 
+list.`+` Ys =
+| I = 0
+| map X Me
+  | Z = X + Ys.I
+  | I !+ 1
+  | Z
+
+list.`*` A = map X Me: X*A
+list.`/` A = map X Me: X/A
+list.`%` A = map X Me: X%A
+list.float = map X Me: X.float
+list.int = map X Me: X.int
+
 text.`<` B =
 | unless B.is_text: bad "cant compare string `[Me]` with [B]"
 | AS = Me.size

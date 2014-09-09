@@ -279,8 +279,9 @@ binary_loop Ops Down E =
 parse_binary Down Ops = binary_loop Ops Down: &Down or leave 0
 suffix_loop E = suffix_loop [(parse_op [`!`] or leave E) E]
 parse_suffix = suffix_loop: parse_binary &parse_term [`.` `^` `->` `~` `{}`] or leave 0
+parse_pow = parse_binary &parse_suffix [`**`]
 parse_prefix =
-| O = parse_op [negate `\\` `$` `@` `&`] or leave (parse_suffix)
+| O = parse_op [negate `\\` `$` `@` `&`] or leave (parse_pow)
 | when O^token_is{negate}: leave O^parse_negate
 | [O (parse_prefix or parser_error "no operand for" O)]
 parse_mul = parse_binary &parse_prefix [`*` `/` `%`]
