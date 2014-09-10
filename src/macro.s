@@ -13,7 +13,7 @@ is_var_sym X = X.is_text and not X.is_keyword
 
 load_symbol Library Name =
 | Module = GModuleCompiler Library
-| when no Module: bad "couldn't compile [Library]"
+| when no Module: mex_error "couldn't compile [Library]"
 | Found = Module^load_library.find{X => X.0 >< Name}
 | unless have Found: mex_error "couldn't load `[Name]` from `[Library]`"
 | Found.1
@@ -21,7 +21,7 @@ load_symbol Library Name =
 expand_list_hole Key Hole Hit Miss = case Hole
   [] | [_if [_mcall Key end] Hit Miss]
   [[`@` Zs]] | expand_hole Key Zs Hit Miss
-  [[`@` Zs] @More] | "case: @ in the middle isn't supported"
+  [[`@` Zs] @More] | mex_error "FIXME: implement @ in the middle"
   [X@Xs] | H = gensym 'X'
          | Hit <= expand_list_hole Key Xs Hit Miss
          | [`if` [_mcall Key end]
@@ -32,7 +32,6 @@ expand_list_hole Key Hole Hit Miss = case Hole
 
 expand_hole Key Hole Hit Miss =
 | unless case Hole [X@Xs]
-  | when Hole.is_keyword: Hole <= [_quote Hole]
   | leave: if Hole >< '_' then Hit
            else if Hole.is_text then [let_ [[Hole Key]] Hit]
            else [_if ['><' Hole Key] Hit Miss]
@@ -44,10 +43,18 @@ expand_hole Key Hole Hit Miss =
              | [let_ [[G [A Key]]] (expand_hole G B Hit Miss)]
   [`=>` A B] | [let_ [[A.0 Key]]
                  [_if ['|' @B] Hit Miss]]
-  [`&` X] | [_if [`><` X Key] Hit Miss]
-  [`[]` @Xs] | [_if [_mcall Key is_list] 
+  [`&` X] | form: _if X >< Key Hit Miss
+  [`[]` @Xs] | P = Xs.locate{&0[`/`@_]=>1}
+             | when have P: Xs <= [@Xs.take{P} [`@` [`/` @Xs.drop{P}]]]
+             | [_if [_mcall Key is_list]
                     (expand_list_hole Key Xs Hit Miss)
                     Miss]
+  [`/` @Xs] | [I As] = form: ?I ?As
+            | Body = map K Xs{?.1}: form: when K >< As.I: $K.title <= As.(I+1)
+            | form: `|` $@Xs{[`=` [?.1.title] ?.2]}
+                        (As = Key)
+                        (times I As.size: unless I%2: `|` $Body)
+                        Hit
   Else | mex_error "bad match case: [Hole]"
 
 expand_match Keyform Cases Default Key =

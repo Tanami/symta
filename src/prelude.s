@@ -79,6 +79,10 @@ text.downcase =
   | if C < 'A'.code or 'Z'.code < C then Char else (C - 'A'.code + 'a'.code).char
 | Ys.text
 
+text.title =
+| unless Me.size: leave Me
+| if Me.0.is_upcase then Me else "[Me.0.upcase][Me.tail]"
+
 _.is_keyword = 0
 text.is_keyword = not: Me.size and Me.0.is_upcase
 
@@ -189,7 +193,8 @@ list.text @As =
 | R = Me.harden
 | if As.size then R.text{As.0} else R.text
 
-list.split F =
+list.split S =
+| F = if S.is_fn then S else X => S >< X
 | Ys = []
 | P = Me.locate{F}
 | while have P

@@ -957,51 +957,39 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (defun expand-hole (key hole hit miss)
   (unless (consp hole)
-    (when (fn-sym? hole) (setf hole `("_quote" ,hole)))
     (return-from expand-hole
-      (if (equal hole "_")
-          hit
-          (if (var-sym? hole)
-              `("let_" ((,hole ,key))
-                        ,hit)
-              `("if" ("><" ,hole ,key)
-                     ,hit
-                     ,miss)))))
-  (when (equal (car hole) ">")
-    (return-from expand-hole
-       (expand-hole key (second hole) (expand-hole key (third hole) hit miss) miss)))
-  (when (equal (car hole) "in")
-    (return-from expand-hole
-      `("if" ,(expand-match key (m x (cdr hole) `(,x 1)) 0)
-             ,hit
-             ,miss)))
-  (when (equal (car hole) "not")
-    (return-from expand-hole
-      `("if" ,(expand-match key (m x (cdr hole) `(,x 1)) 0)
-             ,miss
-             ,hit)))
-  (when (equal (car hole) "bind")
-    (return-from expand-hole
-      (let ((g (ssa-name "G")))
-        `("let_" ((,g (,(second hole) ,key)))
-           ,(expand-hole g (third hole) hit miss)))))
-  (when (equal (car hole) "=>")
-    (return-from expand-hole
-      `("let_" ((,(first (second hole)) ,key))
-         ("if" ("|" ,@(third hole))
-             ,hit
-             ,miss))))
-  (when (equal (car hole) "&")
-    (return-from expand-hole
-      `("if" ("><" ,(second hole) ,key)
-             ,hit
-             ,miss)))
-  (when (equal (car hole) "[]")
-    (return-from expand-hole
-      `("if" ("_mcall" ,key ("_quote" "is_list"))
-             ,(expand-list-hole key (cdr hole) hit miss)
-             ,miss)))
-  (error "bad hole: ~a" hole))
+      (cond ((equal hole "_") hit)
+            ((var-sym? hole) `("let_" ((,hole ,key)) ,hit))
+            (t `("if" ("><" ,hole ,key) ,hit ,miss)))))
+  (match hole
+    ((">" a b) (expand-hole key a (expand-hole key b hit miss) miss))
+    (("in" . xs) `("if" ,(expand-match key (m x xs `(,x 1)) 0) ,hit ,miss))
+    (("not" . xs) `("if" ,(expand-match key (m x xs `(,x 1)) 0) ,miss ,hit))
+    (("bind" a b) (let ((g (ssa-name "G")))
+                    `("let_" ((,g (,a ,key)))
+                       ,(expand-hole g b hit miss))))
+    (("=>" a b) `("let_" ((,(first a) ,key))
+                   ("if" ("|" ,@b) ,hit ,miss)))
+    (("&" x) `("if" ("><" ,x ,key) ,hit ,miss))
+    (("[]" . xs)
+     (let ((p (position-if (fn x ! headed "/" x) xs)))
+       (when p (setf xs `(,@(subseq xs 0 p) ("@" ("/" ,@(subseq xs p)))))))
+     `("if" ("_mcall" ,key ("_quote" "is_list"))
+            ,(expand-list-hole key xs hit miss)
+            ,miss))
+    (("/" . xs)
+     (! i = ssa-name "I"
+      ! as = ssa-name "As"
+      ! `("|" ,@(m x xs `("=" (,(string-capitalize (second x))) ,(third x)))
+              ("=" (,as) ,key)
+              ("times" ,i ("_mcall" ,as "size")
+                ("unless" ("%" ,i 2)
+                  ("|" ,@(m k (m x xs (second x))
+                           `("when" ("><" ,k ("_mcall" ,as "." ,i))
+                              ("<=" (,(string-capitalize k))
+                                    ("_mcall" ,as "." ("+" ,i 1))))))))
+              ,hit)))
+    (else (error "bad hole: ~a" hole))))
 
 (defun expand-match (keyform cases default &key (keyvar nil))
   (let* ((key (or keyvar (ssa-name "Key")))
