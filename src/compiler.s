@@ -265,6 +265,8 @@ uniquify_form Expr =
   | case Expr
     [_fn As @Body]
       | Bs = if As.is_text then [As] else As
+      | BadArg = Bs.find{?.is_text^not}
+      | when have BadArg: compiler_error "invalid argument [BadArg]"
       | when Bs.size <> Bs.uniq.size: compiler_error "duplicate args in [Bs]"
       | Rs = Bs.map{B => [B B^gensym]}
       | let GUniquifyStack [Rs @GUniquifyStack]

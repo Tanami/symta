@@ -1069,6 +1069,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to pattern-arg x ! or (not (stringp x)) (fn-sym? x))
 
+(to expand-lambda as body
+  ! body = `("|" ,body)
+  ! (as body) = if (find-if #'pattern-arg as) (add-pattern-matcher as body) (list as body)
+  ! `("_fn" ,as ,body))
+
 (to expand-block-item-fn name args body
   ! kname = concatenate 'string "_k_" name
   ! (args body) = if (find-if #'pattern-arg args) (add-pattern-matcher args body) (list args body)
@@ -1116,16 +1121,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       ,@(m f fields `("=" (("." ,name ,"set_{f}") ,v) ("_dset" "Me" ,(incf k) ,v)))))
 
 (to expand-block-item-method type name args body
-  ! match args
-     ((("@" as))
-      (let ((g (ssa-name "As")))
-        (setf body `("let_" (("Me" ("_mcall" ,g "head"))
-                             (,as ("_mcall" ,g "tail")))
-                      ,body))
-        (setf args g)))
-     (else (setf args `("Me" ,@args)))
   ! setf body `("default_leave_" ,name ,(expand-named name body))
-  ! list nil `("_dmet" ,name ,type ("_fn" ,args ("_progn" ("_mark" ,"{type}.{name}") ,body))))
+  ! list nil `("_dmet" ,name ,type ("=>" ("Me" ,@args)
+                                      ("_progn" ("_mark" ,"{type}.{name}") ,body))))
 
 (to expand-block-item x
   ! y = match x
@@ -1283,11 +1281,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to expand-or a b
   ! v = ssa-name "V"
   ! `("let_" ((,v ,a)) ("if" ,v ,v ,b)))
-
-(to expand-lambda as body
-  ! body = `("|" ,body)
-  ! (as body) = if (find-if #'pattern-arg as) (add-pattern-matcher as body) (list as body)
-  ! `("_fn" ,as ,body))
 
 (to expand-quasiquote o
   ! unless (listp o) (return-from expand-quasiquote `("_quote" ,o))

@@ -289,13 +289,6 @@ table @As_ =
   else | unless Size: Size <= 256
        | form: table_ Size
 
-pattern_arg X = not X.is_text or X.is_keyword
-
-`=>` As Body =
-| Body <= [`|` Body]
-| [A B] = if no As.find{&pattern_arg} then [As Body] else add_pattern_matcher As Body
-| [_fn As Body]
-
 //FIXME: move it to compiler.s
 mangle_name Name =
 | Cs = Name.chars
@@ -337,6 +330,13 @@ add_pattern_matcher Args Body =
         | Body <= expand_match G [[['[]' @Args] Body]] Default Void
         | Args <= G
 | [Args Body]
+
+pattern_arg X = not X.is_text or X.is_keyword
+
+`=>` As Body =
+| Body <= [`|` Body]
+| [A B] = if no As.find{&pattern_arg} then [As Body] else add_pattern_matcher As Body
+| [_fn A B]
 
 expand_block_item_fn Name Args Body =
 | KName = "_k_[Name]"
@@ -384,16 +384,8 @@ expand_block_item_data Name Fields =
    @(map [I F] Fields.enum [`=` [[`.` Name "set_[F]"] V]  [_dset 'Me' I V]])]
 
 expand_block_item_method Type Name Args Body =
-| case Args
-  [[`@` As]]
-    | G = form ?As
-    | Body <= form: let_ (($\Me (_mcall G head))
-                          (As (_mcall G tail)))
-                      Body
-    | Args <= G
-  Else | Args <= [\Me @Args]
 | Body <= form: default_leave_ Name $(expand_named Name Body)
-| [Void [_dmet Name Type [_fn Args [_progn [_mark "[Type].[Name]"] Body]]]]
+| [Void [_dmet Name Type [`=>` [\Me @Args] [_progn [_mark "[Type].[Name]"] Body]]]]
 
 expand_block_item Expr =
 | Y = case Expr
