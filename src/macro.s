@@ -50,10 +50,15 @@ expand_hole Key Hole Hit Miss =
                     (expand_list_hole Key Xs Hit Miss)
                     Miss]
   [`/` @Xs] | [I As] = form: ?I ?As
-            | Body = map K Xs{?.1}: form: when K >< As.I: $K.title <= As.(I+1)
+            | L = gensym 'label'
+            | Body = map K Xs{?.1}: form: when K >< As.I
+                     | $K.title <= As.(I+1)
+                     | _goto L
             | form: `|` $@Xs{[`=` [?.1.title] ?.2]}
                         (As = Key)
-                        (times I As.size: unless I%2: `|` $Body)
+                        (times I As.size: unless I%2:
+                          `|` $@Body
+                              (_label L))
                         Hit
   Else | mex_error "bad match case: [Hole]"
 
