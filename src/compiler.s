@@ -427,7 +427,7 @@ ssa_form K Xs = case Xs
   [_remove_unwind_handler] | ssa set_unwind_handler K
   [_ffi_call Type F @As] | ssa_ffi_call K Type F As
   [_ffi_get Type Ptr Off] | ssa ffi_get K Type.1 Ptr^ev Off^ev
-  [_ffi_set Type Ptr Off Val] | ssa ffi_get Type.1 Ptr^ev Off^ev Val^ev
+  [_ffi_set Type Ptr Off Val] | ssa ffi_set Type.1 Ptr^ev Off^ev Val^ev
                               | ssa move K 0
   [F @As] | ssa_apply K F As
   [] | ssa_atom K Void

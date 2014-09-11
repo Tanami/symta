@@ -1,5 +1,13 @@
 #include "gfx.h"
 
+void *gfx_alloc(int size) {
+  return malloc(size);
+}
+
+void gfx_free(void *ptr) {
+  free(ptr);
+}
+
 gfx_t *new_gfx(uint32_t w, uint32_t h) {
   gfx_t *gfx = (gfx_t*)malloc(sizeof(gfx_t));
   if (!gfx) return 0;
@@ -31,6 +39,13 @@ uint32_t gfx_h(gfx_t *gfx) {
   return gfx->h;
 }
 
+void *gfx_enable_cmap(gfx_t *gfx) {
+  unless (gfx->cmap) {
+    gfx->cmap = malloc(sizeof(uint32_t)*GFX_CMAP_SIZE);
+  }
+  return gfx->cmap;
+}
+
 uint32_t *gfx_cmap(gfx_t *gfx) {
   return gfx->cmap;
 }
@@ -42,12 +57,17 @@ void gfx_set_cmap(gfx_t *gfx, uint32_t *cmap) {
   memcpy(gfx->cmap, cmap, sizeof(uint32_t)*GFX_CMAP_SIZE);
 }
 
-uint32_t gfx_hotspot_x(gfx_t *gfx) {
+int gfx_hotspot_x(gfx_t *gfx) {
   return gfx->hotspot_x;
 }
 
-uint32_t gfx_hotspot_y(gfx_t *gfx) {
+int gfx_hotspot_y(gfx_t *gfx) {
   return gfx->hotspot_y;
+}
+
+void gfx_set_hotspot(gfx_t *gfx, int x, int y) {
+  gfx->hotspot_x = x;
+  gfx->hotspot_y = y;
 }
 
 uint32_t gfx_get(gfx_t *gfx, int x, int y) {
