@@ -543,6 +543,7 @@ mex_normal X Xs =
   | when Sym.is_macro: Macro <= Sym
 | when no Macro
   | when have Xs.locate{&0[`@` X]=>1}
+    | when X >< _mcall: leave: mex: form: _mcall [$Xs.0 $@Xs.drop{2}] apply_method (_method $Xs.1)
     | when X.is_keyword: X <= form &X
     | leave: mex: form [$@Xs].apply{X}
   | Y = X^mex

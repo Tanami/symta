@@ -819,6 +819,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_gte" a b) (ssa-fixed2 k 'fixnum_gte a b))
     (("_tag" x) (ssa-fixed1 k 'fixnum_tag x))
     (("_fatal" msg) (ssa 'fatal (ev msg)))
+    (("_method" name) (ssa 'move k (resolve-method (second name))))
     (("_this_method") (ssa 'this_method k))
     (("_type_id" o) (ssa 'type_id k (ev o)))
     (("_setjmp") (ssa 'setjmp k))
@@ -1475,6 +1476,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("," . xs) (error "bad `,`"))
         ((z . zs)
          (when (find-if (fn x ! headed "@" x) zs)
+           (when (equal z "_mcall")
+             (return-from builtin-expander
+               (builtin-expander
+                `("_mcall" ("[]" ,(car zs) ,@(cddr zs)) "apply_method" ("_method" ,(second zs))))))
            (when (fn-sym? z) (setf z `("&" ,z)))
            (return-from builtin-expander
              (builtin-expander `("_mcall" ("[]" ,@zs) "apply" ,z))))

@@ -188,6 +188,7 @@ list.harden =
 text.harden = Me.chars
 
 list.apply F = Me.harden.apply{F}
+list.apply_method F = Me.harden.apply_method{F}
 
 list.text @As =
 | R = Me.harden
