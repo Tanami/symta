@@ -16,10 +16,18 @@ gfx.line Color A B = gfx_line Me.handle Color A.0 A.1 B.0 B.1
 gfx.rect Color Fill A B = gfx_rect Me.handle Color Fill A.0 A.1 B.0 B.1
 gfx.circle Color Fill C R = gfx_circle Me.handle Color Fill C.0 C.1 R
 gfx.resize W H = gfx_resize Me.handle W H
-gfx.blit P Gfx Rect FlipX FlipY =
-| Map = 0
+gfx.cmap = gfx_cmap Me.handle
+gfx.set_cmap CMap = gfx_set_cmap Me.handle CMap
+gfx.blit P Gfx rect/0 flipX/0 flipY/0 map/0 =
 | [SX SY SW SH] = if Rect then Rect else [0 0 Gfx.w Gfx.h]
 | gfx_blit Me.handle P.0 P.1 Gfx.handle SX SY SW SH FlipX FlipY Map
+gfx.cut X Y W H =
+| CMap = Me.cmap
+| G = gfx W H
+| G.clear{0}
+| when CMap: G.cmap <= CMap
+| G.blit{[0 0] Me rect [X Y W H]}
+| G
 
 load_png Filename =
 | Handle = gfx_load_png Filename

@@ -12,6 +12,8 @@ ffi gfx_clear.void Gfx.ptr Color.uint32_t
 ffi gfx_line.void Gfx.ptr Color.uint32_t SX.int SY.int DX.int DY.int
 ffi gfx_rect.void Gfx.ptr Color.uint32_t Fill.int X.int Y.int W.int H.int
 ffi gfx_circle.void Gfx.ptr Color.uint32_t Fill.int X.int Y.int R.int
+ffi gfx_cmap.ptr Gfx.ptr
+ffi gfx_set_cmap.void Gfx.ptr CMap.ptr
 ffi gfx_resize.void Gfx.ptr W.int H.int
 ffi gfx_blit.void Gfx.ptr X.int Y.int Src.ptr SX.int SY.int W.int H.int
                   FlipX.int FlipY.int Map.ptr

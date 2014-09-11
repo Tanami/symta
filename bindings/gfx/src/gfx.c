@@ -31,7 +31,7 @@ uint32_t gfx_h(gfx_t *gfx) {
   return gfx->h;
 }
 
-uint32_t *gfx_get_cmap(gfx_t *gfx) {
+uint32_t *gfx_cmap(gfx_t *gfx) {
   return gfx->cmap;
 }
 
@@ -277,22 +277,39 @@ void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int 
   int cy = 0;
   int cw = dst->w;
   int ch = dst->h;
-  int ow = w;
-  int oh = h;
-  int xi = 1; // x increment
-  int yi = 1; // y increment
+  int ow;
+  int oh;
+  int xi; // x increment
+  int yi; // y increment
   int ex = 0;
   int ey = 0;
   uint32_t *d = dst->data;
   int dw = dst->w;
   uint32_t *s = src->data;
   int sw = src->w;
+  int sh = src->h;
   uint32_t *m = map ? map : src->cmap;
   int pd = 0; // destination pointer
   int ps = 0; // sorce pointer
 
+  if (sx < 0) {
+    w += sx;
+    sx = 0;
+  }
+
+  if (sy < 0) {
+    h += sy;
+    sy = 0;
+  }
+
+  if (sx + w >= sw) w = sw - sx;
+  if (sy + h >= sh) h = sh - sy;
+
   if (x >= cw || y >= ch) return;
   if (x+w <= cx || y+h <= cy) return;
+
+  ow = w;
+  oh = h;
 
   if (x < cx) {
     int i = cx - x;
@@ -318,12 +335,18 @@ void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int 
   if (flip_x) {
     sx = sx + ow - 1;
     xi = -1;
+  } else {
+    xi = 1;
   }
 
   if (flip_y) {
     sy = sy + oh - 1;
     yi = -1;
+  } else {
+    yi = 1;
   }
+
+  //fprintf(stderr, "%dx%d: %d,%d:%dx%d %d\n", sw,sh, sx, sy, w,h, ey-y);
 
   if (dst->cmap) {
     if (!src->cmap) {
@@ -335,8 +358,13 @@ void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int 
   } else {
     if (src->cmap) {
       begin_blit()
-      int c = m[SC];
       int sr, sg, sb, sa;
+      uint32_t c;
+      if (SC >= GFX_CMAP_SIZE) {
+        fprintf(stderr, "color map index is too big = 0x%X\n", c);
+        abort();
+      }
+      c = m[SC];
       fromR8G8B8A8(sr,sg,sb,sa,c);
       if (sa) {
         c = DC;
@@ -345,7 +373,7 @@ void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int 
     } else {
         begin_blit()
         int sm; // source multiplier
-        int c; // result color
+        uint32_t c; // result color
         int sr, sg, sb, sa;
         fromR8G8B8A8(sr,sg,sb,sa,SC);
         if (sa) {
