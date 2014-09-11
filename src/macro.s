@@ -542,6 +542,9 @@ mex_normal X Xs =
   | Sym = load_symbol Library Name
   | when Sym.is_macro: Macro <= Sym
 | when no Macro
+  | when have Xs.locate{&0[`@` X]=>1}
+    | when X.is_keyword: X <= form &X
+    | leave: mex: form [$@Xs].apply{X}
   | Y = X^mex
   | if (X.is_list and not Y.is_list) or (X.is_text and X <> Y)
     then leave: mex [Y@Xs]

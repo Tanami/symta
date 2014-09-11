@@ -1473,12 +1473,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
            (else (error "bad ~a" xs))))
         (("," (x . xs) . ys) `(,x ,xs ,@ys))
         (("," . xs) (error "bad `,`"))
-        (else (return-from builtin-expander
-                (cons (builtin-expander (car xs))
-                      (m x (cdr xs)
-                         (if (fn-sym? x)
-                             `("_quote" ,x)
-                             (builtin-expander x))))))))
+        ((z . zs)
+         (when (find-if (fn x ! headed "@" x) zs)
+           (when (fn-sym? z) (setf z `("&" ,z)))
+           (return-from builtin-expander
+             (builtin-expander `("_mcall" ("[]" ,@zs) "apply" ,z))))
+         (return-from builtin-expander
+           (cons (builtin-expander z)
+                 (m x zs
+                    (if (fn-sym? x)
+                        `("_quote" ,x)
+                        (builtin-expander x))))))))
     (builtin-expander ys)))
 
 
