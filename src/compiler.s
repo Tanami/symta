@@ -58,7 +58,7 @@ ssa_quote_list_rec Xs =
 
 ssa_quote_list K Xs = ssa_expr K: ssa_quote_list_rec Xs
 
-cstring_bytes S = [@S.chars.map{C => C.code} 0]
+cstring_bytes S = [@S.list.map{C => C.code} 0]
 
 ssa_cstring Src =
 | Name = gensym b

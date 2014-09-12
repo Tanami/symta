@@ -148,7 +148,7 @@ expand_map_for Type Item Items Body =
 | Xs = gensym 'Xs'
 | I = gensym 'I'
 | N = gensym 'N'
-| ['|' ['=' [Xs] [_mcall Items harden]]
+| ['|' ['=' [Xs] [_mcall Items list]]
        [Type I [_mcall Xs size]
           ['|' ['=' [Item] [_mcall Xs '.' I]]
                Body]]]
@@ -303,8 +303,7 @@ table @As_ =
 
 //FIXME: move it to compiler.s
 mangle_name Name =
-| Cs = Name.chars
-| Rs = map C Cs
+| Rs = map C Name
   | N = C.code
   | if   ('a'.code << N and N << 'z'.code)
       or ('A'.code << N and N << 'Z'.code)

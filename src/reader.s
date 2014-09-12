@@ -19,7 +19,7 @@ text_stream.next =
 text_stream.src = [Me.row Me.col Me.origin]
 text_stream.error Msg = bad "at [Me.src]: [Msg]"
 
-makeTextStream Text Origin = new_text_stream Text.chars Origin 0 0 0 Void Text.size
+makeTextStream Text Origin = new_text_stream Text.list Origin 0 0 0 Void Text.size
 
 data token symbol value src parsed
 token_is What O = O.is_token and O.symbol >< What
@@ -35,7 +35,7 @@ add_lexeme Dst Pattern Type =
                   | Next <= \(@$Cs $@Next)
           [`@` X] | Cs <= X
                   | Kleene <= 1
-| when Cs.is_text: Cs <= Cs.chars
+| when Cs.is_text: Cs <= Cs.list
 | Cs = if Cs.is_list then Cs else [Cs]
 | for C Cs
   | T = Dst.C
@@ -74,7 +74,7 @@ init_tokenizer =
 | for [A B] Ss: GSpecs.A <= B
 | for L Ls
   | [Pattern Type] = if L.is_list then L else [L L]
-  | when Pattern.is_text: Pattern <= Pattern.chars
+  | when Pattern.is_text: Pattern <= Pattern.list
   | add_lexeme GTable Pattern Type
 
 read_token R LeftSpaced =

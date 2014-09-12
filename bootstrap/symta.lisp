@@ -1230,7 +1230,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! xs = ssa-name "Xs"
   ! i = ssa-name "I"
   ! n = ssa-name "N"
-  ! `("|" ("=" (,xs) ("_mcall" ,items "harden"))
+  ! `("|" ("=" (,xs) ("_mcall" ,items "list"))
           ("dup" ,i ("_mcall" ,xs "size")
             ("|" ("=" (,item) ("_mcall" ,xs "." ,i))
                  ,body))))
@@ -1239,7 +1239,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! xs = ssa-name "Xs"
   ! i = ssa-name "I"
   ! n = ssa-name "N"
-  ! `("|" ("=" (,xs) ("_mcall" ,items "harden"))
+  ! `("|" ("=" (,xs) ("_mcall" ,items "list"))
           ("times" ,i ("_mcall" ,xs "size")
             ("|" ("=" (,item) ("_mcall" ,xs "." ,i))
                  ,body))))

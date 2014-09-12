@@ -68,13 +68,13 @@ text.is_downcase =
 | 1
 
 text.upcase =
-| Ys = map Char Me.chars
+| Ys = map Char Me.list
   | C = Char.code
   | if C < 'a'.code or 'z'.code < C then Char else (C - 'a'.code + 'A'.code).char
 | Ys.text
 
 text.downcase =
-| Ys = map Char Me.chars
+| Ys = map Char Me.list
   | C = Char.code
   | if C < 'A'.code or 'Z'.code < C then Char else (C - 'A'.code + 'a'.code).char
 | Ys.text
@@ -133,7 +133,7 @@ hard_list.reverse =
 
 list.map F = dup Me.size: F Me^pop
 hard_list.map F = dup I Me.size: F Me.I
-text.map F = Me.chars.map{F}
+text.map F = Me.list.map{F}
 
 list.each F = till Me.end: F Me^pop
 hard_list.each F = times I Me.size: F Me.I
@@ -177,21 +177,19 @@ list.join =
                       | I !+ 1
 | Rs
 
-_list_.harden = Me
+_list_.list = Me
 
-list.harden =
+list.list =
 | N = Me.size
 | Ys = dup N
 | times I N: Ys.I <= pop Me
 | Ys
 
-text.harden = Me.chars
-
-list.apply F = Me.harden.apply{F}
-list.apply_method F = Me.harden.apply_method{F}
+list.apply F = Me.list.apply{F}
+list.apply_method F = Me.list.apply_method{F}
 
 list.text @As =
-| R = Me.harden
+| R = Me.list
 | if As.size then R.text{As.0} else R.text
 
 list.split S =
@@ -204,7 +202,7 @@ list.split S =
   | P <= Me.locate{F}
 | [Me@Ys].reverse
 
-text.split F = Me.chars.split{F}.map{X=>X.text}
+text.split F = Me.list.split{F}.map{X=>X.text}
 
 list.take N = dup N: Me^pop
 hard_list.take N = dup I N: Me.I
@@ -219,8 +217,8 @@ hard_list.drop S =
   | S !+ 1
   | R
 
-text.drop S = Me.chars.drop{S}.text
-text.take S = Me.chars.take{S}.text
+text.drop S = Me.list.drop{S}.text
+text.take S = Me.list.take{S}.text
 text.last S = Me.(Me.size-1)
 text.head = Me.0
 text.tail = Me.drop{1}
@@ -254,7 +252,7 @@ hard_list.find F =
   | X = Me.I
   | when F X: leave X
 
-text.chars = dup I Me.size Me.I
+text.list = dup I Me.size Me.I
 
 list.groupBy N =
 | Y = []
@@ -342,7 +340,7 @@ bad Text =
 path_parts Filename =
 | Name = ""
 | Ext = ""
-| Xs = Filename.chars.reverse
+| Xs = Filename.list.reverse
 | Sep = Xs.locate{?><'/'}
 | Dot = Xs.locate{?><'.'}
 | when have Dot and (no Sep or Dot < Sep):
@@ -376,8 +374,8 @@ table.`!` K V =
 | Void
 
 table.size = Me.buckets.map{X => if have X then X.size else 0}.sum
-table.harden = Me.buckets.skip{X => X >< Void}.join
-table.as_text = "#table[Me.harden.as_text]"
+table.list = Me.buckets.skip{X => X >< Void}.join
+table.as_text = "#table[Me.list.as_text]"
 
 list.as_table =
 | T = table size/(Me.size*2)
