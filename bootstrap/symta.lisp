@@ -1475,7 +1475,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("," (x . xs) . ys) `(,x ,xs ,@ys))
         (("," . xs) (error "bad `,`"))
         ((z . zs)
-         (when (find-if (fn x ! headed "@" x) zs)
+         (when (find-if (fn x ! headed "@" x) xs)
+           (when (headed "@" z)
+             (return-from builtin-expander
+               (builtin-expander
+                `("_mcall" ,(car (last zs)) ,(second z) ,@(butlast zs)))))
            (when (equal z "_mcall")
              (return-from builtin-expander
                (builtin-expander

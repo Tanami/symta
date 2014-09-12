@@ -541,6 +541,7 @@ mex_normal X Xs =
   | Sym = load_symbol Library Name
   | when Sym.is_macro: Macro <= Sym
 | when no Macro
+  | case X [`@` Z]: leave: mex [_mcall Xs.last Z @Xs.lead]
   | when have Xs.locate{&0[`@` X]=>1}
     | when X >< _mcall: leave: mex: form: _mcall [$Xs.0 $@Xs.drop{2}] apply_method (_method $Xs.1)
     | when X.is_keyword: X <= form &X
