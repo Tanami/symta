@@ -406,4 +406,38 @@ meta.is_list = Me.object_.is_list
 meta.is_text = Me.object_.is_text
 meta.as_text = Me.object_.as_text
 
+
+
+LCG_Seed = Void
+LCG_M = 2147483647
+LCG_A = 16807
+LCG_B = 0
+
+int.rand =
+| LCG_Seed <= (LCG_Seed*LCG_A + LCG_B) % LCG_M
+| LCG_Seed % Me
+
+lcg_init Seed = LCG_Seed <= Seed
+
+lcg_init 6145243
+
+list.shuffle =
+| Xs = Me.list
+| N = Xs.size
+| while N > 0
+  | R = N.rand
+  | X = Xs.R
+  | N !- 1
+  | Xs.R <= Xs.N
+  | Xs.N <= X
+| Xs
+
+list.sort F =
+| h &[] [H@Zs] =
+  | Xs = []
+  | Ys = []
+  | for Z Zs: if F Z H then push Z Xs else push Z Ys
+  | [@Xs^h H @Ys^h]
+| h Me.shuffle
+
 export non say bad no have gensym table_ new_macro new_meta path_parts
