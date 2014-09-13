@@ -10,7 +10,7 @@ GHoistedTexts = Void
 GResolvedMethods = Void
 GImportLibs = Void
 GSrc = [0 0 unknown]
-GAll = gensym all
+GAll = @rand all
 
 ssa @As = | push As GOut
           | Void
@@ -38,7 +38,7 @@ path_to_sym X Es =
 ssa_symbol K X Value =
 | case (path_to_sym X GEnv)
      [Pos Parent]
-       | Base = if have Parent then gensym "B" else \E
+       | Base = if have Parent then "B".rand else \E
        | when have Parent
          | ssa var Base
          | ssa load Base \P Parent
@@ -61,17 +61,17 @@ ssa_quote_list K Xs = ssa_expr K: ssa_quote_list_rec Xs
 cstring_bytes S = [@S.list.map{C => C.code} 0]
 
 ssa_cstring Src =
-| Name = gensym b
+| Name = @rand b
 | ssa bytes Name Src^cstring_bytes
 | Name
 
 ssa_var Name =
-| V = gensym Name
+| V = @rand Name
 | ssa var V
 | V
 
 ssa_global Name =
-| V = gensym Name
+| V = @rand Name
 | ssa global V
 | V
 
@@ -112,7 +112,7 @@ ssa_fn_body K F Args Body O Prologue Epilogue =
 // a single reference closure could be itself held in a register
 // for now we just capture required parent's closure
 ssa_fn Name K Args Expr O =
-| F = gensym f
+| F = @rand f
 | [Body Cs] = ssa_fn_body Void F Args Expr O 1 1
 | push Body GFns
 | NParents = Cs.size
@@ -122,8 +122,8 @@ ssa_fn Name K Args Expr O =
                      else ssa copy K I \P C^get_parent_index
 
 ssa_if K Cnd Then Else =
-| ThenLabel = gensym `then`
-| EndLabel = gensym endif
+| ThenLabel = @rand `then`
+| EndLabel = @rand endif
 | ssa branch Cnd^ev ThenLabel
 | ssa_expr K Else
 | ssa jmp EndLabel
@@ -155,7 +155,7 @@ ssa_let K Args Vals Xs =
 | when Args.size >< 0
   | ssa_expr K Body
   | leave Void
-| F = gensym f
+| F = @rand f
 | [SsaBody Cs] = ssa_fn_body K F Args Body [] 0 0
 | NParents = Cs.size
 | P = ssa_var p // parent environment
@@ -247,7 +247,7 @@ uniquify_let Xs =
     | V = pop Vs
     | case V
         [_import [_quote X] [_quote Y]]
-          | when no GImportLibs.X: GImportLibs.X <= gensym lib
+          | when no GImportLibs.X: GImportLibs.X <= @rand lib
           | when have Used.A
             | push A NewAs
             | push V NewVs
@@ -268,12 +268,12 @@ uniquify_form Expr =
       | BadArg = Bs.find{?.is_text^not}
       | when have BadArg: compiler_error "invalid argument [BadArg]"
       | when Bs.size <> Bs.uniq.size: compiler_error "duplicate args in [Bs]"
-      | Rs = Bs.map{B => [B B^gensym]}
+      | Rs = Bs.map{[? ?.rand]}
       | let GUniquifyStack [Rs @GUniquifyStack]
-        | Bs = Rs.map{R => R.1}
+        | Bs = Rs.map{?.1}
         | Bs = if As.is_text then Bs.0 else Bs
         | [_fn Bs @Body.map{&uniquify_expr}]
-    [_quote X] | when X.is_text: GHoistedTexts.X <= gensym 'T'
+    [_quote X] | when X.is_text: GHoistedTexts.X <= @rand 'T'
                | Expr
     [_label X] Expr
     [_goto X] Expr
@@ -370,7 +370,7 @@ ssa_tagged K Tag X = ssa tagged K X^ev Tag.1
 ssa_text K S = ssa text K S^ssa_cstring
 
 ssa_ffi_var Type Name =
-| V = gensym v
+| V = @rand v
 | ssa ffi_var Type V
 | V
 
@@ -394,7 +394,7 @@ ssa_ffi_call K Type F As =
 | if ResultType >< void then ssa move K 0 else ssa "ffi_from_[ResultType]" K R
 
 ssa_form K Xs = case Xs
-  [_fn As Body] | ssa_fn n^gensym K As Body Xs
+  [_fn As Body] | ssa_fn 'n'.rand K As Body Xs
   [_if Cnd Then Else] | ssa_if K Cnd Then Else
   [_quote X @Xs] | ssa_quote K X
   [_set Place Value] | ssa_set K Place Value
@@ -488,7 +488,7 @@ ssa_to_c Xs = let GCompiled []
   [alloc_closure Place Name Size] | push "#define [Name]_size [Size]" Decls
                                   | cnorm X
   [type Place Name TagName Size]
-    | TName = gensym n
+    | TName = @rand n
     | c "  RESOLVE_TYPE([Place],[Name]);"
     | c "  VAR([TName]);"
     | c "  TEXT([TName],[TagName]);"
@@ -499,7 +499,7 @@ ssa_to_c Xs = let GCompiled []
     | Import = Imports.Key
     | if have Import
       then c "  MOVE([Dst], [Import]);"
-      else | SymbolText = gensym s
+      else | SymbolText = @rand s
            | c "  VAR([SymbolText]);"
            | c "  TEXT([SymbolText],[SymbolCStr]);"
            | c "  [Dst] = api->find_export(api,[SymbolText],[LibExports]);"

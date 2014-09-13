@@ -22,7 +22,7 @@ get_lib_exports LibName =
   | when file_exists LibFile
     | Text = load_text LibFile
     | Expr = read_normalized Text LibFile
-    | leave: case Expr.last [export @Xs] | [@Xs (gensym 'Dummy')]
+    | leave: case Expr.last [export @Xs] | [@Xs 'Dummy'.rand]
                             Else | Void
 | bad "no [LibName].s"
 
@@ -134,7 +134,7 @@ eval Expr Env =
       GHeaderTimestamp (file_time "[GRootFolder]/runtime/runtime.h")
       GDstFolder "[BuildFolder]lib/"
       GCompiledModules (table)
-  | Entry = gensym tmp
+  | Entry = @rand tmp
   | DstFile = "[BuildFolder]lib/[Entry]"
   | Vars = map [K V] Env K
   | Values = map [K V] Env V

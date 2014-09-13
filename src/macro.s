@@ -22,7 +22,7 @@ expand_list_hole Key Hole Hit Miss = case Hole
   [] | [_if [_mcall Key end] Hit Miss]
   [[`@` Zs]] | expand_hole Key Zs Hit Miss
   [[`@` Zs] @More] | mex_error "FIXME: implement @ in the middle"
-  [X@Xs] | H = gensym 'X'
+  [X@Xs] | H = @rand 'X'
          | Hit <= expand_list_hole Key Xs Hit Miss
          | [`if` [_mcall Key end]
                  Miss
@@ -39,7 +39,7 @@ expand_hole Key Hole Hit Miss =
   [`>` A B] | expand_hole Key A (expand_hole Key B Hit Miss) Miss
   [in @Xs] | [_if (expand_match Key (map X Xs [X 1]) 0 Void) Hit Miss]
   [not @Xs] | [_if (expand_match Key (map X Xs [X 1]) 0 Void) Miss Hit]
-  [bind A B] | G = gensym 'G'
+  [bind A B] | G = @rand 'G'
              | [let_ [[G [A Key]]] (expand_hole G B Hit Miss)]
   [`=>` A B] | [let_ [[A.0 Key]]
                  [_if ['|' @B] Hit Miss]]
@@ -50,7 +50,7 @@ expand_hole Key Hole Hit Miss =
                     (expand_list_hole Key Xs Hit Miss)
                     Miss]
   [`/` @Xs] | [I As] = form: ?I ?As
-            | L = gensym 'label'
+            | L = @rand label
             | Body = map K Xs{?.1}: form: when K >< As.I
                      | $K.title <= As.(I+1)
                      | _goto L
@@ -63,13 +63,13 @@ expand_hole Key Hole Hit Miss =
   Else | mex_error "bad match case: [Hole]"
 
 expand_match Keyform Cases Default Key =
-| when no Key: Key <= gensym 'Key'
-| E = gensym end
-| D = gensym default
-| R = gensym 'R'
+| when no Key: Key <= @rand 'Key'
+| E = @rand end
+| D = @rand default
+| R = @rand 'R'
 | Ys = []
 | for Case Cases.reverse
-  | Name = gensym c
+  | Name = @rand c
   | NextLabel = if Ys.size > 0 then Ys.0.1 else D
   | Miss = [_goto NextLabel]
   | Hit = [_progn [_set R [_progn @Case.tail]]
@@ -95,14 +95,12 @@ max A B = form | ?A = A
 `if` A B C = [_if A B C]
 not @Xs = [_if Xs 0 1]
 `and` A B = [_if A B 0]
-`or` A B =
-| V = gensym 'V'
-| [let_ [[V A]] [_if V V B]]
+`or` A B = form: let_ ((?V A)) (_if ?V ?V B)
 when @Xs = [_if Xs.lead Xs.last Void]
 unless @Xs = [_if Xs.lead Void Xs.last]
 
 expand_while Head Body =
-| L = gensym l
+| L = @rand l
 | [_progn [_label L]
           [_if Head
                [_progn Body [_goto L]]
@@ -112,8 +110,8 @@ while @As = expand_while As.lead As.last
 till @As = expand_while [not As.lead] As.last
 
 times Var Count Body =
-| I = if have Var then Var else gensym 'I'
-| N = gensym 'N'
+| I = if have Var then Var else @rand 'I'
+| N = @rand 'N'
 | ['|' ['=' [N] Count]
        ['=' [I] [0]]
        [unless [`and` [_eq [_tag N] 0]
@@ -124,9 +122,9 @@ times Var Count Body =
               [_set I [_add I 1]]]]]
 
 expand_dup Var Count Body =
-| I = if have Var then Var else gensym 'I'
-| N = gensym 'N'
-| Ys = gensym 'Ys'
+| I = if have Var then Var else @rand 'I'
+| N = @rand 'N'
+| Ys = @rand 'Ys'
 | ['|' ['=' [N] Count]
        ['=' [I] [0]]
        [unless [`and` [_eq [_tag N] 0]
@@ -145,9 +143,9 @@ dup @As = case As
   Else | mex_error "bad dup [As]"
 
 expand_map_for Type Item Items Body =
-| Xs = gensym 'Xs'
-| I = gensym 'I'
-| N = gensym 'N'
+| Xs = @rand 'Xs'
+| I = @rand 'I'
+| N = @rand 'N'
 | ['|' ['=' [Xs] [_mcall Items list]]
        [Type I [_mcall Xs size]
           ['|' ['=' [Item] [_mcall Xs '.' I]]
@@ -170,7 +168,7 @@ expand_form O AGT =
   else if O.is_text and O.size > 1 and O.0 >< '?' then
     | AG = AGT.O
     | when no AG
-      | AG <= gensym O.tail
+      | AG <= O.tail.rand
       | AGT.O <= AG
     | AG
   else [_quote O]
@@ -181,7 +179,7 @@ expand_form O AGT =
 form O =
 | AGT = table
 | R = expand_form O AGT
-| when AGT.size > 0: R <= [let_ (map [K V] AGT [V [gensym [_quote K.tail]]]) R]
+| when AGT.size > 0: R <= [let_ (map [K V] AGT [V [_mcall [_quote K.tail] rand]]) R]
 | R
 
 expand_text_splice Xs =
@@ -193,20 +191,18 @@ expand_text_splice Xs =
 
 `"` @Xs /*"*/ = expand_text_splice Xs
 
-pop O =
-| R = gensym 'R'
-| [`|` [`=` [R] [_mcall O head]]
-       [_set O [_mcall O tail]]
-       R]
+pop O = form | ?R = O.head
+             | O <= O.tail
+             | ?R
 
-push Item O = [_set O [_mcall O pre Item]]
+push Item O = form: O <= [Item @O]
 
 let @As =
 | when As.size < 2: mex_error "bad let @As"
 | Bs = As.lead.groupBy{2}
 | Body = As.last
-| Gs = map B Bs [(gensym 'G') @B]
-| R = gensym 'R'
+| Gs = map B Bs ['G'.rand @B]
+| R = @rand 'R'
 | [let_ [[R 0] @(map G Gs [G.0 G.1])]
     @(map G Gs [_set G.1 G.2])
     [_set R Body]
@@ -337,7 +333,7 @@ add_pattern_matcher Args Body =
     Else | form: _fatal 'couldnt match args list'
 | case Args
    [[`@` All]] | Args <= All
-   Else | G = gensym 'As'
+   Else | G = @rand 'As'
         | Body <= expand_match G [[['[]' @Args] Body]] Default Void
         | Args <= G
 | [Args Body]
@@ -360,7 +356,7 @@ expand_destructuring Value Bs =
 | when Bs.size: case Bs.last [`@` X]
   | XsVar <= X
   | Bs <= Bs.lead
-| O = gensym 'O'
+| O = @rand 'O'
 | Ys = map [I B] Bs.enum: [B [_mcall O '.' I]]
 | when have XsVar: Ys <= [[XsVar [_mcall O drop Bs.size]] @Ys]
 | [[O Value] @Ys]
@@ -385,9 +381,9 @@ expand_assign_result As =
 | expand_assign V Ys
 
 expand_block_item_data Name Fields =
-| Gs = map F Fields: gensym 'A'
-| O = gensym 'O'
-| V = gensym 'V'
+| Gs = map F Fields: @rand 'A'
+| O = @rand 'O'
+| V = @rand 'V'
 | [[`=` ["new_[Name]" @Gs] [_data Name @Gs]]
    [`=` [[`.` Name "is_[Name]"]] 1]
    [`=` [[`.` '_' "is_[Name]"]] 0]
@@ -420,9 +416,9 @@ expand_block_item Expr =
 make_multimethod Xs =
 | when case Xs [[`=>` As Expr]] (As.size >< 0 or As.0^is_var_sym)
   | leave Xs.0
-| Dummy = gensym 'D'
-| All = gensym 'A'
-| Key = gensym 'K'
+| Dummy = @rand 'D'
+| All = @rand 'A'
+| Key = @rand 'K'
 | Cases = map X Xs: case X
     [`=>` As Expr] 
       | when As.size >< 0: mex_error 'prototype doesnt support no args multimethods'
@@ -470,17 +466,17 @@ leave @As = case As
   Else | mex_error "errorneous leave syntax"
 
 callcc F =
-| K = gensym 'K'
-| R = gensym 'R'
+| K = @rand 'K'
+| R = @rand 'R'
 | [`|` [`=` [K] [_setjmp]]
        [`if` [_mcall K is_int]
              [F [_fn [R] [_longjmp K [_list R]]]]
              [_mcall K '.' 0]]]
 
 fin Finalizer Body =
-| B = gensym b
-| F = gensym f
-| R = gensym 'R'
+| B = @rand b
+| F = @rand f
+| R = @rand 'R'
 | [[_fn [B] [B [_fn [] Finalizer]]]
    [_fn [F]
      ['|' [_set_unwind_handler ['&' F]]

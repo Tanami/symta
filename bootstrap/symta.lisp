@@ -1298,7 +1298,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! r = expand-form-r o agt
   ! when (> (hash-table-count agt) 0)
      (let ((bs nil))
-       (maphash (fn k v ! push `(,v ("gensym" ("_quote" ,(subseq k 1)))) bs) agt)
+       (maphash (fn k v ! push `(,v ("_mcall" ("_quote" ,(subseq k 1)) "rand")) bs) agt)
        (setf r `("let_" ,bs ,r)))
   ! r)
 
