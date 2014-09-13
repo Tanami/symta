@@ -10,6 +10,7 @@ export tag_of
        register_library_folder
        load_text
        save_text
+       time
        file_time
        file_exists
        unix

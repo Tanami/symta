@@ -407,19 +407,28 @@ meta.is_text = Me.object_.is_text
 meta.as_text = Me.object_.as_text
 
 
-
 LCG_Seed = Void
 LCG_M = 2147483647
+LCG_M_F = LCG_M.float
 LCG_A = 16807
 LCG_B = 0
 
 int.rand =
 | LCG_Seed <= (LCG_Seed*LCG_A + LCG_B) % LCG_M
-| LCG_Seed % Me
+| @int: @round: LCG_Seed.float*Me.float/LCG_M_F
 
-lcg_init Seed = LCG_Seed <= Seed
+float.rand =
+| LCG_Seed <= (LCG_Seed*LCG_A + LCG_B) % LCG_M
+| LCG_Seed.float/LCG_M_F*Me
 
-lcg_init 6145243
+list.rand = Me.(@rand Me.size-1)
+
+lcg_init Seed =
+| LCG_Seed <= Seed
+| 10.rand
+| Void
+
+lcg_init: time
 
 list.shuffle =
 | Xs = Me.list

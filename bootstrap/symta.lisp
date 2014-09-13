@@ -77,6 +77,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to /init-tokenizer
   ! when g_table (return-from /init-tokenizer)
+  ! setf *read-default-float-format* 'double-float
   ! digit = "0123456789"
   ! hex-digit = "0123456789ABCDEF"
   ! head-char = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?"

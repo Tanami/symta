@@ -790,68 +790,68 @@ RETURNS(R)
 
 
 BUILTIN1("float.neg",float_neg,C_ANY,a)
-  float fa;
+  double fa;
   UNFLOAT(fa,a);
   LOAD_FLOAT(R,-fa);
 RETURNS(R)
 BUILTIN2("float.`+`",float_add,C_ANY,a,C_FLOAT,b)
-  float fa, fb;
+  double fa, fb;
   UNFLOAT(fa,a);
   UNFLOAT(fb,b);
   LOAD_FLOAT(R,fa+fb);
 RETURNS(R)
 BUILTIN2("float.`-`",float_sub,C_ANY,a,C_FLOAT,b)
-  float fa, fb;
+  double fa, fb;
   UNFLOAT(fa,a);
   UNFLOAT(fb,b);
   LOAD_FLOAT(R,fa-fb);
 RETURNS(R)
 BUILTIN2("float.`*`",float_mul,C_ANY,a,C_FLOAT,b)
-  float fa, fb;
+  double fa, fb;
   UNFLOAT(fa,a);
   UNFLOAT(fb,b);
   LOAD_FLOAT(R,fa*fb);
 RETURNS(R)
 BUILTIN2("float.`/`",float_div,C_ANY,a,C_FLOAT,b)
-  float fa, fb;
+  double fa, fb;
   UNFLOAT(fa,a);
   UNFLOAT(fb,b);
   if (fb == 0.0) fb = FLT_MIN;
   LOAD_FLOAT(R,fa/fb);
 RETURNS(R)
 BUILTIN2("float.`**`",float_pow,C_ANY,a,C_FLOAT,b)
-  float fa, fb;
+  double fa, fb;
   UNFLOAT(fa,a);
   UNFLOAT(fb,b);
-  LOAD_FLOAT(R,(float)pow((double)fa, (double)fb));
+  LOAD_FLOAT(R,pow(fa,fb));
 RETURNS(R)
 BUILTIN2("float.`><`",float_eq,C_ANY,a,C_ANY,b)
-  float fa, fb;
+  double fa, fb;
   UNFLOAT(fa,a);
   UNFLOAT(fb,b);
 RETURNS(FIXNUM(fa == fb))
 BUILTIN2("float.`<>`",float_ne,C_ANY,a,C_ANY,b)
-  float fa, fb;
+  double fa, fb;
   UNFLOAT(fa,a);
   UNFLOAT(fb,b);
 RETURNS(FIXNUM(fa != fb))
 BUILTIN2("float.`<`",float_lt,C_ANY,a,C_FLOAT,b)
-  float fa, fb;
+  double fa, fb;
   UNFLOAT(fa,a);
   UNFLOAT(fb,b);
 RETURNS(FIXNUM(fa < fb))
 BUILTIN2("float.`>`",float_gt,C_ANY,a,C_FLOAT,b)
-  float fa, fb;
+  double fa, fb;
   UNFLOAT(fa,a);
   UNFLOAT(fb,b);
 RETURNS(FIXNUM(fa > fb))
 BUILTIN2("float.`<<`",float_lte,C_ANY,a,C_FLOAT,b)
-  float fa, fb;
+  double fa, fb;
   UNFLOAT(fa,a);
   UNFLOAT(fb,b);
 RETURNS(FIXNUM(fa <= fb))
 BUILTIN2("float.`>>`",float_gte,C_ANY,a,C_FLOAT,b)
-  float fa, fb;
+  double fa, fb;
   UNFLOAT(fa,a);
   UNFLOAT(fb,b);
 RETURNS(FIXNUM(fa >= fb))
@@ -861,48 +861,63 @@ RETURNS(R)
 BUILTIN1("float.float",float_float,C_ANY,o)
 RETURNS(o)
 BUILTIN1("float.int",float_int,C_ANY,o)
-  float fo;
+  double fo;
   UNFLOAT(fo,o);
 RETURNS(FIXNUM((intptr_t)fo))
 BUILTIN1("float.sqrt",float_sqrt,C_ANY,o)
-  float fo;
+  double fo;
   UNFLOAT(fo,o);
-  LOAD_FLOAT(R, (float)sqrt(fo));
+  LOAD_FLOAT(R, sqrt(fo));
 RETURNS(R)
 BUILTIN1("float.log",float_log,C_ANY,o)
-  float fo;
+  double fo;
   UNFLOAT(fo,o);
-  LOAD_FLOAT(R, (float)log(fo));
+  LOAD_FLOAT(R, log(fo));
 RETURNS(R)
 BUILTIN1("float.sin",float_sin,C_ANY,o)
-  float fo;
+  double fo;
   UNFLOAT(fo,o);
-  LOAD_FLOAT(R, (float)sin(fo));
+  LOAD_FLOAT(R, sin(fo));
 RETURNS(R)
 BUILTIN1("float.asin",float_asin,C_ANY,o)
-  float fo;
+  double fo;
   UNFLOAT(fo,o);
-  LOAD_FLOAT(R, (float)asin(fo));
+  LOAD_FLOAT(R, asin(fo));
 RETURNS(R)
 BUILTIN1("float.cos",float_cos,C_ANY,o)
-  float fo;
+  double fo;
   UNFLOAT(fo,o);
-  LOAD_FLOAT(R, (float)cos(fo));
+  LOAD_FLOAT(R, cos(fo));
 RETURNS(R)
 BUILTIN1("float.acos",float_acos,C_ANY,o)
-  float fo;
+  double fo;
   UNFLOAT(fo,o);
-  LOAD_FLOAT(R, (float)acos(fo));
+  LOAD_FLOAT(R, acos(fo));
 RETURNS(R)
 BUILTIN1("float.tan",float_tan,C_ANY,o)
-  float fo;
+  double fo;
   UNFLOAT(fo,o);
-  LOAD_FLOAT(R, (float)tan(fo));
+  LOAD_FLOAT(R, tan(fo));
 RETURNS(R)
 BUILTIN1("float.atan",float_atan,C_ANY,o)
-  float fo;
+  double fo;
   UNFLOAT(fo,o);
-  LOAD_FLOAT(R, (float)atan(fo));
+  LOAD_FLOAT(R, atan(fo));
+RETURNS(R)
+BUILTIN1("float.floor",float_floor,C_ANY,o)
+  double fo;
+  UNFLOAT(fo,o);
+  LOAD_FLOAT(R, floor(fo));
+RETURNS(R)
+BUILTIN1("float.ceil",float_ceil,C_ANY,o)
+  double fo;
+  UNFLOAT(fo,o);
+  LOAD_FLOAT(R, ceil(fo));
+RETURNS(R)
+BUILTIN1("float.round",float_round,C_ANY,o)
+  double fo;
+  UNFLOAT(fo,o);
+  LOAD_FLOAT(R, round(fo));
 RETURNS(R)
 
 
@@ -1133,6 +1148,9 @@ BUILTIN1("unix",unix,C_TEXT,command_text)
   }
 RETURNS(R)
 
+BUILTIN0("time",time)
+RETURNS(FIXNUM((intptr_t)time(0)))
+
 BUILTIN1("file_time",file_time,C_TEXT,filename_text)
   char *filename = text_to_cstring(filename_text);
   struct stat attrib;
@@ -1277,6 +1295,7 @@ static struct {
   {"load_library", b_load_library},
   {"register_library_folder", b_register_library_folder},
   {"unix", b_unix},
+  {"time", b_time},
   {"file_time", b_file_time},
   {"file_exists", b_file_exists},
   {"main_args", b_main_args},
@@ -1344,13 +1363,10 @@ print_tail:
     out = decode_text(out, o);
     *out++ = '`';
   } else if (tag == T_FLOAT) {
-    float f;
+    double f;
     UNFLOAT(f,o);
-    if (f == (float)(int)f) { // hack to keep trailing zero
-      out += sprintf(out, "%.1f", f);
-    } else {
-      out += sprintf(out, "%.7g", f);
-    }
+    out += sprintf(out, "%.10f", f);
+    while (out[-1] == '0' && out[-2] != '.') *--out = 0;
   } else if (tag == T_DATA) {
     uintptr_t dtag = DATA_TAG(o);
     if (dtag == T_TEXT) {
@@ -1785,6 +1801,9 @@ int main(int argc, char **argv) {
   METHOD_FN("acos", 0, b_float_acos, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("tan", 0, b_float_tan, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("atan", 0, b_float_atan, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("floor", 0, b_float_floor, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("ceil", 0, b_float_ceil, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("round", 0, b_float_round, 0, 0, 0, 0, 0, 0, 0);
 
   add_subtype(api, T_GENERIC_TEXT, T_FIXTEXT);
   add_subtype(api, T_GENERIC_TEXT, T_TEXT);

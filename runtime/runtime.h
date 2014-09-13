@@ -61,6 +61,18 @@
 #define FIXNUM_UNFIXNUM(dst,x) dst = (void*)UNFIXNUM(x)
 
 #define LOAD_FLOAT(dst,x) { \
+    double d_ = (double)(x); \
+    uint64_t t_ = (*(uint64_t*)&d_); \
+    dst = (void*)((t_&~TAG_MASK) | T_FLOAT); \
+  }
+
+#define UNFLOAT(dst,x) { \
+    uint64_t t_ = (uint64_t)(x)&~TAG_MASK; \
+    dst = *(double*)&t_; \
+  }
+
+/*
+#define LOAD_FLOAT(dst,x) { \
     float tmp_ = (float)(x); \
     dst = (void*)(ASHL((intptr_t)(*(uint32_t*)&tmp_),TAG_BITS) | T_FLOAT); \
   }
@@ -69,6 +81,7 @@
     uint32_t tmp_ = (uint32_t)(ASHR((intptr_t)(x),TAG_BITS)); \
     dst = *(float*)&tmp_; \
   }
+*/
 
 #define HEAP_SIZE (32*1024*1024)
 #define BASE_HEAD_SIZE 2
