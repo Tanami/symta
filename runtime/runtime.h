@@ -394,9 +394,15 @@ typedef struct {
   dst = (uint32_t)UNFIXNUM(src);
 #define FFI_FROM_UINT32_T(dst,src) dst = (void*)FIXNUM((intptr_t)src);
 
+#define FFI_TO_DOUBLE(dst,src) UNFLOAT(dst,src);
+#define FFI_FROM_DOUBLE(dst,src) LOAD_FLOAT(dst,src);
 
-#define FFI_TO_FLOAT(dst,src) UNFLOAT(dst,src);
-#define FFI_FROM_FLOAT(dst,src) LOAD_FLOAT(dst,src);
+#define FFI_TO_FLOAT(dst,src) { \
+    double _x; \
+    UNFLOAT(_x,src); \
+    _dst = (float)_x; \
+  }
+#define FFI_FROM_FLOAT(dst,src) LOAD_FLOAT(dst,(double)src);
 
 #define FFI_TO_TEXT_(dst,src) dst = api->text_chars(api,src);
 #define FFI_FROM_TEXT_(dst,src) dst = api->alloc_text(api,src);
