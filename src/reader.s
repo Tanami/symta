@@ -45,7 +45,7 @@ add_lexeme Dst Pattern Type =
   | add_lexeme T Next Type
 
 init_tokenizer =
-| when got GTable: leave Void
+| when have GTable: leave Void
 | Digit = "0123456789"
 | HexDigit = "0123456789ABCDEF"
 | HeadChar = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?"
@@ -94,7 +94,7 @@ read_token R LeftSpaced =
     | when no Type: Type <= Cur.'type'
     | when Value >< '-' and LeftSpaced and C <> '\n' and C <> ' ':
       | Type <= \negate
-    | when Type >< end and got C: Type <= 0
+    | when Type >< end and have C: Type <= 0
     | unless Type: R error "unexpected `[Value][C or '']`"
     | when Type.is_fn
       | Value <= Type R Value
@@ -165,7 +165,7 @@ read_string R Incut End =
      Void | R.error{'EOF in string'}
      Else | L <= [C@L]
 
-is_comment_char C = got C and C <> '\n'
+is_comment_char C = have C and C <> '\n'
 read_comment R Cs =
 | while R.next^is_comment_char:
 | read_token R 0
@@ -266,7 +266,7 @@ binary_loop Ops Down E =
 | O = parse_op Ops or leave E
 | when O^token_is{`{}`}
   | As = parse_tokens O.value
-  | As <= if got As.find{&is_delim} then [As] else As //allows Xs.map{X=>...}
+  | As <= if have As.find{&is_delim} then [As] else As //allows Xs.map{X=>...}
   | O.parsed <= [`{}`]
   | leave: binary_loop Ops Down [O E @As]
 | B = &Down or parser_error "no right operand for" o
@@ -293,8 +293,8 @@ parse_logic =
 | O = parse_op [`and` `or`] or leave (parse_bool)
 | GOutput <= GOutput.reverse
 | P = GInput.locate{&is_delim} //hack LL(1) to speed-up parsing
-| Tok = got P and GInput.P
-| when no P or got [`if` `then` `else` ].locate{X => Tok^token_is{X}}:
+| Tok = have P and GInput.P
+| when no P or have [`if` `then` `else` ].locate{X => Tok^token_is{X}}:
   | GOutput <= [(parse_xs) GOutput O]
   | leave 0
 | R = GInput.take{P}
@@ -312,7 +312,7 @@ parse_delim =
 
 parse_semicolon =
 | P = GInput.locate{X => X^token_is{`|`} or X^token_is{`;`}}
-| M = when got P: GInput.P
+| M = when have P: GInput.P
 | when no P or M^token_is{`|`}: leave 0
 | L = parse_tokens GInput.take{P}
 | R = parse_tokens GInput.drop{P+1}
@@ -326,7 +326,7 @@ parse_xs =
   | named loop // FIXME: implement unwind_protect
     | while 1
       | X = parse_delim or leave loop GOutput.reverse
-      | when got X: push X GOutput
+      | when have X: push X GOutput
 
 parse_tokens Input =
 | let GInput Input
@@ -343,12 +343,12 @@ parse_strip X =
   then | unless X.size: leave X
        | Head = X.head
        | Meta = when Head.is_token: Head.src
-       | when got X.locate{?^token_is{`,`}}: X <= [',' @X.split{?^token_is{`,`}}]
+       | when have X.locate{?^token_is{`,`}}: X <= [',' @X.split{?^token_is{`,`}}]
        | Ys = map V X: parse_strip V
        | for V X
          | when case V [U@Us] U^token_is{`!`} and not case X [Z@Zs] Z^token_is{`!`}:
            | leave [`!!` @Ys]
-       | when got Meta: Ys <= new_meta Ys Meta
+       | when have Meta: Ys <= new_meta Ys Meta
        | Ys
   else X
 
