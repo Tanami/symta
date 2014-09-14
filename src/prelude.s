@@ -1,6 +1,6 @@
 non F = X => if F X then 0 else 1
 no X = Void >< X
-have X = Void <> X
+got X = Void <> X
 
 _.`<>` B = not Me >< B
 _.`<<` B = not B < Me
@@ -196,7 +196,7 @@ list.split S =
 | F = if S.is_fn then S else X => S >< X
 | Ys = []
 | P = Me.locate{F}
-| while have P
+| while got P
   | Ys <= [Me.take{P}@Ys]
   | Me <= Me.drop{P+1}
   | P <= Me.locate{F}
@@ -340,11 +340,11 @@ path_parts Filename =
 | Xs = Filename.list.reverse
 | Sep = Xs.locate{?><'/'}
 | Dot = Xs.locate{?><'.'}
-| when have Dot and (no Sep or Dot < Sep):
+| when got Dot and (no Sep or Dot < Sep):
   | Ext <= Xs.take{Dot}.reverse.text
   | Xs <= Xs.drop{Dot+1}
   | Sep !- (Dot+1)
-| when have Sep
+| when got Sep
  | Name <= Xs.take{Sep}.reverse.text
  | Xs <= Xs.drop{Sep+1}
 | [Xs.reverse.text Name Ext]
@@ -370,7 +370,7 @@ table.`!` K V =
          else Old.1 <= V
 | Void
 
-table.size = Me.buckets.map{X => if have X then X.size else 0}.sum
+table.size = Me.buckets.map{X => if got X then X.size else 0}.sum
 table.list = Me.buckets.skip{X => X >< Void}.join
 table.as_text = "#table[Me.list.as_text]"
 
@@ -381,7 +381,7 @@ list.as_table =
 
 list.uniq =
 | Seen = table size/(Me.size*2)
-| Me.skip{X => have Seen.X or (Seen.X <= 1) and 0}
+| Me.skip{X => got Seen.X or (Seen.X <= 1) and 0}
 
 text.pad Count Item =
 | C = Item.as_text
@@ -448,4 +448,4 @@ list.sort F =
   | [@Xs^h H @Ys^h]
 | h Me.shuffle
 
-export non say bad no have table_ new_macro new_meta path_parts
+export non say bad no got table_ new_macro new_meta path_parts

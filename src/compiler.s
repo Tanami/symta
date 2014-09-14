@@ -17,7 +17,7 @@ ssa @As = | push As GOut
 
 get_parent_index Parent =
 | P = GClosure.0.locate{E => Parent >< E}
-| when have P: leave P
+| when got P: leave P
 | Parents = GClosure.head
 | GClosure <= [[@Parents Parent] @GClosure.tail]
 | Parents.size
@@ -38,12 +38,12 @@ path_to_sym X Es =
 ssa_symbol K X Value =
 | case (path_to_sym X GEnv)
      [Pos Parent]
-       | Base = if have Parent then "B".rand else \E
-       | when have Parent
+       | Base = if got Parent then "B".rand else \E
+       | when got Parent
          | ssa var Base
          | ssa load Base \P Parent
        | when Pos >< GAll
-         | when have Value: bad "cant set [X]"
+         | when got Value: bad "cant set [X]"
          | ssa tagged K Base \T_LIST
          | leave Void
        | when no Value: leave (ssa arg_load K Base Pos)
@@ -189,7 +189,7 @@ ssa_apply K F As =
 
 resolve_method Name =
 | M = GResolvedMethods.Name
-| when have M: leave M
+| when got M: leave M
 | M <= ssa_global m
 | GResolvedMethods.Name <= M
 | push [resolve_method M Name^ssa_cstring] GRawInits
@@ -248,7 +248,7 @@ uniquify_let Xs =
     | case V
         [_import [_quote X] [_quote Y]]
           | when no GImportLibs.X: GImportLibs.X <= @rand lib
-          | when have Used.A
+          | when got Used.A
             | push A NewAs
             | push V NewVs
         Else
@@ -261,12 +261,12 @@ uniquify_let Xs =
 
 uniquify_form Expr =
 | Src = when Expr.is_meta: Expr.info_
-| let GSrc (if have Src then Src else GSrc)
+| let GSrc (if got Src then Src else GSrc)
   | case Expr
     [_fn As @Body]
       | Bs = if As.is_text then [As] else As
       | BadArg = Bs.find{?.is_text^not}
-      | when have BadArg: compiler_error "invalid argument [BadArg]"
+      | when got BadArg: compiler_error "invalid argument [BadArg]"
       | when Bs.size <> Bs.uniq.size: compiler_error "duplicate args in [Bs]"
       | Rs = Bs.map{[? ?.rand]}
       | let GUniquifyStack [Rs @GUniquifyStack]
@@ -344,7 +344,7 @@ ssa_import K Lib Symbol =
 ssa_label Name = ssa local_label Name
 
 ssa_goto Name =
-| N = GBases.locate{B => have B.locate{X => X><Name}}
+| N = GBases.locate{B => got B.locate{?><Name}}
 | when no N: bad "cant find label [Name]"
 | for I N.i
   | ssa gc (ssa_var d) 0 // FIXME: have to GC, simple pop_base wont LIFT
@@ -497,7 +497,7 @@ ssa_to_c Xs = let GCompiled []
   [import Dst Lib Symbol LibExports SymbolCStr]
     | Key = "[Lib]::[Symbol]"
     | Import = Imports.Key
-    | if have Import
+    | if got Import
       then c "  MOVE([Dst], [Import]);"
       else | SymbolText = @rand s
            | c "  VAR([SymbolText]);"
@@ -512,7 +512,7 @@ ssa_to_c Xs = let GCompiled []
     | ArgsText = Args.text{', '}
     | ArgsTypesText = ArgsTypes.text{', '}
     | Call = "(([ResultType](*)([ArgsTypesText]))[F])([ArgsText]);"
-    | when have Dst: Call <= "[Dst] = [Call]"
+    | when got Dst: Call <= "[Dst] = [Call]"
     | c "  [Call]"
   Else | cnorm X //FIXME: check if it is known and has correct argnum
 | c 'END_CODE'
