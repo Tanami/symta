@@ -32,8 +32,9 @@ expand_list_hole Key Hole Hit Miss = case Hole
 
 expand_hole Key Hole Hit Miss =
 | unless case Hole [X@Xs]
-  | leave: if Hole >< '_' then Hit
-           else if Hole.is_text then [let_ [[Hole Key]] Hit]
+  | when Hole >< '_': leave Hit
+  | when Hole.is_keyword: Hole <= [_quote Hole]
+  | leave: if Hole.is_text then [let_ [[Hole Key]] Hit]
            else [_if ['><' Hole Key] Hit Miss]
 | case Hole
   [`>` A B] | expand_hole Key A (expand_hole Key B Hit Miss) Miss

@@ -962,7 +962,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (return-from expand-hole
       (cond ((equal hole "_") hit)
             ((var-sym? hole) `("let_" ((,hole ,key)) ,hit))
-            (t `("if" ("><" ,hole ,key) ,hit ,miss)))))
+            (t (when (fn-sym? hole) (setf hole `("_quote" ,hole)))
+               `("if" ("><" ,hole ,key) ,hit ,miss)))))
   (match hole
     ((">" a b) (expand-hole key a (expand-hole key b hit miss) miss))
     (("in" . xs) `("if" ,(expand-match key (m x xs `(,x 1)) 0) ,hit ,miss))
