@@ -15,7 +15,7 @@ load_symbol Library Name =
 | Module = GModuleCompiler Library
 | when no Module: mex_error "couldn't compile [Library]"
 | Found = Module^load_library.find{X => X.0 >< Name}
-| unless have Found: mex_error "couldn't load `[Name]` from `[Library]`"
+| unless got Found: mex_error "couldn't load `[Name]` from `[Library]`"
 | Found.1
 
 expand_list_hole Key Hole Hit Miss = case Hole
@@ -45,7 +45,7 @@ expand_hole Key Hole Hit Miss =
                  [_if ['|' @B] Hit Miss]]
   [`&` X] | form: _if X >< Key Hit Miss
   [`[]` @Xs] | P = Xs.locate{&0[`/`@_]=>1}
-             | when have P: Xs <= [@Xs.take{P} [`@` [`/` @Xs.drop{P}]]]
+             | when got P: Xs <= [@Xs.take{P} [`@` [`/` @Xs.drop{P}]]]
              | [_if [_mcall Key is_list]
                     (expand_list_hole Key Xs Hit Miss)
                     Miss]
@@ -110,7 +110,7 @@ while @As = expand_while As.lead As.last
 till @As = expand_while [not As.lead] As.last
 
 times Var Count Body =
-| I = if have Var then Var else @rand 'I'
+| I = if got Var then Var else @rand 'I'
 | N = @rand 'N'
 | ['|' ['=' [N] Count]
        ['=' [I] [0]]
@@ -122,7 +122,7 @@ times Var Count Body =
               [_set I [_add I 1]]]]]
 
 expand_dup Var Count Body =
-| I = if have Var then Var else @rand 'I'
+| I = if got Var then Var else @rand 'I'
 | N = @rand 'N'
 | Ys = @rand 'Ys'
 | ['|' ['=' [N] Count]
@@ -253,7 +253,7 @@ expand_method_arg A =
 | R = expand_method_arg_r A: X =>
       | when no G: G <= form ?G
       | G
-| when have G: A <= form: _fn (G) R
+| when got G: A <= form: _fn (G) R
 | A
 
 `{}` @Xs = case Xs
@@ -358,7 +358,7 @@ expand_destructuring Value Bs =
   | Bs <= Bs.lead
 | O = @rand 'O'
 | Ys = map [I B] Bs.enum: [B [_mcall O '.' I]]
-| when have XsVar: Ys <= [[XsVar [_mcall O drop Bs.size]] @Ys]
+| when got XsVar: Ys <= [[XsVar [_mcall O drop Bs.size]] @Ys]
 | [[O Value] @Ys]
 
 expand_assign Place Value =
@@ -440,7 +440,7 @@ expand_block Xs =
 | R = []
 | for X Xs.reverse
   | R <= case X [A B]
-         | if have A
+         | if got A
            then if A.is_keyword
                 then [[_set A B] @R]
                 else [[let_ [[A B]] (if R.size then [_progn @R] else Void)]]
@@ -538,7 +538,7 @@ mex_normal X Xs =
   | when Sym.is_macro: Macro <= Sym
 | when no Macro
   | case X [`@` Z]: leave: mex [_mcall Xs.last Z @Xs.lead]
-  | when have Xs.locate{&0[`@` X]=>1}
+  | when got Xs.locate{&0[`@` X]=>1}
     | when X >< _mcall: leave: mex: form: _mcall [$Xs.0 $@Xs.drop{2}] apply_method (_method $Xs.1)
     | when X.is_keyword: X <= form &X
     | leave: mex: form [$@Xs].apply{X}
@@ -556,7 +556,7 @@ mex_normal X Xs =
 mex Expr =
 | when no GMacros: mex_error 'lib_path got clobbered again'
 | Expr <= normalize_nesting Expr
-| when Expr.is_text and not Expr.is_keyword and have GMacros.Expr: Expr <= GMacros.Expr.expander
+| when Expr.is_text and not Expr.is_keyword and got GMacros.Expr: Expr <= GMacros.Expr.expander
 | unless Expr.is_list: leave Expr
 | let GExpansionDepth GExpansionDepth+1: case Expr
   [_fn As Body] | [_fn As Body^mex]
@@ -568,9 +568,9 @@ mex Expr =
   [`&` O] | if O.is_keyword then O else [O^mex]
   [] | Expr
   [X@Xs] | Src = when Expr.is_meta: Expr.info_ 
-         | let GSrc (if have Src then Src else GSrc)
+         | let GSrc (if got Src then Src else GSrc)
            | Result = mex_normal X Xs
-           | when have Src and Result.is_list: Result <= new_meta Result Src
+           | when got Src and Result.is_list: Result <= new_meta Result Src
            | Result
 
 macroexpand Expr Macros ModuleCompiler =
