@@ -1379,6 +1379,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! when g (setf a `("_fn" (,g) ,r))
   ! a)
 
+(to expand-have name value expr
+  ! `("|" ("=" (,name) ,value)
+          ,expr
+          ,name))
+
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
   (let ((xs (normalize-matryoshka xs))
@@ -1474,6 +1479,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
            ((("/" "size" size)) `("table_" ,size))
            (() `("table_" 256))
            (else (error "bad ~a" xs))))
+        (("have" value expr) (expand-have (ssa-name "N") value expr))
+        (("have" name value expr) (expand-have name value expr))
         (("," (x . xs) . ys) `(,x ,xs ,@ys))
         (("," . xs) (error "bad `,`"))
         ((z . zs)

@@ -60,25 +60,13 @@ ssa_quote_list K Xs = ssa_expr K: ssa_quote_list_rec Xs
 
 cstring_bytes S = [@S.list.map{C => C.code} 0]
 
-ssa_cstring Src =
-| Name = @rand b
-| ssa bytes Name Src^cstring_bytes
-| Name
+ssa_cstring Src = have Name 'b'.rand: ssa bytes Name Src^cstring_bytes
 
-ssa_var Name =
-| V = @rand Name
-| ssa var V
-| V
+ssa_var Name = have V Name.rand: ssa var V
 
-ssa_global Name =
-| V = @rand Name
-| ssa global V
-| V
+ssa_global Name = have V Name.rand: ssa global V
 
-ev X =
-| R = ssa_var r
-| ssa_expr R X
-| R
+ev X = have R 'r'^ssa_var: ssa_expr R X
 
 ssa_quote K X = if X.is_text then ssa_expr K GHoistedTexts.X
                 else if X.is_list then ssa_quote_list K X
