@@ -48,9 +48,9 @@ init_tokenizer =
 | when got GTable: leave Void
 | Digit = "0123456789"
 | HexDigit = "0123456789ABCDEF"
-| HeadChar = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?"
+| HeadChar = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?~"
 | TailChar = "[HeadChar][Digit]"
-| Ls = \(`+` `-` `*` `/` `%` `^` `.` `->` `~` `|` `;` `,` `:` `=` `=>` `<=`
+| Ls = \(`+` `-` `*` `/` `%` `^` `.` `->` `|` `;` `,` `:` `=` `=>` `<=`
          `++` `--` `**` `..`
          `><` `<>` `<` `>` `<<` `>>`
          `\\` `$` `@` `&` `!`
@@ -278,7 +278,7 @@ binary_loop Ops Down E =
 
 parse_binary Down Ops = binary_loop Ops Down: &Down or leave 0
 suffix_loop E = suffix_loop [(parse_op [`!`] or leave E) E]
-parse_suffix = suffix_loop: parse_binary &parse_term [`.` `^` `->` `~` `{}`] or leave 0
+parse_suffix = suffix_loop: parse_binary &parse_term [`.` `^` `->` `{}`] or leave 0
 parse_pow = parse_binary &parse_suffix [`**`]
 parse_prefix =
 | O = parse_op [negate `\\` `$` `@` `&`] or leave (parse_pow)

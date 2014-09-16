@@ -50,7 +50,7 @@ expand_hole Key Hole Hit Miss =
              | [_if [_mcall Key is_list]
                     (expand_list_hole Key Xs Hit Miss)
                     Miss]
-  [`/` @Xs] | [I As] = form: ?I ?As
+  [`/` @Xs] | [I As] = form: ~I ~As
             | L = @rand label
             | Body = map K Xs{?.1}: form: when K >< As.I
                      | $K.title <= As.(I+1)
@@ -86,17 +86,17 @@ expand_match Keyform Cases Default Key =
 
 case @Xs = expand_match Xs.0 Xs.tail.groupBy{2} 0 Void
 
-min A B = form | ?A = A
-               | ?B = B
-               | if ?A < ?B then ?A else ?B
-max A B = form | ?A = A
-               | ?B = B
-               | if ?A > ?B then ?A else ?B
+min A B = form | ~A = A
+               | ~B = B
+               | if ~A < ~B then ~A else ~B
+max A B = form | ~A = A
+               | ~B = B
+               | if ~A > ~B then ~A else ~B
 
 `if` A B C = [_if A B C]
 not @Xs = [_if Xs 0 1]
 `and` A B = [_if A B 0]
-`or` A B = form: let_ ((?V A)) (_if ?V ?V B)
+`or` A B = form: let_ ((~V A)) (_if ~V ~V B)
 when @Xs = [_if Xs.lead Xs.last Void]
 unless @Xs = [_if Xs.lead Void Xs.last]
 
@@ -166,7 +166,7 @@ expand_quasiquote O =
 expand_form O AGT =
 | unless O.is_list: leave
   if O.is_text and not O.is_keyword then O
-  else if O.is_text and O.size > 1 and O.0 >< '?' then
+  else if O.is_text and O.size > 1 and O.0 >< '~' then
     | AG = AGT.O
     | when no AG
       | AG <= O.tail.rand
@@ -229,7 +229,7 @@ let @As =
             | when Sym.is_macro
               | when B.is_keyword: mex_error "cant reference macro's value in [A].[B]"
               | leave Sym.expander
-            | form: let_ ((?R (_import (_quote A) (_quote B)))) ?R
+            | form: let_ ((~R (_import (_quote A) (_quote B)))) ~R
           else if B.is_keyword then ['{}' ['.' A B]]
           else [_mcall A '.' B]
 `:` A B = [@A B]
@@ -250,7 +250,7 @@ expand_method_arg_r A ArgName =
 expand_method_arg A =
 | G = Void
 | R = expand_method_arg_r A: X =>
-      | when no G: G <= form ?G
+      | when no G: G <= form ~G
       | G
 | when got G: A <= form: _fn (G) R
 | A
@@ -283,7 +283,7 @@ table @As_ =
 | case As [[`/` size S] @Xs]
   | Size <= S
   | As <= Xs
-| T = form ?T
+| T = form ~T
 | As <= As.groupBy{2}
 | if As.size
   then | unless Size: Size <= 2*As.size
@@ -304,7 +304,7 @@ mangle_name Name =
       or ('A'.code << N and N << 'Z'.code)
       or ('0'.code << N and N << '9'.code)
     then C
-    else "_[N.x.pad{2 0}]"
+    else "_[N.x.pad{-2 0}]"
 | [_ @Rs].text
 
 result_and_label Name =
@@ -465,7 +465,7 @@ leave @As = case As
   Else | mex_error "errorneous leave syntax"
 
 have @As = case As
-  [Value Expr] | form: have ?Name Value Expr
+  [Value Expr] | form: have ~Name Value Expr
   [Name Value Expr] | form | Name = Value
                            | Expr
                            | Name
@@ -503,8 +503,8 @@ expand_ffi Name Result Symbol Args =
 | ATs = map A Args A.2 // argument types
 | ANs = map A Args A.1 // argument names
 | R = form @| F = ffi_load FFI_Lib \Symbol
-            | Name $@ANs = | ?X = \F
-                           | form (_ffi_call \(Result $@ATs) FFI_Package.?X $@ANs)
+            | Name $@ANs = | ~X = \F
+                           | form (_ffi_call \(Result $@ATs) FFI_Package.~X $@ANs)
             | export_hidden F \Name
 | R
 

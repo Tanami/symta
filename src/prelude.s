@@ -26,6 +26,20 @@ text.is_text = 1
 //list.is_hard_list = 1
 
 _.`{}` F = Me.map{F}
+fn.`{}` @As = As.apply{Me}
+
+
+int.sign = if Me < 0 then -1
+           else if Me > 0 then 1
+           else 0
+
+float.sign = if Me < 0.0 then -1.0
+             else if Me > 0.0 then 1.0
+             else 0.0
+
+int.abs = if Me < 0 then -Me else Me
+
+float.abs = if Me < 0.0 then -Me else Me
 
 list.`+` Ys = dup I Me.size Me.I+Ys.I
 list.`-` Ys = dup I Me.size Me.I-Ys.I
@@ -384,12 +398,18 @@ list.uniq =
 | Me.skip{X => got Seen.X or (Seen.X <= 1) and 0}
 
 text.pad Count Item =
-| C = Item.as_text
-| when C.size > 1: bad "pad item: [C]"
-| N = Count - Me.size
-| when N < 0: bad "text is larger than [Count]: '[Me]'"
-| "[(dup N C).text][Me]"
+| X = "[Item]"
+| when X.size > 1: bad "pad item: [X]"
+| N = Count.abs - Me.size
+| when N < 0: bad "text is larger than [Count.abs]: '[Me]'"
+| Pad = @text: dup N X
+| if Count < 0 then "[Pad][Me]" else "[Me][Pad]"
 
+list.pad Count Item =
+| N = Count.abs - Me.size
+| when N < 0: bad "text is larger than [Count.abs]: '[Me]'"
+| Pad = dup N Item
+| if Count < 0 then [@Pad @Me] else [@Me @Pad]
 
 data macro name expander
 

@@ -80,9 +80,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! setf *read-default-float-format* 'double-float
   ! digit = "0123456789"
   ! hex-digit = "0123456789ABCDEF"
-  ! head-char = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?"
+  ! head-char = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?~"
   ! tail-char = "{head-char}{digit}"
-  ! ls = `("+" "-" "*" "/" "%" "^" "." "->" "~" "|" ";" "," ":" "=" "=>" "<="
+  ! ls = `("+" "-" "*" "/" "%" "^" "." "->" "|" ";" "," ":" "=" "=>" "<="
            "++" "--" "**" ".."
            "><" "<>" "<" ">" "<<" ">>"
            "\\" "$" "@" "&" "!" (() :end)
@@ -289,7 +289,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to /binary down ops ! a = try (funcall down) :fail ! /binary-loop ops down a)
 (to /suffix-loop e ! o = try (/op '(:!)) e ! /suffix-loop (list o e))
-(to /suffix ! a = try (/binary #'/term '(:. :^ :-> :~ :|{}|)) :fail ! /suffix-loop a)
+(to /suffix ! a = try (/binary #'/term '(:. :^ :-> :|{}|)) :fail ! /suffix-loop a)
 (to /pow ! /binary #'/suffix '(:**))
 (to /prefix ! o = try (/op '(:negate :\\ :$ :@ :&)) (/pow)
             ! when (token-is :negate o) (ret (/negate o))
@@ -1283,7 +1283,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! when (var-sym? o) (return-from expand-form-r o)
   ! unless (listp o)
      (return-from expand-form-r
-       (if (and (stringp o) (> (length o) 1) (eql (aref o 0) #\?))
+       (if (and (stringp o) (> (length o) 1) (eql (aref o 0) #\~))
            (! o-gs = gethash o agt
             ! unless o-gs
                (setf o-gs (ssa-name (subseq o 1)))
@@ -1364,7 +1364,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
             (x x))
 
 (to expand-method-arg-r a arg-name
-  ! when (equal a "?") (return-from expand-method-arg-r (funcall arg-name a))
+  ! when (stringp a)
+    (! when (equal a "?") (return-from expand-method-arg-r (funcall arg-name a))
+     ! when (and (> (length a) 1) (eql (aref a 0) #\?))
+       (return-from expand-method-arg-r
+         (! m = subseq a 1
+          ! when (digit-char-p (aref m 0)) (setf m (read-from-string m))
+          ! expand-method-arg-r `("." "?" ,m) arg-name)))
   ! unless (listp a) (return-from expand-method-arg-r a)
   ! match a
      ((''"{}" x y) `(,(first a) ,(expand-method-arg-r x arg-name) ,y))
@@ -1442,7 +1448,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                      (t `("_mcall" ,a "." ,b))))
         (("{}" ("." a b) . as) `("_mcall" ,a ,b ,@(m a as (expand-method-arg a))))
         (("{}" ("^" a b) . as) `(,b ,@as ,a))
-        (("{}" h . as) `("_mcall" ,h "{}" ,(m a as (expand-method-arg a))))
+        (("{}" h . as) `("_mcall" ,h "{}" ,@(m a as (expand-method-arg a))))
         (("{}" . else) (error "bad {}: ~%" xs))
         (("\\" o) (expand-quasiquote o))
         (("form" o) (expand-form o))
