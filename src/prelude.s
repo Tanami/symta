@@ -81,6 +81,13 @@ text.is_downcase =
   | I !+ 1
 | 1
 
+text.is_digit =
+| times I Me.size
+  | C = Me.I.code
+  | when C < '0'.code or '9'.code < C: leave 0
+  | I !+ 1
+| 1
+
 text.upcase =
 | Ys = map Char Me.list
   | C = Char.code
@@ -467,5 +474,22 @@ list.sort F =
   | for Z Zs: if F Z H then push Z Xs else push Z Ys
   | [@Xs^h H @Ys^h]
 | h Me.shuffle
+
+text.int Radix =
+| N = Me.size
+| I = 0
+| Sign = if Me.I >< '-'
+         then | I !+ 1
+              | -1
+         else 1
+| R = 0
+| Base = '0'.code
+| AlphaBase = 'A'.code - 10
+| while I < N
+  | C = Me.I.code
+  | V = if '0'.code << C and C << '9'.code then C - Base else C - AlphaBase
+  | R <= R*Radix + V
+  | I !+ 1
+| R*Sign
 
 export non say bad no got table_ new_macro new_meta path_parts

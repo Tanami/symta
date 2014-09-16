@@ -238,6 +238,12 @@ let @As =
   Else | mex_error "invalid arglist to `,`"
 
 expand_method_arg_r A ArgName =
+| when A.is_text
+  | when A >< '?': leave: ArgName A
+  | when A.size > 1 and A.0 >< '?':
+    | M = A.tail
+    | when M.is_digit: M <= M.int{10}
+    | leave: expand_method_arg_r ['.' '?' M] ArgName
 | when A >< '?': leave: ArgName A
 | unless A.is_list: leave A
 | case A

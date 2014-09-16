@@ -210,23 +210,6 @@ parse_bar H =
   | unless X^token_is{'|'} and X.src.1 >< C: leave [H @Zs.reverse]
   | pop GInput
 
-parse_integer T Radix =
-| N = T.size
-| I = 0
-| Sign = if T.I >< '-'
-         then | I !+ 1
-              | -1
-         else 1
-| R = 0
-| Base = '0'.code
-| AlphaBase = 'A'.code - 10
-| while I < N
-  | C = T.I.code
-  | V = if '0'.code << C and C << '9'.code then C - Base else C - AlphaBase
-  | R <= R*Radix + V
-  | I !+ 1
-| R*Sign
-
 parse_negate H =
 | A = parse_mul or leave 0
 | unless A^token_is{integer} or A^token_is{hex} or A^token_is{float}: leave [H A]
@@ -240,8 +223,8 @@ parse_term =
 | P = case Tok.symbol
          (in escape symbol text) | leave Tok
          splice | [(new_token symbol `"` Tok.src 0) @V^parse_tokens] //"
-         integer | parse_integer V 10
-         hex | parse_integer V.tail 16
+         integer | V.int{10}
+         hex | V.tail.int{16}
          void | Void
          `()` | parse_tokens V
          `[]` | [(new_token symbol `[]` Tok.src 0) @V^parse_tokens]
