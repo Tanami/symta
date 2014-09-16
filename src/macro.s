@@ -84,7 +84,7 @@ expand_match Keyform Cases Default Key =
     [_label E]
     R]
 
-case @Xs = expand_match Xs.0 Xs.tail.groupBy{2} 0 Void
+case @Xs = expand_match Xs.0 Xs.tail.group{2} 0 Void
 
 min A B = form | ~A = A
                | ~B = B
@@ -198,7 +198,7 @@ push Item O = form: O <= [Item @O]
 
 let @As =
 | when As.size < 2: mex_error "bad let @As"
-| Bs = As.lead.groupBy{2}
+| Bs = As.lead.group{2}
 | Body = As.last
 | Gs = map B Bs ['G'.rand @B]
 | R = @rand 'R'
@@ -290,7 +290,7 @@ table @As_ =
   | Size <= S
   | As <= Xs
 | T = form ~T
-| As <= As.groupBy{2}
+| As <= As.group{2}
 | if As.size
   then | unless Size: Size <= 2*As.size
        | form: `|` (T = table_ Size)
@@ -362,7 +362,7 @@ expand_destructuring Value Bs =
   | XsVar <= X
   | Bs <= Bs.lead
 | O = @rand 'O'
-| Ys = map [I B] Bs.enum: [B [_mcall O '.' I]]
+| Ys = map [I B] Bs.i: [B [_mcall O '.' I]]
 | when got XsVar: Ys <= [[XsVar [_mcall O drop Bs.size]] @Ys]
 | [[O Value] @Ys]
 
@@ -392,8 +392,8 @@ expand_block_item_data Name Fields =
 | [[`=` ["new_[Name]" @Gs] [_data Name @Gs]]
    [`=` [[`.` Name "is_[Name]"]] 1]
    [`=` [[`.` '_' "is_[Name]"]] 0]
-   @(map [I F] Fields.enum [`=` [[`.` Name F]]  [_dget 'Me' I]])
-   @(map [I F] Fields.enum [`=` [[`.` Name "set_[F]"] V]  [_dset 'Me' I V]])]
+   @(map [I F] Fields.i [`=` [[`.` Name F]]  [_dget 'Me' I]])
+   @(map [I F] Fields.i [`=` [[`.` Name "set_[F]"] V]  [_dset 'Me' I V]])]
 
 expand_block_item_method Type Name Args Body =
 | Body <= form: default_leave_ Name $(expand_named Name Body)

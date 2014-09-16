@@ -107,11 +107,11 @@ text.title =
 _.is_keyword = 0
 text.is_keyword = not: Me.size and Me.0.is_upcase
 
-int.i = dup I Me: I //iota operator
+int.list = dup I Me: I //iota operator
 
-list.enum = dup I Me.size: [I Me^pop]
+int.map F = dup I Me: F I
 
-int.`.` F = dup I Me: F I
+list.i = dup I Me.size: [I Me^pop]
 
 list.`.` K =
 | times I K: Me <= Me.tail
@@ -275,7 +275,7 @@ hard_list.find F =
 
 text.list = dup I Me.size Me.I
 
-list.groupBy N =
+list.group N =
 | Y = []
 | Ys = []
 | I = 0

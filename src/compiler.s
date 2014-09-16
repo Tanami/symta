@@ -105,9 +105,9 @@ ssa_fn Name K Args Expr O =
 | push Body GFns
 | NParents = Cs.size
 | ssa alloc_closure K F NParents
-| for [I C] Cs.enum: if C^address >< GNs^address // self?
-                     then ssa store K I \E
-                     else ssa copy K I \P C^get_parent_index
+| for [I C] Cs.i: if C^address >< GNs^address // self?
+                  then ssa store K I \E
+                  else ssa copy K I \P C^get_parent_index
 
 ssa_if K Cnd Then Else =
 | ThenLabel = @rand `then`
@@ -148,12 +148,12 @@ ssa_let K Args Vals Xs =
 | NParents = Cs.size
 | P = ssa_var p // parent environment
 | ssa local_closure P NParents
-| for [I C] Cs.enum: if C^address >< GNs^address // self?
-                     then ssa store P I \E
-                     else ssa copy P I \P C^get_parent_index
+| for [I C] Cs.i: if C^address >< GNs^address // self?
+                  then ssa store P I \E
+                  else ssa copy P I \P C^get_parent_index
 | E = ssa_var env
 | ssa arglist E Args.size
-| for [I V] Vals.enum: ssa arg_store E I V^ev
+| for [I V] Vals.i: ssa arg_store E I V^ev
 | SaveP = ssa_var save_p
 | SaveE = ssa_var save_e
 | ssa move SaveP \P
@@ -172,7 +172,7 @@ ssa_apply K F As =
   | Vs = map A As: ev A
   | E = ssa_var env
   | ssa arglist E As.size
-  | for [I V] Vs.enum: ssa arg_store E I V
+  | for [I V] Vs.i: ssa arg_store E I V
   | if F.is_keyword then ssa call K H else ssa call_tagged K H
 
 resolve_method Name =
@@ -190,7 +190,7 @@ ssa_apply_method K Name O As =
   | Vs = map A As: ev A
   | E = ssa_var env
   | ssa arglist E As.size
-  | for [I V] Vs.enum: ssa arg_store E I V
+  | for [I V] Vs.i: ssa arg_store E I V
   | ssa call_method K Vs.0 Name.1^resolve_method
 
 ssa_set K Place Value =
@@ -291,7 +291,7 @@ ssa_list K Xs =
 | unless Xs.size: leave: ssa move K 'Empty'
 | L = ssa_var l
 | ssa arglist L Xs.size
-| for [I X] Xs.enum: ssa arg_store L I X^ev
+| for [I X] Xs.i: ssa arg_store L I X^ev
 | ssa tagged K L \T_LIST
 
 ssa_data K Type Xs =
@@ -302,7 +302,7 @@ ssa_data K Type Xs =
   | ssa type TypeVar BytesName BytesName Size
   | for X GOut.reverse: push X GRawInits
 | ssa alloc_data K TypeVar Size
-| for [I X] Xs.enum: ssa dinit K I X^ev
+| for [I X] Xs.i: ssa dinit K I X^ev
 
 ssa_dget K Src Off =
 | unless Off.is_int: bad "dget: offset must be integer"
@@ -334,7 +334,7 @@ ssa_label Name = ssa local_label Name
 ssa_goto Name =
 | N = GBases.locate{B => got B.locate{?><Name}}
 | when no N: bad "cant find label [Name]"
-| for I N.i
+| times I N
   | ssa gc (ssa_var d) 0 // FIXME: have to GC, simple pop_base wont LIFT
   | ssa pop_base
 | ssa jmp Name

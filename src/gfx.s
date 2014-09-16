@@ -26,7 +26,7 @@ gfx.cmap =
 gfx.set_cmap NewCM =
 | when NewCM.size > 256: bad "cant set color map larger than 256"
 | P = gfx_enable_cmap Me.handle
-| for [I E] NewCM.enum: _ffi_set uint32_t P I E
+| for [I E] NewCM.i: _ffi_set uint32_t P I E
 gfx.blit P Gfx rect/0 flipX/0 flipY/0 map/0 =
 | [SX SY SW SH] = if Rect then Rect else [0 0 Gfx.w Gfx.h]
 | gfx_blit Me.handle P.0 P.1 Gfx.handle SX SY SW SH FlipX FlipY Map
