@@ -69,7 +69,7 @@ expand_match Keyform Cases Default Key =
 | D = @rand default
 | R = @rand 'R'
 | Ys = []
-| for Case Cases.reverse
+| for Case Cases.flip
   | Name = @rand c
   | NextLabel = if Ys.size > 0 then Ys.0.1 else D
   | Miss = [_goto NextLabel]
@@ -277,7 +277,7 @@ is_incut X = case X [`@` Xs] 1
 | when IncutCount >< 0: leave [_list @As]
 | when IncutCount >< 1
   | case As.last
-    [`@` Xs] | As = As.reverse.tail
+    [`@` Xs] | As = As.flip.tail
              | till As.end: Xs <= [_mcall Xs pre As^pop]
              | leave Xs
 | As = map A As: if A^is_incut then A.1 else [_list A]
@@ -438,12 +438,12 @@ expand_block Xs =
 | for X Xs: case X
   [`=>` A B] | push X Ms
   Else | push X Ys
-| unless Ms.end: push Ms.reverse^make_multimethod Ys
-| Xs <= Ys.reverse
+| unless Ms.end: push Ms.flip^make_multimethod Ys
+| Xs <= Ys.flip
 | Xs <= map X Xs: expand_block_item X
 | Xs <= Xs.join
 | R = []
-| for X Xs.reverse
+| for X Xs.flip
   | R <= case X [A B]
          | if got A
            then if A.is_keyword

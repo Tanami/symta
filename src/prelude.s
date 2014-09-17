@@ -138,7 +138,7 @@ hard_list.`><` B =
   | I !+ 1
 | 1
 
-list.reverse =
+list.flip =
 | N = Me.size
 | Ys = dup N
 | while N > 0
@@ -146,7 +146,7 @@ list.reverse =
   | Ys.N <= pop Me
 | Ys
 
-hard_list.reverse =
+hard_list.flip =
 | N = Me.size
 | dup N
   | N !- 1
@@ -183,12 +183,12 @@ hard_list.count F =
 list.keep F =
 | Ys = []
 | for X Me: when F X: Ys <= [X@Ys]
-| Ys.reverse
+| Ys.flip
 
 list.skip F =
 | Ys = []
 | for X Me: unless F X: Ys <= [X@Ys]
-| Ys.reverse
+| Ys.flip
 
 list.join =
 | Size = Me.map{X=>X.size}.sum
@@ -221,7 +221,7 @@ list.split S =
   | Ys <= [Me.take{P}@Ys]
   | Me <= Me.drop{P+1}
   | P <= Me.locate{F}
-| [Me@Ys].reverse
+| [Me@Ys].flip
 
 text.split F = Me.list.split{F}.map{X=>X.text}
 
@@ -283,11 +283,11 @@ list.group N =
   | push Me^pop Y
   | I !+ 1
   | when I >< N
-    | push Y.reverse Ys
+    | push Y.flip Ys
     | Y <= []
     | I <= 0
-| when Y.size: push Y.reverse Ys
-| Ys.reverse
+| when Y.size: push Y.flip Ys
+| Ys.flip
 
 list.all F =
 | for X Me: unless F X: leave 0
@@ -343,7 +343,7 @@ text.as_text =
   | unless plain_char C: Q <= 1
   | when C >< '`': C <= '\\`'
   | push C Cs
-| if Q then ['`' @['`' @Cs].reverse].text else Me
+| if Q then ['`' @['`' @Cs].flip].text else Me
 
 list.as_text = "([(map X Me X.as_text).text{' '}])"
 
@@ -358,17 +358,17 @@ bad Text =
 path_parts Filename =
 | Name = ""
 | Ext = ""
-| Xs = Filename.list.reverse
+| Xs = Filename.list.flip
 | Sep = Xs.locate{?><'/'}
 | Dot = Xs.locate{?><'.'}
 | when got Dot and (no Sep or Dot < Sep):
-  | Ext <= Xs.take{Dot}.reverse.text
+  | Ext <= Xs.take{Dot}.flip.text
   | Xs <= Xs.drop{Dot+1}
   | Sep !- (Dot+1)
 | when got Sep
- | Name <= Xs.take{Sep}.reverse.text
+ | Name <= Xs.take{Sep}.flip.text
  | Xs <= Xs.drop{Sep+1}
-| [Xs.reverse.text Name Ext]
+| [Xs.flip.text Name Ext]
 
 // hashtable
 data table buckets

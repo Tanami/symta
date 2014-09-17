@@ -160,7 +160,7 @@ ssa_let K Args Vals Xs =
 | ssa move SaveE \E
 | ssa move \E E
 | ssa move \P P
-| for S SsaBody.reverse: push S GOut
+| for S SsaBody.flip: push S GOut
 | ssa move \P SaveP
 | ssa move \E SaveE
 
@@ -242,8 +242,8 @@ uniquify_let Xs =
         Else
           | push A NewAs
           | push V NewVs
-  | As <= NewAs.reverse
-  | Vs <= NewVs.reverse
+  | As <= NewAs.flip
+  | Vs <= NewVs.flip
   | Xs <= [[_fn As @Body] @Vs]
 | Xs
 
@@ -300,7 +300,7 @@ ssa_data K Type Xs =
 | TypeVar = ssa_global t
 | let GOut []
   | ssa type TypeVar BytesName BytesName Size
-  | for X GOut.reverse: push X GRawInits
+  | for X GOut.flip: push X GRawInits
 | ssa alloc_data K TypeVar Size
 | for [I X] Xs.i: ssa dinit K I X^ev
 
@@ -452,9 +452,9 @@ produce_ssa Entry Expr =
   | ssa return R
   | ssa entry setup
   | for [Name Dst] GImportLibs: ssa_load_lib Dst Name
-  | for X GRawInits.reverse: push X GOut
+  | for X GRawInits.flip: push X GOut
   | ssa return_no_gc 0
-  | Rs = [GOut@GFns].reverse.join.reverse
+  | Rs = [GOut@GFns].flip.join.flip
   //| Rs <= peephole_optimize Rs
   | Rs
 
@@ -504,7 +504,7 @@ ssa_to_c Xs = let GCompiled []
     | c "  [Call]"
   Else | cnorm X //FIXME: check if it is known and has correct argnum
 | c 'END_CODE'
-| GCompiled <= GCompiled.reverse
+| GCompiled <= GCompiled.flip
 | for D Decls: push D GCompiled
 | push '#include "runtime.h"' GCompiled
 | GCompiled.text{'\n'}

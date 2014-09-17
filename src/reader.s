@@ -89,7 +89,7 @@ read_token R LeftSpaced =
   | C <= R.peek
   | Next <= Next.C
   | when no Next
-    | Value = Cs.reverse.text
+    | Value = Cs.flip.text
     | Type = GSpecs.Value
     | when no Type: Type <= Cur.'type'
     | when Value >< '-' and LeftSpaced and C <> '\n' and C <> ' ':
@@ -116,13 +116,13 @@ add_bars Xs =
     | push (new_token '|' '|' [Row Col-1 Orig] 0) Ys 
     | First <= 0
   | push X Ys
-| Ys.reverse
+| Ys.flip
 
 tokenize R =
 | Ts = []
 | while 1
   | Tok = read_token R 0
-  | when Tok^token_is{end}: leave Ts.reverse^add_bars
+  | when Tok^token_is{end}: leave Ts.flip^add_bars
   | push Tok Ts
 
 read_list R Open Close =
@@ -130,7 +130,7 @@ read_list R Open Close =
 | Xs = []
 | while 1
   | X = read_token R 0
-  | when X^token_is{Close}: leave Xs.reverse
+  | when X^token_is{Close}: leave Xs.flip
   | when X^token_is{end}: GError "[Orig]:[Row],[Col]: unclosed `[Open]`"
   | Xs <= [X@Xs]
 
@@ -155,10 +155,10 @@ read_string R Incut End =
              C>(in &Incut &End) | L <= [C@L]
              Void | R.error{'EOF in string'}
              Else | R.error{"Invalid escape code: [Else]"}
-     &End | Ys = [L.reverse.text]
+     &End | Ys = [L.flip.text]
           | when End >< '"': Ys <= spliced_string_normalize Ys //"
           | leave Ys
-     &Incut | L <= L.reverse.text
+     &Incut | L <= L.flip.text
             | M = (read_token R 0).value
             | E = read_string R Incut End
             | leave: spliced_string_normalize [L M @E]
@@ -204,10 +204,10 @@ parse_bar H =
 | while not GInput.end
   | Ys = []
   | while not GInput.end and GInput.0.src.1 > C: push GInput^pop Ys
-  | push Ys.reverse^parse_tokens Zs
-  | when GInput.end: leave [H @Zs.reverse]
+  | push Ys.flip^parse_tokens Zs
+  | when GInput.end: leave [H @Zs.flip]
   | X = GInput.0
-  | unless X^token_is{'|'} and X.src.1 >< C: leave [H @Zs.reverse]
+  | unless X^token_is{'|'} and X.src.1 >< C: leave [H @Zs.flip]
   | pop GInput
 
 parse_negate H =
@@ -274,7 +274,7 @@ parse_bool = parse_binary &parse_dots [`><` `<>` `<` `>` `<<` `>>`]
 
 parse_logic =
 | O = parse_op [`and` `or`] or leave (parse_bool)
-| GOutput <= GOutput.reverse
+| GOutput <= GOutput.flip
 | P = GInput.locate{&is_delim} //hack LL(1) to speed-up parsing
 | Tok = got P and GInput.P
 | when no P or got [`if` `then` `else` ].locate{X => Tok^token_is{X}}:
@@ -289,7 +289,7 @@ parse_logic =
 
 parse_delim =
 | O = parse_op [`:` `=` `=>` `<=`] or leave (parse_logic)
-| Pref = if GOutput.size > 0 then GOutput.reverse else []
+| Pref = if GOutput.size > 0 then GOutput.flip else []
 | GOutput <= [(parse_xs) Pref O]
 | Void
 
@@ -300,7 +300,7 @@ parse_semicolon =
 | L = parse_tokens GInput.take{P}
 | R = parse_tokens GInput.drop{P+1}
 | GInput <= []
-| GOutput <= if R.0^token_is{`};`} then [@R.tail.reverse L M] else [R L M]
+| GOutput <= if R.0^token_is{`};`} then [@R.tail.flip L M] else [R L M]
 | Void
 
 parse_xs =
@@ -308,7 +308,7 @@ parse_xs =
   | parse_semicolon
   | named loop // FIXME: implement unwind_protect
     | while 1
-      | X = parse_delim or leave loop GOutput.reverse
+      | X = parse_delim or leave loop GOutput.flip
       | when got X: push X GOutput
 
 parse_tokens Input =
