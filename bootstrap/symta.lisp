@@ -1385,7 +1385,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! when g (setf a `("_fn" (,g) ,r))
   ! a)
 
-(to expand-have name value expr
+(to expand-as name value expr
   ! `("|" ("=" (,name) ,value)
           ,expr
           ,name))
@@ -1485,8 +1485,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
            ((("/" "size" size)) `("table_" ,size))
            (() `("table_" 256))
            (else (error "bad ~a" xs))))
-        (("have" value expr) (expand-have (ssa-name "N") value expr))
-        (("have" name value expr) (expand-have name value expr))
+        (("as" value expr) (expand-as (ssa-name "N") value expr))
+        (("as" name value expr) (expand-as name value expr))
         (("," (x . xs) . ys) `(,x ,xs ,@ys))
         (("," . xs) (error "bad `,`"))
         ((z . zs)

@@ -192,7 +192,7 @@ expand_text_splice Xs =
 
 `"` @Xs /*"*/ = expand_text_splice Xs
 
-pop O = form: have O.head: O <= O.tail
+pop O = form: as O.head: O <= O.tail
 
 push Item O = form: O <= [Item @O]
 
@@ -470,8 +470,8 @@ leave @As = case As
           | expand_leave GDefaultLeave Value
   Else | mex_error "errorneous leave syntax"
 
-have @As = case As
-  [Value Expr] | form: have ~Name Value Expr
+as @As = case As
+  [Value Expr] | form: as ~Name Value Expr
   [Name Value Expr] | form | Name = Value
                            | Expr
                            | Name
@@ -594,6 +594,6 @@ macroexpand Expr Macros ModuleCompiler =
 
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '@' '[]' 'table' '\\' 'form'
        'not' 'and' 'or' 'when' 'unless' 'while' 'till' 'dup' 'times' 'map' 'for'
-       'named' 'export_hidden' 'export' 'pop' 'push' 'have' 'callcc' 'fin' '|' ';' ','
+       'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ','
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
        'ffi_begin' 'ffi' 'min' 'max' '"'

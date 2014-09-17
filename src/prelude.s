@@ -117,6 +117,10 @@ list.`.` K =
 | times I K: Me <= Me.tail
 | Me.head
 
+list.x = Me.0
+list.y = Me.1
+list.z = Me.2
+
 list.size =
 | S = 0
 | till Me.end
@@ -156,8 +160,8 @@ list.map F = dup Me.size: F Me^pop
 hard_list.map F = dup I Me.size: F Me.I
 text.map F = Me.list.map{F}
 
-list.each F = till Me.end: F Me^pop
-hard_list.each F = times I Me.size: F Me.I
+list.e F = till Me.end: F Me^pop
+hard_list.e F = times I Me.size: F Me.I
 
 list.sum =
 | S = 0
