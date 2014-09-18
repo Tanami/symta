@@ -264,7 +264,9 @@ expand_method_arg A =
 `{}` @Xs = case Xs
   [[`.` A B] @As] | [_mcall A B @(map X As: expand_method_arg X)]
   [[`^` A B] @As] | [B @As A]
-  [H @As] | [_mcall H '{}' @(map X As: expand_method_arg X)]
+  [H @As] | if H.is_text
+            then Xs
+            else [_mcall H '{}' @(map X As: expand_method_arg X)]
   Else | mex_error "invalid `{}`"
 
 `!!` @As = expand_assign_result As

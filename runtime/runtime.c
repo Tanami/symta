@@ -506,17 +506,16 @@ char* print_object_f(api_t *api, void *object) {
   return print_buffer;
 }
 
-static char *read_whole_file_as_string(char *input_file_name) {
-  char *file_contents;
-  long input_file_size;
+static uint8_t *read_whole_file(char *input_file_name, intptr_t *file_size) {
+  uint8_t *file_contents;
   FILE *input_file = fopen(input_file_name, "rb");
   if (!input_file) return 0;
   fseek(input_file, 0, SEEK_END);
-  input_file_size = ftell(input_file);
+  *file_size = ftell(input_file);
   rewind(input_file);
-  file_contents = malloc(input_file_size + 1);
-  file_contents[input_file_size] = 0;
-  fread(file_contents, sizeof(char), input_file_size, input_file);
+  file_contents = malloc(*file_size + 1);
+  file_contents[*file_size] = 0;
+  fread(file_contents, sizeof(uint8_t), *file_size, input_file);
   fclose(input_file);
   return file_contents;
 }
@@ -1074,13 +1073,32 @@ BUILTIN1("load_file",load_file,C_ANY,path)
   fatal("FIXME: implement load_file\n");
 RETURNS(Void)
 
-BUILTIN1("utf8_to_text",utf8_to_text,C_ANY,bytes)
-  fatal("FIXME: implement utf8_to_text\n");
+BUILTIN1("utf8",utf8,C_ANY,bytes)
+  fatal("FIXME: implement utf8\n");
 RETURNS(Void)
 
-BUILTIN1("load_text",load_text,C_TEXT,filename_text)
+/*
+BUILTIN1("get",get_file,C_ANY,filename_text)
+  int i;
+  intptr_t file_size;
   char *filename = text_to_cstring(filename_text);
-  char *contents = read_whole_file_as_string(filename);
+  uint8_t *contents = read_whole_file(filename, &file_size);
+  if (contents) {
+    LIST_ALLOC(R, file_size);
+    for (i = 0; i < file_size; i++) {
+      LIST_REF(R,i) = (void*)FIXNUM(contents[i]);
+    }
+    free(contents);
+  } else {
+    R = Void;
+  }
+RETURNS(R)
+*/
+
+BUILTIN1("load_text",load_text,C_TEXT,filename_text)
+  intptr_t file_size;
+  char *filename = text_to_cstring(filename_text);
+  char *contents = (char*)read_whole_file(filename, &file_size);
   if (contents) {
     TEXT(R, contents);
     free(contents);
@@ -1664,6 +1682,8 @@ int main(int argc, char **argv) {
   api = init_api(apis);
   api->other = init_api(apis+1);
   api->other->other = api;
+
+  //fprintf(stderr, "%016p\n", apis);
 
   api->base = api->top = api->heap+HEAP_SIZE-BASE_HEAD_SIZE;
   api->other->base = api->other->top = api->other->heap+HEAP_SIZE-BASE_HEAD_SIZE;

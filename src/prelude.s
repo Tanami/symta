@@ -41,6 +41,7 @@ int.abs = if Me < 0 then -Me else Me
 
 float.abs = if Me < 0.0 then -Me else Me
 
+list.neg = dup I Me.size -Me.I
 list.`+` Ys = dup I Me.size Me.I+Ys.I
 list.`-` Ys = dup I Me.size Me.I-Ys.I
 list.`*` A = map X Me: X*A
@@ -495,5 +496,24 @@ text.int Radix =
   | R <= R*Radix + V
   | I !+ 1
 | R*Sign
+
+list.u4 = Me.3*#1000000 + Me.2*#10000 + Me.1*#100 + Me.0
+list.u4b = Me.0*#1000000 + Me.1*#10000 + Me.2*#100 + Me.3
+list.s4 = as R Me.u4: when R.mask{#80000000}: R!-#100000000
+list.s4b = as R Me.u4b: when R.mask{#80000000}: R!-#100000000
+
+list.u2 = Me.1*#100 + Me.0
+list.u2b = Me.0*#100 + Me.1
+list.s2 = as R Me.u2: when R.mask{#8000}: R!-#10000
+list.s2b = as R Me.u2b: when R.mask{#8000}: R!-#10000
+
+int.u4 = [Me/#1000000%256 Me/#10000%256 Me/#100%256 Me%256]
+int.u4b = [Me%256 Me/#100%256 Me/#10000%256 Me/#1000000%256]
+int.s4 = 
+| when Me < 0: #100000000+Me!
+| [Me%256 Me/#100%256 Me/#10000%256 Me/#1000000%256]
+int.s4b =
+| when Me < 0: #100000000+Me!
+| [Me/#1000000%256 Me/#10000%256 Me/#100%256 Me%256]
 
 export non say bad no got table_ new_macro new_meta path_parts

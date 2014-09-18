@@ -71,18 +71,6 @@
     dst = *(double*)&t_; \
   }
 
-/*
-#define LOAD_FLOAT(dst,x) { \
-    float tmp_ = (float)(x); \
-    dst = (void*)(ASHL((intptr_t)(*(uint32_t*)&tmp_),TAG_BITS) | T_FLOAT); \
-  }
-
-#define UNFLOAT(dst,x) { \
-    uint32_t tmp_ = (uint32_t)(ASHR((intptr_t)(x),TAG_BITS)); \
-    dst = *(float*)&tmp_; \
-  }
-*/
-
 #define HEAP_SIZE (32*1024*1024)
 #define BASE_HEAD_SIZE 2
 #define OBJ_HEAD_SIZE 2
@@ -388,11 +376,11 @@ typedef struct {
   dst = (int)UNFIXNUM(src);
 #define FFI_FROM_INT(dst,src) dst = (void*)FIXNUM((intptr_t)src);
 
-#define FFI_TO_UINT32_T(dst,src) \
+#define FFI_TO_U4(dst,src) \
   if (GET_TAG(src) != T_FIXNUM) \
-    api->bad_type(REGS_ARGS(P), "uint32_t", 0, 0); \
+    api->bad_type(REGS_ARGS(P), "int", 0, 0); \
   dst = (uint32_t)UNFIXNUM(src);
-#define FFI_FROM_UINT32_T(dst,src) dst = (void*)FIXNUM((intptr_t)src);
+#define FFI_FROM_U4(dst,src) dst = (void*)FIXNUM((intptr_t)src);
 
 #define FFI_TO_DOUBLE(dst,src) UNFLOAT(dst,src);
 #define FFI_FROM_DOUBLE(dst,src) LOAD_FLOAT(dst,src);
