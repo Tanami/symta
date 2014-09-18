@@ -224,7 +224,7 @@ let @As =
 `><` A B = [_mcall A '><' B]
 `<>` A B = [_mcall A '<>' B]
 `^` A B = [B A]
-`.` A B = if A.is_keyword then
+`.` A B = if A.is_keyword and A <> '?' then
             | Sym = load_symbol A B
             | when Sym.is_macro
               | when B.is_keyword: mex_error "cant reference macro's value in [A].[B]"
@@ -546,7 +546,7 @@ normalize_nesting O =
 mex_normal X Xs =
 | when GExpansionDepth > GExpansionDepthLimit: mex_error "macroexpansion depth exceed at [[X@Xs]]"
 | Macro = when X.is_keyword: GMacros.X
-| case X [`.` Library Name]: when Library.is_keyword and Name.is_keyword:
+| case X [`.` Library Name]: when Library.is_keyword and Name.is_keyword and Library <> '?':
   | Sym = load_symbol Library Name
   | when Sym.is_macro: Macro <= Sym
 | when no Macro

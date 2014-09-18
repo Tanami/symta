@@ -17,7 +17,7 @@
 #define VIEW_SIZE(o) VIEW_REF4(o,1)
 #define VIEW_REF(o,start,i) *((void**)VIEW_GET(o,-1) + start + (i))
 
-
+static char *main_path;
 static void *main_args;
 
 typedef struct {
@@ -42,6 +42,7 @@ static char *lib_folders[MAX_LIB_FOLDERS];
 static api_t apis[2]; // one for each heap
 
 
+static void *collectors[MAX_TYPES];
 static int methods_used;
 static void **methods[MAX_METHODS];
 static int types_used;
@@ -100,6 +101,7 @@ static void **resolve_method(api_t *api, char *name) {
 }
 
 static void add_subtype(api_t *api, int type, int subtype);
+static void *collect_data(api_t *api, void *o);
 
 static int resolve_type(api_t *api, char *name) {
   int i, j;
@@ -115,6 +117,8 @@ static int resolve_type(api_t *api, char *name) {
 
   for (j = 0; j < methods_used; j++) methods[j][i] = undefined;
   methods[M_SINK][i] = sink;
+
+  if (!collectors[i]) collectors[i] = collect_data;
 
   add_subtype(api, T_OBJECT, i);
 
@@ -1462,92 +1466,107 @@ static void *gc_arglist(api_t *api, void *o) {
   return p;
 }
 
+static void *collect_immediate(api_t *api, void *o) {
+  return o;
+}
+
+
+static void *collect_closure(api_t *api, void *o) {
+  int i, size;
+  void *p;
+  void *fixed_size, *dummy;
+  void *savedTop = Top;
+  ALLOC_CLOSURE(dummy, FN_GET_SIZE, 1);
+  CALL_NO_POP(fixed_size,o);
+  size = UNFIXNUM(fixed_size);
+  Top = savedTop;
+  ALLOC_CLOSURE(p, OBJECT_CODE(o), size);
+  STORE(o, -2, p);
+  for (i = 0; i < size; i++) {
+    STORE(p, i, gc_arglist(api, CLOSURE_REF(o,i)));
+  }
+  return p;
+}
+
+static void *collect_list(api_t *api, void *o) {
+  int i, size;
+  void *p;
+  size = (int)UNFIXNUM(LIST_SIZE(o));
+  LIST_ALLOC(p, size);
+  LIST_REF(o,-2) = p;
+  for (i = 0; i < size; i++) {
+    LIST_REF(p, i) = gc(api, LIST_REF(o,i));
+  }
+  return p;
+}
+
+static void *collect_view(api_t *api, void *o) {
+  void *p, *q;
+  uint32_t start = VIEW_START(o);
+  uint32_t size = VIEW_SIZE(o);
+  VIEW(p, 0, start, size);
+  VIEW_GET(o,-2) = p;
+  q = ADD_TAG(&VIEW_REF(o,0,0), T_LIST);
+  q = gc(api, q);
+  VIEW_GET(p,-1) = &LIST_REF(q, 0);
+  return p;
+}
+
+static void *collect_cons(api_t *api, void *o) {
+  void *p;
+  CONS(p, 0, 0);
+  CONS_REF(o,-2) = p;
+  CAR(p) = gc(api, CAR(o));
+  CDR(p) = gc(api, CDR(o));
+  return p;
+}
+
+static void *collect_text(api_t *api, void *o) {
+  void *p;
+  p = alloc_bigtext(api, BIGTEXT_DATA(o), BIGTEXT_SIZE(o));
+  DATA_REF(o,-2) = p;
+  return p;
+}
+
+static void *collect_data(api_t *api, void *o) {
+  int i, size;
+  void *p;
+  size = DATA_SIZE(o);
+  ALLOC_DATA(p, OBJECT_CODE(o), size);
+  DATA_REF(o,-2) = p;
+  for (i = 0; i < size; i++) {
+    DATA_REF(p,i) = gc(api, DATA_REF(o,i));
+  }
+  return p;
+}
+
 static void *gc(api_t *api, void *o) {
-  void *p, *q, *e;
-  int i, j, size, tag;
-  void *E, *P, *A, *C, *R; // dummies
-  char buf[1024];
+  uintptr_t tag;
   uintptr_t level;
 
-  //sprintf(buf, "%s", print_object(o));
   //fprintf(stderr, "%p: %s\n", o, print_object(o));
 
-  if (IMMEDIATE(o)) {
-    p = o;
-    goto end;
-  }
-
+  if (IMMEDIATE(o)) return o;
 
   level = OBJECT_LEVEL(o);
-  
+
   if (level != GCLevel) {
     if (level > HEAP_SIZE) {
       // already moved
-      p = (void*)level;
-      goto end;
+      return (void*)level;
     }
     // FIXME: validate this external reference (safe-check we haven't damaged anything)
     //fprintf(stderr, "external: %p\n", o);
-    p = o;
-    goto end;
+    return o;
   }
 
   tag = GET_TAG(o);
-  if (tag == T_CLOSURE) {
-    void *fixed_size, *dummy;
-    void *savedTop = Top;
-    ALLOC_CLOSURE(dummy, FN_GET_SIZE, 1);
-    CALL_NO_POP(fixed_size,o);
-    size = UNFIXNUM(fixed_size);
-    Top = savedTop;
-    ALLOC_CLOSURE(p, OBJECT_CODE(o), size);
-    STORE(o, -2, p);
-    for (i = 0; i < size; i++) {
-      STORE(p, i, gc_arglist(api, CLOSURE_REF(o,i)));
-    }
-  } else if (tag == T_LIST) {
-    size = (int)UNFIXNUM(LIST_SIZE(o));
-    LIST_ALLOC(p, size);
-    LIST_REF(o,-2) = p;
-    for (i = 0; i < size; i++) {
-      LIST_REF(p, i) = gc(api, LIST_REF(o,i));
-    }
-  } else if (tag == T_VIEW) {
-    uint32_t start = VIEW_START(o);
-    uint32_t size = VIEW_SIZE(o);
-    VIEW(p, 0, start, size);
-    VIEW_GET(o,-2) = p;
-    q = ADD_TAG(&VIEW_REF(o,0,0), T_LIST);
-    q = gc(api, q);
-    VIEW_GET(p,-1) = &LIST_REF(q, 0);
-  } else if (tag == T_CONS) {
-    CONS(p, 0, 0);
-    CONS_REF(o,-2) = p;
-    CAR(p) = gc(api, CAR(o));
-    CDR(p) = gc(api, CDR(o));
-  } else if (tag == T_DATA) {
-    uintptr_t dtag = DATA_TAG(o);
-    if (dtag > MAX_TYPES) {
-      p = (void*)dtag;
-    } else if (dtag == T_TEXT) {
-      p = alloc_bigtext(api, BIGTEXT_DATA(o), BIGTEXT_SIZE(o));
-      DATA_REF(o,-2) = p;
-    } else {
-      size = DATA_SIZE(o);
-      ALLOC_DATA(p, OBJECT_CODE(o), size);
-      DATA_REF(o,-2) = p;
-      for (i = 0; i < size; i++) {
-        DATA_REF(p,i) = gc(api, DATA_REF(o,i));
-      }
-    }
-  } else {
-    printf("cant gc #(ufo %d %p)\n", (int)GET_TAG(o), o);
-    abort();
+  if (tag == T_DATA) {
+    tag = DATA_TAG(o);
+    if (tag > MAX_TYPES) return (void*)tag;
   }
 
-end:
-  //fprintf(stderr, "%s: %p -> %p (%ld)\n", ""/*buf*/, o, p, (intptr_t)(p-o));
-  return p;
+  return ((void *(*)(api_t *api, void *o))collectors[tag])(api,o);
 }
 
 #define ON_CURRENT_LEVEL(x) (api->top <= (void*)(x) && (void*)(x) < api->base)
@@ -1639,112 +1658,18 @@ static api_t *init_api(void *ptr) {
   multi[T_CONS] = m_cons; \
   multi[T_VOID] = m_void;
 
-int main(int argc, char **argv) {
-  int i, j;
-  char tmp[1024];
-  void *lib;
-  pfun entry, setup;
-  api_t *api;
-  void *R;
-  void **multi;
+static void init_types(api_t *api) {
   void *n_int, *n_float, *n_fn, *n_list, *n_text, *n_void; // typenames
-  void *core;
-  char *lib_path;
+  void **multi;
 
-  void *E = 0; // current environment
-  void *P = 0; // parent environment
-
-  int main_argc = argc-1;
-  char **main_argv = argv+1;
-
-  if (argc > 1 && argv[1][0] == ':') {
-    lib_path = argv[1]+1;
-    --main_argc;
-    ++main_argv;
-  } else {
-    lib_path = "./lib";
-  }
-
-  realpath(lib_path, tmp);
-  lib_path = tmp;
-
-  lib_path = strdup(lib_path);
-  i = strlen(lib_path);
-
-  //printf("lib_path: %s\n", lib_path);
-
-  while (i > 0 && lib_path[i-1] == '/' || lib_path[i-1] == '\\') {
-   lib_path[--i] = 0;
-  }
-
-  add_lib_folder(lib_path);
-
-  api = init_api(apis);
-  api->other = init_api(apis+1);
-  api->other->other = api;
-
-  //fprintf(stderr, "%016p\n", apis);
-
-  api->base = api->top = api->heap+HEAP_SIZE-BASE_HEAD_SIZE;
-  api->other->base = api->other->top = api->other->heap+HEAP_SIZE-BASE_HEAD_SIZE;
-
-  api->level = 1;
-  api->other->level = 0;
-
-  BUILTIN_CLOSURE(undefined, b_undefined);
-  BUILTIN_CLOSURE(sink, b_sink);
-
-  ALLOC_DATA(Void, T_VOID, 0);
-  LIST_ALLOC(Empty, 0);
-
-  api->other->void_ = api->void_;
-  api->other->empty_ = api->empty_;
-
-  LIST_ALLOC(main_args, main_argc);
-  for (i = 0; i < main_argc; i++) {
-    void *a;
-    TEXT(a, main_argv[i]);
-    LIFT(DEL_TAG(main_args),i,a);
-  }
-
-  for (i = 0; builtins[i].name; i++) {
-    void *t;
-    TEXT(builtins[i].name, builtins[i].name);
-    BUILTIN_CLOSURE(t, builtins[i].fun);
-    builtins[i].fun = t;
-  }
-
-  LIST_ALLOC(core, i);
-  for (i = 0; builtins[i].name; i++) {
-    void *pair;
-    LIST_ALLOC(pair, 2);
-    LIST_REF(pair,0) = builtins[i].name;
-    LIST_REF(pair,1) = builtins[i].fun;
-    LIST_REF(core,i) = pair;
-  }
-
-  LIST_ALLOC(lib_exports, MAX_LIBS);
-
-  lib_names[libs_used] = "core";
-  LIST_REF(lib_exports,libs_used) = core;
-  ++libs_used;
-
-  for (i = 0; i < MAX_METHODS; i++) {
-    ALLOC_BASIC(methods[i], FIXNUM(MAX_TYPES), MAX_TYPES);
-    api = api->other;
-  }
-  if (api->level != 1) api = api->other;
-
-  for (i = 0; i < 128; i++) {
-    char t[2];
-    t[0] = (char)i;
-    t[1] = 0;
-    TEXT(single_chars[i], t);
-  }
-
-  for (; i < MAX_SINGLE_CHARS; i++) {
-    single_chars[i] = single_chars[0];
-  }
+  collectors[T_FIXNUM] = collect_immediate;
+  collectors[T_FLOAT] = collect_immediate;
+  collectors[T_FIXTEXT] = collect_immediate;
+  collectors[T_CLOSURE] = collect_closure;
+  collectors[T_LIST] = collect_list;
+  collectors[T_VIEW] = collect_view;
+  collectors[T_CONS] = collect_cons;
+  collectors[T_TEXT] = collect_text;
 
   TEXT(n_int, "int");
   TEXT(n_float, "float");
@@ -1835,15 +1760,134 @@ int main(int argc, char **argv) {
 
   add_subtype(api, T_GENERIC_LIST, T_CONS);
 
+  api->m_ampersand = api->other->m_ampersand = resolve_method(api, "&");
+  api->m_underscore = api->other->m_underscore = resolve_method(api, "_");
+}
+
+static void init_builtins(api_t *api) {
+  int i;
+  void *core;
+
+  for (i = 0; builtins[i].name; i++) {
+    void *t;
+    TEXT(builtins[i].name, builtins[i].name);
+    BUILTIN_CLOSURE(t, builtins[i].fun);
+    builtins[i].fun = t;
+  }
+
+  LIST_ALLOC(core, i);
+  for (i = 0; builtins[i].name; i++) {
+    void *pair;
+    LIST_ALLOC(pair, 2);
+    LIST_REF(pair,0) = builtins[i].name;
+    LIST_REF(pair,1) = builtins[i].fun;
+    LIST_REF(core,i) = pair;
+  }
+
+  LIST_ALLOC(lib_exports, MAX_LIBS);
+
+  lib_names[libs_used] = "core";
+  LIST_REF(lib_exports,libs_used) = core;
+  ++libs_used;
+
+  for (i = 0; i < 128; i++) {
+    char t[2];
+    t[0] = (char)i;
+    t[1] = 0;
+    TEXT(single_chars[i], t);
+  }
+
+  for (; i < MAX_SINGLE_CHARS; i++) {
+    single_chars[i] = single_chars[0];
+  }
+
+  for (i = 0; i < MAX_METHODS; i++) {
+    ALLOC_BASIC(methods[i], FIXNUM(MAX_TYPES), MAX_TYPES);
+    api = api->other;
+  }
+  if (api->level != 1) api = api->other;
+
+  init_types(api);
+}
+
+static void init_args(api_t *api, int argc, char **argv) {
+  int i;
+  char tmp[1024];
+  char *lib_path;
+  int main_argc = argc-1;
+  char **main_argv = argv+1;
+
+  if (argc > 1 && argv[1][0] == ':') {
+    lib_path = argv[1]+1;
+    --main_argc;
+    ++main_argv;
+  } else {
+    lib_path = "./lib";
+  }
+
+  realpath(lib_path, tmp);
+  lib_path = tmp;
+
+  lib_path = strdup(lib_path);
+  i = strlen(lib_path);
+
+  //printf("lib_path: %s\n", lib_path);
+
+  while (i > 0 && lib_path[i-1] == '/' || lib_path[i-1] == '\\') {
+   lib_path[--i] = 0;
+  }
+
+  add_lib_folder(lib_path);
+  main_path = strdup(lib_path);
+
+  LIST_ALLOC(main_args, main_argc);
+  for (i = 0; i < main_argc; i++) {
+    void *a;
+    TEXT(a, main_argv[i]);
+    LIFT(DEL_TAG(main_args),i,a);
+  }
+}
+
+static api_t *init_heap() {
+  api_t *api;
+
+  api = init_api(apis);
+  api->other = init_api(apis+1);
+  api->other->other = api;
+
+  api->base = api->top = api->heap+HEAP_SIZE-BASE_HEAD_SIZE;
+  api->other->base = api->other->top = api->other->heap+HEAP_SIZE-BASE_HEAD_SIZE;
+
+  api->level = 1;
+  api->other->level = 0;
+
+  BUILTIN_CLOSURE(undefined, b_undefined);
+  BUILTIN_CLOSURE(sink, b_sink);
+
+  ALLOC_DATA(Void, T_VOID, 0);
+  LIST_ALLOC(Empty, 0);
+
+  api->other->void_ = api->void_;
+  api->other->empty_ = api->empty_;
+
+  return api;
+}
+
+int main(int argc, char **argv) {
+  int i;
+  char tmp[1024];
+  api_t *api;
+  void *R;
+
+  api = init_heap();
+  init_args(api, argc, argv);
+  init_builtins(api);
+
   runtime_reserved0 = get_heap_used(0);
   runtime_reserved1 = get_heap_used(1);
 
-  api->m_ampersand = api->other->m_ampersand = resolve_method(api, "&");
-  api->m_underscore = api->other->m_underscore = resolve_method(api, "_");
-
-  sprintf(tmp, "%s/%s", lib_path, "main");
+  sprintf(tmp, "%s/%s", main_path, "main");
   R = exec_module(api, tmp);
-
   fprintf(stderr, "%s\n", print_object(R));
 
   return 0;
