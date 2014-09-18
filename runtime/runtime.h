@@ -367,6 +367,7 @@ typedef struct {
 // kludge for FFI identifiers
 #define text_ char*
 #define voidp_ void*
+#define u4 uint32_t
 
 #define FFI_VAR(type,name) type name;
 
