@@ -261,16 +261,14 @@ expand_method_arg A =
 | when got G: A <= form: _fn (G) R
 | A
 
-`{}` @Xs = case Xs
-  [[`.` A B] @As] | [_mcall A B @(map X As: expand_method_arg X)]
-  [[`^` A B] @As] | [B @As A]
-  [H @As] | if H.is_text
-            then Xs
-            else [_mcall H '{}' @(map X As: expand_method_arg X)]
-  Else | mex_error "invalid `{}`"
+`{}` H @As =
+| As = map X As: expand_method_arg X
+| case H
+  [`.` A B] | [_mcall A B @As]
+  [`^` A B] | [B @As A]
+  Else | if H.is_keyword then [H @As] else [_mcall H '{}' @As]
 
 `!!` @As = expand_assign_result As
-
 
 is_incut X = case X [`@` Xs] 1
 

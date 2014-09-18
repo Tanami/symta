@@ -1390,6 +1390,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           ,expr
           ,name))
 
+(to expand-curly h as
+  ! as = m a as (expand-method-arg a)
+  ! match h
+     (("." a b) `("_mcall" ,a ,b ,@as))
+     (("^" a b) `(,b ,@as ,a))
+     (else (if (fn-sym? h) `(,h ,@as) `("_mcall" ,h ,'"{}" ,@as))))
+
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
   (let ((xs (normalize-matryoshka xs))
@@ -1446,12 +1453,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                      ((fn-sym? a) `("_import" ("_quote" ,a) ("_quote" ,b)))
                      ((fn-sym? b) `("{}" ,xs))
                      (t `("_mcall" ,a "." ,b))))
-        (("{}" ("." a b) . as) `("_mcall" ,a ,b ,@(m a as (expand-method-arg a))))
-        (("{}" ("^" a b) . as) `(,b ,@as ,a))
-        (("{}" h . as)
-         `("_mcall" ,h "{}" ,@(m a as (expand-method-arg a))))
-         ;;(if (stringp h) `(,h ,@as) `("_mcall" ,h "{}" ,@(m a as (expand-method-arg a)))))
-        (("{}" . else) (error "bad {}: ~%" xs))
+        (("{}" h . as) (expand-curly h as))
         (("\\" o) (expand-quasiquote o))
         (("form" o) (expand-form o))
         (("+" a b) `("_mcall" ,a "+" ,b))
