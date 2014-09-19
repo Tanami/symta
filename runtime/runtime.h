@@ -22,9 +22,11 @@
 #define REF1(base,off) (*(uint8_t*)(O_PTR(base)+(off)))
 #define REF4(base,off) (*(uint32_t*)(O_PTR(base)+(off)*4))
 #define REF(base,off) (*(void**)(O_PTR(base)+(off)*sizeof(void*)))
-#define O_CODE(x) ((pfun)REF(x,-1))
+#define O_CODE(x) REF(x,-1)
 #define O_LEVEL(x) ((uintptr_t)REF(x,-2))
 #define DATA_TAG(o) ((uintptr_t)O_CODE(o)&0xFFFFFFFF)
+
+#define NARGS(x) ((intptr_t)O_CODE(x))
 
 #define ADD_TAG(src,tag) ((void*)((uintptr_t)(src) | (tag)))
 #define DEL_TAG(src) ((void*)((uintptr_t)(src) & ~TAG_MASK))
@@ -32,7 +34,7 @@
 #define IMMEDIATE(x) (O_TAG(x) <= T_FLOAT)
 
 
-#define T_FIXNUM  0
+#define T_INT  0
 #define T_FIXTEXT 1 /* immediate text */
 #define T_FLOAT   2
 #define T_CLOSURE 3
@@ -48,8 +50,6 @@
 #define T_HARD_LIST 13
 #define T_NAME 14
 #define T_NAME_TEXT 15
-
-#define T_INTEGER T_FIXNUM
 
 // sign preserving shifts
 #define ASHL(x,count) ((x)*(1<<(count)))
@@ -200,7 +200,6 @@ typedef void *(*pfun)(REGS);
     } \
     dst = (void*)FIXNUM(tag); \
   }
-#define NARGS(e) ((intptr_t)*((void**)(e)-1))
 #define getArg(i) (*((void**)E+(i)))
 #define PROLOGUE void *E = (void**)Top+OBJ_HEAD_SIZE;
 #define ENTRY(name) } void *name(REGS) {PROLOGUE;
@@ -249,7 +248,7 @@ typedef void *(*pfun)(REGS);
   Base = *(void**)Base; \
   Level -= 2; \
   HEAP_FLIP();
-#define CALL_NO_POP(k,f) k = O_CODE(f)(REGS_ARGS(f));
+#define CALL_NO_POP(k,f) k = ((pfun)O_CODE(f))(REGS_ARGS(f));
 #define CALL(k,f) CALL_NO_POP(k,f); POP_BASE();
 
 #define CALL_METHOD_WITH_TAG_NO_SAVE(k,o,m,tag) \
@@ -259,7 +258,7 @@ typedef void *(*pfun)(REGS);
         tag = DATA_TAG(o); \
       } \
       f_ = ((void**)(m))[tag]; \
-      k = O_CODE(f_)(REGS_ARGS(f_)); \
+      k = ((pfun)O_CODE(f_))(REGS_ARGS(f_)); \
    }
 
 #define CALL_METHOD_WITH_TAG(k,o,m,tag) \
@@ -277,7 +276,7 @@ typedef void *(*pfun)(REGS);
   { \
     uintptr_t tag = (uintptr_t)O_TAG(o); \
     if (tag == T_CLOSURE) { \
-      k = O_CODE(o)(REGS_ARGS(o)); \
+      k = ((pfun)O_CODE(o))(REGS_ARGS(o)); \
     } else { \
       void *as = ADD_TAG((void**)Top+OBJ_HEAD_SIZE, T_LIST); \
       void *e; \
@@ -366,13 +365,13 @@ typedef struct {
 #define FFI_VAR(type,name) type name;
 
 #define FFI_TO_INT(dst,src) \
-  if (O_TAG(src) != T_FIXNUM) \
+  if (O_TAG(src) != T_INT) \
     api->bad_type(REGS_ARGS(P), "int", 0, 0); \
   dst = (int)UNFIXNUM(src);
 #define FFI_FROM_INT(dst,src) dst = (void*)FIXNUM((intptr_t)src);
 
 #define FFI_TO_U4(dst,src) \
-  if (O_TAG(src) != T_FIXNUM) \
+  if (O_TAG(src) != T_INT) \
     api->bad_type(REGS_ARGS(P), "int", 0, 0); \
   dst = (uint32_t)UNFIXNUM(src);
 #define FFI_FROM_U4(dst,src) dst = (void*)FIXNUM((intptr_t)src);

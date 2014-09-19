@@ -15,7 +15,7 @@
   dst = ADD_TAG(dst, T_VIEW); \
   VIEW_START(dst) = (uint32_t)(start); \
   VIEW_SIZE(dst) = (uint32_t)(size);
-#define VIEW_REF(o,start,i) *((void**)REF(o,-1) + start + (i))
+#define VIEW_REF(o,start,i) *((void**)O_CODE(o) + start + (i))
 
 static char *main_path;
 static void *main_args;
@@ -568,7 +568,7 @@ BUILTIN2("text.`<>`",text_ne,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(IS_BIGTEXT(b) ? !texts_equal(a,b) : 1))
 BUILTIN1("text.size",text_size,C_ANY,o)
 RETURNS(FIXNUM(BIGTEXT_SIZE(o)))
-BUILTIN2("text.`.`",text_get,C_ANY,o,C_FIXNUM,index)
+BUILTIN2("text.`.`",text_get,C_ANY,o,C_INT,index)
   uintptr_t idx = (uintptr_t)UNFIXNUM(index);
   char t[2];
   if ((uintptr_t)REF4(o,0) <= idx) {
@@ -587,7 +587,7 @@ BUILTIN2("text.`<>`",fixtext_ne,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(O_TAG(b) == T_FIXTEXT ? !texts_equal(a,b) : 1))
 BUILTIN1("text.size",fixtext_size,C_ANY,o)
 RETURNS(FIXNUM(fixtext_size(o)))
-BUILTIN2("text.`.`",fixtext_get,C_ANY,o,C_FIXNUM,index)
+BUILTIN2("text.`.`",fixtext_get,C_ANY,o,C_INT,index)
   char t[20];
   uint64_t c;
   int i = UNFIXNUM(index);
@@ -611,7 +611,7 @@ RETURNS(FIXNUM((uint64_t)o>>TAG_BITS))
   ALLOC_BASIC(dst, a, 1); \
   dst = ADD_TAG(dst, T_CONS); \
   REF(dst,0) = b;
-#define CAR(x) REF(x,-1)
+#define CAR(x) O_CODE(x)
 #define CDR(x) REF(x,0)
 BUILTIN1("cons.head",cons_head,C_ANY,o)
 RETURNS(CAR(o))
@@ -625,7 +625,7 @@ RETURNS(R)
 
 BUILTIN1("view.size",view_size,C_ANY,o)
 RETURNS((uintptr_t)VIEW_SIZE(o))
-BUILTIN2("view.`.`",view_get,C_ANY,o,C_FIXNUM,index)
+BUILTIN2("view.`.`",view_get,C_ANY,o,C_INT,index)
   uint32_t start = VIEW_START(o);
   uint32_t size = VIEW_SIZE(o);
   if (size <= (uint32_t)(uintptr_t)index) {
@@ -634,7 +634,7 @@ BUILTIN2("view.`.`",view_get,C_ANY,o,C_FIXNUM,index)
     bad_call(REGS_ARGS(P),R);
   }
 RETURNS(VIEW_REF(o, start, UNFIXNUM(index)))
-BUILTIN3("view.`!`",view_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
+BUILTIN3("view.`!`",view_set,C_ANY,o,C_INT,index,C_ANY,value)
   uint32_t start = VIEW_START(o);
   uint32_t size = VIEW_SIZE(o);
   void *p;
@@ -667,14 +667,14 @@ RETURNS(R)
 
 BUILTIN1("list.size",list_size,C_ANY,o)
 RETURNS(LIST_SIZE(o))
-BUILTIN2("list.`.`",list_get,C_ANY,o,C_FIXNUM,index)
+BUILTIN2("list.`.`",list_get,C_ANY,o,C_INT,index)
   if (LIST_SIZE(o) <= (uintptr_t)index) {
     fprintf(stderr, "index out of bounds\n");
     TEXT(P, ".");
     bad_call(REGS_ARGS(P),P);
   }
 RETURNS(REF(o, UNFIXNUM(index)))
-BUILTIN3("list.`!`",list_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
+BUILTIN3("list.`!`",list_set,C_ANY,o,C_INT,index,C_ANY,value)
   void **p;
   intptr_t i;
   if (LIST_SIZE(o) <= (uintptr_t)index) {
@@ -927,50 +927,50 @@ RETURNS(R)
 
 BUILTIN1("int.neg",int_neg,C_ANY,o)
 RETURNS(-(intptr_t)o)
-BUILTIN2("int.`+`",int_add,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int.`+`",int_add,C_ANY,a,C_INT,b)
   R = (void*)((intptr_t)a + (intptr_t)b);
 RETURNS(R)
-BUILTIN2("int.`-`",int_sub,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int.`-`",int_sub,C_ANY,a,C_INT,b)
 RETURNS((intptr_t)a - (intptr_t)b)
-BUILTIN2("int.`*`",int_mul,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int.`*`",int_mul,C_ANY,a,C_INT,b)
 RETURNS(UNFIXNUM(a) * (intptr_t)b)
-BUILTIN2("int.`/`",int_div,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int.`/`",int_div,C_ANY,a,C_INT,b)
  if (!b) {
     fprintf(stderr, "division by zero\n");
     TEXT(R, "/");
     bad_call(REGS_ARGS(P),R);
   }
 RETURNS(FIXNUM((intptr_t)a / (intptr_t)b))
-BUILTIN2("int.`%`",int_rem,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int.`%`",int_rem,C_ANY,a,C_INT,b)
  if (!b) {
     fprintf(stderr, "division by zero\n");
     TEXT(R, "/");
     bad_call(REGS_ARGS(P),R);
   }
 RETURNS((intptr_t)a % (intptr_t)b)
-BUILTIN2("int.`**`",int_pow,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int.`**`",int_pow,C_ANY,a,C_INT,b)
 RETURNS(FIXNUM((intptr_t)pow((double)UNFIXNUM(a), (double)UNFIXNUM(b))))
 BUILTIN2("int.`><`",int_eq,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a == b))
 BUILTIN2("int.`<>`",int_ne,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(a != b))
-BUILTIN2("int.`<`",int_lt,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int.`<`",int_lt,C_ANY,a,C_INT,b)
 RETURNS(FIXNUM((intptr_t)a < (intptr_t)b))
-BUILTIN2("int.`>`",int_gt,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int.`>`",int_gt,C_ANY,a,C_INT,b)
 RETURNS(FIXNUM((intptr_t)a > (intptr_t)b))
-BUILTIN2("int.`<<`",int_lte,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int.`<<`",int_lte,C_ANY,a,C_INT,b)
 RETURNS(FIXNUM((intptr_t)a <= (intptr_t)b))
-BUILTIN2("int.`>>`",int_gte,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int.`>>`",int_gte,C_ANY,a,C_INT,b)
 RETURNS(FIXNUM((intptr_t)a >= (intptr_t)b))
-BUILTIN2("int.mask",int_mask,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int.mask",int_mask,C_ANY,a,C_INT,b)
 RETURNS((uintptr_t)a & (uintptr_t)b)
-BUILTIN2("int.ior",int_ior,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int.ior",int_ior,C_ANY,a,C_INT,b)
 RETURNS((uintptr_t)a | (uintptr_t)b)
-BUILTIN2("int.xor",int_xor,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int.xor",int_xor,C_ANY,a,C_INT,b)
 RETURNS((uintptr_t)a ^ (uintptr_t)b)
-BUILTIN2("int.shl",int_shl,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int.shl",int_shl,C_ANY,a,C_INT,b)
 RETURNS((intptr_t)a<<UNFIXNUM(b))
-BUILTIN2("int.shr",int_shr,C_ANY,a,C_FIXNUM,b)
+BUILTIN2("int.shr",int_shr,C_ANY,a,C_INT,b)
 RETURNS(((intptr_t)a>>UNFIXNUM(b))&~(TAG_MASK>>1))
 BUILTIN2("int.dup",int_dup,C_ANY,size,C_ANY,init)
   void **p;
@@ -1351,7 +1351,7 @@ print_tail:
     //FIXME: check metainfo to see if this object has associated print routine
     pfun handler = O_CODE(o);
     out += sprintf(out, "#(closure %p %p)", handler, o);
-  } else if (tag == T_FIXNUM) {
+  } else if (tag == T_INT) {
     // FIXME: this relies on the fact that shift preserves sign
     out += sprintf(out, "%ld", (intptr_t)o>>TAG_BITS);
   } else if (tag == T_LIST) {
@@ -1509,7 +1509,7 @@ static void *collect_view(api_t *api, void *o) {
   REF(o,-2) = p;
   q = ADD_TAG(&VIEW_REF(o,0,0), T_LIST);
   q = gc(api, q);
-  REF(p,-1) = &REF(q, 0);
+  O_CODE(p) = &REF(q, 0);
   return p;
 }
 
@@ -1637,7 +1637,7 @@ static api_t *init_api(void *ptr) {
 
 #define METHOD_FN(name, m_int, m_float, m_fn, m_list, m_fixtext, m_text, m_view, m_cons, m_void) \
   multi = api->resolve_method(api, name); \
-  if (m_int) {BUILTIN_CLOSURE(multi[T_INTEGER], m_int);}\
+  if (m_int) {BUILTIN_CLOSURE(multi[T_INT], m_int);}\
   if (m_float) {BUILTIN_CLOSURE(multi[T_FLOAT], m_float);}\
   if (m_fn) {BUILTIN_CLOSURE(multi[T_CLOSURE], m_fn);}\
   if (m_list) {BUILTIN_CLOSURE(multi[T_LIST], m_list);} \
@@ -1649,7 +1649,7 @@ static api_t *init_api(void *ptr) {
 
 #define METHOD_VAL(name, m_int, m_float, m_fn, m_list, m_fixtext, m_text, m_view, m_cons, m_void) \
   multi = api->resolve_method(api, name); \
-  multi[T_INTEGER] = m_int;\
+  multi[T_INT] = m_int;\
   multi[T_FLOAT] = m_float; \
   multi[T_CLOSURE] = m_fn; \
   multi[T_LIST] = m_list; \
@@ -1663,7 +1663,7 @@ static void init_types(api_t *api) {
   void *n_int, *n_float, *n_fn, *n_list, *n_text, *n_void; // typenames
   void **multi;
 
-  collectors[T_FIXNUM] = collect_immediate;
+  collectors[T_INT] = collect_immediate;
   collectors[T_FLOAT] = collect_immediate;
   collectors[T_FIXTEXT] = collect_immediate;
   collectors[T_CLOSURE] = collect_closure;

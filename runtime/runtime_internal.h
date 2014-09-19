@@ -25,8 +25,8 @@
   if (O_TAG(o) != T_CLOSURE) \
     api->bad_type(REGS_ARGS(P), "fn", arg_index, meta)
 
-#define C_FIXNUM(o,arg_index,meta) \
-  if (O_TAG(o) != T_FIXNUM) \
+#define C_INT(o,arg_index,meta) \
+  if (O_TAG(o) != T_INT) \
     api->bad_type(REGS_ARGS(P), "int", arg_index, meta)
 
 #define C_FLOAT(o,arg_index,meta) \
