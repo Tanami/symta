@@ -3,7 +3,7 @@
 
 #include "runtime.h"
 
-#define FN_GET_TAG   FIXNUM(-1)
+#define FN_GET_NAME  FIXNUM(-1)
 #define FN_GET_SIZE  FIXNUM(-2)
 #define FN_GET_META  FIXNUM(-3)
 #define FN_GET_NARGS FIXNUM(-4)
@@ -17,20 +17,20 @@
 #define M_NAME 1
 #define M_SINK 2
 
-#define LIST_SIZE(o) ((uintptr_t)OBJECT_CODE(o))
+#define LIST_SIZE(o) ((uintptr_t)O_CODE(o))
 
 #define C_ANY(o,arg_index,meta)
 
 #define C_FN(o,arg_index,meta) \
-  if (GET_TAG(o) != T_CLOSURE) \
+  if (O_TAG(o) != T_CLOSURE) \
     api->bad_type(REGS_ARGS(P), "fn", arg_index, meta)
 
 #define C_FIXNUM(o,arg_index,meta) \
-  if (GET_TAG(o) != T_FIXNUM) \
+  if (O_TAG(o) != T_FIXNUM) \
     api->bad_type(REGS_ARGS(P), "int", arg_index, meta)
 
 #define C_FLOAT(o,arg_index,meta) \
-  if (GET_TAG(o) != T_FLOAT) \
+  if (O_TAG(o) != T_FLOAT) \
     api->bad_type(REGS_ARGS(P), "float", arg_index, meta)
 
 #define C_TEXT(o,arg_index,meta) \

@@ -186,7 +186,7 @@ static void set_type_size_and_name(struct api_t *api, intptr_t tag, intptr_t siz
 }
 
 static void *tag_of(void *o) {
-  uintptr_t tag = GET_TAG(o);
+  uintptr_t tag = O_TAG(o);
   if (tag == T_DATA) {
     tag = DATA_TAG(o);
   }
@@ -254,7 +254,7 @@ static void *alloc_text(api_t *api, char *s) {
 }
 
 static char *decode_text(char *out, void *o) {
-  int tag = GET_TAG(o);
+  int tag = O_TAG(o);
   if (tag == T_FIXTEXT) {
     out += fixtext_decode(out, o);
     *out = 0;
@@ -278,7 +278,7 @@ static char *decode_text(char *out, void *o) {
 
 static int texts_equal(void *a, void *b) {
   intptr_t al, bl;
-  if (GET_TAG(a) == T_FIXTEXT || GET_TAG(b) == T_FIXTEXT) return a == b;
+  if (O_TAG(a) == T_FIXTEXT || O_TAG(b) == T_FIXTEXT) return a == b;
   al = BIGTEXT_SIZE(a);
   bl = BIGTEXT_SIZE(b);
   return al == bl && !memcmp(BIGTEXT_DATA(a), BIGTEXT_DATA(b), al);
@@ -296,7 +296,7 @@ static int fixtext_size(void *o) {
 }
 
 static int text_size(void *o) {
-  int tag = GET_TAG(o);
+  int tag = O_TAG(o);
   if (tag == T_FIXTEXT) {
     return fixtext_size(o);
   } else if (tag == T_DATA) {
@@ -319,7 +319,7 @@ static char *text_chars(struct api_t *api, void *text) {
   int size = text_size(text);
   char *s, *d;
   void *r;
-  if (GET_TAG(text) == T_FIXTEXT) {
+  if (O_TAG(text) == T_FIXTEXT) {
     decode_text(buf, text);
     s = buf;
   } else {
@@ -461,13 +461,13 @@ static void *find_export(struct api_t *api, void *name, void *exports) {
 
   nexports = UNFIXNUM(LIST_SIZE(exports));
 
-  if (GET_TAG(exports) != T_LIST) {
+  if (O_TAG(exports) != T_LIST) {
     fatal("exports ain't a list: %s\n", print_object(exports));
   }
 
   for (i = 0; i < nexports; i++) {
     void *pair = REF(exports,i);
-    if (GET_TAG(pair) != T_LIST || LIST_SIZE(pair) != FIXNUM(2)) {
+    if (O_TAG(pair) != T_LIST || LIST_SIZE(pair) != FIXNUM(2)) {
       fatal("export contains invalid pair: %s\n", print_object(pair));
     }
     void *export_name = REF(pair,0);
@@ -582,9 +582,9 @@ BUILTIN1("text.hash",text_hash,C_ANY,o)
 
 RETURNS(FIXNUM(hash(BIGTEXT_DATA(o), BIGTEXT_SIZE(o))))
 BUILTIN2("text.`><`",fixtext_eq,C_ANY,a,C_ANY,b)
-RETURNS(FIXNUM(GET_TAG(b) == T_FIXTEXT ? texts_equal(a,b) : 0))
+RETURNS(FIXNUM(O_TAG(b) == T_FIXTEXT ? texts_equal(a,b) : 0))
 BUILTIN2("text.`<>`",fixtext_ne,C_ANY,a,C_ANY,b)
-RETURNS(FIXNUM(GET_TAG(b) == T_FIXTEXT ? !texts_equal(a,b) : 1))
+RETURNS(FIXNUM(O_TAG(b) == T_FIXTEXT ? !texts_equal(a,b) : 1))
 BUILTIN1("text.size",fixtext_size,C_ANY,o)
 RETURNS(FIXNUM(fixtext_size(o)))
 BUILTIN2("text.`.`",fixtext_get,C_ANY,o,C_FIXNUM,index)
@@ -783,7 +783,7 @@ BUILTIN2("list.apply_method",list_apply_method,C_ANY,as,C_ANY,m)
     bad_call(REGS_ARGS(P),P);
   }
   o = REF(as,i);
-  tag = (uintptr_t)GET_TAG(o);
+  tag = (uintptr_t)O_TAG(o);
   ARGLIST(e,nargs);
   for (i = 0; i < nargs; i++) {
     ARG_STORE(e,i,REF(as,i));
@@ -1021,7 +1021,7 @@ BUILTIN1("log",log,C_ANY,a)
 RETURNS(a)
 
 BUILTIN1("say_",say_,C_TEXT,o)
-  int tag = GET_TAG(o);
+  int tag = O_TAG(o);
   if (tag == T_FIXTEXT) {
     char *out = print_buffer;
     out += fixtext_decode(out, o);
@@ -1055,7 +1055,7 @@ BUILTIN0("stack_trace",stack_trace)
 RETURNS(R)
 
 BUILTIN1("inspect",inspect,C_ANY,o)
-  fprintf(stderr, "%p: tag=%ld, level=%ld\n", o, GET_TAG(o), OBJECT_LEVEL(o));
+  fprintf(stderr, "%p: tag=%ld, level=%ld\n", o, O_TAG(o), O_LEVEL(o));
 RETURNS(0)
 
 BUILTIN1("load_library",load_library,C_TEXT,path_text)
@@ -1117,7 +1117,7 @@ BUILTIN2("save_text",save_text,C_TEXT,filename_text,C_TEXT,text)
   int size = text_size(text);
   char *filename;
   char *xs;
-  if (GET_TAG(text) == T_FIXTEXT) {
+  if (O_TAG(text) == T_FIXTEXT) {
     decode_text(buf, text);
     xs = buf;
   } else {
@@ -1192,7 +1192,7 @@ RETURNS(main_args)
 BUILTIN1("parse_float", parse_float,C_TEXT,text)
   char buf[32];
   char *xs;
-  if (GET_TAG(text) == T_FIXTEXT) {
+  if (O_TAG(text) == T_FIXTEXT) {
     decode_text(buf, text);
     xs = buf;
   } else {
@@ -1290,7 +1290,7 @@ RETURNS(0)
 BUILTIN_VARARGS("undefined",undefined)
   void *o = getArg(0);
   void **m = methods[M_SINK];
-  uintptr_t tag = (uintptr_t)GET_TAG(o);
+  uintptr_t tag = (uintptr_t)O_TAG(o);
   void *name = ((void**)api->method)[T_NAME_TEXT];
   void *as = ADD_TAG(E, T_LIST);
   void *e;
@@ -1332,7 +1332,7 @@ static struct {
 
 static char *print_object_r(api_t *api, char *out, void *o) {
   int i;
-  int tag = GET_TAG(o);
+  int tag = O_TAG(o);
   int open_par = 1;
 
   //fprintf(stderr, "%p = %d\n", o, tag);
@@ -1349,7 +1349,7 @@ print_tail:
     out += sprintf(out, "Void");
   } else if (tag == T_CLOSURE) {
     //FIXME: check metainfo to see if this object has associated print routine
-    pfun handler = OBJECT_CODE(o);
+    pfun handler = O_CODE(o);
     out += sprintf(out, "#(closure %p %p)", handler, o);
   } else if (tag == T_FIXNUM) {
     // FIXME: this relies on the fact that shift preserves sign
@@ -1377,7 +1377,7 @@ print_tail:
     for (;;) {
       out = print_object_r(api, out, CAR(o));
       o = CDR(o);
-      tag = GET_TAG(o);
+      tag = O_TAG(o);
       if (tag != T_CONS) goto print_tail;
       out += sprintf(out, " ");
     }
@@ -1413,7 +1413,7 @@ print_tail:
 static void *handle_args(REGS, void *E, intptr_t expected, intptr_t size, void *tag, void *meta) {
   intptr_t got = NARGS(E);
 
-  if (got == FN_GET_TAG) {
+  if (got == FN_GET_NAME) {
     RETURN_NO_GC(tag);
   } else if (got == FN_GET_SIZE) {
     RETURN_NO_GC(size)
@@ -1445,7 +1445,7 @@ static void *gc_arglist(api_t *api, void *o) {
   uintptr_t size;
   uintptr_t level;
 
-  level = OBJECT_LEVEL(o);
+  level = O_LEVEL(o);
 
   if (level != GCLevel) {
     if (level > HEAP_SIZE) {
@@ -1481,7 +1481,7 @@ static void *collect_closure(api_t *api, void *o) {
   CALL_NO_POP(fixed_size,o);
   size = UNFIXNUM(fixed_size);
   Top = savedTop;
-  ALLOC_CLOSURE(p, OBJECT_CODE(o), size);
+  ALLOC_CLOSURE(p, O_CODE(o), size);
   STORE(o, -2, p);
   for (i = 0; i < size; i++) {
     STORE(p, i, gc_arglist(api, REF(o,i)));
@@ -1533,7 +1533,7 @@ static void *collect_data(api_t *api, void *o) {
   int i, size;
   void *p;
   size = DATA_SIZE(o);
-  ALLOC_DATA(p, OBJECT_CODE(o), size);
+  ALLOC_DATA(p, O_CODE(o), size);
   REF(o,-2) = p;
   for (i = 0; i < size; i++) {
     REF(p,i) = gc(api, REF(o,i));
@@ -1549,7 +1549,7 @@ static void *gc(api_t *api, void *o) {
 
   if (IMMEDIATE(o)) return o;
 
-  level = OBJECT_LEVEL(o);
+  level = O_LEVEL(o);
 
   if (level != GCLevel) {
     if (level > HEAP_SIZE) {
@@ -1561,7 +1561,7 @@ static void *gc(api_t *api, void *o) {
     return o;
   }
 
-  tag = GET_TAG(o);
+  tag = O_TAG(o);
   if (tag == T_DATA) {
     tag = DATA_TAG(o);
     if (tag > MAX_TYPES) return (void*)tag;
