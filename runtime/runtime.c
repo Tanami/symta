@@ -8,14 +8,14 @@
 
 #include "runtime_internal.h"
 
+#define VIEW_START(o) REF4(o,0)
+#define VIEW_SIZE(o) REF4(o,1)
 #define VIEW(dst,base,start,size) \
   ALLOC_BASIC(dst, base, 1); \
   dst = ADD_TAG(dst, T_VIEW); \
-  VIEW_REF4(dst,0) = (uint32_t)(start); \
-  VIEW_REF4(dst,1) = (uint32_t)(size);
-#define VIEW_START(o) VIEW_REF4(o,0)
-#define VIEW_SIZE(o) VIEW_REF4(o,1)
-#define VIEW_REF(o,start,i) *((void**)VIEW_GET(o,-1) + start + (i))
+  VIEW_START(dst) = (uint32_t)(start); \
+  VIEW_SIZE(dst) = (uint32_t)(size);
+#define VIEW_REF(o,start,i) *((void**)REF(o,-1) + start + (i))
 
 static char *main_path;
 static void *main_args;
@@ -236,8 +236,8 @@ static void *alloc_bigtext(api_t *api, char *s, int l) {
   void *r;
   a = (l+4+TAG_MASK)>>TAG_BITS;
   ALLOC_DATA(r, T_TEXT, a);
-  DATA_REF4(r,0) = (uint32_t)l;
-  memcpy(&DATA_REF1(r,4), s, l);
+  REF4(r,0) = (uint32_t)l;
+  memcpy(&REF1(r,4), s, l);
   return r;
 }
 
@@ -431,7 +431,7 @@ static void *load_lib(struct api_t *api, char *name) {
 
   for (i = 0; i < libs_used; i++) {
     if (strcmp(lib_names[i], name)) continue;
-    return LIST_REF(lib_exports,i);
+    return REF(lib_exports,i);
   }
 
   //fprintf(stderr, "load_lib: %s\n", name);
@@ -445,7 +445,7 @@ static void *load_lib(struct api_t *api, char *name) {
   }
 
   lib_names[libs_used] = name;
-  LIFT(&LIST_REF(lib_exports,0),libs_used,exports);
+  LIFT(&REF(lib_exports,0),libs_used,exports);
   ++libs_used;
 
   return exports;
@@ -466,16 +466,16 @@ static void *find_export(struct api_t *api, void *name, void *exports) {
   }
 
   for (i = 0; i < nexports; i++) {
-    void *pair = LIST_REF(exports,i);
+    void *pair = REF(exports,i);
     if (GET_TAG(pair) != T_LIST || LIST_SIZE(pair) != FIXNUM(2)) {
       fatal("export contains invalid pair: %s\n", print_object(pair));
     }
-    void *export_name = LIST_REF(pair,0);
+    void *export_name = REF(pair,0);
     if (!IS_TEXT(export_name)) {
       fatal("export contains bad name: %s\n", print_object(pair));
     }
     if (texts_equal(name, export_name)) {
-      return LIST_REF(pair,1);
+      return REF(pair,1);
     }
   }
 
@@ -569,13 +569,14 @@ RETURNS(FIXNUM(IS_BIGTEXT(b) ? !texts_equal(a,b) : 1))
 BUILTIN1("text.size",text_size,C_ANY,o)
 RETURNS(FIXNUM(BIGTEXT_SIZE(o)))
 BUILTIN2("text.`.`",text_get,C_ANY,o,C_FIXNUM,index)
+  uintptr_t idx = (uintptr_t)UNFIXNUM(index);
   char t[2];
-  if ((uintptr_t)CLOSURE_REF4(o,0) <= (uintptr_t)index) {
+  if ((uintptr_t)REF4(o,0) <= idx) {
     fprintf(stderr, "index out of bounds\n");
     TEXT(P, ".");
     bad_call(REGS_ARGS(P),P);
   }
-RETURNS(single_chars[DATA_REF1(o,4+UNFIXNUM(index))])
+RETURNS(single_chars[REF1(o,4+idx)])
 BUILTIN1("text.hash",text_hash,C_ANY,o)
 
 
@@ -609,9 +610,9 @@ RETURNS(FIXNUM((uint64_t)o>>TAG_BITS))
 #define CONS(dst, a, b) \
   ALLOC_BASIC(dst, a, 1); \
   dst = ADD_TAG(dst, T_CONS); \
-  CONS_REF(dst,0) = b;
-#define CAR(x) CONS_REF(x,-1)
-#define CDR(x) CONS_REF(x,0)
+  REF(dst,0) = b;
+#define CAR(x) REF(x,-1)
+#define CDR(x) REF(x,0)
 BUILTIN1("cons.head",cons_head,C_ANY,o)
 RETURNS(CAR(o))
 BUILTIN1("cons.tail",cons_tail,C_ANY,o)
@@ -672,7 +673,7 @@ BUILTIN2("list.`.`",list_get,C_ANY,o,C_FIXNUM,index)
     TEXT(P, ".");
     bad_call(REGS_ARGS(P),P);
   }
-RETURNS(LIST_REF(o, UNFIXNUM(index)))
+RETURNS(REF(o, UNFIXNUM(index)))
 BUILTIN3("list.`!`",list_set,C_ANY,o,C_FIXNUM,index,C_ANY,value)
   void **p;
   intptr_t i;
@@ -694,11 +695,11 @@ BUILTIN1("list.head",list_head,C_ANY,o)
     TEXT(P, "head");
     bad_call(REGS_ARGS(P),P);
   }
-RETURNS(LIST_REF(o,0))
+RETURNS(REF(o,0))
 BUILTIN1("list.tail",list_tail,C_ANY,o)
   intptr_t size = UNFIXNUM(LIST_SIZE(o));
   if (size > 1) {
-    VIEW(R, &LIST_REF(o,0), 1, FIXNUM(size-1));
+    VIEW(R, &REF(o,0), 1, FIXNUM(size-1));
   } else if (size != 0) {
     R = Empty;
   } else {
@@ -739,7 +740,7 @@ BUILTIN_VARARGS("list.text",list_text)
   l = 1;
   if (sep && words_size) l += sep_size*(words_size-1);
   for (i = 0; i < words_size; i++) {
-    x = LIST_REF(words,i);
+    x = REF(words,i);
     if (!IS_TEXT(x)) {
       fprintf(stderr, "list.text: not a text (%s)\n", print_object(x));
       bad_call(REGS_ARGS(P),P);
@@ -750,7 +751,7 @@ BUILTIN_VARARGS("list.text",list_text)
   Top = (uint8_t*)Top - l;
   p = q = (uint8_t*)Top;
   for (i = 0; i < words_size; ) {
-    x = LIST_REF(words,i);
+    x = REF(words,i);
     p = decode_text(p, x);
     ++i;
     if (sep && i < words_size) {
@@ -766,7 +767,7 @@ BUILTIN2("list.apply",list_apply,C_ANY,as,C_FN,f)
   void *e;
   ARGLIST(e,nargs);  
   for (i = 0; i < nargs; i++) {
-    ARG_STORE(e,i,LIST_REF(as,i));
+    ARG_STORE(e,i,REF(as,i));
   }
   CALL_TAGGED_NO_POP(R,f)
 RETURNS(R)
@@ -781,11 +782,11 @@ BUILTIN2("list.apply_method",list_apply_method,C_ANY,as,C_ANY,m)
     fprintf(stderr, "apply_method: empty list\n");
     bad_call(REGS_ARGS(P),P);
   }
-  o = LIST_REF(as,i);
+  o = REF(as,i);
   tag = (uintptr_t)GET_TAG(o);
   ARGLIST(e,nargs);
   for (i = 0; i < nargs; i++) {
-    ARG_STORE(e,i,LIST_REF(as,i));
+    ARG_STORE(e,i,REF(as,i));
   }
   CALL_METHOD_WITH_TAG(R,o,m,tag);
 RETURNS(R)
@@ -983,7 +984,7 @@ BUILTIN2("int.dup",int_dup,C_ANY,size,C_ANY,init)
   } else {
     // FIXME: alloc in parent environment
     LIST_ALLOC(R,s);
-    p = &LIST_REF(R,0);
+    p = &REF(R,0);
     while(s-- > 0) *p++ = init;
   }
 RETURNS(R)
@@ -1043,7 +1044,7 @@ BUILTIN0("stack_trace",stack_trace)
     R = Empty;
   } else {
     LIST_ALLOC(R,s-1);
-    p = &LIST_REF(R,0);
+    p = &REF(R,0);
     while (s-- > 1) {
       intptr_t l = s + 1;
       api_t *a = ((l&1)^parity) ? api : api->other;
@@ -1090,7 +1091,7 @@ BUILTIN1("get",get_file,C_ANY,filename_text)
   if (contents) {
     LIST_ALLOC(R, file_size);
     for (i = 0; i < file_size; i++) {
-      LIST_REF(R,i) = (void*)FIXNUM(contents[i]);
+      REF(R,i) = (void*)FIXNUM(contents[i]);
     }
     free(contents);
   } else {
@@ -1279,7 +1280,7 @@ meta._ Name =
 | Me.apply_method{M}
 */
 BUILTIN2("_",sink,C_ANY,as,C_ANY,name)
-  void *o = LIST_REF(getArg(0),0);
+  void *o = REF(getArg(0),0);
   fprintf(stderr, "%s has no method ", print_object(tag_of(o)));
   fprintf(stderr, "%s\n", print_object(name));
   print_stack_trace(api);
@@ -1358,7 +1359,7 @@ print_tail:
     if (open_par) out += sprintf(out, "(");
     for (i = 0; i < size; i++) {
       if (i || !open_par) out += sprintf(out, " ");
-      out = print_object_r(api, out, LIST_REF(o,i));
+      out = print_object_r(api, out, REF(o,i));
     }
     out += sprintf(out, ")");
   } else if (tag == T_VIEW) {
@@ -1483,7 +1484,7 @@ static void *collect_closure(api_t *api, void *o) {
   ALLOC_CLOSURE(p, OBJECT_CODE(o), size);
   STORE(o, -2, p);
   for (i = 0; i < size; i++) {
-    STORE(p, i, gc_arglist(api, CLOSURE_REF(o,i)));
+    STORE(p, i, gc_arglist(api, REF(o,i)));
   }
   return p;
 }
@@ -1493,9 +1494,9 @@ static void *collect_list(api_t *api, void *o) {
   void *p;
   size = (int)UNFIXNUM(LIST_SIZE(o));
   LIST_ALLOC(p, size);
-  LIST_REF(o,-2) = p;
+  REF(o,-2) = p;
   for (i = 0; i < size; i++) {
-    LIST_REF(p, i) = gc(api, LIST_REF(o,i));
+    REF(p,i) = gc(api, REF(o,i));
   }
   return p;
 }
@@ -1505,17 +1506,17 @@ static void *collect_view(api_t *api, void *o) {
   uint32_t start = VIEW_START(o);
   uint32_t size = VIEW_SIZE(o);
   VIEW(p, 0, start, size);
-  VIEW_GET(o,-2) = p;
+  REF(o,-2) = p;
   q = ADD_TAG(&VIEW_REF(o,0,0), T_LIST);
   q = gc(api, q);
-  VIEW_GET(p,-1) = &LIST_REF(q, 0);
+  REF(p,-1) = &REF(q, 0);
   return p;
 }
 
 static void *collect_cons(api_t *api, void *o) {
   void *p;
   CONS(p, 0, 0);
-  CONS_REF(o,-2) = p;
+  REF(o,-2) = p;
   CAR(p) = gc(api, CAR(o));
   CDR(p) = gc(api, CDR(o));
   return p;
@@ -1524,7 +1525,7 @@ static void *collect_cons(api_t *api, void *o) {
 static void *collect_text(api_t *api, void *o) {
   void *p;
   p = alloc_bigtext(api, BIGTEXT_DATA(o), BIGTEXT_SIZE(o));
-  DATA_REF(o,-2) = p;
+  REF(o,-2) = p;
   return p;
 }
 
@@ -1533,9 +1534,9 @@ static void *collect_data(api_t *api, void *o) {
   void *p;
   size = DATA_SIZE(o);
   ALLOC_DATA(p, OBJECT_CODE(o), size);
-  DATA_REF(o,-2) = p;
+  REF(o,-2) = p;
   for (i = 0; i < size; i++) {
-    DATA_REF(p,i) = gc(api, DATA_REF(o,i));
+    REF(p,i) = gc(api, REF(o,i));
   }
   return p;
 }
@@ -1779,15 +1780,15 @@ static void init_builtins(api_t *api) {
   for (i = 0; builtins[i].name; i++) {
     void *pair;
     LIST_ALLOC(pair, 2);
-    LIST_REF(pair,0) = builtins[i].name;
-    LIST_REF(pair,1) = builtins[i].fun;
-    LIST_REF(core,i) = pair;
+    REF(pair,0) = builtins[i].name;
+    REF(pair,1) = builtins[i].fun;
+    REF(core,i) = pair;
   }
 
   LIST_ALLOC(lib_exports, MAX_LIBS);
 
   lib_names[libs_used] = "core";
-  LIST_REF(lib_exports,libs_used) = core;
+  REF(lib_exports,libs_used) = core;
   ++libs_used;
 
   for (i = 0; i < 128; i++) {

@@ -45,7 +45,7 @@
     void *meta, *ttag, *t; \
     LIST_ALLOC(meta, 1); \
     TEXT(t, name); \
-    LIST_REF(meta,0) = t; \
+    REF(meta,0) = t; \
     if (tag) { \
       TEXT(ttag, tag); \
     } else { \
@@ -58,7 +58,7 @@
     void *meta, *ttag, *t; \
     LIST_ALLOC(meta, 1); \
     TEXT(t, name); \
-    LIST_REF(meta,0) = t; \
+    REF(meta,0) = t; \
     if (tag) { \
       TEXT(ttag, tag); \
     } else { \

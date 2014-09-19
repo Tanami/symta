@@ -130,9 +130,11 @@ typedef void *(*pfun)(REGS);
 #define Base api->base
 #define Level api->level
 
+#define O_PTR(o) ((uintptr_t)(o)&~TAG_MASK)
 #define OBJECT_CODE(x) (((pfun*)((void**)((uintptr_t)(x)&~TAG_MASK)-1))[0])
 #define DATA_TAG(o) ((uintptr_t)OBJECT_CODE(o)&0xFFFFFFFF)
 #define OBJECT_LEVEL(x) ((uintptr_t)(((void**)((uintptr_t)(x)&~TAG_MASK)-2)[0]))
+
 
 #ifdef SYMTA_DEBUG
 #define HEAP_GUARD() \
@@ -281,37 +283,27 @@ typedef void *(*pfun)(REGS);
   }
 #define CALL_TAGGED(k,o) CALL_TAGGED_NO_POP(k,o); POP_BASE();
 
-//FIXME: refactor these
-#define VIEW_REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-T_VIEW)
-#define VIEW_REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-T_VIEW)
-#define VIEW_GET(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-T_VIEW)
-#define CONS_REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-T_CONS)
-#define CONS_REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-T_CONS)
-#define CONS_REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-T_CONS)
-#define CLOSURE_REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-T_CLOSURE)
-#define CLOSURE_REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-T_CLOSURE)
-#define CLOSURE_REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-T_CLOSURE)
-#define DATA_REF1(base,off) *(uint8_t*)((uint8_t*)(base)+(off)-T_DATA)
-#define DATA_REF4(base,off) *(uint32_t*)((uint8_t*)(base)+(off)*4-T_DATA)
-#define DATA_REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-T_DATA)
-#define DATA_SET(dst,dst_off,src) LIFT(&DATA_REF(dst,0),dst_off,src)
-#define LIST_REF(base,off) *(void**)((uint8_t*)(base)+(off)*sizeof(void*)-T_LIST)
+#define REF1(base,off) *(uint8_t*)(O_PTR(base)+(off))
+#define REF4(base,off) *(uint32_t*)(O_PTR(base)+(off)*4)
+#define REF(base,off) *(void**)(O_PTR(base)+(off)*sizeof(void*))
+
 #define ARG_LOAD(dst,src,src_off) dst = *((void**)(src)+(src_off))
 #define ARG_STORE(dst,dst_off,src) *((void**)(dst)+(dst_off)) = (void*)(src)
-#define LOAD(dst,src,src_off) dst = CLOSURE_REF(src,src_off)
-#define STORE(dst,dst_off,src) CLOSURE_REF(dst,dst_off) = (void*)(src)
-#define COPY(dst,dst_off,src,src_off) CLOSURE_REF(dst,dst_off) = CLOSURE_REF(src,src_off)
+#define LOAD(dst,src,src_off) dst = REF(src,src_off)
+#define STORE(dst,dst_off,src) REF(dst,dst_off) = (void*)(src)
+#define COPY(dst,dst_off,src,src_off) REF(dst,dst_off) = REF(src,src_off)
 #define MOVE(dst,src) dst = (void*)(src)
 #define TAGGED(dst,src,tag) dst = ADD_TAG(src,tag)
-#define DGET(dst,src,off) dst = DATA_REF(src, off)
+#define DATA_SET(dst,dst_off,src) LIFT(&REF(dst,0),dst_off,src)
+#define DGET(dst,src,off) dst = REF(src, off)
 #define DSET(dst,off,src) DATA_SET(dst, off, src)
-#define DINIT(dst,off,src) DATA_REF(dst, off) = src
+#define DINIT(dst,off,src) REF(dst, off) = src
 #define UNTAGGED_STORE(dst,off,src) *(void**)((uint8_t*)(dst)+(uint64_t)(off)) = src
 
 #define IS_BIGTEXT(o) (GET_TAG(o) == T_DATA && DATA_TAG(o) == T_TEXT)
 #define IS_TEXT(o) (GET_TAG(o) == T_FIXTEXT || IS_BIGTEXT(o))
-#define BIGTEXT_SIZE(o) DATA_REF4(o,0)
-#define BIGTEXT_DATA(o) ((char*)&DATA_REF1(o,4))
+#define BIGTEXT_SIZE(o) REF4(o,0)
+#define BIGTEXT_DATA(o) ((char*)&REF1(o,4))
 
 #define FATAL(msg) api->fatal(api, msg);
 
