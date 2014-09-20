@@ -13,18 +13,23 @@
 #define D fprintf(stderr, "%d:%s\n", __LINE__, __FILE__);
 
 #define TAG_BITS ((uintptr_t)3)
-#define TAG_MASK (((uintptr_t)1<<TAG_BITS)-1)
 #define PTR_BITS ((uintptr_t)40)
+#define EXT_BITS ((uintptr_t)10)
+
+#define EXT_SHIFT (64-EXT_BITS)
+
+#define TAG_MASK (((uintptr_t)1<<TAG_BITS)-1)
 #define PTR_MASK ((((uintptr_t)1<<PTR_BITS)-1)<<TAG_BITS)
+#define EXT_MASK ((((uintptr_t)1<<EXT_BITS)-1)<<EXT_SHIFT)
 
 #define O_TAG(o) ((uintptr_t)(o)&TAG_MASK)
 #define O_PTR(o) ((uintptr_t)(o)&PTR_MASK)
+#define O_EXT(o) ((uintptr_t)(o)>>EXT_SHIFT)
 #define REF1(base,off) (*(uint8_t*)(O_PTR(base)+(off)))
 #define REF4(base,off) (*(uint32_t*)(O_PTR(base)+(off)*4))
 #define REF(base,off) (*(void**)(O_PTR(base)+(off)*sizeof(void*)))
 #define O_CODE(x) REF(x,-1)
 #define O_LEVEL(x) ((uintptr_t)REF(x,-2))
-#define DATA_TAG(o) ((uintptr_t)O_CODE(o)&0xFFFFFFFF)
 #define O_FN(x) ((pfun)O_CODE(x))
 
 #define NARGS(x) ((intptr_t)O_CODE(x))
@@ -164,8 +169,8 @@ typedef void *(*pfun)(REGS);
   dst = ADD_TAG(dst, T_CLOSURE);
 
 #define ALLOC_DATA(dst,code,count) \
-  ALLOC_BASIC(dst,(void*)(code),count); \
-  dst = ADD_TAG(dst, T_DATA);
+  ALLOC_BASIC(dst,0,count); \
+  dst = (void*)((uintptr_t)dst | ((uintptr_t)(code)<<EXT_SHIFT) | T_DATA);
 
 #define ARGLIST(dst,size) ALLOC_BASIC(dst,FIXNUM(size),size)
 
@@ -199,7 +204,7 @@ typedef void *(*pfun)(REGS);
   { \
     uintptr_t tag = (uintptr_t)O_TAG(o); \
     if (tag == T_DATA) { \
-      tag = DATA_TAG(o); \
+      tag = O_EXT(o); \
     } \
     dst = (void*)FIXNUM(tag); \
   }
@@ -258,7 +263,7 @@ typedef void *(*pfun)(REGS);
    { \
       void *f_; \
       if (tag == T_DATA) { \
-        tag = DATA_TAG(o); \
+        tag = O_EXT(o); \
       } \
       f_ = ((void**)(m))[tag]; \
       k = O_FN(f_)(REGS_ARGS(f_)); \

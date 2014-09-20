@@ -47,7 +47,7 @@ static int methods_used;
 static void **methods[MAX_METHODS];
 static int types_used;
 static char *typenames[MAX_TYPES];
-#define DATA_SIZE(o) ((uintptr_t)methods[0][DATA_TAG(o)])
+#define DATA_SIZE(o) ((uintptr_t)methods[0][O_EXT(o)])
 
 static void *undefined;
 static void *sink;
@@ -188,7 +188,7 @@ static void set_type_size_and_name(struct api_t *api, intptr_t tag, intptr_t siz
 static void *tag_of(void *o) {
   uintptr_t tag = O_TAG(o);
   if (tag == T_DATA) {
-    tag = DATA_TAG(o);
+    tag = O_EXT(o);
   }
   return methods[M_NAME][tag];
 }
@@ -259,7 +259,7 @@ static char *decode_text(char *out, void *o) {
     out += fixtext_decode(out, o);
     *out = 0;
   } else if (tag == T_DATA) {
-    uintptr_t dtag = DATA_TAG(o);
+    uintptr_t dtag = O_EXT(o);
     if (dtag == T_TEXT) {
       int size = (int)BIGTEXT_SIZE(o);
       char *p = BIGTEXT_DATA(o);
@@ -300,7 +300,7 @@ static int text_size(void *o) {
   if (tag == T_FIXTEXT) {
     return fixtext_size(o);
   } else if (tag == T_DATA) {
-    uintptr_t dtag = DATA_TAG(o);
+    uintptr_t dtag = O_EXT(o);
     if (dtag == T_TEXT) {
       return BIGTEXT_SIZE(o);
     } else {
@@ -1391,7 +1391,7 @@ print_tail:
     out += sprintf(out, "%.10f", f);
     while (out[-1] == '0' && out[-2] != '.') *--out = 0;
   } else if (tag == T_DATA) {
-    uintptr_t dtag = DATA_TAG(o);
+    uintptr_t dtag = O_EXT(o);
     if (dtag == T_TEXT) {
       *out++ = '`';
       out = decode_text(out, o);
@@ -1533,7 +1533,7 @@ static void *collect_data(api_t *api, void *o) {
   int i, size;
   void *p;
   size = DATA_SIZE(o);
-  ALLOC_DATA(p, O_CODE(o), size);
+  ALLOC_DATA(p, O_EXT(o), size);
   REF(o,-2) = p;
   for (i = 0; i < size; i++) {
     REF(p,i) = gc(api, REF(o,i));
@@ -1563,7 +1563,7 @@ static void *gc(api_t *api, void *o) {
 
   tag = O_TAG(o);
   if (tag == T_DATA) {
-    tag = DATA_TAG(o);
+    tag = O_EXT(o);
     if (tag > MAX_TYPES) return (void*)tag;
   }
 
