@@ -19,6 +19,11 @@
 
 #define LIST_SIZE(o) ((uintptr_t)O_CODE(o))
 
+#define IS_BIGTEXT(o) (O_TAG(o) == T_DATA && DATA_TAG(o) == T_TEXT)
+#define IS_TEXT(o) (O_TAG(o) == T_FIXTEXT || IS_BIGTEXT(o))
+#define BIGTEXT_SIZE(o) REF4(o,0)
+#define BIGTEXT_DATA(o) ((char*)&REF1(o,4))
+
 #define C_ANY(o,arg_index,meta)
 
 #define C_FN(o,arg_index,meta) \

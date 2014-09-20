@@ -25,6 +25,7 @@
 #define O_CODE(x) REF(x,-1)
 #define O_LEVEL(x) ((uintptr_t)REF(x,-2))
 #define DATA_TAG(o) ((uintptr_t)O_CODE(o)&0xFFFFFFFF)
+#define O_FN(x) ((pfun)O_CODE(x))
 
 #define NARGS(x) ((intptr_t)O_CODE(x))
 
@@ -34,7 +35,7 @@
 #define IMMEDIATE(x) (O_TAG(x) <= T_FLOAT)
 
 
-#define T_INT  0
+#define T_INT     0
 #define T_FIXTEXT 1 /* immediate text */
 #define T_FLOAT   2
 #define T_CLOSURE 3
@@ -166,6 +167,12 @@ typedef void *(*pfun)(REGS);
   ALLOC_BASIC(dst,(void*)(code),count); \
   dst = ADD_TAG(dst, T_DATA);
 
+#define ARGLIST(dst,size) ALLOC_BASIC(dst,FIXNUM(size),size)
+
+#define LIST_ALLOC(dst,size) \
+  ARGLIST(dst,size); \
+  dst = ADD_TAG(dst, T_LIST);
+
 #define RESOLVE_TYPE(dst,name) \
   dst = (void*)(intptr_t)api->resolve_type(api, (char*)(name));
 #define RESOLVE_METHOD(dst,name) dst = api->resolve_method(api, name);
@@ -187,10 +194,6 @@ typedef void *(*pfun)(REGS);
 #define LOAD_FIXNUM(dst,x) dst = (void*)((uintptr_t)(x)<<TAG_BITS)
 #define TEXT(dst,x) dst = api->alloc_text(api,(char*)(x))
 #define DECL_LABEL(name) static void *name(REGS);
-#define ARGLIST(dst,size) ALLOC_BASIC(dst,FIXNUM(size),size)
-#define LIST_ALLOC(dst,size) \
-  ARGLIST(dst,size); \
-  dst = ADD_TAG(dst, T_LIST);
 #define THIS_METHOD(dst) dst = ADD_TAG(api->method, T_LIST);
 #define TYPE_ID(dst,o) \
   { \
@@ -248,7 +251,7 @@ typedef void *(*pfun)(REGS);
   Base = *(void**)Base; \
   Level -= 2; \
   HEAP_FLIP();
-#define CALL_NO_POP(k,f) k = ((pfun)O_CODE(f))(REGS_ARGS(f));
+#define CALL_NO_POP(k,f) k = O_FN(f)(REGS_ARGS(f));
 #define CALL(k,f) CALL_NO_POP(k,f); POP_BASE();
 
 #define CALL_METHOD_WITH_TAG_NO_SAVE(k,o,m,tag) \
@@ -258,7 +261,7 @@ typedef void *(*pfun)(REGS);
         tag = DATA_TAG(o); \
       } \
       f_ = ((void**)(m))[tag]; \
-      k = ((pfun)O_CODE(f_))(REGS_ARGS(f_)); \
+      k = O_FN(f_)(REGS_ARGS(f_)); \
    }
 
 #define CALL_METHOD_WITH_TAG(k,o,m,tag) \
@@ -276,7 +279,7 @@ typedef void *(*pfun)(REGS);
   { \
     uintptr_t tag = (uintptr_t)O_TAG(o); \
     if (tag == T_CLOSURE) { \
-      k = ((pfun)O_CODE(o))(REGS_ARGS(o)); \
+      k = O_FN(o)(REGS_ARGS(o)); \
     } else { \
       void *as = ADD_TAG((void**)Top+OBJ_HEAD_SIZE, T_LIST); \
       void *e; \
@@ -300,11 +303,6 @@ typedef void *(*pfun)(REGS);
 #define DSET(dst,off,src) DATA_SET(dst, off, src)
 #define DINIT(dst,off,src) REF(dst, off) = src
 #define UNTAGGED_STORE(dst,off,src) *(void**)((uint8_t*)(dst)+(uint64_t)(off)) = src
-
-#define IS_BIGTEXT(o) (O_TAG(o) == T_DATA && DATA_TAG(o) == T_TEXT)
-#define IS_TEXT(o) (O_TAG(o) == T_FIXTEXT || IS_BIGTEXT(o))
-#define BIGTEXT_SIZE(o) REF4(o,0)
-#define BIGTEXT_DATA(o) ((char*)&REF1(o,4))
 
 #define FATAL(msg) api->fatal(api, msg);
 
