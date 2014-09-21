@@ -1518,7 +1518,7 @@ static void *gc(api_t *api, void *o) {
     return o;
   }
 
-  type = O_TYPE(o);
+  type = O_TAGH(o);
   if (type >= MAX_TYPES) {
     fprintf(stderr, "gc: bad type = %d\n", (int)type);
     abort();
