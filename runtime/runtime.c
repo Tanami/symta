@@ -1529,39 +1529,48 @@ static void *gc(api_t *api, void *o) {
 
 #define ON_CURRENT_LEVEL(x) (api->top <= (void*)O_PTR(x) && (void*)O_PTR(x) < api->base)
 static void *gc_entry(api_t *api, void *o) {
-  int i;
-  void *xs = LIFTS_LIST(api->base);
-  void **lifted = (void**)api->top;
-  api = api->other;
-  if (xs) {
-    int lifted_count = 0;
-    void *ys = LIFTS_LIST(api->base);
-    while (xs) {
-      void **x = (void**)LIFTS_HEAD(xs);
-      if (!IMMEDIATE(*x)) {
-        *--lifted = gc(api, *x);
-        *--lifted = x;
-        *x = 0;
-        lifted_count++;
-      }
-      xs = LIFTS_TAIL(xs);
-    }
-    for (i = 0; i < lifted_count; i++) {
-      void **x = (void**)*lifted++;
-      *x = (void*)*lifted++;
-      if (ON_CURRENT_LEVEL(x)) {
-        // object got lifted to the level of it's holder
-        //fprintf(stderr, "lifted!\n");
-      } else { // needs future lifting
-        LIFTS_CONS(ys, x, ys);
-      }
-    }
-    if (lifted_count > max_lifted) {
-      max_lifted = lifted_count;
-      //fprintf(stderr,"max_lifted=%d\n", max_lifted);
-    }
-    LIFTS_LIST(api->base) = ys;
+  int i, lifted_count;
+  void **lifted;
+  void *xs, *ys;
+
+  xs = LIFTS_LIST(api);
+  if (!xs) {
+    return gc(api->other, o);
   }
+
+  LIFTS_LIST(api) = 0;
+
+  lifted = (void**)api->top;
+  api = api->other;
+
+  lifted_count = 0;
+  ys = LIFTS_LIST(api);
+  while (xs) {
+    void **x = (void**)LIFTS_HEAD(xs);
+    if (!IMMEDIATE(*x)) {
+      *--lifted = gc(api, *x);
+      *--lifted = x;
+      *x = 0;
+      lifted_count++;
+    }
+    xs = LIFTS_TAIL(xs);
+  }
+  for (i = 0; i < lifted_count; i++) {
+    void **x = (void**)*lifted++;
+    *x = (void*)*lifted++;
+    if (ON_CURRENT_LEVEL(x)) {
+      // object got lifted to the level of it's holder
+      //fprintf(stderr, "lifted!\n");
+    } else { // needs future lifting
+        LIFTS_CONS(ys, x, ys);
+    }
+  }
+  if (lifted_count > max_lifted) {
+    max_lifted = lifted_count;
+    //fprintf(stderr,"max_lifted=%d\n", max_lifted);
+  }
+  LIFTS_LIST(api) = ys;
+
   return gc(api, o);
 }
 

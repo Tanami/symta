@@ -94,7 +94,7 @@
   }
 
 #define HEAP_SIZE (32*1024*1024)
-#define BASE_HEAD_SIZE 2
+#define BASE_HEAD_SIZE 1
 #define OBJ_HEAD_SIZE 2
 
 #define MAX_LEVEL 512*1024
@@ -137,7 +137,8 @@ typedef struct api_t {
   void *(*load_lib)(struct api_t *api, char *name);
   char *(*text_chars)(struct api_t *api, void *text);
 
-  void *marks[MAX_LEVEL];
+  void *marks[MAX_LEVEL/2];
+  void *lifts[MAX_LEVEL/2];
 
   void *heap[HEAP_SIZE];
 } api_t;
@@ -219,7 +220,7 @@ typedef void *(*pfun)(REGS);
   /*fprintf(stderr, "GC %p:%p -> %p\n", Top, Base, api->other->top);*/ \
   dst = api->gc(api, (void*)(value));
 #define RETURN(value) \
-   if (IMMEDIATE(value) && !LIFTS_LIST(Base)) { \
+   if (IMMEDIATE(value) && !LIFTS_LIST(api)) { \
      return (void*)(value); \
    } \
    GC(value,value); \
@@ -232,13 +233,13 @@ typedef void *(*pfun)(REGS);
   dst = Top;
 #define LIFTS_HEAD(xs) (*((void**)(xs)+0))
 #define LIFTS_TAIL(xs) (*((void**)(xs)+1))
-#define LIFTS_LIST(base) (*((void**)(base)-2))
+#define LIFTS_LIST(api) api->lifts[Level>>1]
 #define LIFT(base,pos,value) \
   { \
     void **p_ = (void**)(base)+(pos); \
     *p_ = (value); \
     if (!IMMEDIATE(value) && O_LEVEL(base) < O_LEVEL(value)) { \
-      LIFTS_CONS(LIFTS_LIST(Base), p_, LIFTS_LIST(Base)); \
+      LIFTS_CONS(LIFTS_LIST(api), p_, LIFTS_LIST(api)); \
     } \
   }
 #define MARK(name) api->marks[Level>>1] = (void*)(name);
@@ -249,7 +250,6 @@ typedef void *(*pfun)(REGS);
   MARK(0); \
   /*fprintf(stderr, "Entering %ld\n", Level);*/ \
   *((void**)Top-1) = Base; \
-  LIFTS_LIST(Top) = 0; \
   Base = Top; \
   Top = (void**)Top-BASE_HEAD_SIZE;
 #define POP_BASE() \
@@ -339,7 +339,7 @@ typedef struct {
           ARGLIST(E,0); \
           CALL(k_,h_) \
       } \
-      if (!IMMEDIATE(value) || LIFTS_LIST(Base)) { \
+      if (!IMMEDIATE(value) || LIFTS_LIST(api)) { \
         GC(value,value); \
       } \
       POP_BASE(); \
