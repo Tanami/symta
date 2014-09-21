@@ -8,7 +8,7 @@
 #define FN_GET_META  FIXNUM(-3)
 #define FN_GET_NARGS FIXNUM(-4)
 
-#define MAX_TYPES (1024)
+#define MAX_TYPES (1<<TAGH_BITS)
 #define MAX_METHODS (8*1024)
 #define MAX_LIBS 1024
 
@@ -19,23 +19,25 @@
 
 #define LIST_SIZE(o) ((uintptr_t)O_CODE(o))
 
-#define IS_BIGTEXT(o) (O_TAG(o) == T_DATA && O_EXT(o) == T_TEXT)
-#define IS_TEXT(o) (O_TAG(o) == T_FIXTEXT || IS_BIGTEXT(o))
+#define IS_FIXTEXT(o) (O_TAGL(o) == T_FIXTEXT)
+#define IS_BIGTEXT(o) (O_TAG(o) == TAG(T_TEXT))
+#define IS_TEXT(o) (IS_FIXTEXT(o) || IS_BIGTEXT(o))
+
 #define BIGTEXT_SIZE(o) REF4(o,0)
 #define BIGTEXT_DATA(o) ((char*)&REF1(o,4))
 
 #define C_ANY(o,arg_index,meta)
 
 #define C_FN(o,arg_index,meta) \
-  if (O_TAG(o) != T_CLOSURE) \
+  if (O_TAG(o) != TAG(T_CLOSURE)) \
     api->bad_type(REGS_ARGS(P), "fn", arg_index, meta)
 
 #define C_INT(o,arg_index,meta) \
-  if (O_TAG(o) != T_INT) \
+  if (O_TAGL(o) != T_INT) \
     api->bad_type(REGS_ARGS(P), "int", arg_index, meta)
 
 #define C_FLOAT(o,arg_index,meta) \
-  if (O_TAG(o) != T_FLOAT) \
+  if (O_TAGL(o) != T_FLOAT) \
     api->bad_type(REGS_ARGS(P), "float", arg_index, meta)
 
 #define C_TEXT(o,arg_index,meta) \

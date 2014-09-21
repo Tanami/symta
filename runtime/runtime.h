@@ -12,19 +12,21 @@
 // used for debugging
 #define D fprintf(stderr, "%d:%s\n", __LINE__, __FILE__);
 
-#define TAG_BITS ((uintptr_t)3)
+#define TAGL_BITS ((uintptr_t)3)
 #define PTR_BITS ((uintptr_t)40)
-#define EXT_BITS ((uintptr_t)10)
+#define TAGH_BITS ((uintptr_t)10)
 
-#define EXT_SHIFT (64-EXT_BITS)
+#define TAGH_SHIFT (64-TAGH_BITS)
 
-#define TAG_MASK (((uintptr_t)1<<TAG_BITS)-1)
-#define PTR_MASK ((((uintptr_t)1<<PTR_BITS)-1)<<TAG_BITS)
-#define EXT_MASK ((((uintptr_t)1<<EXT_BITS)-1)<<EXT_SHIFT)
+#define TAGL_MASK (((uintptr_t)1<<TAGL_BITS)-1)
+#define PTR_MASK ((((uintptr_t)1<<PTR_BITS)-1)<<3)
+#define TAGH_MASK ((((uintptr_t)1<<TAGH_BITS)-1)<<TAGH_SHIFT)
 
-#define O_TAG(o) ((uintptr_t)(o)&TAG_MASK)
+#define O_TAGL(o) ((uintptr_t)(o)&TAGL_MASK)
+#define O_TAGH(o) ((uintptr_t)(o)>>TAGH_SHIFT)
+#define O_TAG(o) ((uintptr_t)(o)&(TAGH_MASK|TAGL_MASK))
+#define O_TYPE(o) (O_TAGL(o) == T_DATA ? O_TAGH(o) : O_TAGL(o))
 #define O_PTR(o) ((uintptr_t)(o)&PTR_MASK)
-#define O_EXT(o) ((uintptr_t)(o)>>EXT_SHIFT)
 #define REF1(base,off) (*(uint8_t*)(O_PTR(base)+(off)))
 #define REF4(base,off) (*(uint32_t*)(O_PTR(base)+(off)*4))
 #define REF(base,off) (*(void**)(O_PTR(base)+(off)*sizeof(void*)))
@@ -34,34 +36,36 @@
 
 #define NARGS(x) ((intptr_t)O_CODE(x))
 
-#define ADD_TAG(src,tag) ((void*)((uintptr_t)(src) | (tag)))
-#define DEL_TAG(src) ((void*)((uintptr_t)(src) & ~TAG_MASK))
+#define TAG(tag) (((uintptr_t)(tag)<<TAGH_SHIFT) | T_DATA)
 
-#define IMMEDIATE(x) (O_TAG(x) <= T_FLOAT)
+#define ADD_TAGL(src,tag) ((void*)((uintptr_t)(src) | tag))
+#define ADD_TAG(src,tag) ((void*)((uintptr_t)(src) | TAG(tag)))
+
+#define IMMEDIATE(x) (O_TAGL(x) != T_DATA)
 
 
 #define T_INT     0
-#define T_FIXTEXT 1 /* immediate text */
-#define T_FLOAT   2
-#define T_CLOSURE 3
-#define T_LIST    4
-#define T_VIEW    5
-#define T_CONS    6
-#define T_DATA    7
+#define T_FLOAT   1
+#define T_FIXTEXT 2
+#define T_DATA    3
+#define T_CLOSURE 4
+#define T_LIST    5
+#define T_VIEW    6
+#define T_CONS    7
 #define T_OBJECT  8
 #define T_TEXT    9
 #define T_VOID    10
 #define T_GENERIC_LIST 11
 #define T_GENERIC_TEXT 12
-#define T_HARD_LIST 13
-#define T_NAME 14
-#define T_NAME_TEXT 15
+#define T_HARD_LIST    13
+#define T_NAME         14
+#define T_NAME_TEXT    15
 
 // sign preserving shifts
 #define ASHL(x,count) ((x)*(1<<(count)))
 #define ASHR(x,count) ((x)/(1<<(count)))
-#define FIXNUM(x) ASHL((intptr_t)(x),TAG_BITS)
-#define UNFIXNUM(x) ASHR((intptr_t)(x),TAG_BITS)
+#define FIXNUM(x) ASHL((intptr_t)(x),TAGL_BITS)
+#define UNFIXNUM(x) ASHR((intptr_t)(x),TAGL_BITS)
 
 #define FIXNUM_NEG(dst,o) dst = (void*)(-(intptr_t)(o))
 #define FIXNUM_ADD(dst,a,b) dst = (void*)((intptr_t)(a) + (intptr_t)(b))
@@ -75,17 +79,17 @@
 #define FIXNUM_GT(dst,a,b) dst = (void*)FIXNUM((intptr_t)(a) > (intptr_t)(b))
 #define FIXNUM_LTE(dst,a,b) dst = (void*)FIXNUM((intptr_t)(a) <= (intptr_t)(b))
 #define FIXNUM_GTE(dst,a,b) dst = (void*)FIXNUM((intptr_t)(a) >= (intptr_t)(b))
-#define FIXNUM_TAG(dst,x) dst = (void*)FIXNUM(O_TAG(x))
+#define FIXNUM_TAG(dst,x) dst = (void*)FIXNUM(O_TAGL(x))
 #define FIXNUM_UNFIXNUM(dst,x) dst = (void*)UNFIXNUM(x)
 
 #define LOAD_FLOAT(dst,x) { \
     double d_ = (double)(x); \
     uint64_t t_ = (*(uint64_t*)&d_); \
-    dst = (void*)((t_&~TAG_MASK) | T_FLOAT); \
+    dst = (void*)((t_&~TAGL_MASK) | T_FLOAT); \
   }
 
 #define UNFLOAT(dst,x) { \
-    uint64_t t_ = (uint64_t)(x)&~TAG_MASK; \
+    uint64_t t_ = (uint64_t)(x)&~TAGL_MASK; \
     dst = *(double*)&t_; \
   }
 
@@ -170,7 +174,7 @@ typedef void *(*pfun)(REGS);
 
 #define ALLOC_DATA(dst,code,count) \
   ALLOC_BASIC(dst,0,count); \
-  dst = (void*)((uintptr_t)dst | ((uintptr_t)(code)<<EXT_SHIFT) | T_DATA);
+  dst = ADD_TAG(dst, code);
 
 #define ARGLIST(dst,size) ALLOC_BASIC(dst,FIXNUM(size),size)
 
@@ -184,7 +188,7 @@ typedef void *(*pfun)(REGS);
 #define SET_TYPE_SIZE_AND_NAME(tag,size,name) api->set_type_size_and_name(api,tag,size,name);
 #define DMET(method,type,handler) api->set_method(api,method,type,handler);
 
-#define IS_LIST(o) (O_TAG(o) == T_LIST)
+#define IS_LIST(o) (O_TAG(o) == TAG(T_LIST))
 
 #define print_object(object) api->print_object_f(api, object)
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -196,18 +200,12 @@ typedef void *(*pfun)(REGS);
 #define LOCAL_CLOSURE(dst,size) ALLOC_CLOSURE(dst,FIXNUM(size),size)
 #define BEGIN_CODE static void __dummy___ () {
 #define END_CODE }
-#define LOAD_FIXNUM(dst,x) dst = (void*)((uintptr_t)(x)<<TAG_BITS)
+#define LOAD_FIXNUM(dst,x) dst = (void*)FIXNUM(x)
 #define TEXT(dst,x) dst = api->alloc_text(api,(char*)(x))
 #define DECL_LABEL(name) static void *name(REGS);
 #define THIS_METHOD(dst) dst = ADD_TAG(api->method, T_LIST);
-#define TYPE_ID(dst,o) \
-  { \
-    uintptr_t tag = (uintptr_t)O_TAG(o); \
-    if (tag == T_DATA) { \
-      tag = O_EXT(o); \
-    } \
-    dst = (void*)FIXNUM(tag); \
-  }
+#define TYPE_ID(dst,o) dst = (void*)FIXNUM(O_TYPE(o));
+
 #define getArg(i) (*((void**)E+(i)))
 #define PROLOGUE void *E = (void**)Top+OBJ_HEAD_SIZE;
 #define ENTRY(name) } void *name(REGS) {PROLOGUE;
@@ -259,31 +257,26 @@ typedef void *(*pfun)(REGS);
 #define CALL_NO_POP(k,f) k = O_FN(f)(REGS_ARGS(f));
 #define CALL(k,f) CALL_NO_POP(k,f); POP_BASE();
 
-#define CALL_METHOD_WITH_TAG_NO_SAVE(k,o,m,tag) \
+#define CALL_METHOD_WITH_TAG_NO_SAVE(k,o,m) \
    { \
       void *f_; \
-      if (tag == T_DATA) { \
-        tag = O_EXT(o); \
-      } \
-      f_ = ((void**)(m))[tag]; \
+      f_ = ((void**)(m))[O_TYPE(o)]; \
       k = O_FN(f_)(REGS_ARGS(f_)); \
    }
 
-#define CALL_METHOD_WITH_TAG(k,o,m,tag) \
+#define CALL_METHOD_WITH_TAG(k,o,m) \
    api->method = m; \
-   CALL_METHOD_WITH_TAG_NO_SAVE(k,o,m,tag);
+   CALL_METHOD_WITH_TAG_NO_SAVE(k,o,m);
 
 #define CALL_METHOD(k,o,m) \
   { \
-    uintptr_t tag = (uintptr_t)O_TAG(o); \
-    CALL_METHOD_WITH_TAG(k,o,m,tag); \
+    CALL_METHOD_WITH_TAG(k,o,m); \
     POP_BASE(); \
   }
 
 #define CALL_TAGGED_NO_POP(k,o) \
   { \
-    uintptr_t tag = (uintptr_t)O_TAG(o); \
-    if (tag == T_CLOSURE) { \
+    if (O_TAG(o) == TAG(T_CLOSURE)) { \
       k = O_FN(o)(REGS_ARGS(o)); \
     } else { \
       void *as = ADD_TAG((void**)Top+OBJ_HEAD_SIZE, T_LIST); \
@@ -291,7 +284,7 @@ typedef void *(*pfun)(REGS);
       ARGLIST(e,2); \
       ARG_STORE(e,0,o); \
       ARG_STORE(e,1,as); \
-      CALL_METHOD_WITH_TAG(k,o,api->m_ampersand,tag); \
+      CALL_METHOD_WITH_TAG(k,o,api->m_ampersand); \
     } \
   }
 #define CALL_TAGGED(k,o) CALL_TAGGED_NO_POP(k,o); POP_BASE();
@@ -322,7 +315,7 @@ typedef struct {
 
 #define SETJMP(dst) { \
     jmp_state *js_; \
-    ALLOC_BASIC(api->jmp_return, 0, ((sizeof(jmp_state)+TAG_MASK)>>TAG_BITS)); \
+    ALLOC_BASIC(api->jmp_return, 0, ((sizeof(jmp_state)+7)>>3)); \
     js_ = (jmp_state*)api->jmp_return; \
     js_->level = api->level; \
     js_->api = api; \
@@ -336,7 +329,7 @@ typedef struct {
     js_ = (jmp_state*)state; \
     while (js_->level != api->level) { \
       void *h_ = api->marks[Level>>1]; \
-      if (O_TAG(h_) == T_CLOSURE) { \
+      if (O_TAG(h_) == TAG(T_CLOSURE) { \
           void *k_; \
           PUSH_BASE(); \
           ARGLIST(E,0); \
@@ -368,13 +361,13 @@ typedef struct {
 #define FFI_VAR(type,name) type name;
 
 #define FFI_TO_INT(dst,src) \
-  if (O_TAG(src) != T_INT) \
+  if (O_TAGL(src) != T_INT) \
     api->bad_type(REGS_ARGS(P), "int", 0, 0); \
   dst = (int)UNFIXNUM(src);
 #define FFI_FROM_INT(dst,src) dst = (void*)FIXNUM((intptr_t)src);
 
 #define FFI_TO_U4(dst,src) \
-  if (O_TAG(src) != T_INT) \
+  if (O_TAGL(src) != T_INT) \
     api->bad_type(REGS_ARGS(P), "int", 0, 0); \
   dst = (uint32_t)UNFIXNUM(src);
 #define FFI_FROM_U4(dst,src) dst = (void*)FIXNUM((intptr_t)src);

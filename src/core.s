@@ -1,5 +1,4 @@
-export tag_of
-       address
+export address
        inspect
        halt
        log

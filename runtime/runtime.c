@@ -47,7 +47,7 @@ static int methods_used;
 static void **methods[MAX_METHODS];
 static int types_used;
 static char *typenames[MAX_TYPES];
-#define DATA_SIZE(o) ((uintptr_t)methods[0][O_EXT(o)])
+#define DATA_SIZE(o) ((uintptr_t)methods[0][O_TAGH(o)])
 
 static void *undefined;
 static void *sink;
@@ -186,11 +186,7 @@ static void set_type_size_and_name(struct api_t *api, intptr_t tag, intptr_t siz
 }
 
 static void *tag_of(void *o) {
-  uintptr_t tag = O_TAG(o);
-  if (tag == T_DATA) {
-    tag = O_EXT(o);
-  }
-  return methods[M_NAME][tag];
+  return methods[M_NAME][O_TYPE(o)];
 }
 
 static void *fixtext_encode(char *p) {
@@ -205,7 +201,7 @@ static void *fixtext_encode(char *p) {
     r |= c << i;
     i += 7;
   }
-  return ADD_TAG(r,T_FIXTEXT);
+  return ADD_TAGL(r,T_FIXTEXT);
 }
 
 static int fixtext_decode(char *dst, void *r) {
@@ -234,7 +230,7 @@ static int is_unicode(char *s) {
 static void *alloc_bigtext(api_t *api, char *s, int l) {
   int a;
   void *r;
-  a = (l+4+TAG_MASK)>>TAG_BITS;
+  a = (l+4+7)>>3; // strlen + size + align
   ALLOC_DATA(r, T_TEXT, a);
   REF4(r,0) = (uint32_t)l;
   memcpy(&REF1(r,4), s, l);
@@ -254,23 +250,16 @@ static void *alloc_text(api_t *api, char *s) {
 }
 
 static char *decode_text(char *out, void *o) {
-  int tag = O_TAG(o);
-  if (tag == T_FIXTEXT) {
+  if (IS_FIXTEXT(o)) {
     out += fixtext_decode(out, o);
     *out = 0;
-  } else if (tag == T_DATA) {
-    uintptr_t dtag = O_EXT(o);
-    if (dtag == T_TEXT) {
+  } else if (IS_BIGTEXT(o)) {
       int size = (int)BIGTEXT_SIZE(o);
       char *p = BIGTEXT_DATA(o);
       while (size-- > 0) *out++ = *p++;
       *out = 0;
-    } else {
-      fprintf(stderr, "decode_text: invalid tag (%ld)\n", dtag);
-      abort();
-    }
   } else {
-    fprintf(stderr, "decode_text: invalid tag (%d)\n", tag);
+    fprintf(stderr, "decode_text: invalid type (%d)\n", (int)O_TYPE(o));
     abort();
   }
   return out;
@@ -278,7 +267,7 @@ static char *decode_text(char *out, void *o) {
 
 static int texts_equal(void *a, void *b) {
   intptr_t al, bl;
-  if (O_TAG(a) == T_FIXTEXT || O_TAG(b) == T_FIXTEXT) return a == b;
+  if (IS_FIXTEXT(a) || IS_FIXTEXT(b)) return a == b;
   al = BIGTEXT_SIZE(a);
   bl = BIGTEXT_SIZE(b);
   return al == bl && !memcmp(BIGTEXT_DATA(a), BIGTEXT_DATA(b), al);
@@ -296,21 +285,12 @@ static int fixtext_size(void *o) {
 }
 
 static int text_size(void *o) {
-  int tag = O_TAG(o);
-  if (tag == T_FIXTEXT) {
-    return fixtext_size(o);
-  } else if (tag == T_DATA) {
-    uintptr_t dtag = O_EXT(o);
-    if (dtag == T_TEXT) {
-      return BIGTEXT_SIZE(o);
-    } else {
-      fprintf(stderr, "text_size: invalid tag (%ld)\n", dtag);
-      abort();
-    }
+  if (IS_FIXTEXT(o)) return fixtext_size(o);
+  if (!IS_BIGTEXT(o)) {
+    fprintf(stderr, "text_size: invalid type (%d)\n", (int)O_TYPE(o));
+    abort();
   }
-  fprintf(stderr, "text_size: invalid tag (%d)\n", tag);
-  abort();
-  return 0;
+  return BIGTEXT_SIZE(o);
 }
 
 static char *text_chars(struct api_t *api, void *text) {
@@ -319,13 +299,13 @@ static char *text_chars(struct api_t *api, void *text) {
   int size = text_size(text);
   char *s, *d;
   void *r;
-  if (O_TAG(text) == T_FIXTEXT) {
+  if (IS_FIXTEXT(text)) {
     decode_text(buf, text);
     s = buf;
   } else {
     s = (char*)BIGTEXT_DATA(text);
   }
-  a = (size+1+TAG_MASK)>>TAG_BITS;
+  a = (size+1+7)>>3;
   ALLOC_BASIC(r, T_TEXT, a);
   d = (char*)r;
   memcpy(d, s, size);
@@ -461,13 +441,13 @@ static void *find_export(struct api_t *api, void *name, void *exports) {
 
   nexports = UNFIXNUM(LIST_SIZE(exports));
 
-  if (O_TAG(exports) != T_LIST) {
+  if (O_TAG(exports) != TAG(T_LIST)) {
     fatal("exports ain't a list: %s\n", print_object(exports));
   }
 
   for (i = 0; i < nexports; i++) {
     void *pair = REF(exports,i);
-    if (O_TAG(pair) != T_LIST || LIST_SIZE(pair) != FIXNUM(2)) {
+    if (O_TAG(pair) != TAG(T_LIST) || LIST_SIZE(pair) != FIXNUM(2)) {
       fatal("export contains invalid pair: %s\n", print_object(pair));
     }
     void *export_name = REF(pair,0);
@@ -582,9 +562,9 @@ BUILTIN1("text.hash",text_hash,C_ANY,o)
 
 RETURNS(FIXNUM(hash(BIGTEXT_DATA(o), BIGTEXT_SIZE(o))))
 BUILTIN2("text.`><`",fixtext_eq,C_ANY,a,C_ANY,b)
-RETURNS(FIXNUM(O_TAG(b) == T_FIXTEXT ? texts_equal(a,b) : 0))
+RETURNS(FIXNUM(IS_FIXTEXT(b) ? texts_equal(a,b) : 0))
 BUILTIN2("text.`<>`",fixtext_ne,C_ANY,a,C_ANY,b)
-RETURNS(FIXNUM(O_TAG(b) == T_FIXTEXT ? !texts_equal(a,b) : 1))
+RETURNS(FIXNUM(IS_FIXTEXT(b) ? !texts_equal(a,b) : 1))
 BUILTIN1("text.size",fixtext_size,C_ANY,o)
 RETURNS(FIXNUM(fixtext_size(o)))
 BUILTIN2("text.`.`",fixtext_get,C_ANY,o,C_INT,index)
@@ -597,15 +577,15 @@ bounds_error:
     TEXT(P, ".");
     bad_call(REGS_ARGS(P),P);
   }
-  c = ((uint64_t)o>>(i*7))&(0x7F<<TAG_BITS);
+  c = ((uint64_t)o>>(i*7))&(0x7F<<TAGL_BITS);
   if (!c) goto bounds_error;
-RETURNS(ADD_TAG(c,T_FIXTEXT))
+RETURNS(ADD_TAGL(c,T_FIXTEXT))
 BUILTIN1("text.end",fixtext_end,C_ANY,o)
 RETURNS(FIXNUM(1))
 BUILTIN1("text.hash",fixtext_hash,C_ANY,o)
 RETURNS(FIXNUM(((uint64_t)o&(((uint64_t)1<<32)-1))^((uint64_t)o>>32)))
 BUILTIN1("text.code",fixtext_code,C_ANY,o)
-RETURNS(FIXNUM((uint64_t)o>>TAG_BITS))
+RETURNS(FIXNUM((uint64_t)o>>TAGL_BITS))
 
 #define CONS(dst, a, b) \
   ALLOC_BASIC(dst, a, 1); \
@@ -682,7 +662,7 @@ BUILTIN3("list.`!`",list_set,C_ANY,o,C_INT,index,C_ANY,value)
     TEXT(P, "!");
     bad_call(REGS_ARGS(P),P);
   }
-  p = (void*)((uintptr_t)o - T_LIST);
+  p = (void*)O_PTR(o);
   LIFT(p,UNFIXNUM(index),value);
   R = 0;
 RETURNS(R)
@@ -747,7 +727,7 @@ BUILTIN_VARARGS("list.text",list_text)
     }
     l += text_size(x);
   }
-  l = (l+TAG_MASK-1) & ~TAG_MASK;
+  l = (l+7) & ~(uintptr_t)7;
   Top = (uint8_t*)Top - l;
   p = q = (uint8_t*)Top;
   for (i = 0; i < words_size; ) {
@@ -777,18 +757,17 @@ BUILTIN2("list.apply_method",list_apply_method,C_ANY,as,C_ANY,m)
   void *o;
   void *e;
   uintptr_t tag;
-  m = DEL_TAG(m);
+  m = (void*)O_PTR(m);
   if (!nargs) {
     fprintf(stderr, "apply_method: empty list\n");
     bad_call(REGS_ARGS(P),P);
   }
   o = REF(as,i);
-  tag = (uintptr_t)O_TAG(o);
   ARGLIST(e,nargs);
   for (i = 0; i < nargs; i++) {
     ARG_STORE(e,i,REF(as,i));
   }
-  CALL_METHOD_WITH_TAG(R,o,m,tag);
+  CALL_METHOD_WITH_TAG(R,o,m);
 RETURNS(R)
 
 
@@ -928,8 +907,7 @@ RETURNS(R)
 BUILTIN1("int.neg",int_neg,C_ANY,o)
 RETURNS(-(intptr_t)o)
 BUILTIN2("int.`+`",int_add,C_ANY,a,C_INT,b)
-  R = (void*)((intptr_t)a + (intptr_t)b);
-RETURNS(R)
+RETURNS((intptr_t)a + (intptr_t)b)
 BUILTIN2("int.`-`",int_sub,C_ANY,a,C_INT,b)
 RETURNS((intptr_t)a - (intptr_t)b)
 BUILTIN2("int.`*`",int_mul,C_ANY,a,C_INT,b)
@@ -971,27 +949,11 @@ RETURNS((uintptr_t)a ^ (uintptr_t)b)
 BUILTIN2("int.shl",int_shl,C_ANY,a,C_INT,b)
 RETURNS((intptr_t)a<<UNFIXNUM(b))
 BUILTIN2("int.shr",int_shr,C_ANY,a,C_INT,b)
-RETURNS(((intptr_t)a>>UNFIXNUM(b))&~(TAG_MASK>>1))
-BUILTIN2("int.dup",int_dup,C_ANY,size,C_ANY,init)
-  void **p;
-  intptr_t s = UNFIXNUM(size);
-  if (s < 0) {
-    fprintf(stderr, "cant copy nagative number of times: %ld\n", s);
-    TEXT(R,"int.dup");
-    bad_call(REGS_ARGS(P), R);
-  } else if (size == 0) {
-    R = Empty;
-  } else {
-    // FIXME: alloc in parent environment
-    LIST_ALLOC(R,s);
-    p = &REF(R,0);
-    while(s-- > 0) *p++ = init;
-  }
-RETURNS(R)
+RETURNS(((intptr_t)a>>UNFIXNUM(b))&~TAGL_MASK)
 BUILTIN1("int.end",int_end,C_ANY,o)
 RETURNS(FIXNUM(1))
 BUILTIN1("int.char",int_char,C_ANY,o)
-RETURNS(ADD_TAG((uint64_t)o&~TAG_MASK,T_FIXTEXT))
+RETURNS(((uint64_t)o&~TAGL_MASK)|T_FIXTEXT)
 BUILTIN1("int.hash",int_hash,C_ANY,o)
 RETURNS(o)
 BUILTIN1("int.float",int_float,C_ANY,o)
@@ -1004,12 +966,11 @@ RETURNS(FIXNUM((intptr_t)sqrt((intptr_t)UNFIXNUM(o))))
 BUILTIN1("int.log",int_log,C_ANY,o)
 RETURNS(FIXNUM((intptr_t)log((double)(intptr_t)UNFIXNUM(o))))
 
-BUILTIN1("tag_of",tag_of,C_ANY,o)
-  R = tag_of(o);
-RETURNS(R);
+BUILTIN1("tag",tag,C_ANY,o)
+RETURNS(tag_of(o));
 
 BUILTIN1("address",address,C_ANY,o)
-RETURNS(DEL_TAG(o))
+RETURNS((uintptr_t)(o)&~TAGL_BITS)
 
 BUILTIN0("halt",halt)
   printf("halted.\n");
@@ -1021,8 +982,7 @@ BUILTIN1("log",log,C_ANY,a)
 RETURNS(a)
 
 BUILTIN1("say_",say_,C_TEXT,o)
-  int tag = O_TAG(o);
-  if (tag == T_FIXTEXT) {
+  if (IS_FIXTEXT(o)) {
     char *out = print_buffer;
     out += fixtext_decode(out, o);
     *out = 0;
@@ -1055,7 +1015,11 @@ BUILTIN0("stack_trace",stack_trace)
 RETURNS(R)
 
 BUILTIN1("inspect",inspect,C_ANY,o)
-  fprintf(stderr, "%p: tag=%ld, level=%ld\n", o, O_TAG(o), O_LEVEL(o));
+  if (O_TAGL(o) != T_DATA) {
+    fprintf(stderr, "%p: type=%d, level=immediate\n", o, (int)O_TYPE(o));
+  } else {
+    fprintf(stderr, "%p: type=%d, level=%ld\n", o, (int)O_TYPE(o), O_LEVEL(o));
+  }
 RETURNS(0)
 
 BUILTIN1("load_library",load_library,C_TEXT,path_text)
@@ -1117,7 +1081,7 @@ BUILTIN2("save_text",save_text,C_TEXT,filename_text,C_TEXT,text)
   int size = text_size(text);
   char *filename;
   char *xs;
-  if (O_TAG(text) == T_FIXTEXT) {
+  if (IS_FIXTEXT(text)) {
     decode_text(buf, text);
     xs = buf;
   } else {
@@ -1192,7 +1156,7 @@ RETURNS(main_args)
 BUILTIN1("parse_float", parse_float,C_TEXT,text)
   char buf[32];
   char *xs;
-  if (O_TAG(text) == T_FIXTEXT) {
+  if (IS_FIXTEXT(text)) {
     decode_text(buf, text);
     xs = buf;
   } else {
@@ -1290,14 +1254,13 @@ RETURNS(0)
 BUILTIN_VARARGS("undefined",undefined)
   void *o = getArg(0);
   void **m = methods[M_SINK];
-  uintptr_t tag = (uintptr_t)O_TAG(o);
   void *name = ((void**)api->method)[T_NAME_TEXT];
   void *as = ADD_TAG(E, T_LIST);
   void *e;
   ARGLIST(e,2);
   ARG_STORE(e,0,as);
   ARG_STORE(e,1,name);
-  CALL_METHOD_WITH_TAG_NO_SAVE(R,o,m,tag);
+  CALL_METHOD_WITH_TAG_NO_SAVE(R,o,m);
   return (void*)R;
 RETURNS(0)
 
@@ -1305,7 +1268,6 @@ static struct {
   char *name;
   void *fun;
 } builtins[] = {
-  {"tag_of", b_tag_of},
   {"address", b_address},
   {"inspect", b_inspect},
   {"halt", b_halt},
@@ -1332,10 +1294,10 @@ static struct {
 
 static char *print_object_r(api_t *api, char *out, void *o) {
   int i;
-  int tag = O_TAG(o);
+  int type = (int)O_TYPE(o);
   int open_par = 1;
 
-  //fprintf(stderr, "%p = %d\n", o, tag);
+  //fprintf(stderr, "%p = %d\n", o, type);
   //if (print_depth > 4) abort();
 
   print_depth++;
@@ -1347,14 +1309,14 @@ static char *print_object_r(api_t *api, char *out, void *o) {
 print_tail:
   if (o == Void) {
     out += sprintf(out, "Void");
-  } else if (tag == T_CLOSURE) {
+  } else if (type == T_CLOSURE) {
     //FIXME: check metainfo to see if this object has associated print routine
     pfun handler = O_CODE(o);
     out += sprintf(out, "#(closure %p %p)", handler, o);
-  } else if (tag == T_INT) {
+  } else if (type == T_INT) {
     // FIXME: this relies on the fact that shift preserves sign
-    out += sprintf(out, "%ld", (intptr_t)o>>TAG_BITS);
-  } else if (tag == T_LIST) {
+    out += sprintf(out, "%ld", (intptr_t)o>>TAGL_BITS);
+  } else if (type == T_LIST) {
     int size = (int)UNFIXNUM(LIST_SIZE(o));
     if (open_par) out += sprintf(out, "(");
     for (i = 0; i < size; i++) {
@@ -1362,7 +1324,7 @@ print_tail:
       out = print_object_r(api, out, REF(o,i));
     }
     out += sprintf(out, ")");
-  } else if (tag == T_VIEW) {
+  } else if (type == T_VIEW) {
     uint32_t start = VIEW_START(o);
     int size = (int)UNFIXNUM(VIEW_SIZE(o));
     if (open_par) out += sprintf(out, "(");
@@ -1371,36 +1333,31 @@ print_tail:
       out = print_object_r(api, out, VIEW_REF(o,start,i));
     }
     out += sprintf(out, ")");
-  } else if (tag == T_CONS) {
+  } else if (type == T_CONS) {
     open_par = 0;
     out += sprintf(out, "(");
     for (;;) {
       out = print_object_r(api, out, CAR(o));
       o = CDR(o);
-      tag = O_TAG(o);
-      if (tag != T_CONS) goto print_tail;
+      type = (int)O_TYPE(o);
+      if (type != T_CONS) goto print_tail;
       out += sprintf(out, " ");
     }
-  } else if (tag == T_FIXTEXT) {
+  } else if (type == T_FIXTEXT) {
     *out++ = '`';
     out = decode_text(out, o);
     *out++ = '`';
-  } else if (tag == T_FLOAT) {
+  } else if (type == T_FLOAT) {
     double f;
     UNFLOAT(f,o);
     out += sprintf(out, "%.10f", f);
     while (out[-1] == '0' && out[-2] != '.') *--out = 0;
-  } else if (tag == T_DATA) {
-    uintptr_t dtag = O_EXT(o);
-    if (dtag == T_TEXT) {
-      *out++ = '`';
-      out = decode_text(out, o);
-      *out++ = '`';
-    } else {
-      out += sprintf(out, "#(data %ld %p)", dtag, o);
-    }
+  } else if (type == T_TEXT) {
+    *out++ = '`';
+    out = decode_text(out, o);
+    *out++ = '`';
   } else {
-    out += sprintf(out, "#(ufo %d %p)", tag, o);
+    out += sprintf(out, "#(data %d %p)", type, o);
   }
   *out = 0;
 
@@ -1533,7 +1490,7 @@ static void *collect_data(api_t *api, void *o) {
   int i, size;
   void *p;
   size = DATA_SIZE(o);
-  ALLOC_DATA(p, O_EXT(o), size);
+  ALLOC_DATA(p, O_TAGH(o), size);
   REF(o,-2) = p;
   for (i = 0; i < size; i++) {
     REF(p,i) = gc(api, REF(o,i));
@@ -1542,7 +1499,7 @@ static void *collect_data(api_t *api, void *o) {
 }
 
 static void *gc(api_t *api, void *o) {
-  uintptr_t tag;
+  uintptr_t type;
   uintptr_t level;
 
   //fprintf(stderr, "%p: %s\n", o, print_object(o));
@@ -1561,16 +1518,16 @@ static void *gc(api_t *api, void *o) {
     return o;
   }
 
-  tag = O_TAG(o);
-  if (tag == T_DATA) {
-    tag = O_EXT(o);
-    if (tag > MAX_TYPES) return (void*)tag;
+  type = O_TYPE(o);
+  if (type >= MAX_TYPES) {
+    fprintf(stderr, "gc: bad type = %d\n", (int)type);
+    abort();
   }
 
-  return ((void *(*)(api_t *api, void *o))collectors[tag])(api,o);
+  return ((void *(*)(api_t *api, void *o))collectors[type])(api,o);
 }
 
-#define ON_CURRENT_LEVEL(x) (api->top <= (void*)(x) && (void*)(x) < api->base)
+#define ON_CURRENT_LEVEL(x) (api->top <= (void*)O_PTR(x) && (void*)O_PTR(x) < api->base)
 static void *gc_entry(api_t *api, void *o) {
   int i;
   void *xs = LIFTS_LIST(api->base);
@@ -1639,9 +1596,9 @@ static api_t *init_api(void *ptr) {
   multi = api->resolve_method(api, name); \
   if (m_int) {BUILTIN_CLOSURE(multi[T_INT], m_int);}\
   if (m_float) {BUILTIN_CLOSURE(multi[T_FLOAT], m_float);}\
+  if (m_fixtext) {BUILTIN_CLOSURE(multi[T_FIXTEXT], m_fixtext);} \
   if (m_fn) {BUILTIN_CLOSURE(multi[T_CLOSURE], m_fn);}\
   if (m_list) {BUILTIN_CLOSURE(multi[T_LIST], m_list);} \
-  if (m_fixtext) {BUILTIN_CLOSURE(multi[T_FIXTEXT], m_fixtext);} \
   if (m_text) {BUILTIN_CLOSURE(multi[T_TEXT], m_text);} \
   if (m_view) {BUILTIN_CLOSURE(multi[T_VIEW], m_view);} \
   if (m_cons) {BUILTIN_CLOSURE(multi[T_CONS], m_cons);} \
@@ -1651,9 +1608,9 @@ static api_t *init_api(void *ptr) {
   multi = api->resolve_method(api, name); \
   multi[T_INT] = m_int;\
   multi[T_FLOAT] = m_float; \
+  multi[T_FIXTEXT] = m_fixtext; \
   multi[T_CLOSURE] = m_fn; \
   multi[T_LIST] = m_list; \
-  multi[T_FIXTEXT] = m_fixtext; \
   multi[T_TEXT] = m_text; \
   multi[T_VIEW] = m_view; \
   multi[T_CONS] = m_cons; \
@@ -1680,13 +1637,13 @@ static void init_types(api_t *api) {
   TEXT(n_void, "void");
 
   api->resolve_type(api, "int");
-  api->resolve_type(api, "_fixtext_");
   api->resolve_type(api, "float");
+  api->resolve_type(api, "_fixtext_");
+  api->resolve_type(api, "_data_");
   api->resolve_type(api, "fn");
   api->resolve_type(api, "_list_");
   api->resolve_type(api, "_view_");
   api->resolve_type(api, "_cons_");
-  api->resolve_type(api, "_data_");
   api->resolve_type(api, "_");
   api->resolve_type(api, "_text_");
   api->resolve_type(api, "void");
@@ -1721,7 +1678,6 @@ static void init_types(api_t *api) {
   METHOD_FN("xor", b_int_xor, 0, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("shl", b_int_shl, 0, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("shr", b_int_shr, 0, 0, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("dup", b_int_dup, 0, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("head", 0, 0, 0, b_list_head, 0, 0, b_view_head, b_cons_head, 0);
   METHOD_FN("tail", 0, 0, 0, b_list_tail, 0, 0, b_view_tail, b_cons_tail, 0);
   METHOD_FN("pre", 0, 0, 0, b_list_pre, 0, 0, b_view_pre, b_cons_pre, 0);
@@ -1750,6 +1706,7 @@ static void init_types(api_t *api) {
   METHOD_FN("floor", 0, b_float_floor, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("ceil", 0, b_float_ceil, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("round", 0, b_float_round, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("tag", b_tag, b_tag, b_tag, b_tag, b_tag, b_tag, b_tag, b_tag, b_tag);
 
   add_subtype(api, T_GENERIC_TEXT, T_FIXTEXT);
   add_subtype(api, T_GENERIC_TEXT, T_TEXT);
@@ -1845,7 +1802,7 @@ static void init_args(api_t *api, int argc, char **argv) {
   for (i = 0; i < main_argc; i++) {
     void *a;
     TEXT(a, main_argv[i]);
-    LIFT(DEL_TAG(main_args),i,a);
+    LIFT(O_PTR(main_args),i,a);
   }
 }
 
