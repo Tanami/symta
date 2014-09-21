@@ -112,7 +112,6 @@
   void *A, *R; \
   BUILTIN_CHECK_VARARGS(0,0,sname);
 #define RETURNS(r) R = (void*)(r); RETURN(R); }
-#define RETURNS_VOID Top = Base; }
 
 
 #endif //SYMTA_H

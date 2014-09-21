@@ -464,10 +464,10 @@ lcg_init: time
 list.shuffle =
 | Xs = Me.list
 | N = Xs.size
-| while N > 0
+| while N > 1
+  | N !- 1
   | R = N.rand
   | X = Xs.R
-  | N !- 1
   | Xs.R <= Xs.N
   | Xs.N <= X
 | Xs

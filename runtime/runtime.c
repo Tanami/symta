@@ -975,7 +975,7 @@ RETURNS((uintptr_t)(o)&~TAGL_BITS)
 BUILTIN0("halt",halt)
   printf("halted.\n");
   exit(0);
-RETURNS_VOID
+RETURNS(0)
 
 BUILTIN1("log",log,C_ANY,a)
   fprintf(stderr, "log: %s\n", print_object(a));
@@ -1813,8 +1813,10 @@ static api_t *init_heap() {
   api->other = init_api(apis+1);
   api->other->other = api;
 
-  api->base = api->top = api->heap+HEAP_SIZE-BASE_HEAD_SIZE;
-  api->other->base = api->other->top = api->other->heap+HEAP_SIZE-BASE_HEAD_SIZE;
+  api->base = api->heap + HEAP_SIZE;
+  api->top = (void**)api->base - BASE_HEAD_SIZE;
+  api->other->base = api->other->heap + HEAP_SIZE;
+  api->other->top = (void**)api->other->base - BASE_HEAD_SIZE;
 
   api->level = 1;
   api->other->level = 0;

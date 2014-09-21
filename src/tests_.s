@@ -39,6 +39,10 @@ test_list =
 | Ys <= case [x [y 4] 2 [1 3] z] [x [y 4] B [A C] z] [A B C]
 | unless Ys.0 >< 1 and Ys.1 >< 2 and Ys.2 >< 3:
   | bad 'case [x [y 4] 2 [1 3] z] [x [y 4] B [A C] z] [A B C]'
+| Xs = [a b c]
+| (Xs => (Xs.1 <= [1 2 3]; 0)) Xs
+| Ys <= Xs.1
+| unless Ys.0 >< 1 and Ys.1 >< 2 and Ys.2 >< 3: bad '(Xs => (Xs.1 <= [1 2 3]; 0)) Xs'
 | Ys = [3 1 2].sort{A B => A < B}
 | unless Ys.0 >< 1 and Ys.1 >< 2 and Ys.2 >< 3: bad '[3 1 2].sort{A B => A < B}'
 | say '  test passed'

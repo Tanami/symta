@@ -232,7 +232,7 @@ typedef void *(*pfun)(REGS);
   dst = Top;
 #define LIFTS_HEAD(xs) (*((void**)(xs)+0))
 #define LIFTS_TAIL(xs) (*((void**)(xs)+1))
-#define LIFTS_LIST(base) (*((void**)(base)+1))
+#define LIFTS_LIST(base) (*((void**)(base)-2))
 #define LIFT(base,pos,value) \
   { \
     void **p_ = (void**)(base)+(pos); \
@@ -248,14 +248,14 @@ typedef void *(*pfun)(REGS);
   Level += 2; \
   MARK(0); \
   /*fprintf(stderr, "Entering %ld\n", Level);*/ \
-  Top = (void**)Top-BASE_HEAD_SIZE; \
-  *((void**)Top+0) = Base; \
+  *((void**)Top-1) = Base; \
   LIFTS_LIST(Top) = 0; \
-  Base = Top;
+  Base = Top; \
+  Top = (void**)Top-BASE_HEAD_SIZE;
 #define POP_BASE() \
   /*fprintf(stderr, "Leaving %ld\n", Level);*/ \
-  Top = (void**)Base+BASE_HEAD_SIZE; \
-  Base = *(void**)Base; \
+  Top = Base; \
+  Base = *((void**)Top-1); \
   Level -= 2; \
   HEAP_FLIP();
 #define CALL_NO_POP(k,f) k = O_FN(f)(REGS_ARGS(f));
