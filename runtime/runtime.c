@@ -230,7 +230,7 @@ static int is_unicode(char *s) {
 static void *alloc_bigtext(api_t *api, char *s, int l) {
   int a;
   void *r;
-  a = (l+4+7)>>3; // strlen + size + align
+  a = (l+4+ALIGN_MASK)>>ALIGN_BITS; // strlen + size (aligned)
   ALLOC_DATA(r, T_TEXT, a);
   REF4(r,0) = (uint32_t)l;
   memcpy(&REF1(r,4), s, l);
@@ -305,7 +305,7 @@ static char *text_chars(struct api_t *api, void *text) {
   } else {
     s = (char*)BIGTEXT_DATA(text);
   }
-  a = (size+1+7)>>3;
+  a = (size+1+ALIGN_MASK)>>ALIGN_BITS;
   ALLOC_BASIC(r, T_TEXT, a);
   d = (char*)r;
   memcpy(d, s, size);
@@ -577,7 +577,7 @@ bounds_error:
     TEXT(P, ".");
     bad_call(REGS_ARGS(P),P);
   }
-  c = ((uint64_t)o>>(i*7))&(0x7F<<TAGL_BITS);
+  c = ((uint64_t)o>>(i*7))&(0x7F<<ALIGN_BITS);
   if (!c) goto bounds_error;
 RETURNS(ADD_TAGL(c,T_FIXTEXT))
 BUILTIN1("text.end",fixtext_end,C_ANY,o)
@@ -585,7 +585,7 @@ RETURNS(FIXNUM(1))
 BUILTIN1("text.hash",fixtext_hash,C_ANY,o)
 RETURNS(FIXNUM(((uint64_t)o&(((uint64_t)1<<32)-1))^((uint64_t)o>>32)))
 BUILTIN1("text.code",fixtext_code,C_ANY,o)
-RETURNS(FIXNUM((uint64_t)o>>TAGL_BITS))
+RETURNS(FIXNUM((uint64_t)o>>ALIGN_BITS))
 
 #define CONS(dst, a, b) \
   ALLOC_BASIC(dst, a, 1); \
@@ -727,7 +727,7 @@ BUILTIN_VARARGS("list.text",list_text)
     }
     l += text_size(x);
   }
-  l = (l+7) & ~(uintptr_t)7;
+  l = (l+ALIGN_MASK) & ~(uintptr_t)ALIGN_MASK;
   Top = (uint8_t*)Top - l;
   p = q = (uint8_t*)Top;
   for (i = 0; i < words_size; ) {
@@ -970,7 +970,7 @@ BUILTIN1("tag",tag,C_ANY,o)
 RETURNS(tag_of(o));
 
 BUILTIN1("address",address,C_ANY,o)
-RETURNS((uintptr_t)(o)&~TAGL_BITS)
+RETURNS((uintptr_t)(o)&~ALIGN_MASK)
 
 BUILTIN0("halt",halt)
   printf("halted.\n");
@@ -1315,7 +1315,7 @@ print_tail:
     out += sprintf(out, "#(closure %p %p)", handler, o);
   } else if (type == T_INT) {
     // FIXME: this relies on the fact that shift preserves sign
-    out += sprintf(out, "%ld", (intptr_t)o>>TAGL_BITS);
+    out += sprintf(out, "%ld", (intptr_t)o>>ALIGN_BITS);
   } else if (type == T_LIST) {
     int size = (int)UNFIXNUM(LIST_SIZE(o));
     if (open_par) out += sprintf(out, "(");

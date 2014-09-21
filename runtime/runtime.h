@@ -12,15 +12,17 @@
 // used for debugging
 #define D fprintf(stderr, "%d:%s\n", __LINE__, __FILE__);
 
-#define TAGL_BITS ((uintptr_t)3)
+#define TAGL_BITS ((uintptr_t)2)
 #define PTR_BITS ((uintptr_t)40)
 #define TAGH_BITS ((uintptr_t)10)
+#define ALIGN_BITS ((uintptr_t)3)
 
 #define TAGH_SHIFT (64-TAGH_BITS)
 
 #define TAGL_MASK (((uintptr_t)1<<TAGL_BITS)-1)
-#define PTR_MASK ((((uintptr_t)1<<PTR_BITS)-1)<<3)
+#define PTR_MASK ((((uintptr_t)1<<PTR_BITS)-1)<<ALIGN_BITS)
 #define TAGH_MASK ((((uintptr_t)1<<TAGH_BITS)-1)<<TAGH_SHIFT)
+#define ALIGN_MASK (((uintptr_t)1<<ALIGN_BITS)-1)
 
 #define O_TAGL(o) ((uintptr_t)(o)&TAGL_MASK)
 #define O_TAGH(o) ((uintptr_t)(o)>>TAGH_SHIFT)
@@ -64,8 +66,8 @@
 // sign preserving shifts
 #define ASHL(x,count) ((x)*(1<<(count)))
 #define ASHR(x,count) ((x)/(1<<(count)))
-#define FIXNUM(x) ASHL((intptr_t)(x),TAGL_BITS)
-#define UNFIXNUM(x) ASHR((intptr_t)(x),TAGL_BITS)
+#define FIXNUM(x) ASHL((intptr_t)(x),ALIGN_BITS)
+#define UNFIXNUM(x) ASHR((intptr_t)(x),ALIGN_BITS)
 
 #define FIXNUM_NEG(dst,o) dst = (void*)(-(intptr_t)(o))
 #define FIXNUM_ADD(dst,a,b) dst = (void*)((intptr_t)(a) + (intptr_t)(b))
@@ -319,7 +321,7 @@ typedef struct {
 
 #define SETJMP(dst) { \
     jmp_state *js_; \
-    ALLOC_BASIC(api->jmp_return, 0, ((sizeof(jmp_state)+7)>>3)); \
+    ALLOC_BASIC(api->jmp_return, 0, ((sizeof(jmp_state)+ALIGN_MASK)>>ALIGN_BITS)); \
     js_ = (jmp_state*)api->jmp_return; \
     js_->level = api->level; \
     js_->api = api; \
