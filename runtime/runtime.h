@@ -30,8 +30,8 @@
 #define REF1(base,off) (*(uint8_t*)(O_PTR(base)+(off)))
 #define REF4(base,off) (*(uint32_t*)(O_PTR(base)+(off)*4))
 #define REF(base,off) (*(void**)(O_PTR(base)+(off)*sizeof(void*)))
-#define O_CODE(x) REF(x,-1)
-#define O_LEVEL(x) ((uintptr_t)REF(x,-2))
+#define O_CODE(x) REF(x,-2)
+#define O_LEVEL(x) ((uintptr_t)REF(x,-1))
 #define O_FN(x) ((pfun)O_CODE(x))
 
 #define NARGS(x) ((intptr_t)O_CODE(x))
@@ -119,7 +119,6 @@ typedef struct api_t {
   // constants
   void *void_;
   void *empty_;
-  void *resolve_;
   void *m_ampersand;
   void *m_underscore;
 
@@ -147,7 +146,6 @@ typedef void *(*pfun)(REGS);
 
 #define Void api->void_
 #define Empty api->empty_
-#define Resolve api->resolve_
 #define Top api->top
 #define Base api->base
 #define Level api->level
@@ -163,18 +161,24 @@ typedef void *(*pfun)(REGS);
 
 #define ALLOC_BASIC(dst,code,count) \
   HEAP_GUARD(); \
-  Top = (void**)Top - ((uintptr_t)(count)+OBJ_HEAD_SIZE); \
-  *((void**)Top+0) = (void*)Level; \
-  *((void**)Top+1) = (void*)(code); \
-  dst = (void**)Top+OBJ_HEAD_SIZE;
+  dst = (void**)Top - (uintptr_t)(count); \
+  Top = (void**)dst - OBJ_HEAD_SIZE; \
+  *((void**)Top+0) = (void*)(code); \
+  *((void**)Top+1) = (void*)Level;
+
+#define ALLOC_NO_CODE(dst,count) \
+  HEAP_GUARD(); \
+  dst = (void**)Top - (uintptr_t)(count); \
+  Top = (void**)dst - 1; \
+  *((void**)Top+0) = (void*)Level;
 
 #define ALLOC_CLOSURE(dst,code,count) \
   ALLOC_BASIC(dst,code,count); \
   dst = ADD_TAG(dst, T_CLOSURE);
 
-#define ALLOC_DATA(dst,code,count) \
-  ALLOC_BASIC(dst,0,count); \
-  dst = ADD_TAG(dst, code);
+#define ALLOC_DATA(dst,tag,count) \
+  ALLOC_NO_CODE(dst,count); \
+  dst = ADD_TAG(dst,tag);
 
 #define ARGLIST(dst,size) ALLOC_BASIC(dst,FIXNUM(size),size)
 

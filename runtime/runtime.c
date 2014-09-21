@@ -1395,6 +1395,7 @@ static void *handle_args(REGS, void *E, intptr_t expected, intptr_t size, void *
 static void *gc(api_t *api, void *o);
 
 #define GCLevel (api->level+1)
+#define MARK_MOVED(o,p) REF(o,-1) = p
 
 static void *gc_arglist(api_t *api, void *o) {
   void *p, *q;
@@ -1414,7 +1415,7 @@ static void *gc_arglist(api_t *api, void *o) {
 
   size = UNFIXNUM(NARGS(o));
   ARGLIST(p, size);
-  ARG_STORE(o, -2, p);
+  MARK_MOVED(o,p);
   for (i = 0; i < size; i++) {
     ARG_LOAD(q,o,i);
     void *z = q;
@@ -1428,7 +1429,6 @@ static void *collect_immediate(api_t *api, void *o) {
   return o;
 }
 
-
 static void *collect_closure(api_t *api, void *o) {
   int i, size;
   void *p;
@@ -1439,7 +1439,7 @@ static void *collect_closure(api_t *api, void *o) {
   size = UNFIXNUM(fixed_size);
   Top = savedTop;
   ALLOC_CLOSURE(p, O_CODE(o), size);
-  STORE(o, -2, p);
+  MARK_MOVED(o,p);
   for (i = 0; i < size; i++) {
     STORE(p, i, gc_arglist(api, REF(o,i)));
   }
@@ -1451,7 +1451,7 @@ static void *collect_list(api_t *api, void *o) {
   void *p;
   size = (int)UNFIXNUM(LIST_SIZE(o));
   LIST_ALLOC(p, size);
-  REF(o,-2) = p;
+  MARK_MOVED(o,p);
   for (i = 0; i < size; i++) {
     REF(p,i) = gc(api, REF(o,i));
   }
@@ -1463,7 +1463,7 @@ static void *collect_view(api_t *api, void *o) {
   uint32_t start = VIEW_START(o);
   uint32_t size = VIEW_SIZE(o);
   VIEW(p, 0, start, size);
-  REF(o,-2) = p;
+  MARK_MOVED(o,p);
   q = ADD_TAG(&VIEW_REF(o,0,0), T_LIST);
   q = gc(api, q);
   O_CODE(p) = &REF(q, 0);
@@ -1473,7 +1473,7 @@ static void *collect_view(api_t *api, void *o) {
 static void *collect_cons(api_t *api, void *o) {
   void *p;
   CONS(p, 0, 0);
-  REF(o,-2) = p;
+  MARK_MOVED(o,p);
   CAR(p) = gc(api, CAR(o));
   CDR(p) = gc(api, CDR(o));
   return p;
@@ -1482,7 +1482,7 @@ static void *collect_cons(api_t *api, void *o) {
 static void *collect_text(api_t *api, void *o) {
   void *p;
   p = alloc_bigtext(api, BIGTEXT_DATA(o), BIGTEXT_SIZE(o));
-  REF(o,-2) = p;
+  MARK_MOVED(o,p);
   return p;
 }
 
@@ -1491,7 +1491,7 @@ static void *collect_data(api_t *api, void *o) {
   void *p;
   size = DATA_SIZE(o);
   ALLOC_DATA(p, O_TAGH(o), size);
-  REF(o,-2) = p;
+  MARK_MOVED(o,p);
   for (i = 0; i < size; i++) {
     REF(p,i) = gc(api, REF(o,i));
   }
