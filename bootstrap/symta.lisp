@@ -926,7 +926,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          (to-c-emit "  {call}")))
       (else (cnorm x)))
   ! to-c-emit "END_CODE"
-  ! format nil '"~{~a~%~}" (reverse (append *compiled* decls (list "#include \"runtime.h\""))))
+  ! format nil '"~{~a~%~}" (reverse (append *compiled* decls (list "#include \"symta.h\""))))
 
 (to ssa-produce-file file src
   ! ssa = produce-ssa "entry" src

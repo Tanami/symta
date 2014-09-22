@@ -1,5 +1,5 @@
-#ifndef SYMTA_RUNTIME_H
-#define SYMTA_RUNTIME_H
+#ifndef SYMTA_H
+#define SYMTA_H
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -422,4 +422,4 @@ typedef struct {
 
 void *entry(REGS);
 
-#endif //SYMTA_RUNTIME_H
+#endif //SYMTA_H

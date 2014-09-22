@@ -117,7 +117,7 @@ build @As =
    Else | bad "build: bad arglist = [As]"
 | let GDstFolder "[DstFolder]lib/"
       GSrcFolders ["[SrcFolder]src/" "[GRootFolder]src/"]
-      GHeaderTimestamp (file_time "[GRootFolder]/runtime/runtime.h")
+      GHeaderTimestamp (file_time "[GRootFolder]/runtime/symta.h")
       GShowInfo 1
       GCompiledModules (table)
   | register_library_folder GDstFolder
@@ -131,7 +131,7 @@ eval Expr Env =
 | BuildFolder = "[GRootFolder]build/tmp/"
 | let GMacros 'macro'^load_macros
       GSrcFolders ["[GRootFolder]src/"]
-      GHeaderTimestamp (file_time "[GRootFolder]/runtime/runtime.h")
+      GHeaderTimestamp (file_time "[GRootFolder]/runtime/symta.h")
       GDstFolder "[BuildFolder]lib/"
       GCompiledModules (table)
   | Entry = @rand tmp

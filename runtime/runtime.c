@@ -6,7 +6,7 @@
 #include <float.h>
 #include <math.h>
 
-#include "runtime_internal.h"
+#include "runtime.h"
 
 #define VIEW_START(o) REF4(o,0)
 #define VIEW_SIZE(o) REF4(o,1)
