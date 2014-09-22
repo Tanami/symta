@@ -362,8 +362,8 @@ typedef struct {
     jmp_state *js_; \
     js_ = (jmp_state*)state; \
     while (js_->level != api->level) { \
-      void *h_ Frame.mark; \
-      if (O_TAG(h_) == TAG(T_CLOSURE) { \
+      void *h_ = Frame.mark; \
+      if (O_TAG(h_) == TAG(T_CLOSURE)) { \
           void *k_; \
           PUSH_BASE(); \
           ARGLIST(E,0); \
