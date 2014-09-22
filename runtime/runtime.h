@@ -219,20 +219,28 @@ typedef void *(*pfun)(REGS);
 #define ENTRY(name) } void *name(REGS) {PROLOGUE;
 #define LABEL(name) } static void *name(REGS) {PROLOGUE;
 #define VAR(name) void *name;
-#define GC_SINGLE_API(f,dst,value,api) \
+#define GC_PARAM(f,dst,o,gclevel,api) \
   { \
-    void *value_ = (void*)(value); \
-    if (IMMEDIATE(value_)) { \
-      dst = value_; \
+    void *o_ = (void*)(o); \
+    if (IMMEDIATE(o_)) { \
+      dst = o_; \
     } else { \
-      dst = f(api, value_); \
+      uintptr_t level_ = O_LEVEL(o_); \
+      if (level_ != gclevel) { \
+        if (level_ > HEAP_SIZE) { \
+          dst = (void*)level_; \
+        } else { \
+          dst = o_; \
+        } \
+      } else { \
+        dst = f(api, o_); \
+      } \
     } \
   }
-#define GC_SINGLE(f,dst,value) GC_SINGLE_API(f,dst,value,api)
 #define GC(dst,value) \
   /*fprintf(stderr, "GC %p:%p -> %p\n", Top, Base, api->other->top);*/ \
   if (LIFTS_LIST(api)) api->gc_list(api); \
-  GC_SINGLE_API(api->gc_single, dst, value, api->other);
+  GC_PARAM(api->gc_single, dst, value, Level, api->other);
 #define RETURN(value) \
    GC(value,value); \
    return (void*)(value);

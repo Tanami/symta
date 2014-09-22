@@ -1395,23 +1395,13 @@ static void *handle_args(REGS, void *E, intptr_t expected, intptr_t size, void *
 static void *gc_single(api_t *api, void *o);
 
 #define GCLevel (api->level+1)
+#define GC_SINGLE(f,dst,value) GC_PARAM(f,dst,value,GCLevel,api)
 #define MARK_MOVED(o,p) REF(o,-1) = p
 
 static void *gc_arglist(api_t *api, void *o) {
   void *p, *q;
   uintptr_t i;
   uintptr_t size;
-  uintptr_t level;
-
-  level = O_LEVEL(o);
-
-  if (level != GCLevel) {
-    if (level > HEAP_SIZE) {
-      // already moved
-      return (void*)level;
-    }
-    return o;
-  }
 
   size = UNFIXNUM(NARGS(o));
   ARGLIST(p, size);
@@ -1430,7 +1420,8 @@ static void *collect_immediate(api_t *api, void *o) {
 
 static void *collect_closure(api_t *api, void *o) {
   int i, size;
-  void *p;
+  uintptr_t level;
+  void *p, *q;
   void *fixed_size, *dummy;
   void *savedTop = Top;
   ALLOC_CLOSURE(dummy, FN_GET_SIZE, 1);
@@ -1440,7 +1431,17 @@ static void *collect_closure(api_t *api, void *o) {
   ALLOC_CLOSURE(p, O_CODE(o), size);
   MARK_MOVED(o,p);
   for (i = 0; i < size; i++) {
-    STORE(p, i, gc_arglist(api, REF(o,i)));
+    q = REF(o,i);
+    level = O_LEVEL(q);
+    if (level == GCLevel) {
+      q = gc_arglist(api, q);
+    } else {
+      if (level > HEAP_SIZE) {
+        // already moved
+        q = (void*)level;
+      }
+    }
+    STORE(p, i, q);
   }
   return p;
 }
@@ -1499,21 +1500,8 @@ static void *collect_data(api_t *api, void *o) {
 
 static void *gc_single(api_t *api, void *o) {
   uintptr_t type;
-  uintptr_t level;
 
   //fprintf(stderr, "%p: %s\n", o, print_object(o));
-
-  level = O_LEVEL(o);
-
-  if (level != GCLevel) {
-    if (level > HEAP_SIZE) {
-      // already moved
-      return (void*)level;
-    }
-    // FIXME: validate this external reference (safe-check we haven't damaged anything)
-    //fprintf(stderr, "external: %p\n", o);
-    return o;
-  }
 
   type = O_TAGH(o);
   if (type >= MAX_TYPES) {
