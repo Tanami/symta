@@ -63,7 +63,7 @@ static void print_stack_trace(api_t *api) {
   fprintf(stderr, "Stack Trace:\n");
   while (s-- > 0) {
     intptr_t l = s + 1;
-    void *init = api->marks[l];
+    void *init = api->frame[l].mark;
     fprintf(stderr, "  %s\n", print_object(init));
   }
 }
@@ -1007,7 +1007,7 @@ BUILTIN0("stack_trace",stack_trace)
     p = &REF(R,0);
     while (s-- > 1) {
       intptr_t l = s + 1;
-      void *init = api->marks[l];
+      void *init = api->frame[l].mark;
       *p++ = init;
     }
   }
@@ -1501,14 +1501,14 @@ static void gc_lifts(api_t *api) {
   void **lifted;
   void *xs, *ys;
 
-  xs = LIFTS_LIST(api);
-  LIFTS_LIST(api) = 0;
+  xs = Lifts;
+  Lifts = 0;
 
   lifted = (void**)Top;
   --Level;
 
   lifted_count = 0;
-  ys = LIFTS_LIST(api);
+  ys = Lifts;
   while (xs) {
     void **x = (void**)LIFTS_HEAD(xs);
     if (!IMMEDIATE(*x)) {
@@ -1535,7 +1535,7 @@ static void gc_lifts(api_t *api) {
     max_lifted = lifted_count;
     //fprintf(stderr,"max_lifted=%d\n", max_lifted);
   }
-  LIFTS_LIST(api) = ys;
+  Lifts = ys;
   ++Level;
 }
 

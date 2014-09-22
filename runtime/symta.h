@@ -108,7 +108,16 @@
 #define REGS void *P, struct api_t *api
 #define REGS_ARGS(P) P, api
 
+typedef struct frame_t {
+  void *base;
+  void *mark;
+  void *lifts;
+} frame_t;
+
+
 typedef struct api_t {
+  frame_t frame[MAX_LEVEL];
+
   void *base[2];
   void *top[2]; // heap top
 
@@ -141,9 +150,6 @@ typedef struct api_t {
 
   void *collectors[MAX_TYPES];
 
-  void *marks[MAX_LEVEL];
-  void *lifts[MAX_LEVEL];
-
   void *heap[2][HEAP_SIZE];
 } api_t;
 
@@ -151,6 +157,8 @@ typedef void *(*pfun)(REGS);
 
 #define Void api->void_
 #define Empty api->empty_
+#define Frame api->frame[Level]
+#define Lifts Frame.lifts
 #define Top api->top[Level&1]
 #define Base api->base[Level&1]
 #define Level api->level
@@ -245,7 +253,7 @@ typedef void *(*collector_t)(api_t *api, void *o);
   }
 #define GC(dst,value) \
   /*fprintf(stderr, "GC %p:%p -> %p\n", Top, Base, api->top[(Level-1)&1]);*/ \
-  if (LIFTS_LIST(api)) api->gc_lifts(api); \
+  if (Lifts) api->gc_lifts(api); \
   GC_PARAM(dst, value, Level, --Level, ++Level);
 #define RETURN(value) \
    GC(value,value); \
@@ -258,16 +266,15 @@ typedef void *(*collector_t)(api_t *api, void *o);
   dst = Top;
 #define LIFTS_HEAD(xs) (*((void**)(xs)+0))
 #define LIFTS_TAIL(xs) (*((void**)(xs)+1))
-#define LIFTS_LIST(api) api->lifts[Level]
 #define LIFT(base,pos,value) \
   { \
     void **p_ = (void**)(base)+(pos); \
     *p_ = (value); \
     if (!IMMEDIATE(value) && O_LEVEL(base) < O_LEVEL(value)) { \
-      LIFTS_CONS(LIFTS_LIST(api), p_, LIFTS_LIST(api)); \
+      LIFTS_CONS(Lifts, p_, Lifts); \
     } \
   }
-#define MARK(name) api->marks[Level] = (void*)(name);
+#define MARK(name) Frame.mark = (void*)(name);
 #define PUSH_BASE() \
   ++Level; \
   MARK(0); \
@@ -330,8 +337,8 @@ typedef void *(*collector_t)(api_t *api, void *o);
 
 #define FATAL(msg) api->fatal(api, msg);
 
-#define SET_UNWIND_HANDLER(r,h) api->marks[Level] = h;
-#define REMOVE_UNWIND_HANDLER(r) api->marks[Level] = 0;
+#define SET_UNWIND_HANDLER(r,h) Frame.mark = h;
+#define REMOVE_UNWIND_HANDLER(r) Frame.mark = 0;
 
 typedef struct {
   jmp_buf anchor;
@@ -354,16 +361,14 @@ typedef struct {
     jmp_state *js_; \
     js_ = (jmp_state*)state; \
     while (js_->level != api->level) { \
-      void *h_ = api->marks[Level]; \
+      void *h_ Frame.mark; \
       if (O_TAG(h_) == TAG(T_CLOSURE) { \
           void *k_; \
           PUSH_BASE(); \
           ARGLIST(E,0); \
           CALL(k_,h_) \
       } \
-      if (!IMMEDIATE(value) || LIFTS_LIST(api)) { \
-        GC(value,value); \
-      } \
+      GC(value,value); \
       POP_BASE(); \
     } \
     api->jmp_return = value; \
