@@ -117,8 +117,6 @@ typedef struct frame_t {
 
 typedef struct api_t {
   frame_t frame[MAX_LEVEL];
-
-  void *base[2];
   void *top[2]; // heap top
 
   intptr_t level; // stack frame depth
@@ -160,7 +158,7 @@ typedef void *(*pfun)(REGS);
 #define Frame api->frame[Level]
 #define Lifts Frame.lifts
 #define Top api->top[Level&1]
-#define Base api->base[Level&1]
+#define Base Frame.base
 #define Level api->level
 
 #ifdef SYMTA_DEBUG
@@ -279,13 +277,10 @@ typedef void *(*collector_t)(api_t *api, void *o);
   ++Level; \
   MARK(0); \
   /*fprintf(stderr, "Entering %ld\n", Level);*/ \
-  *((void**)Top-1) = Base; \
-  Base = Top; \
-  Top = (void**)Top-BASE_HEAD_SIZE;
+  Base = Top;
 #define POP_BASE() \
   /*fprintf(stderr, "Leaving %ld\n", Level);*/ \
   Top = Base; \
-  Base = *((void**)Top-1); \
   --Level;
 #define CALL_NO_POP(k,f) k = O_FN(f)(REGS_ARGS(f));
 #define CALL(k,f) CALL_NO_POP(k,f); POP_BASE();

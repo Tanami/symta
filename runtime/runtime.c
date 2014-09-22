@@ -1495,7 +1495,7 @@ static void *collect_data(api_t *api, void *o) {
   return p;
 }
 
-#define ON_CURRENT_LEVEL(x) (Top <= (void*)O_PTR(x) && (void*)O_PTR(x) < Base)
+#define ON_CURRENT_LEVEL(x) (Top <= (void*)x && (void*)x < Base)
 static void gc_lifts(api_t *api) {
   int i, lifted_count;
   void **lifted;
@@ -1776,10 +1776,10 @@ static api_t *init_api() {
   api->load_lib = load_lib;
   api->text_chars = text_chars;
 
-  api->base[0] = api->heap[0] + HEAP_SIZE;
-  api->top[0] = (void**)api->base[0] - BASE_HEAD_SIZE;
-  api->base[1] = api->heap[1] + HEAP_SIZE;
-  api->top[1] = (void**)api->base[1] - BASE_HEAD_SIZE;
+  api->frame[0].base = api->heap[0] + HEAP_SIZE;
+  api->top[0] = (void**)api->frame[0].base - BASE_HEAD_SIZE;
+  api->frame[1].base = api->heap[1] + HEAP_SIZE;
+  api->top[1] = (void**)api->frame[1].base - BASE_HEAD_SIZE;
 
   api->level = 0;
 
