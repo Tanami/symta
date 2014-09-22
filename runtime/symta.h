@@ -197,6 +197,8 @@ typedef void *(*pfun)(REGS);
   ARGLIST(dst,size); \
   dst = ADD_TAG(dst, T_LIST);
 
+#define LOAD_LIB(dst,name) dst = api->load_lib(api,(char*)(name));
+#define FIND_EXPORT(dst,symbol,lib) dst = api->find_export(api,symbol,lib);
 #define RESOLVE_TYPE(dst,name) \
   dst = (void*)(intptr_t)api->resolve_type(api, (char*)(name));
 #define RESOLVE_METHOD(dst,name) dst = api->resolve_method(api, name);
@@ -227,8 +229,40 @@ typedef void *(*pfun)(REGS);
 #define LABEL(name) } static void *name(REGS) {PROLOGUE;
 #define VAR(name) void *name;
 
+#define MARK(name) Frame.mark = (void*)(name);
+#define PUSH_BASE() \
+  ++Level; \
+  MARK(0); \
+  /*fprintf(stderr, "Entering %ld\n", Level);*/ \
+  Base = Top;
+#define POP_BASE() \
+  /*fprintf(stderr, "Leaving %ld\n", Level);*/ \
+  Top = Base; \
+  --Level;
+#define CALL(k,f) k = O_FN(f)(REGS_ARGS(f));
+#define CALL_METHOD_NO_SAVE(k,o,m) \
+   { \
+      void *f_; \
+      f_ = ((void**)(m))[O_TYPE(o)]; \
+      k = O_FN(f_)(REGS_ARGS(f_)); \
+   }
+#define CALL_METHOD(k,o,m) \
+   api->method = m; \
+   CALL_METHOD_NO_SAVE(k,o,m);
+#define CALL_TAGGED(k,o) \
+  { \
+    if (O_TAG(o) == TAG(T_CLOSURE)) { \
+      k = O_FN(o)(REGS_ARGS(o)); \
+    } else { \
+      void *as = ADD_TAG((void**)Top+OBJ_HEAD_SIZE, T_LIST); \
+      void *e; \
+      ARGLIST(e,2); \
+      ARG_STORE(e,0,o); \
+      ARG_STORE(e,1,as); \
+      CALL_METHOD(k,o,api->m_ampersand); \
+    } \
+  }
 typedef void *(*collector_t)(api_t *api, void *o);
-
 #define GC_PARAM(dst,o,gclevel,pre,post) \
   { \
     void *o_ = (void*)(o); \
@@ -276,43 +310,6 @@ typedef void *(*collector_t)(api_t *api, void *o);
       LIFTS_CONS(Lifts, p_, Lifts); \
     } \
   }
-#define MARK(name) Frame.mark = (void*)(name);
-#define PUSH_BASE() \
-  ++Level; \
-  MARK(0); \
-  /*fprintf(stderr, "Entering %ld\n", Level);*/ \
-  Base = Top;
-#define POP_BASE() \
-  /*fprintf(stderr, "Leaving %ld\n", Level);*/ \
-  Top = Base; \
-  --Level;
-#define CALL(k,f) k = O_FN(f)(REGS_ARGS(f));
-
-#define CALL_METHOD_NO_SAVE(k,o,m) \
-   { \
-      void *f_; \
-      f_ = ((void**)(m))[O_TYPE(o)]; \
-      k = O_FN(f_)(REGS_ARGS(f_)); \
-   }
-
-#define CALL_METHOD(k,o,m) \
-   api->method = m; \
-   CALL_METHOD_NO_SAVE(k,o,m);
-
-#define CALL_TAGGED(k,o) \
-  { \
-    if (O_TAG(o) == TAG(T_CLOSURE)) { \
-      k = O_FN(o)(REGS_ARGS(o)); \
-    } else { \
-      void *as = ADD_TAG((void**)Top+OBJ_HEAD_SIZE, T_LIST); \
-      void *e; \
-      ARGLIST(e,2); \
-      ARG_STORE(e,0,o); \
-      ARG_STORE(e,1,as); \
-      CALL_METHOD(k,o,api->m_ampersand); \
-    } \
-  }
-
 #define ARG_LOAD(dst,src,src_off) dst = *((void**)(src)+(src_off))
 #define ARG_STORE(dst,dst_off,src) *((void**)(dst)+(dst_off)) = (void*)(src)
 #define LOAD(dst,src,src_off) dst = REF(src,src_off)

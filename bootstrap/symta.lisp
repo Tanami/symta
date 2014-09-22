@@ -905,7 +905,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         ! to-c-emit "  TEXT({tname}, {tagname});"
         ! to-c-emit "  SET_TYPE_SIZE_AND_NAME((intptr_t){place}, {size}, {tname});"))
       ((''load_lib dst lib-cstr)
-       (to-c-emit "  {dst} = api->load_lib(api,(char*)({lib-cstr}));"))
+       (to-c-emit "  LOAD_LIB({dst},{lib-cstr});"))
       ((''import dst lib symbol lib-exports symbol-cstr)
        (! key = "{lib}::{symbol}"
         ! import = gethash key imports
@@ -914,7 +914,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
              (! symbol-text = ssa-name "s"
               ! to-c-emit "  VAR({symbol-text});"
               ! to-c-emit "  TEXT({symbol-text}, {symbol-cstr});"
-              ! to-c-emit "  {dst} = api->find_export(api, {symbol-text}, {lib-exports});"
+              ! to-c-emit "  FIND_EXPORT({dst}, {symbol-text}, {lib-exports});"
               ! setf (gethash key imports) dst)))
       ((''bytes name values)
        (push (format nil '"static uint8_t ~a[] = {~{~a~^,~}};" name values) decls))

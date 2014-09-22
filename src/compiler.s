@@ -481,7 +481,7 @@ ssa_to_c Xs = let GCompiled []
     | c "  VAR([TName]);"
     | c "  TEXT([TName],[TagName]);"
     | c "  SET_TYPE_SIZE_AND_NAME((intptr_t)[Place],[Size],[TName]);"
-  [load_lib Dst LibCStr] | c "  [Dst] = api->load_lib(api,(char*)([LibCStr]));"
+  [load_lib Dst LibCStr] | c "  LOAD_LIB([Dst],[LibCStr]);"
   [import Dst Lib Symbol LibExports SymbolCStr]
     | Key = "[Lib]::[Symbol]"
     | Import = Imports.Key
@@ -490,7 +490,7 @@ ssa_to_c Xs = let GCompiled []
       else | SymbolText = @rand s
            | c "  VAR([SymbolText]);"
            | c "  TEXT([SymbolText],[SymbolCStr]);"
-           | c "  [Dst] = api->find_export(api,[SymbolText],[LibExports]);"
+           | c "  FIND_EXPORT([Dst],[SymbolText],[LibExports]);"
            | Imports.Key <= Dst
   [bytes Name Xs]
     | Brackets = '[]'
