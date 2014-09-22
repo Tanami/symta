@@ -101,7 +101,8 @@
 #define BASE_HEAD_SIZE 1
 #define OBJ_HEAD_SIZE 2
 
-#define MAX_LEVEL 512*1024
+// should be less than C's stack, which is 1024*1024 bytes
+#define MAX_LEVEL (1024*1024/9)
 
 // P holds points to closure of current function
 // E holds pointer to arglist of current function
@@ -138,6 +139,7 @@ typedef struct api_t {
   void (*gc_lifts)();
   void *(*alloc_text)(char *s);
   void (*fatal)(struct api_t *api, void *msg);
+  void (*fatal_chars)(struct api_t *api, char *msg);
   void **(*resolve_method)(struct api_t *api, char *name);
   int (*resolve_type)(struct api_t *api, char *name);
   void (*set_type_size_and_name)(struct api_t *api, intptr_t tag, intptr_t size, void *name);
@@ -163,11 +165,20 @@ typedef void *(*pfun)(REGS);
 
 #ifdef SYMTA_DEBUG
 #define HEAP_GUARD() \
-  if ((uint8_t*)Top - (uint8_t*)api->heap < 1024*4) { \
-    api->fatal(api, "out of memory"); \
+  if ((uint8_t*)Top - (uint8_t*)api->heap[Level&1] < 1024*4) { \
+    api->fatal_chars(api, "out of memory"); \
+  }
+#define LIFT_GUARD() \
+  if ((uint8_t*)Top - (uint8_t*)api->heap[Level&1] < 1024*4) { \
+    api->fatal_chars(api, "out of memory during lift"); \
+  }
+#define FRAME_GUARD() \
+  if (Level + 5 > MAX_LEVEL) { \
+    api->fatal_chars(api, "stack overflow"); \
   }
 #else
 #define HEAP_GUARD()
+#define FRAME_GUARD()
 #endif
 
 #define ALLOC_BASIC(dst,code,count) \
@@ -231,6 +242,7 @@ typedef void *(*pfun)(REGS);
 
 #define MARK(name) Frame.mark = (void*)(name);
 #define PUSH_BASE() \
+  FRAME_GUARD(); \
   ++Level; \
   MARK(0); \
   /*fprintf(stderr, "Entering %ld\n", Level);*/ \
@@ -296,6 +308,7 @@ typedef void *(*collector_t)( void *o);
    return (void*)(value);
 #define RETURN_NO_GC(value) return (void*)(value);
 #define LIFTS_CONS(dst,head,tail) \
+  LIFT_GUARD(); \
   Top=(void**)Top-2; \
   *((void**)Top+0) = (head); \
   *((void**)Top+1) = (tail); \

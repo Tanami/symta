@@ -1630,7 +1630,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! *src-folders* = list "{build-folder}src/" "{*root-folder*}src/"
   ! *dst-folder* = "{build-folder}lib/"
   ! runtime-src = "{*root-folder*}/runtime/runtime.c"
-  ! *header-timestamp* = file-write-date "{*root-folder*}/runtime/runtime.h"
+  ! *header-timestamp* = file-write-date "{*root-folder*}/runtime/symta.h"
   ! runtime-path = "{build-folder}run"
   ! compile-runtime runtime-src runtime-path
   ! dst-file = compile-module "main"

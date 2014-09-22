@@ -60,11 +60,16 @@ static int print_depth = 0;
 
 static void print_stack_trace(api_t *api) {
   intptr_t s = Level-1;
+  intptr_t e = s - 50;
   fprintf(stderr, "Stack Trace:\n");
-  while (s-- > 0) {
+  if (e < 0) e = 0;
+  while (s-- > e) {
     intptr_t l = s + 1;
     void *init = api->frame[l].mark;
     fprintf(stderr, "  %s\n", print_object(init));
+  }
+  if (s > 0) {
+    fprintf(stderr, "  ...stack is too big...\n");
   }
 }
 
@@ -1552,6 +1557,12 @@ static void fatal_error(api_t *api, void *msg) {
   abort();
 }
 
+static void fatal_error_chars(api_t *api, char *msg) {
+  fprintf(stderr, "fatal_error: %s\n", msg);
+  print_stack_trace(api);
+  abort();
+}
+
 #define METHOD_FN(name, m_int, m_float, m_fn, m_list, m_fixtext, m_text, m_view, m_cons, m_void) \
   multi = api->resolve_method(api, name); \
   if (m_int) {BUILTIN_CLOSURE(multi[T_INT], m_int);}\
@@ -1775,6 +1786,7 @@ static api_t *init_api() {
   api->gc_lifts = gc_lifts;
   api->alloc_text = alloc_text;
   api->fatal = fatal_error;
+  api->fatal_chars = fatal_error_chars;
   api->resolve_method = resolve_method;
   api->resolve_type = resolve_type;
   api->set_type_size_and_name = set_type_size_and_name;
