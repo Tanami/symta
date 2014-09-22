@@ -253,8 +253,12 @@ typedef void *(*collector_t)(api_t *api, void *o);
   /*fprintf(stderr, "GC %p:%p -> %p\n", Top, Base, api->top[(Level-1)&1]);*/ \
   if (Lifts) api->gc_lifts(api); \
   GC_PARAM(dst, value, Level, --Level, ++Level);
+#define RETURN_NO_POP(value) \
+   GC(value,value); \
+   return (void*)(value);
 #define RETURN(value) \
    GC(value,value); \
+   POP_BASE(); \
    return (void*)(value);
 #define RETURN_NO_GC(value) return (void*)(value);
 #define LIFTS_CONS(dst,head,tail) \
@@ -282,27 +286,20 @@ typedef void *(*collector_t)(api_t *api, void *o);
   /*fprintf(stderr, "Leaving %ld\n", Level);*/ \
   Top = Base; \
   --Level;
-#define CALL_NO_POP(k,f) k = O_FN(f)(REGS_ARGS(f));
-#define CALL(k,f) CALL_NO_POP(k,f); POP_BASE();
+#define CALL(k,f) k = O_FN(f)(REGS_ARGS(f));
 
-#define CALL_METHOD_WITH_TAG_NO_SAVE(k,o,m) \
+#define CALL_METHOD_NO_SAVE(k,o,m) \
    { \
       void *f_; \
       f_ = ((void**)(m))[O_TYPE(o)]; \
       k = O_FN(f_)(REGS_ARGS(f_)); \
    }
 
-#define CALL_METHOD_WITH_TAG(k,o,m) \
-   api->method = m; \
-   CALL_METHOD_WITH_TAG_NO_SAVE(k,o,m);
-
 #define CALL_METHOD(k,o,m) \
-  { \
-    CALL_METHOD_WITH_TAG(k,o,m); \
-    POP_BASE(); \
-  }
+   api->method = m; \
+   CALL_METHOD_NO_SAVE(k,o,m);
 
-#define CALL_TAGGED_NO_POP(k,o) \
+#define CALL_TAGGED(k,o) \
   { \
     if (O_TAG(o) == TAG(T_CLOSURE)) { \
       k = O_FN(o)(REGS_ARGS(o)); \
@@ -312,10 +309,9 @@ typedef void *(*collector_t)(api_t *api, void *o);
       ARGLIST(e,2); \
       ARG_STORE(e,0,o); \
       ARG_STORE(e,1,as); \
-      CALL_METHOD_WITH_TAG(k,o,api->m_ampersand); \
+      CALL_METHOD(k,o,api->m_ampersand); \
     } \
   }
-#define CALL_TAGGED(k,o) CALL_TAGGED_NO_POP(k,o); POP_BASE();
 
 #define ARG_LOAD(dst,src,src_off) dst = *((void**)(src)+(src_off))
 #define ARG_STORE(dst,dst_off,src) *((void**)(dst)+(dst_off)) = (void*)(src)

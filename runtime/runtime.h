@@ -111,6 +111,7 @@
   void *A, *R; \
   BUILTIN_CHECK_VARARGS(0,0,sname);
 #define RETURNS(r) R = (void*)(r); RETURN(R); }
+#define RETURNS_NO_GC(r) RETURN_NO_GC(r); }
 
 
 #endif //SYMTA_H

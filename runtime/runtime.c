@@ -363,7 +363,6 @@ static void *exec_module(struct api_t *api, char *path) {
   PUSH_BASE();
   ARGLIST(E,0);
   R = entry(REGS_ARGS(P)); 
-  POP_BASE();
 
   //fprintf(stderr, "done %s\n", path);
 
@@ -539,7 +538,7 @@ RETURNS(FIXNUM(a != b))
 BUILTIN1("fn.nargs",fn_nargs,C_ANY,o)
   void *dummy, *nargs;
   ALLOC_CLOSURE(dummy, FN_GET_NARGS, 1);
-  CALL_NO_POP(nargs,o);
+  CALL(nargs,o);
 RETURNS(nargs)
 
 
@@ -750,8 +749,8 @@ BUILTIN2("list.apply",list_apply,C_ANY,as,C_FN,f)
   for (i = 0; i < nargs; i++) {
     ARG_STORE(e,i,REF(as,i));
   }
-  CALL_TAGGED_NO_POP(R,f)
-RETURNS(R)
+  CALL_TAGGED(R,f)
+RETURNS_NO_GC(R)
 BUILTIN2("list.apply_method",list_apply_method,C_ANY,as,C_ANY,m)
   int i;
   intptr_t nargs = UNFIXNUM(LIST_SIZE(as));
@@ -768,9 +767,8 @@ BUILTIN2("list.apply_method",list_apply_method,C_ANY,as,C_ANY,m)
   for (i = 0; i < nargs; i++) {
     ARG_STORE(e,i,REF(as,i));
   }
-  CALL_METHOD_WITH_TAG(R,o,m);
-RETURNS(R)
-
+  CALL_METHOD(R,o,m);
+RETURNS_NO_GC(R)
 
 
 BUILTIN1("float.neg",float_neg,C_ANY,a)
@@ -1259,7 +1257,7 @@ BUILTIN_VARARGS("undefined",undefined)
   ARGLIST(e,2);
   ARG_STORE(e,0,as);
   ARG_STORE(e,1,name);
-  CALL_METHOD_WITH_TAG_NO_SAVE(R,o,m);
+  CALL_METHOD_NO_SAVE(R,o,m);
   return (void*)R;
 RETURNS(0)
 
@@ -1422,7 +1420,7 @@ static void *collect_closure(api_t *api, void *o) {
   void *fixed_size, *dummy;
   void *savedTop = Top;
   ALLOC_CLOSURE(dummy, FN_GET_SIZE, 1);
-  CALL_NO_POP(fixed_size,o);
+  CALL(fixed_size,o);
   size = UNFIXNUM(fixed_size);
   Top = savedTop;
   ALLOC_CLOSURE(p, O_CODE(o), size);
