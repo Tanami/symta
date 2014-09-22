@@ -1392,7 +1392,7 @@ static void *handle_args(REGS, void *E, intptr_t expected, intptr_t size, void *
   fatal("during call to `%s`\n", print_object(tag));
 }
 
-static void *gc(api_t *api, void *o);
+static void *gc_single(api_t *api, void *o);
 
 #define GCLevel (api->level+1)
 #define MARK_MOVED(o,p) REF(o,-1) = p
@@ -1418,8 +1418,7 @@ static void *gc_arglist(api_t *api, void *o) {
   MARK_MOVED(o,p);
   for (i = 0; i < size; i++) {
     ARG_LOAD(q,o,i);
-    void *z = q;
-    q = gc(api, q);
+    GC_SINGLE(gc_single, q, q);
     ARG_STORE(p, i, q);
   }
   return p;
@@ -1453,7 +1452,7 @@ static void *collect_list(api_t *api, void *o) {
   LIST_ALLOC(p, size);
   MARK_MOVED(o,p);
   for (i = 0; i < size; i++) {
-    REF(p,i) = gc(api, REF(o,i));
+    GC_SINGLE(gc_single, REF(p,i), REF(o,i));
   }
   return p;
 }
@@ -1465,7 +1464,7 @@ static void *collect_view(api_t *api, void *o) {
   VIEW(p, 0, start, size);
   MARK_MOVED(o,p);
   q = ADD_TAG(&VIEW_REF(o,0,0), T_LIST);
-  q = gc(api, q);
+  GC_SINGLE(gc_single, q, q);
   O_CODE(p) = &REF(q, 0);
   return p;
 }
@@ -1474,8 +1473,8 @@ static void *collect_cons(api_t *api, void *o) {
   void *p;
   CONS(p, 0, 0);
   MARK_MOVED(o,p);
-  CAR(p) = gc(api, CAR(o));
-  CDR(p) = gc(api, CDR(o));
+  GC_SINGLE(gc_single, CAR(p), CAR(o))
+  GC_SINGLE(gc_single, CDR(p), CDR(o))
   return p;
 }
 
@@ -1493,18 +1492,16 @@ static void *collect_data(api_t *api, void *o) {
   ALLOC_DATA(p, O_TAGH(o), size);
   MARK_MOVED(o,p);
   for (i = 0; i < size; i++) {
-    REF(p,i) = gc(api, REF(o,i));
+    GC_SINGLE(gc_single, REF(p,i), REF(o,i));
   }
   return p;
 }
 
-static void *gc(api_t *api, void *o) {
+static void *gc_single(api_t *api, void *o) {
   uintptr_t type;
   uintptr_t level;
 
   //fprintf(stderr, "%p: %s\n", o, print_object(o));
-
-  if (IMMEDIATE(o)) return o;
 
   level = O_LEVEL(o);
 
@@ -1528,16 +1525,12 @@ static void *gc(api_t *api, void *o) {
 }
 
 #define ON_CURRENT_LEVEL(x) (api->top <= (void*)O_PTR(x) && (void*)O_PTR(x) < api->base)
-static void *gc_entry(api_t *api, void *o) {
+static void gc_list(api_t *api) {
   int i, lifted_count;
   void **lifted;
   void *xs, *ys;
 
   xs = LIFTS_LIST(api);
-  if (!xs) {
-    return gc(api->other, o);
-  }
-
   LIFTS_LIST(api) = 0;
 
   lifted = (void**)api->top;
@@ -1548,7 +1541,9 @@ static void *gc_entry(api_t *api, void *o) {
   while (xs) {
     void **x = (void**)LIFTS_HEAD(xs);
     if (!IMMEDIATE(*x)) {
-      *--lifted = gc(api, *x);
+      void *p;
+      GC_SINGLE(gc_single, p, *x);
+      *--lifted = p;
       *--lifted = x;
       *x = 0;
       lifted_count++;
@@ -1562,7 +1557,7 @@ static void *gc_entry(api_t *api, void *o) {
       // object got lifted to the level of it's holder
       //fprintf(stderr, "lifted!\n");
     } else { // needs future lifting
-        LIFTS_CONS(ys, x, ys);
+      LIFTS_CONS(ys, x, ys);
     }
   }
   if (lifted_count > max_lifted) {
@@ -1570,8 +1565,6 @@ static void *gc_entry(api_t *api, void *o) {
     //fprintf(stderr,"max_lifted=%d\n", max_lifted);
   }
   LIFTS_LIST(api) = ys;
-
-  return gc(api, o);
 }
 
 static void fatal_error(api_t *api, void *msg) {
@@ -1587,7 +1580,8 @@ static api_t *init_api(void *ptr) {
   api->bad_type = bad_type;
   api->handle_args = handle_args;
   api->print_object_f = print_object_f;
-  api->gc = gc_entry;
+  api->gc_list = gc_list;
+  api->gc_single = gc_single;
   api->alloc_text = alloc_text;
   api->fatal = fatal_error;
   api->resolve_method = resolve_method;

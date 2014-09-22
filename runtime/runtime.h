@@ -128,7 +128,8 @@ typedef struct api_t {
   void (*bad_type)(REGS, char *expected, int arg_index, char *name);
   void* (*handle_args)(REGS, void *E, intptr_t expected, intptr_t size, void *tag, void *meta);
   char* (*print_object_f)(struct api_t *api, void *object);
-  void *(*gc)(struct api_t *api, void *root);
+  void (*gc_list)(struct api_t *api);
+  void *(*gc_single)(struct api_t *api, void *root);
   void *(*alloc_text)(struct api_t *api, char *s);
   void (*fatal)(struct api_t *api, void *msg);
   void **(*resolve_method)(struct api_t *api, char *name);
@@ -218,13 +219,21 @@ typedef void *(*pfun)(REGS);
 #define ENTRY(name) } void *name(REGS) {PROLOGUE;
 #define LABEL(name) } static void *name(REGS) {PROLOGUE;
 #define VAR(name) void *name;
+#define GC_SINGLE_API(f,dst,value,api) \
+  { \
+    void *value_ = (void*)(value); \
+    if (IMMEDIATE(value_)) { \
+      dst = value_; \
+    } else { \
+      dst = f(api, value_); \
+    } \
+  }
+#define GC_SINGLE(f,dst,value) GC_SINGLE_API(f,dst,value,api)
 #define GC(dst,value) \
   /*fprintf(stderr, "GC %p:%p -> %p\n", Top, Base, api->other->top);*/ \
-  dst = api->gc(api, (void*)(value));
+  if (LIFTS_LIST(api)) api->gc_list(api); \
+  GC_SINGLE_API(api->gc_single, dst, value, api->other);
 #define RETURN(value) \
-   if (IMMEDIATE(value) && !LIFTS_LIST(api)) { \
-     return (void*)(value); \
-   } \
    GC(value,value); \
    return (void*)(value);
 #define RETURN_NO_GC(value) return (void*)(value);
