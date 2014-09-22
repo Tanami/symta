@@ -98,7 +98,7 @@ static void **resolve_method(api_t *api, char *name) {
 }
 
 static void add_subtype(api_t *api, int type, int subtype);
-static void *collect_data(api_t *api, void *o);
+static void *collect_data(void *o);
 
 #define SET_COLLECTOR(type,handler) api->collectors[type] = handler;
 
@@ -238,9 +238,10 @@ static void *alloc_bigtext(api_t *api, char *s, int l) {
   return r;
 }
 
-static void *alloc_text(api_t *api, char *s) {
+static void *alloc_text(char *s) {
   int l, a;
   void *r;
+  api_t *api = &api_g;
 
   if (is_unicode(s)) fatal("FIXME: implement unicode\n");
 
@@ -1393,10 +1394,11 @@ static void *handle_args(REGS, void *E, intptr_t expected, intptr_t size, void *
 #define GC_REC(dst,value) GC_PARAM(dst,value,GCLevel,;,;)
 #define MARK_MOVED(o,p) REF(o,-1) = p
 
-static void *gc_arglist(api_t *api, void *o) {
+static void *gc_arglist(void *o) {
   void *p, *q;
   uintptr_t i;
   uintptr_t size;
+  api_t *api = &api_g;
 
   size = UNFIXNUM(NARGS(o));
   ARGLIST(p, size);
@@ -1409,15 +1411,16 @@ static void *gc_arglist(api_t *api, void *o) {
   return p;
 }
 
-static void *collect_immediate(api_t *api, void *o) {
+static void *collect_immediate(void *o) {
   return o;
 }
 
-static void *collect_closure(api_t *api, void *o) {
+static void *collect_closure(void *o) {
   int i, size;
   uintptr_t level;
   void *p, *q;
   void *fixed_size, *dummy;
+  api_t *api = &api_g;
   void *savedTop = Top;
   ALLOC_CLOSURE(dummy, FN_GET_SIZE, 1);
   CALL(fixed_size,o);
@@ -1429,7 +1432,7 @@ static void *collect_closure(api_t *api, void *o) {
     q = REF(o,i);
     level = O_LEVEL(q);
     if (level == GCLevel) {
-      q = gc_arglist(api, q);
+      q = gc_arglist(q);
     } else {
       if (level > HEAP_SIZE) {
         // already moved
@@ -1441,9 +1444,10 @@ static void *collect_closure(api_t *api, void *o) {
   return p;
 }
 
-static void *collect_list(api_t *api, void *o) {
+static void *collect_list(void *o) {
   int i, size;
   void *p;
+  api_t *api = &api_g;
   size = (int)UNFIXNUM(LIST_SIZE(o));
   LIST_ALLOC(p, size);
   MARK_MOVED(o,p);
@@ -1453,8 +1457,9 @@ static void *collect_list(api_t *api, void *o) {
   return p;
 }
 
-static void *collect_view(api_t *api, void *o) {
+static void *collect_view(void *o) {
   void *p, *q;
+  api_t *api = &api_g;
   uint32_t start = VIEW_START(o);
   uint32_t size = VIEW_SIZE(o);
   VIEW(p, 0, start, size);
@@ -1465,8 +1470,9 @@ static void *collect_view(api_t *api, void *o) {
   return p;
 }
 
-static void *collect_cons(api_t *api, void *o) {
+static void *collect_cons(void *o) {
   void *p;
+  api_t *api = &api_g;
   CONS(p, 0, 0);
   MARK_MOVED(o,p);
   GC_REC(CAR(p), CAR(o))
@@ -1474,16 +1480,18 @@ static void *collect_cons(api_t *api, void *o) {
   return p;
 }
 
-static void *collect_text(api_t *api, void *o) {
+static void *collect_text(void *o) {
   void *p;
+  api_t *api = &api_g;
   p = alloc_bigtext(api, BIGTEXT_DATA(o), BIGTEXT_SIZE(o));
   MARK_MOVED(o,p);
   return p;
 }
 
-static void *collect_data(api_t *api, void *o) {
+static void *collect_data(void *o) {
   int i, size;
   void *p;
+  api_t *api = &api_g;
   size = DATA_SIZE(o);
   ALLOC_DATA(p, O_TAGH(o), size);
   MARK_MOVED(o,p);
@@ -1494,10 +1502,11 @@ static void *collect_data(api_t *api, void *o) {
 }
 
 #define ON_CURRENT_LEVEL(x) (Top <= (void*)x && (void*)x < Base)
-static void gc_lifts(api_t *api) {
+static void gc_lifts() {
   int i, lifted_count;
   void **lifted;
   void *xs, *ys;
+  api_t *api = &api_g;
 
   xs = Lifts;
   Lifts = 0;

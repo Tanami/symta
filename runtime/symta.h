@@ -135,8 +135,8 @@ typedef struct api_t {
   void (*bad_type)(REGS, char *expected, int arg_index, char *name);
   void* (*handle_args)(REGS, void *E, intptr_t expected, intptr_t size, void *tag, void *meta);
   char* (*print_object_f)(struct api_t *api, void *object);
-  void (*gc_lifts)(struct api_t *api);
-  void *(*alloc_text)(struct api_t *api, char *s);
+  void (*gc_lifts)();
+  void *(*alloc_text)(char *s);
   void (*fatal)(struct api_t *api, void *msg);
   void **(*resolve_method)(struct api_t *api, char *name);
   int (*resolve_type)(struct api_t *api, char *name);
@@ -218,7 +218,7 @@ typedef void *(*pfun)(REGS);
 #define BEGIN_CODE static void __dummy___ () {
 #define END_CODE }
 #define LOAD_FIXNUM(dst,x) dst = (void*)FIXNUM(x)
-#define TEXT(dst,x) dst = api->alloc_text(api,(char*)(x))
+#define TEXT(dst,x) dst = api->alloc_text((char*)(x))
 #define DECL_LABEL(name) static void *name(REGS);
 #define THIS_METHOD(dst) dst = ADD_TAG(api->method, T_LIST);
 #define TYPE_ID(dst,o) dst = (void*)FIXNUM(O_TYPE(o));
@@ -262,7 +262,7 @@ typedef void *(*pfun)(REGS);
       CALL_METHOD(k,o,api->m_ampersand); \
     } \
   }
-typedef void *(*collector_t)(api_t *api, void *o);
+typedef void *(*collector_t)( void *o);
 #define GC_PARAM(dst,o,gclevel,pre,post) \
   { \
     void *o_ = (void*)(o); \
@@ -278,14 +278,14 @@ typedef void *(*collector_t)(api_t *api, void *o);
         } \
       } else { \
         pre; \
-        dst = ((collector_t)api->collectors[O_TYPE(o_)])(api, o_); \
+        dst = ((collector_t)api->collectors[O_TYPE(o_)])(o_); \
         post; \
       } \
     } \
   }
 #define GC(dst,value) \
   /*fprintf(stderr, "GC %p:%p -> %p\n", Top, Base, api->top[(Level-1)&1]);*/ \
-  if (Lifts) api->gc_lifts(api); \
+  if (Lifts) api->gc_lifts(); \
   GC_PARAM(dst, value, Level, --Level, ++Level);
 #define RETURN_NO_POP(value) \
    GC(value,value); \
@@ -402,7 +402,7 @@ typedef struct {
 #define FFI_FROM_FLOAT(dst,src) LOAD_FLOAT(dst,(double)src);
 
 #define FFI_TO_TEXT_(dst,src) dst = api->text_chars(api,src);
-#define FFI_FROM_TEXT_(dst,src) dst = api->alloc_text(api,src);
+#define FFI_FROM_TEXT_(dst,src) dst = api->alloc_text(src);
 
 #define FFI_TO_VOIDP_(dst,src) dst = (void*)(src);
 #define FFI_FROM_VOIDP_(dst,src) dst = (void*)(src);
