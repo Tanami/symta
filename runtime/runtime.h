@@ -17,6 +17,8 @@
 #define TAGH_BITS ((uintptr_t)10)
 #define ALIGN_BITS ((uintptr_t)3)
 
+#define MAX_TYPES (1<<TAGH_BITS)
+
 #define TAGH_SHIFT (64-TAGH_BITS)
 
 #define TAGL_MASK (((uintptr_t)1<<TAGL_BITS)-1)
@@ -128,8 +130,7 @@ typedef struct api_t {
   void (*bad_type)(REGS, char *expected, int arg_index, char *name);
   void* (*handle_args)(REGS, void *E, intptr_t expected, intptr_t size, void *tag, void *meta);
   char* (*print_object_f)(struct api_t *api, void *object);
-  void (*gc_list)(struct api_t *api);
-  void *(*gc_single)(struct api_t *api, void *root);
+  void (*gc_lifts)(struct api_t *api);
   void *(*alloc_text)(struct api_t *api, char *s);
   void (*fatal)(struct api_t *api, void *msg);
   void **(*resolve_method)(struct api_t *api, char *name);
@@ -139,6 +140,8 @@ typedef struct api_t {
   void *(*find_export)(struct api_t *api, void *name, void *exports);
   void *(*load_lib)(struct api_t *api, char *name);
   char *(*text_chars)(struct api_t *api, void *text);
+
+  void *collectors[MAX_TYPES];
 
   void *marks[MAX_LEVEL/2];
   void *lifts[MAX_LEVEL/2];
@@ -219,7 +222,10 @@ typedef void *(*pfun)(REGS);
 #define ENTRY(name) } void *name(REGS) {PROLOGUE;
 #define LABEL(name) } static void *name(REGS) {PROLOGUE;
 #define VAR(name) void *name;
-#define GC_PARAM(f,dst,o,gclevel,api) \
+
+typedef void *(*collector_t)(api_t *api, void *o);
+
+#define GC_PARAM(dst,o,gclevel,p_api) \
   { \
     void *o_ = (void*)(o); \
     if (IMMEDIATE(o_)) { \
@@ -233,14 +239,14 @@ typedef void *(*pfun)(REGS);
           dst = o_; \
         } \
       } else { \
-        dst = f(api, o_); \
+        dst = ((collector_t)api->collectors[O_TYPE(o_)])(p_api, o_); \
       } \
     } \
   }
 #define GC(dst,value) \
   /*fprintf(stderr, "GC %p:%p -> %p\n", Top, Base, api->other->top);*/ \
-  if (LIFTS_LIST(api)) api->gc_list(api); \
-  GC_PARAM(api->gc_single, dst, value, Level, api->other);
+  if (LIFTS_LIST(api)) api->gc_lifts(api); \
+  GC_PARAM(dst, value, Level, api->other);
 #define RETURN(value) \
    GC(value,value); \
    return (void*)(value);

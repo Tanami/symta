@@ -42,7 +42,6 @@ static char *lib_folders[MAX_LIB_FOLDERS];
 static api_t apis[2]; // one for each heap
 
 
-static void *collectors[MAX_TYPES];
 static int methods_used;
 static void **methods[MAX_METHODS];
 static int types_used;
@@ -103,6 +102,9 @@ static void **resolve_method(api_t *api, char *name) {
 static void add_subtype(api_t *api, int type, int subtype);
 static void *collect_data(api_t *api, void *o);
 
+#define SET_COLLECTOR(type,handler) \
+  api->collectors[type] = api->other->collectors[type] = handler;
+
 static int resolve_type(api_t *api, char *name) {
   int i, j;
   for (i = 0; i < types_used; i++)
@@ -118,7 +120,9 @@ static int resolve_type(api_t *api, char *name) {
   for (j = 0; j < methods_used; j++) methods[j][i] = undefined;
   methods[M_SINK][i] = sink;
 
-  if (!collectors[i]) collectors[i] = collect_data;
+  if (!api->collectors[i]) {
+    SET_COLLECTOR(i, collect_data);
+  }
 
   add_subtype(api, T_OBJECT, i);
 
@@ -1392,10 +1396,8 @@ static void *handle_args(REGS, void *E, intptr_t expected, intptr_t size, void *
   fatal("during call to `%s`\n", print_object(tag));
 }
 
-static void *gc_single(api_t *api, void *o);
-
 #define GCLevel (api->level+1)
-#define GC_SINGLE(f,dst,value) GC_PARAM(f,dst,value,GCLevel,api)
+#define GC_REC(dst,value) GC_PARAM(dst,value,GCLevel,api)
 #define MARK_MOVED(o,p) REF(o,-1) = p
 
 static void *gc_arglist(api_t *api, void *o) {
@@ -1408,7 +1410,7 @@ static void *gc_arglist(api_t *api, void *o) {
   MARK_MOVED(o,p);
   for (i = 0; i < size; i++) {
     ARG_LOAD(q,o,i);
-    GC_SINGLE(gc_single, q, q);
+    GC_REC(q, q);
     ARG_STORE(p, i, q);
   }
   return p;
@@ -1453,7 +1455,7 @@ static void *collect_list(api_t *api, void *o) {
   LIST_ALLOC(p, size);
   MARK_MOVED(o,p);
   for (i = 0; i < size; i++) {
-    GC_SINGLE(gc_single, REF(p,i), REF(o,i));
+    GC_REC(REF(p,i), REF(o,i));
   }
   return p;
 }
@@ -1465,7 +1467,7 @@ static void *collect_view(api_t *api, void *o) {
   VIEW(p, 0, start, size);
   MARK_MOVED(o,p);
   q = ADD_TAG(&VIEW_REF(o,0,0), T_LIST);
-  GC_SINGLE(gc_single, q, q);
+  GC_REC(q, q);
   O_CODE(p) = &REF(q, 0);
   return p;
 }
@@ -1474,8 +1476,8 @@ static void *collect_cons(api_t *api, void *o) {
   void *p;
   CONS(p, 0, 0);
   MARK_MOVED(o,p);
-  GC_SINGLE(gc_single, CAR(p), CAR(o))
-  GC_SINGLE(gc_single, CDR(p), CDR(o))
+  GC_REC(CAR(p), CAR(o))
+  GC_REC(CDR(p), CDR(o))
   return p;
 }
 
@@ -1493,27 +1495,13 @@ static void *collect_data(api_t *api, void *o) {
   ALLOC_DATA(p, O_TAGH(o), size);
   MARK_MOVED(o,p);
   for (i = 0; i < size; i++) {
-    GC_SINGLE(gc_single, REF(p,i), REF(o,i));
+    GC_REC(REF(p,i), REF(o,i));
   }
   return p;
 }
 
-static void *gc_single(api_t *api, void *o) {
-  uintptr_t type;
-
-  //fprintf(stderr, "%p: %s\n", o, print_object(o));
-
-  type = O_TAGH(o);
-  if (type >= MAX_TYPES) {
-    fprintf(stderr, "gc: bad type = %d\n", (int)type);
-    abort();
-  }
-
-  return ((void *(*)(api_t *api, void *o))collectors[type])(api,o);
-}
-
 #define ON_CURRENT_LEVEL(x) (api->top <= (void*)O_PTR(x) && (void*)O_PTR(x) < api->base)
-static void gc_list(api_t *api) {
+static void gc_lifts(api_t *api) {
   int i, lifted_count;
   void **lifted;
   void *xs, *ys;
@@ -1530,7 +1518,7 @@ static void gc_list(api_t *api) {
     void **x = (void**)LIFTS_HEAD(xs);
     if (!IMMEDIATE(*x)) {
       void *p;
-      GC_SINGLE(gc_single, p, *x);
+      GC_REC(p, *x);
       *--lifted = p;
       *--lifted = x;
       *x = 0;
@@ -1568,8 +1556,7 @@ static api_t *init_api(void *ptr) {
   api->bad_type = bad_type;
   api->handle_args = handle_args;
   api->print_object_f = print_object_f;
-  api->gc_list = gc_list;
-  api->gc_single = gc_single;
+  api->gc_lifts = gc_lifts;
   api->alloc_text = alloc_text;
   api->fatal = fatal_error;
   api->resolve_method = resolve_method;
@@ -1611,14 +1598,14 @@ static void init_types(api_t *api) {
   void *n_int, *n_float, *n_fn, *n_list, *n_text, *n_void; // typenames
   void **multi;
 
-  collectors[T_INT] = collect_immediate;
-  collectors[T_FLOAT] = collect_immediate;
-  collectors[T_FIXTEXT] = collect_immediate;
-  collectors[T_CLOSURE] = collect_closure;
-  collectors[T_LIST] = collect_list;
-  collectors[T_VIEW] = collect_view;
-  collectors[T_CONS] = collect_cons;
-  collectors[T_TEXT] = collect_text;
+  SET_COLLECTOR(T_INT, collect_immediate);
+  SET_COLLECTOR(T_FLOAT, collect_immediate);
+  SET_COLLECTOR(T_FIXTEXT, collect_immediate);
+  SET_COLLECTOR(T_CLOSURE, collect_closure);
+  SET_COLLECTOR(T_LIST, collect_list);
+  SET_COLLECTOR(T_VIEW, collect_view);
+  SET_COLLECTOR(T_CONS, collect_cons);
+  SET_COLLECTOR(T_TEXT,collect_text);
 
   TEXT(n_int, "int");
   TEXT(n_float, "float");
