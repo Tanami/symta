@@ -1,3 +1,19 @@
+/*
+Ys = [4 5 6]
+yoba =
+| Xs = [1 2 3]
+| times I 100000000: Ys.1 <= Xs
+| Ys
+yoba
+*/
+
+/*Ys = [4 5 6]
+yoba =
+| Xs = [1 2 3]
+| times I 100000000: Ys <= Xs
+| Ys
+yoba*/
+
 tsay Msg =
 | say "  [Msg]"
 

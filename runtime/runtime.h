@@ -43,6 +43,10 @@
   if (!IS_TEXT(o)) \
     api->bad_type(REGS_ARGS(P), "text", arg_index, meta)
 
+#define C_BYTES(o,arg_index,meta) \
+  if (O_TAG(o) != TAG(T_BYTES)) \
+    api->bad_type(REGS_ARGS(P), "bytes", arg_index, meta)
+
 #define BUILTIN_CLOSURE(dst,code) { ALLOC_CLOSURE(dst, code, 0); }
 
 

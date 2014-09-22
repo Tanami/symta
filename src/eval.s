@@ -20,7 +20,7 @@ get_lib_exports LibName =
 | for Folder GSrcFolders
   | LibFile = "[Folder][LibName].s"
   | when file_exists LibFile
-    | Text = load_text LibFile
+    | Text = LibFile.get_text
     | Expr = read_normalized Text LibFile
     | leave: case Expr.last [export @Xs] | [@Xs 'Dummy'.rand]
                             Else | Void
@@ -66,14 +66,15 @@ compile_expr Name Dst Expr =
 | ExprWithDeps = add_imports Expr Imports
 | Ms = [GMacros @(map M Macros "[GDstFolder][M]"^load_macros)].join
 | ExpandedExpr = macroexpand ExprWithDeps Ms.as_table &compile_module
+| Text = ssa_produce_file ExpandedExpr
 | CFile = "[Dst].c"
-| ssa_produce_file CFile ExpandedExpr
+| CFile.set{Text}
 | Result = c_compiler Dst CFile
 | unless file_exists Dst: bad "[CFile]: [Result]"
 | Deps
 
 load_symta_file Filename =
-| Text = load_text Filename
+| Text = Filename.get_text
 | read_normalized Text Filename
 
 compile_module_sub Name =
@@ -90,8 +91,7 @@ compile_module_sub Name =
         | leave DstFile
     | Expr = load_symta_file SrcFile
     | Deps = compile_expr Name DstFile Expr
-    | DepsText = Deps.text{' '}
-    | save_text DepFile DepsText
+    | DepFile.set{Deps.text{' '}}
     | leave DstFile
 | Void
 

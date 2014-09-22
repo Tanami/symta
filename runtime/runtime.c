@@ -243,6 +243,44 @@ static void *alloc_bigtext(api_t *api, char *s, int l) {
   return r;
 }
 
+static void *bytes_to_text(api_t *api, uint8_t *bytes, int size) {
+  char cs[10];
+  if (size <= 8) {
+    memcpy(cs, bytes, size);
+    cs[size] = 0;
+    return fixtext_encode(cs);
+  } else {
+    return alloc_bigtext(api, bytes, size);
+  }
+}
+
+#define BYTES_SIZE(o) REF4(o,0)
+#define BYTES_DATA(o) (&REF1(o,4))
+static void *alloc_bytes(api_t *api, int l) {
+  int a;
+  void *r;
+  a = (l+4+ALIGN_MASK)>>ALIGN_BITS;
+  ALLOC_DATA(r, T_BYTES, a);
+  BYTES_SIZE(r) = (uint32_t)l;
+  return r;
+}
+
+static void *text_to_bytes(api_t *api, void *o) {
+  char tmp[12];
+  char *p;
+  int size;
+  void *r;
+  if (IS_FIXTEXT(o)) {
+    size = fixtext_decode(tmp, o);
+  } else if (IS_BIGTEXT(o)) {
+    size = (int)BIGTEXT_SIZE(o);
+    p = BIGTEXT_DATA(o);
+  }
+  r = alloc_bytes(api, size);
+  memcpy(BYTES_DATA(r), p, size);
+  return r;
+}
+
 static void *alloc_text(char *s) {
   int l, a;
   void *r;
@@ -547,6 +585,30 @@ BUILTIN1("fn.nargs",fn_nargs,C_ANY,o)
   CALL(nargs,o);
 RETURNS(nargs)
 
+BUILTIN1("bytes.size",bytes_size,C_ANY,o)
+RETURNS(FIXNUM(BYTES_SIZE(o)))
+BUILTIN2("bytes.`.`",bytes_get,C_ANY,o,C_INT,index)
+  uintptr_t idx = (uintptr_t)UNFIXNUM(index);
+  char t[2];
+  if ((uintptr_t)BYTES_SIZE(o) <= idx) {
+    fprintf(stderr, "index out of bounds\n");
+    TEXT(P, ".");
+    bad_call(REGS_ARGS(P),P);
+  }
+RETURNS(FIXNUM(BYTES_DATA(o)[idx]))
+BUILTIN3("bytes.`!`",bytes_set,C_ANY,o,C_INT,index,C_INT,value)
+  intptr_t i = UNFIXNUM(index);
+  if (BYTES_SIZE(o) <= (uintptr_t)i) {
+    fprintf(stderr, "list !: index out of bounds\n");
+    TEXT(P, "!");
+    bad_call(REGS_ARGS(P),P);
+  }
+  BYTES_DATA(o)[i] = (uint8_t)UNFIXNUM(value);
+  R = 0;
+RETURNS(R)
+BUILTIN1("bytes.utf8",bytes_utf8,C_ANY,o)
+RETURNS(bytes_to_text(api, BYTES_DATA(o), BYTES_SIZE(o)))
+
 
 BUILTIN2("text.`><`",text_eq,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(IS_BIGTEXT(b) ? texts_equal(a,b) : 0))
@@ -564,9 +626,11 @@ BUILTIN2("text.`.`",text_get,C_ANY,o,C_INT,index)
   }
 RETURNS(single_chars[REF1(o,4+idx)])
 BUILTIN1("text.hash",text_hash,C_ANY,o)
-
-
 RETURNS(FIXNUM(hash(BIGTEXT_DATA(o), BIGTEXT_SIZE(o))))
+BUILTIN1("text.utf8",text_utf8,C_ANY,o)
+RETURNS(text_to_bytes(api,o))
+
+
 BUILTIN2("text.`><`",fixtext_eq,C_ANY,a,C_ANY,b)
 RETURNS(FIXNUM(IS_FIXTEXT(b) ? texts_equal(a,b) : 0))
 BUILTIN2("text.`<>`",fixtext_ne,C_ANY,a,C_ANY,b)
@@ -592,6 +656,9 @@ BUILTIN1("text.hash",fixtext_hash,C_ANY,o)
 RETURNS(FIXNUM(((uint64_t)o&(((uint64_t)1<<32)-1))^((uint64_t)o>>32)))
 BUILTIN1("text.code",fixtext_code,C_ANY,o)
 RETURNS(FIXNUM((uint64_t)o>>ALIGN_BITS))
+BUILTIN1("text.utf8",fixtext_utf8,C_ANY,o)
+RETURNS(text_to_bytes(api,o))
+
 
 #define CONS(dst, a, b) \
   ALLOC_BASIC(dst, a, 1); \
@@ -970,6 +1037,8 @@ BUILTIN1("int.sqrt",int_sqrt,C_ANY,o)
 RETURNS(FIXNUM((intptr_t)sqrt((intptr_t)UNFIXNUM(o))))
 BUILTIN1("int.log",int_log,C_ANY,o)
 RETURNS(FIXNUM((intptr_t)log((double)(intptr_t)UNFIXNUM(o))))
+BUILTIN1("int.bytes",int_bytes,C_ANY,count)
+RETURNS(alloc_bytes(api,UNFIXNUM(count)))
 
 BUILTIN1("tag",tag,C_ANY,o)
 RETURNS(tag_of(o));
@@ -1049,25 +1118,26 @@ BUILTIN1("utf8",utf8,C_ANY,bytes)
   fatal("FIXME: implement utf8\n");
 RETURNS(Void)
 
-/*
-BUILTIN1("get",get_file,C_ANY,filename_text)
-  int i;
+
+BUILTIN1("get_file_",get_file_,C_ANY,filename_text)
   intptr_t file_size;
   char *filename = text_to_cstring(filename_text);
   uint8_t *contents = read_whole_file(filename, &file_size);
   if (contents) {
-    LIST_ALLOC(R, file_size);
-    for (i = 0; i < file_size; i++) {
-      REF(R,i) = (void*)FIXNUM(contents[i]);
-    }
+    R = alloc_bytes(api, file_size);
+    memcpy(BYTES_DATA(R), contents, file_size);
     free(contents);
   } else {
     R = Void;
   }
 RETURNS(R)
-*/
 
-BUILTIN1("load_text",load_text,C_TEXT,filename_text)
+BUILTIN2("set_file_",set_file_,C_ANY,filename_text,C_BYTES,bytes)
+  char *filename = text_to_cstring(filename_text);
+  write_whole_file(filename, BYTES_DATA(bytes), BYTES_SIZE(bytes));
+RETURNS(0)
+
+BUILTIN1("get_text_file_",get_text_file_,C_TEXT,filename_text)
   intptr_t file_size;
   char *filename = text_to_cstring(filename_text);
   char *contents = (char*)read_whole_file(filename, &file_size);
@@ -1079,7 +1149,7 @@ BUILTIN1("load_text",load_text,C_TEXT,filename_text)
   }
 RETURNS(R)
 
-BUILTIN2("save_text",save_text,C_TEXT,filename_text,C_TEXT,text)
+BUILTIN2("set_text_file_",set_text_file_,C_TEXT,filename_text,C_TEXT,text)
   char buf[32];
   int size = text_size(text);
   char *filename;
@@ -1278,8 +1348,10 @@ static struct {
   {"say_", b_say_},
   {"rtstat", b_rtstat},
   {"stack_trace", b_stack_trace},
-  {"load_text", b_load_text},
-  {"save_text", b_save_text},
+  {"get_file_", b_get_file_},
+  {"set_file_", b_set_file_},
+  {"get_text_file_", b_get_text_file_},
+  {"set_text_file_", b_set_text_file_},
   {"load_library", b_load_library},
   {"register_library_folder", b_register_library_folder},
   {"unix", b_unix},
@@ -1350,6 +1422,14 @@ print_tail:
     *out++ = '`';
     out = decode_text(out, o);
     *out++ = '`';
+  } else if (type == T_BYTES) {
+    int size = (int)BYTES_SIZE(o);
+    if (open_par) out += sprintf(out, "(");
+    for (i = 0; i < size; i++) {
+      if (i || !open_par) out += sprintf(out, " ");
+      out += sprintf(out, "%d", BYTES_DATA(o)[i]);
+    }
+    out += sprintf(out, ")");
   } else if (type == T_FLOAT) {
     double f;
     UNFLOAT(f,o);
@@ -1493,6 +1573,16 @@ static void *collect_text(void *o) {
   return p;
 }
 
+static void *collect_bytes(void *o) {
+  void *p;
+  api_t *api = &api_g;
+  int size = (int)BYTES_SIZE(o);
+  p = alloc_bytes(api, size);
+  memcpy(BYTES_DATA(p), BYTES_DATA(o), size);
+  MARK_MOVED(o,p);
+  return p;
+}
+
 static void *collect_data(void *o) {
   int i, size;
   void *p;
@@ -1575,7 +1665,11 @@ static void fatal_error_chars(api_t *api, char *msg) {
   if (m_cons) {BUILTIN_CLOSURE(multi[T_CONS], m_cons);} \
   if (m_void) {BUILTIN_CLOSURE(multi[T_VOID], m_void);}
 
-#define METHOD_VAL(name, m_int, m_float, m_fn, m_list, m_fixtext, m_text, m_view, m_cons, m_void) \
+#define METHOD_FN1(name, type, fn) \
+  multi = api->resolve_method(api, name); \
+  BUILTIN_CLOSURE(multi[type], fn);\
+
+#define METHOD_VAL(name, m_int, m_float, m_fn, m_list, m_fixtext, m_text, m_view, m_cons, m_void, m_bytes) \
   multi = api->resolve_method(api, name); \
   multi[T_INT] = m_int;\
   multi[T_FLOAT] = m_float; \
@@ -1585,7 +1679,8 @@ static void fatal_error_chars(api_t *api, char *msg) {
   multi[T_TEXT] = m_text; \
   multi[T_VIEW] = m_view; \
   multi[T_CONS] = m_cons; \
-  multi[T_VOID] = m_void;
+  multi[T_VOID] = m_void; \
+  multi[T_BYTES] = m_bytes;
 
 static void init_types(api_t *api) {
   void *n_int, *n_float, *n_fn, *n_list, *n_text, *n_void; // typenames
@@ -1599,6 +1694,7 @@ static void init_types(api_t *api) {
   SET_COLLECTOR(T_VIEW, collect_view);
   SET_COLLECTOR(T_CONS, collect_cons);
   SET_COLLECTOR(T_TEXT,collect_text);
+  SET_COLLECTOR(T_BYTES,collect_bytes);
 
   TEXT(n_int, "int");
   TEXT(n_float, "float");
@@ -1623,9 +1719,10 @@ static void init_types(api_t *api) {
   api->resolve_type(api, "hard_list");
   api->resolve_type(api, "_name_");
   api->resolve_type(api, "_name_text_");
+  api->resolve_type(api, "_bytes_");
 
-  METHOD_VAL("_size", 0, 0, 0, 0, 0, 0, 0, 0, 0);
-  METHOD_VAL("_name", n_int, n_float, n_fn, n_list, n_text, n_text, n_list, n_list, n_void);
+  METHOD_VAL("_size", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_VAL("_name", n_int, n_float, n_fn, n_list, n_text, n_text, n_list, n_list, n_void, n_list);
   METHOD_FN("_", b_sink, b_sink, b_sink, b_sink, b_sink, b_sink, b_sink, b_sink, b_sink);
   METHOD_FN("&", 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
@@ -1678,15 +1775,24 @@ static void init_types(api_t *api) {
   METHOD_FN("ceil", 0, b_float_ceil, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("round", 0, b_float_round, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("tag", b_tag, b_tag, b_tag, b_tag, b_tag, b_tag, b_tag, b_tag, b_tag);
+  METHOD_FN("bytes", b_int_bytes, 0, 0, 0, 0, 0, 0, 0, 0);
+  METHOD_FN("utf8", 0, 0, 0, 0, b_fixtext_utf8, b_text_utf8, 0, 0, 0);
+
+
+  METHOD_FN1("_", T_BYTES, b_sink);
+  METHOD_FN1("size", T_BYTES, b_bytes_size);
+  METHOD_FN1(".", T_BYTES, b_bytes_get);
+  METHOD_FN1("!", T_BYTES, b_bytes_set);
+  METHOD_FN1("utf8", T_BYTES, b_bytes_utf8);
 
   add_subtype(api, T_GENERIC_TEXT, T_FIXTEXT);
   add_subtype(api, T_GENERIC_TEXT, T_TEXT);
 
   add_subtype(api, T_HARD_LIST, T_LIST);
   add_subtype(api, T_HARD_LIST, T_VIEW);
+  add_subtype(api, T_HARD_LIST, T_BYTES);
 
   add_subtype(api, T_GENERIC_LIST, T_HARD_LIST);
-
   add_subtype(api, T_GENERIC_LIST, T_CONS);
 
   api->m_ampersand = resolve_method(api, "&");

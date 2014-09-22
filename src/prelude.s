@@ -129,6 +129,30 @@ list.size =
   | S !+ 1
 | S
 
+list.end = not Me.size
+
+_bytes_.list = dup I Me.size Me.I
+
+bytes.bytes = Me
+
+list.bytes =
+| N = Me.size
+| Ys = N.bytes
+| times I N: Ys.I <= pop Me
+| Ys
+
+list.utf8 = Me.bytes.utf8
+
+text.get = get_file_ Me
+text.get_text = get_text_file_ Me
+text.set Value =
+| if Value.is_text then set_text_file_ Me Value else set_file_ Me Value.bytes
+| 0
+
+list.head = Me.0
+
+list.tail = Me.list.tail
+
 list.`><` B =
 | unless B.is_list: leave 0
 | till Me.end or B.end: unless Me^pop >< B^pop: leave 0
@@ -156,6 +180,8 @@ hard_list.flip =
 | dup N
   | N !- 1
   | Me.N
+
+text.flip = Me.list.flip.text
 
 list.map F = dup Me.size: F Me^pop
 hard_list.map F = dup I Me.size: F Me.I

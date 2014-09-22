@@ -64,6 +64,7 @@
 #define T_HARD_LIST    13
 #define T_NAME         14
 #define T_NAME_TEXT    15
+#define T_BYTES        16
 
 // sign preserving shifts
 #define ASHL(x,count) ((x)*(1<<(count)))

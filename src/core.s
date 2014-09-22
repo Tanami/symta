@@ -5,10 +5,12 @@ export address
        say_
        rtstat
        stack_trace
+       get_file_
+       set_file_
+       get_text_file_
+       set_text_file_
        load_library
        register_library_folder
-       load_text
-       save_text
        time
        file_time
        file_exists

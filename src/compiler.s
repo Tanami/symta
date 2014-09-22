@@ -509,9 +509,9 @@ ssa_to_c Xs = let GCompiled []
 | push '#include "runtime.h"' GCompiled
 | GCompiled.text{'\n'}
 
-ssa_produce_file File Src =
+ssa_produce_file Src =
 | Ssa = produce_ssa entry Src
 | Text = ssa_to_c Ssa
-| save_text File Text
+| Text
 
 export produce_ssa ssa_to_c ssa_produce_file
