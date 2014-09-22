@@ -39,7 +39,7 @@ static int lib_folders_used;
 
 static char *lib_folders[MAX_LIB_FOLDERS];
 
-static api_t apis[2]; // one for each heap
+static api_t api_g; // one for each heap
 
 
 static int methods_used;
@@ -60,12 +60,10 @@ static int print_depth = 0;
 
 static void print_stack_trace(api_t *api) {
   intptr_t s = Level-1;
-  intptr_t parity = s&1;
   fprintf(stderr, "Stack Trace:\n");
   while (s-- > 0) {
-    intptr_t l = s + 2;
-    api_t *a = ((l&1)^parity) ? api : api->other;
-    void *init = a->marks[l>>1];
+    intptr_t l = s + 1;
+    void *init = api->marks[l];
     fprintf(stderr, "  %s\n", print_object(init));
   }
 }
@@ -102,8 +100,7 @@ static void **resolve_method(api_t *api, char *name) {
 static void add_subtype(api_t *api, int type, int subtype);
 static void *collect_data(api_t *api, void *o);
 
-#define SET_COLLECTOR(type,handler) \
-  api->collectors[type] = api->other->collectors[type] = handler;
+#define SET_COLLECTOR(type,handler) api->collectors[type] = handler;
 
 static int resolve_type(api_t *api, char *name) {
   int i, j;
@@ -324,7 +321,7 @@ static char *text_to_cstring(void *o) {
 static uintptr_t runtime_reserved0;
 static uintptr_t runtime_reserved1;
 static uintptr_t get_heap_used(int i) {
-  return (void*)(apis[i].heap+HEAP_SIZE) - apis[i].top;
+  return (void*)(api_g.heap[i]+HEAP_SIZE) - api_g.top[i];
 }
 
 static uintptr_t show_runtime_info(api_t *api) {
@@ -1003,7 +1000,6 @@ RETURNS(0)
 BUILTIN0("stack_trace",stack_trace)
   void **p;
   intptr_t s = Level-1;
-  intptr_t parity = s&1;
   if (s == 0) {
     R = Empty;
   } else {
@@ -1011,8 +1007,7 @@ BUILTIN0("stack_trace",stack_trace)
     p = &REF(R,0);
     while (s-- > 1) {
       intptr_t l = s + 1;
-      api_t *a = ((l&1)^parity) ? api : api->other;
-      void *init = a->marks[l>>1];
+      void *init = api->marks[l];
       *p++ = init;
     }
   }
@@ -1397,7 +1392,7 @@ static void *handle_args(REGS, void *E, intptr_t expected, intptr_t size, void *
 }
 
 #define GCLevel (api->level+1)
-#define GC_REC(dst,value) GC_PARAM(dst,value,GCLevel,api)
+#define GC_REC(dst,value) GC_PARAM(dst,value,GCLevel,;,;)
 #define MARK_MOVED(o,p) REF(o,-1) = p
 
 static void *gc_arglist(api_t *api, void *o) {
@@ -1500,7 +1495,7 @@ static void *collect_data(api_t *api, void *o) {
   return p;
 }
 
-#define ON_CURRENT_LEVEL(x) (api->top <= (void*)O_PTR(x) && (void*)O_PTR(x) < api->base)
+#define ON_CURRENT_LEVEL(x) (Top <= (void*)O_PTR(x) && (void*)O_PTR(x) < Base)
 static void gc_lifts(api_t *api) {
   int i, lifted_count;
   void **lifted;
@@ -1509,8 +1504,8 @@ static void gc_lifts(api_t *api) {
   xs = LIFTS_LIST(api);
   LIFTS_LIST(api) = 0;
 
-  lifted = (void**)api->top;
-  api = api->other;
+  lifted = (void**)Top;
+  --Level;
 
   lifted_count = 0;
   ys = LIFTS_LIST(api);
@@ -1541,33 +1536,13 @@ static void gc_lifts(api_t *api) {
     //fprintf(stderr,"max_lifted=%d\n", max_lifted);
   }
   LIFTS_LIST(api) = ys;
+  ++Level;
 }
 
 static void fatal_error(api_t *api, void *msg) {
   fprintf(stderr, "fatal_error: %s\n", print_object(msg));
   print_stack_trace(api);
   abort();
-}
-
-static api_t *init_api(void *ptr) {
-  int i;
-  api_t *api = (api_t*)ptr;
-
-  api->bad_type = bad_type;
-  api->handle_args = handle_args;
-  api->print_object_f = print_object_f;
-  api->gc_lifts = gc_lifts;
-  api->alloc_text = alloc_text;
-  api->fatal = fatal_error;
-  api->resolve_method = resolve_method;
-  api->resolve_type = resolve_type;
-  api->set_type_size_and_name = set_type_size_and_name;
-  api->set_method = set_method;
-  api->find_export = find_export;
-  api->load_lib = load_lib;
-  api->text_chars = text_chars;
-
-  return api;
 }
 
 #define METHOD_FN(name, m_int, m_float, m_fn, m_list, m_fixtext, m_text, m_view, m_cons, m_void) \
@@ -1696,8 +1671,8 @@ static void init_types(api_t *api) {
 
   add_subtype(api, T_GENERIC_LIST, T_CONS);
 
-  api->m_ampersand = api->other->m_ampersand = resolve_method(api, "&");
-  api->m_underscore = api->other->m_underscore = resolve_method(api, "_");
+  api->m_ampersand = resolve_method(api, "&");
+  api->m_underscore = resolve_method(api, "_");
 }
 
 static void init_builtins(api_t *api) {
@@ -1739,9 +1714,9 @@ static void init_builtins(api_t *api) {
 
   for (i = 0; i < MAX_METHODS; i++) {
     ALLOC_BASIC(methods[i], FIXNUM(MAX_TYPES), MAX_TYPES);
-    api = api->other;
+    Level = i&1;
   }
-  if (api->level != 1) api = api->other;
+  Level = 1;
 
   init_types(api);
 }
@@ -1784,29 +1759,35 @@ static void init_args(api_t *api, int argc, char **argv) {
   }
 }
 
-static api_t *init_heap() {
-  api_t *api;
+static api_t *init_api() {
+  api_t *api = &api_g;
 
-  api = init_api(apis);
-  api->other = init_api(apis+1);
-  api->other->other = api;
+  api->bad_type = bad_type;
+  api->handle_args = handle_args;
+  api->print_object_f = print_object_f;
+  api->gc_lifts = gc_lifts;
+  api->alloc_text = alloc_text;
+  api->fatal = fatal_error;
+  api->resolve_method = resolve_method;
+  api->resolve_type = resolve_type;
+  api->set_type_size_and_name = set_type_size_and_name;
+  api->set_method = set_method;
+  api->find_export = find_export;
+  api->load_lib = load_lib;
+  api->text_chars = text_chars;
 
-  api->base = api->heap + HEAP_SIZE;
-  api->top = (void**)api->base - BASE_HEAD_SIZE;
-  api->other->base = api->other->heap + HEAP_SIZE;
-  api->other->top = (void**)api->other->base - BASE_HEAD_SIZE;
+  api->base[0] = api->heap[0] + HEAP_SIZE;
+  api->top[0] = (void**)api->base[0] - BASE_HEAD_SIZE;
+  api->base[1] = api->heap[1] + HEAP_SIZE;
+  api->top[1] = (void**)api->base[1] - BASE_HEAD_SIZE;
 
-  api->level = 1;
-  api->other->level = 0;
+  api->level = 0;
 
   BUILTIN_CLOSURE(undefined, b_undefined);
   BUILTIN_CLOSURE(sink, b_sink);
 
   ALLOC_DATA(Void, T_VOID, 0);
   LIST_ALLOC(Empty, 0);
-
-  api->other->void_ = api->void_;
-  api->other->empty_ = api->empty_;
 
   return api;
 }
@@ -1817,7 +1798,7 @@ int main(int argc, char **argv) {
   api_t *api;
   void *R;
 
-  api = init_heap();
+  api = init_api();
   init_args(api, argc, argv);
   init_builtins(api);
 

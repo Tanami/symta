@@ -109,10 +109,8 @@
 #define REGS_ARGS(P) P, api
 
 typedef struct api_t {
-  void *base;
-  void *top; // heap top
-
-  struct api_t *other;
+  void *base[2];
+  void *top[2]; // heap top
 
   intptr_t level; // stack frame depth
 
@@ -143,18 +141,18 @@ typedef struct api_t {
 
   void *collectors[MAX_TYPES];
 
-  void *marks[MAX_LEVEL/2];
-  void *lifts[MAX_LEVEL/2];
+  void *marks[MAX_LEVEL];
+  void *lifts[MAX_LEVEL];
 
-  void *heap[HEAP_SIZE];
+  void *heap[2][HEAP_SIZE];
 } api_t;
 
 typedef void *(*pfun)(REGS);
 
 #define Void api->void_
 #define Empty api->empty_
-#define Top api->top
-#define Base api->base
+#define Top api->top[Level&1]
+#define Base api->base[Level&1]
 #define Level api->level
 
 #ifdef SYMTA_DEBUG
@@ -225,7 +223,7 @@ typedef void *(*pfun)(REGS);
 
 typedef void *(*collector_t)(api_t *api, void *o);
 
-#define GC_PARAM(dst,o,gclevel,p_api) \
+#define GC_PARAM(dst,o,gclevel,pre,post) \
   { \
     void *o_ = (void*)(o); \
     if (IMMEDIATE(o_)) { \
@@ -239,14 +237,16 @@ typedef void *(*collector_t)(api_t *api, void *o);
           dst = o_; \
         } \
       } else { \
-        dst = ((collector_t)api->collectors[O_TYPE(o_)])(p_api, o_); \
+        pre; \
+        dst = ((collector_t)api->collectors[O_TYPE(o_)])(api, o_); \
+        post; \
       } \
     } \
   }
 #define GC(dst,value) \
-  /*fprintf(stderr, "GC %p:%p -> %p\n", Top, Base, api->other->top);*/ \
+  /*fprintf(stderr, "GC %p:%p -> %p\n", Top, Base, api->top[(Level-1)&1]);*/ \
   if (LIFTS_LIST(api)) api->gc_lifts(api); \
-  GC_PARAM(dst, value, Level, api->other);
+  GC_PARAM(dst, value, Level, --Level, ++Level);
 #define RETURN(value) \
    GC(value,value); \
    return (void*)(value);
@@ -258,7 +258,7 @@ typedef void *(*collector_t)(api_t *api, void *o);
   dst = Top;
 #define LIFTS_HEAD(xs) (*((void**)(xs)+0))
 #define LIFTS_TAIL(xs) (*((void**)(xs)+1))
-#define LIFTS_LIST(api) api->lifts[Level>>1]
+#define LIFTS_LIST(api) api->lifts[Level]
 #define LIFT(base,pos,value) \
   { \
     void **p_ = (void**)(base)+(pos); \
@@ -267,11 +267,9 @@ typedef void *(*collector_t)(api_t *api, void *o);
       LIFTS_CONS(LIFTS_LIST(api), p_, LIFTS_LIST(api)); \
     } \
   }
-#define MARK(name) api->marks[Level>>1] = (void*)(name);
-#define HEAP_FLIP() api = api->other;
+#define MARK(name) api->marks[Level] = (void*)(name);
 #define PUSH_BASE() \
-  HEAP_FLIP(); \
-  Level += 2; \
+  ++Level; \
   MARK(0); \
   /*fprintf(stderr, "Entering %ld\n", Level);*/ \
   *((void**)Top-1) = Base; \
@@ -281,8 +279,7 @@ typedef void *(*collector_t)(api_t *api, void *o);
   /*fprintf(stderr, "Leaving %ld\n", Level);*/ \
   Top = Base; \
   Base = *((void**)Top-1); \
-  Level -= 2; \
-  HEAP_FLIP();
+  --Level;
 #define CALL_NO_POP(k,f) k = O_FN(f)(REGS_ARGS(f));
 #define CALL(k,f) CALL_NO_POP(k,f); POP_BASE();
 
@@ -333,8 +330,8 @@ typedef void *(*collector_t)(api_t *api, void *o);
 
 #define FATAL(msg) api->fatal(api, msg);
 
-#define SET_UNWIND_HANDLER(r,h) api->marks[Level>>1] = h;
-#define REMOVE_UNWIND_HANDLER(r) api->marks[Level>>1] = 0;
+#define SET_UNWIND_HANDLER(r,h) api->marks[Level] = h;
+#define REMOVE_UNWIND_HANDLER(r) api->marks[Level] = 0;
 
 typedef struct {
   jmp_buf anchor;
@@ -357,7 +354,7 @@ typedef struct {
     jmp_state *js_; \
     js_ = (jmp_state*)state; \
     while (js_->level != api->level) { \
-      void *h_ = api->marks[Level>>1]; \
+      void *h_ = api->marks[Level]; \
       if (O_TAG(h_) == TAG(T_CLOSURE) { \
           void *k_; \
           PUSH_BASE(); \
