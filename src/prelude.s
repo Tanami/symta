@@ -143,12 +143,6 @@ list.bytes =
 
 list.utf8 = Me.bytes.utf8
 
-text.get = get_file_ Me
-text.get_text = get_text_file_ Me
-text.set Value =
-| if Value.is_text then set_text_file_ Me Value else set_file_ Me Value.bytes
-| 0
-
 list.head = Me.0
 
 list.tail = Me.list.tail
@@ -255,6 +249,15 @@ list.split S =
 | [Me@Ys].flip
 
 text.split F = Me.list.split{F}.map{X=>X.text}
+
+text.lines = Me.split{'\n'}
+
+text.get = get_file_ Me
+text.get_text = get_text_file_ Me
+text.set Value =
+| if Value.is_text then set_text_file_ Me Value else set_file_ Me Value.bytes
+| 0
+text.files = "ls '[Me]'"^unix.lines
 
 list.take N = dup N: Me^pop
 hard_list.take N = dup I N: Me.I
