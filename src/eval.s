@@ -19,7 +19,7 @@ load_macros Library = Library^load_library.keep{X => X.1.is_macro}
 get_lib_exports LibName =
 | for Folder GSrcFolders
   | LibFile = "[Folder][LibName].s"
-  | when file_exists LibFile
+  | when LibFile.exists
     | Text = LibFile.get_text
     | Expr = read_normalized Text LibFile
     | leave: case Expr.last [export @Xs] | [@Xs 'Dummy'.rand]
@@ -34,12 +34,13 @@ c_compiler Dst Src =
 | RtFolder = "[GRootFolder]runtime"
 | unix "gcc -O1 -Wno-return-type -Wno-pointer-sign -I '[RtFolder]' -g -fpic -shared -o '[Dst]' '[Src]'"
 
-file_older Src Dst =
-| DstDate = if file_exists Dst then file_time Dst else 0
-| Src^file_time << DstDate and GHeaderTimestamp << DstDate
+// check if Dependent file is up to date with Source file
+newerThan Source Dependent =
+| DependentTime = Dependent.time
+| Source.time << DependentTime and GHeaderTimestamp << DependentTime
 
 compile_runtime Src Dst =
-| when file_older Src Dst: leave Void
+| when Dst^newerThan{Src}: leave Void
 | say "compiling runtime..."
 | Result = c_runtime_compiler Dst Src
 | when Result <> "": bad Result
@@ -70,7 +71,7 @@ compile_expr Name Dst Expr =
 | CFile = "[Dst].c"
 | CFile.set{Text}
 | Result = c_compiler Dst CFile
-| less file_exists Dst: bad "[CFile]: [Result]"
+| less Dst.exists: bad "[CFile]: [Result]"
 | Deps
 
 load_symta_file Filename =
@@ -80,14 +81,14 @@ load_symta_file Filename =
 compile_module_sub Name =
 | for Folder GSrcFolders
   | SrcFile = "[Folder][Name].s"
-  | when file_exists SrcFile
+  | when SrcFile.exists
     | DstFile = "[GDstFolder][Name]"
     | GCompiledModules.Name <= DstFile
     | DepFile = "[DstFile].dep"
-    | when file_exists DepFile and file_older SrcFile DepFile:
+    | when DepFile.exists and DepFile^newerThan{SrcFile}:
       | Deps = DepFile^load_symta_file.1
       | CompiledDeps = map D Deps: compile_module D
-      | when file_older SrcFile DstFile and CompiledDeps.all{X => got X and file_older X DstFile}:
+      | when DstFile^newerThan{SrcFile} and CompiledDeps.all{X => got X and DstFile^newerThan{X}}:
         | leave DstFile
     | Expr = load_symta_file SrcFile
     | Deps = compile_expr Name DstFile Expr
@@ -117,7 +118,7 @@ build @As =
    Else | bad "build: bad arglist = [As]"
 | let GDstFolder "[DstFolder]lib/"
       GSrcFolders ["[SrcFolder]src/" "[GRootFolder]src/"]
-      GHeaderTimestamp (file_time "[GRootFolder]/runtime/symta.h")
+      GHeaderTimestamp "[GRootFolder]/runtime/symta.h".time
       GShowInfo 1
       GCompiledModules (table)
   | register_library_folder GDstFolder
@@ -131,7 +132,7 @@ eval Expr Env =
 | BuildFolder = "[GRootFolder]build/tmp/"
 | let GMacros 'macro'^load_macros
       GSrcFolders ["[GRootFolder]src/"]
-      GHeaderTimestamp (file_time "[GRootFolder]/runtime/symta.h")
+      GHeaderTimestamp "[GRootFolder]/runtime/symta.h".time
       GDstFolder "[BuildFolder]lib/"
       GCompiledModules (table)
   | Entry = @rand tmp
@@ -144,7 +145,7 @@ eval Expr Env =
                    0]]
   | Expr <= ['|' [use @Env.'Uses_'] Expr]
   | Deps = compile_expr Entry DstFile Expr
-  | less file_exists DstFile: bad "cant compile [DstFile]"
+  | less DstFile.exists: bad "cant compile [DstFile]"
   | Values.apply{DstFile^load_library}
   | Env.'Last_'
 export build eval

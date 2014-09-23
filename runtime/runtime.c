@@ -1177,7 +1177,7 @@ static char *exec_command(char *cmd) {
   r = (char*)malloc(len);
 
   for(;;) {
-    if (pos + rdsz < len) {
+    if (pos + rdsz > len) {
       char *t = r;
       len = len*2;
       r = (char*)malloc(len);
@@ -1211,16 +1211,17 @@ RETURNS(R)
 BUILTIN0("time",time)
 RETURNS(FIXNUM((intptr_t)time(0)))
 
-BUILTIN1("file_time",file_time,C_TEXT,filename_text)
+BUILTIN1("file_time_",file_time_,C_TEXT,filename_text)
   char *filename = text_to_cstring(filename_text);
   struct stat attrib;
-  R = Void;
   if (!stat(filename, &attrib)) {
     R = (void*)FIXNUM(attrib.st_mtime);
+  } else {
+    R = 0;
   }
 RETURNS(R)
 
-BUILTIN1("file_exists",file_exists,C_TEXT,filename_text)
+BUILTIN1("file_exists_",file_exists_,C_TEXT,filename_text)
 RETURNS((void*)FIXNUM(file_exists(text_to_cstring(filename_text))))
 
 BUILTIN0("main_args", main_args)
@@ -1352,12 +1353,12 @@ static struct {
   {"set_file_", b_set_file_},
   {"get_text_file_", b_get_text_file_},
   {"set_text_file_", b_set_text_file_},
+  {"file_exists_", b_file_exists_},
+  {"file_time_", b_file_time_},
   {"load_library", b_load_library},
   {"register_library_folder", b_register_library_folder},
   {"unix", b_unix},
   {"time", b_time},
-  {"file_time", b_file_time},
-  {"file_exists", b_file_exists},
   {"main_args", b_main_args},
   {"get_line", b_get_line},
   {"parse_float", b_parse_float},

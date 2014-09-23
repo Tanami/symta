@@ -261,7 +261,10 @@ text.get_text = get_text_file_ Me
 text.set Value =
 | if Value.is_text then set_text_file_ Me Value else set_file_ Me Value.bytes
 | 0
+text.exists = file_exists_ Me
+text.time = file_time_ Me
 text.files = "ls '[Me]'"^unix.lines
+
 
 list.take N = dup N: Me^pop
 hard_list.take N = dup I N: Me.I

@@ -9,11 +9,11 @@ export address
        set_file_
        get_text_file_
        set_text_file_
+       file_exists_
+       file_time_
        load_library
        register_library_folder
        time
-       file_time
-       file_exists
        unix
        main_args
        get_line
