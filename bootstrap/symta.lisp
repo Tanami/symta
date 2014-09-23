@@ -1371,7 +1371,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        (return-from expand-method-arg-r
          (! m = subseq a 1
           ! v = "?"
-          ! when (eql (aref a 0) #\?)
+          ! when (eql (aref m 0) #\?)
               (setf v "??")
               (setf m (subseq m 1))
           ! when (digit-char-p (aref m 0)) (setf m (read-from-string m))

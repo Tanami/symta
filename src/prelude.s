@@ -263,8 +263,39 @@ text.set Value =
 | 0
 text.exists = file_exists_ Me
 text.time = file_time_ Me
-text.files = "ls '[Me]'"^unix.lines
 
+text.paths @As =
+| Path = if Me.last >< '/' then Me else "[Me]/"
+| Xs = if As.size then Me.items{all} else Me.items
+| map X Xs "[Path][X]"
+
+text.url =
+| Name = ""
+| Ext = ""
+| Xs = Me.list.flip
+| Sep = Xs.locate{?><'/'}
+| Dot = Xs.locate{?><'.'}
+| when got Dot and (no Sep or Dot < Sep):
+  | Ext <= Xs.take{Dot}.flip.text
+  | Xs <= Xs.drop{Dot+1}
+  | when got Sep: Sep !- (Dot+1)
+| Folder = Void
+| Name = Void
+| if got Sep
+  then | Folder <= Xs.drop{Sep+1}.flip.text
+       | Name <= Xs.take{Sep}.flip.text
+       | when Folder >< '': Folder <= '/'
+  else | Folder <= ''
+       | Name <= Xs.flip.text
+| [Folder Name Ext]
+
+list.unurl =
+| Folder = Me.0
+| Name = Me.1
+| Ext = Me.2
+| when Folder <> '/': Folder <= "[Folder]/"
+| when Ext <> '': Ext <= ".[Ext]"
+| "[Folder][Name][Ext]"
 
 list.take N = dup N: Me^pop
 hard_list.take N = dup I N: Me.I
@@ -281,7 +312,7 @@ hard_list.drop S =
 
 text.drop S = Me.list.drop{S}.text
 text.take S = Me.list.take{S}.text
-text.last S = Me.(Me.size-1)
+text.last = Me.(Me.size-1)
 text.head = Me.0
 text.tail = Me.drop{1}
 text.lead = Me.take{Me.size-1}
@@ -395,21 +426,6 @@ say Text = say_ "[Text]\n"
 bad Text =
 | say_ "bad: [Text]\n"
 | halt
-
-path_parts Filename =
-| Name = ""
-| Ext = ""
-| Xs = Filename.list.flip
-| Sep = Xs.locate{?><'/'}
-| Dot = Xs.locate{?><'.'}
-| when got Dot and (no Sep or Dot < Sep):
-  | Ext <= Xs.take{Dot}.flip.text
-  | Xs <= Xs.drop{Dot+1}
-  | Sep !- (Dot+1)
-| when got Sep
- | Name <= Xs.take{Sep}.flip.text
- | Xs <= Xs.drop{Sep+1}
-| [Xs.flip.text Name Ext]
 
 // hashtable
 data table buckets
@@ -563,4 +579,4 @@ int.s4b =
 | when Me < 0: #100000000+Me!
 | [Me/#1000000%256 Me/#10000%256 Me/#100%256 Me%256]
 
-export non say bad no got table_ new_macro new_meta path_parts
+export non say bad no got table_ new_macro new_meta

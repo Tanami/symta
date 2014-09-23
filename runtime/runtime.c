@@ -5,6 +5,7 @@
 #include <time.h>
 #include <float.h>
 #include <math.h>
+#include <dirent.h>
 
 #include "runtime.h"
 
@@ -1164,6 +1165,84 @@ BUILTIN2("set_text_file_",set_text_file_,C_TEXT,filename_text,C_TEXT,text)
   write_whole_file(filename, xs, size);
 RETURNS(0)
 
+
+BUILTIN1("file_time_",file_time_,C_TEXT,filename_text)
+  char *filename = text_to_cstring(filename_text);
+  struct stat attrib;
+  if (!stat(filename, &attrib)) {
+    R = (void*)FIXNUM(attrib.st_mtime);
+  } else {
+    R = 0;
+  }
+RETURNS(R)
+
+BUILTIN1("file_exists_",file_exists_,C_TEXT,filename_text)
+RETURNS(FIXNUM(file_exists(text_to_cstring(filename_text))))
+
+static int folderP(char *Name) {
+  DIR *Dir;
+  struct dirent *Ent;
+  if(!(Dir = opendir(Name))) return 0;
+  closedir(Dir);
+  return 1;
+}
+
+static int fileP(char *Name) {
+  FILE *F;
+  if (folderP(Name)) return 0;
+  F = fopen(Name, "r");
+  if (!F) return 0;
+  fclose (F);
+  return 1;
+}
+
+BUILTIN1("folder",text_folder,C_ANY,filename_text)
+RETURNS(FIXNUM(folderP(text_to_cstring(filename_text))))
+
+BUILTIN1("file",text_file,C_ANY,filename_text)
+RETURNS(FIXNUM(fileP(text_to_cstring(filename_text))))
+
+BUILTIN_VARARGS("items",text_items)
+  DIR *dir;
+  struct dirent *ent;
+  void *filename_text = getArg(0);
+  int list_hidden = (NARGS(E) == FIXNUM(2));
+  char *path = text_to_cstring(filename_text);
+  void **r;
+  int i;
+  int len = 10;
+  int pos = 0;
+  if ((dir = opendir(path)) != NULL) {
+    r = (void**)malloc(len*sizeof(void*));
+    while ((ent = readdir(dir)) != NULL) {
+      if (list_hidden) {
+        if (!(strcmp(ent->d_name, ".") && strcmp(ent->d_name, ".."))) continue;
+      } else {
+        if (ent->d_name[0] == '.') continue;
+      }
+      if (pos + 1 > len) {
+        void **t = r;
+        len = len*2;
+        r = (void**)malloc(len*sizeof(void*));
+        memcpy(r, t, pos*sizeof(void*));
+        free(t);
+      }
+      TEXT(r[pos], ent->d_name);
+      ++pos;
+    }
+    closedir(dir);
+
+    LIST_ALLOC(R, pos);
+    for (i = 0; i < pos; i++) {
+      REF(R,i) = r[i];
+    }
+    free(r);
+  } else {
+    R = Void;
+  }
+RETURNS(R)
+
+
 static char *exec_command(char *cmd) {
   char *r;
   int rdsz = 1024;
@@ -1211,18 +1290,6 @@ RETURNS(R)
 BUILTIN0("time",time)
 RETURNS(FIXNUM((intptr_t)time(0)))
 
-BUILTIN1("file_time_",file_time_,C_TEXT,filename_text)
-  char *filename = text_to_cstring(filename_text);
-  struct stat attrib;
-  if (!stat(filename, &attrib)) {
-    R = (void*)FIXNUM(attrib.st_mtime);
-  } else {
-    R = 0;
-  }
-RETURNS(R)
-
-BUILTIN1("file_exists_",file_exists_,C_TEXT,filename_text)
-RETURNS((void*)FIXNUM(file_exists(text_to_cstring(filename_text))))
 
 BUILTIN0("main_args", main_args)
 RETURNS(main_args)
@@ -1668,7 +1735,8 @@ static void fatal_error_chars(api_t *api, char *msg) {
 
 #define METHOD_FN1(name, type, fn) \
   multi = api->resolve_method(api, name); \
-  BUILTIN_CLOSURE(multi[type], fn);\
+  BUILTIN_CLOSURE(multi[type], fn); \
+  if (type == T_TEXT) {BUILTIN_CLOSURE(multi[T_FIXTEXT], fn);}
 
 #define METHOD_VAL(name, m_int, m_float, m_fn, m_list, m_fixtext, m_text, m_view, m_cons, m_void, m_bytes) \
   multi = api->resolve_method(api, name); \
@@ -1779,6 +1847,9 @@ static void init_types(api_t *api) {
   METHOD_FN("bytes", b_int_bytes, 0, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("utf8", 0, 0, 0, 0, b_fixtext_utf8, b_text_utf8, 0, 0, 0);
 
+  METHOD_FN1("file", T_TEXT, b_text_file);
+  METHOD_FN1("folder", T_TEXT, b_text_folder);
+  METHOD_FN1("items", T_TEXT, b_text_items);
 
   METHOD_FN1("_", T_BYTES, b_sink);
   METHOD_FN1("size", T_BYTES, b_bytes_size);
