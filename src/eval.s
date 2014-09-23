@@ -45,7 +45,7 @@ compile_runtime Src Dst =
 | when Result <> "": bad Result
 
 add_imports Expr Deps =
-| unless Deps.size: leave Expr
+| less Deps.size: leave Expr
 | [[_fn (map D Deps D.1) Expr]
    @(map D Deps [_import [_quote D.0] [_quote D.1]])]
 
@@ -58,7 +58,7 @@ compile_expr Name Dst Expr =
             Else | Expr
 | Uses <= Uses.skip{X => Name >< X}.uniq
 | Deps = Uses.tail
-| for D Deps: unless compile_module D: bad "cant compile [D].s"
+| for D Deps: less compile_module D: bad "cant compile [D].s"
 | when GShowInfo: say "compiling [Name]..."
 | Imports = (map U Uses: map E U^get_lib_exports: [U E]).join
 | Macros = Imports.skip{X => X.1.is_text}.map{X => X.0}.uniq.skip{X => X><macro} // keep macros
@@ -70,7 +70,7 @@ compile_expr Name Dst Expr =
 | CFile = "[Dst].c"
 | CFile.set{Text}
 | Result = c_compiler Dst CFile
-| unless file_exists Dst: bad "[CFile]: [Result]"
+| less file_exists Dst: bad "[CFile]: [Result]"
 | Deps
 
 load_symta_file Filename =
@@ -144,7 +144,7 @@ eval Expr Env =
                    0]]
   | Expr <= ['|' [use @Env.'Uses_'] Expr]
   | Deps = compile_expr Entry DstFile Expr
-  | unless file_exists DstFile: bad "cant compile [DstFile]"
+  | less file_exists DstFile: bad "cant compile [DstFile]"
   | Values.apply{DstFile^load_library}
   | Env.'Last_'
 export build eval

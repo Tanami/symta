@@ -95,7 +95,7 @@ read_token R LeftSpaced =
     | when Value >< '-' and LeftSpaced and C <> '\n' and C <> ' ':
       | Type <= \negate
     | when Type >< end and got C: Type <= 0
-    | unless Type: R error "unexpected `[Value][C or '']`"
+    | less Type: R error "unexpected `[Value][C or '']`"
     | when Type.is_fn
       | Value <= Type R Value
       | when Value.is_token: leave Value
@@ -146,7 +146,7 @@ read_string R Incut End =
 | L = []
 | while 1
   | C = R.peek
-  | unless C >< Incut: R.next
+  | less C >< Incut: R.next
   | case C
      `\\` | case R.next
              `n` | L <= ['\n' @L]
@@ -187,7 +187,7 @@ parser_error Cause Tok =
 
 expect What Head =
 | Tok = GInput.0
-| unless Tok^token_is{What}: parser_error "expected [What]; got" (Head or Tok)
+| less Tok^token_is{What}: parser_error "expected [What]; got" (Head or Tok)
 | pop GInput
 
 parse_if Sym =
@@ -207,12 +207,12 @@ parse_bar H =
   | push Ys.flip^parse_tokens Zs
   | when GInput.end: leave [H @Zs.flip]
   | X = GInput.0
-  | unless X^token_is{'|'} and X.src.1 >< C: leave [H @Zs.flip]
+  | less X^token_is{'|'} and X.src.1 >< C: leave [H @Zs.flip]
   | pop GInput
 
 parse_negate H =
 | A = parse_mul or leave 0
-| unless A^token_is{integer} or A^token_is{hex} or A^token_is{float}: leave [H A]
+| less A^token_is{integer} or A^token_is{hex} or A^token_is{float}: leave [H A]
 | new_token A.symbol "-[A.value]" H.src [-A.parsed.0]
 
 parse_term =
@@ -253,7 +253,7 @@ binary_loop Ops Down E =
   | O.parsed <= [`{}`]
   | leave: binary_loop Ops Down [O E @As]
 | B = &Down or parser_error "no right operand for" o
-| unless O^token_is{'.'} and E^token_is{integer} and B^token_is{integer}:
+| less O^token_is{'.'} and E^token_is{integer} and B^token_is{integer}:
   | leave: binary_loop Ops Down [O E B]
 | V = "[E.value].[B.value]"
 | F = new_token float V E.src [V^parse_float]
@@ -314,7 +314,7 @@ parse_xs =
 parse_tokens Input =
 | let GInput Input
   | Xs = parse_xs
-  | unless GInput.end: parser_error "unexpected" GInput.0
+  | less GInput.end: parser_error "unexpected" GInput.0
   | Xs
 
 parse_strip X =
@@ -323,7 +323,7 @@ parse_strip X =
        | R = if P then parse_strip P.0 else X.value
        | R
   else if X.is_list
-  then | unless X.size: leave X
+  then | less X.size: leave X
        | Head = X.head
        | Meta = when Head.is_token: Head.src
        | when got X.locate{?^token_is{`,`}}: X <= [',' @X.split{?^token_is{`,`}}]
@@ -342,7 +342,7 @@ parse @As =
    Else | bad "bad args to `read`: [As]"
 | init_tokenizer
 | R = parse_strip: parse_tokens: tokenize Stream
-| unless R.end: R <= R.0
+| less R.end: R <= R.0
 | case R [X S] S
          R R
 

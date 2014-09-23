@@ -58,7 +58,7 @@ list.length =
 list.normalize = Me / Me.length
 
 text.`<` B =
-| unless B.is_text: bad "cant compare string `[Me]` with [B]"
+| less B.is_text: bad "cant compare string `[Me]` with [B]"
 | AS = Me.size
 | BS = B.size
 | when AS <> BS: leave AS < BS
@@ -102,7 +102,7 @@ text.downcase =
 | Ys.text
 
 text.title =
-| unless Me.size: leave Me
+| less Me.size: leave Me
 | if Me.0.is_upcase then Me else "[Me.0.upcase][Me.tail]"
 
 _.is_keyword = 0
@@ -148,16 +148,16 @@ list.head = Me.0
 list.tail = Me.list.tail
 
 list.`><` B =
-| unless B.is_list: leave 0
-| till Me.end or B.end: unless Me^pop >< B^pop: leave 0
+| less B.is_list: leave 0
+| till Me.end or B.end: less Me^pop >< B^pop: leave 0
 | 1
 
 hard_list.`><` B =
-| unless B.is_list: leave 0 //FIXME: cons_list B will be O(n^2) slow
+| less B.is_list: leave 0 //FIXME: cons_list B will be O(n^2) slow
 | N = Me.size
-| unless N >< B.size: leave 0
+| less N >< B.size: leave 0
 | times I N
-  | unless Me.I >< B.I: leave 0
+  | less Me.I >< B.I: leave 0
   | I !+ 1
 | 1
 
@@ -215,8 +215,8 @@ list.keep F =
 list.skip F =
 | Ys = []
 | if F.is_fn
-  then for X Me: unless F X: Ys <= [X@Ys]
-  else for X Me: unless F >< X: Ys <= [X@Ys]
+  then for X Me: less F X: Ys <= [X@Ys]
+  else for X Me: less F >< X: Ys <= [X@Ys]
 | Ys.flip
 
 list.join =
@@ -328,7 +328,7 @@ list.group N =
 | Ys.flip
 
 list.all F =
-| for X Me: unless F X: leave 0
+| for X Me: less F X: leave 0
 | 1
 
 list.any F =
@@ -338,7 +338,7 @@ list.any F =
 HexChars = '0123456789ABCDEF'
 
 int.x =
-| unless Me: leave '0'
+| less Me: leave '0'
 | Cs = []
 | S = ''
 | when Me < 0
@@ -354,7 +354,7 @@ _.as_text = ['#:' Me^address.x].text
 void.as_text = 'Void'
 
 int.as_text =
-| unless Me: leave '0'
+| less Me: leave '0'
 | Cs = []
 | S = ''
 | when Me < 0
@@ -378,7 +378,7 @@ text.as_text =
 | Cs = []
 | Q = 0
 | for C Me
-  | unless plain_char C: Q <= 1
+  | less plain_char C: Q <= 1
   | when C >< '`': C <= '\\`'
   | push C Cs
 | if Q then ['`' @['`' @Cs].flip].text else Me

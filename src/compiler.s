@@ -27,7 +27,7 @@ path_to_sym X Es =
 | [Head@Tail] = Es
 | when case Head [U@Us] U >< GAll // reference to the whole arglist?
   | Head <= Head.1
-  | unless Head.0 >< X: leave (path_to_sym X Tail)
+  | less Head.0 >< X: leave (path_to_sym X Tail)
   | when Es^address >< GEnv^address: leave [GAll Void] // argument of the current function
   | leave [GAll (get_parent_index Head.1)]
 | P = Head.locate{V => X >< V.0}
@@ -122,7 +122,7 @@ ssa_if K Cnd Then Else =
 //FIXME: currently hoisting may clobber sime toplevel syms;
 //       make new syms valid only downstream
 ssa_hoist_decls Expr Hoist = // C/C++ style declaration hoisting
-| unless Expr.is_list: leave Expr
+| less Expr.is_list: leave Expr
 | case Expr
      [_fn @Xs] | Expr
      [[_fn As @Xs] @Vs]
@@ -272,7 +272,7 @@ uniquify_form Expr =
 uniquify_name S = for Closure GUniquifyStack: for X Closure: when X.0 >< S: leave X.1
 
 uniquify_atom Expr =
-| unless Expr.is_text: leave Expr
+| less Expr.is_text: leave Expr
 | when Expr.size and Expr.0 >< _: leave Expr
 | Renamed = uniquify_name Expr
 | when no Renamed: compiler_error "undefined variable `[Expr]`"
@@ -288,7 +288,7 @@ uniquify Expr =
   | [[_fn (map [K V] GHoistedTexts V) R] @(map [K V] GHoistedTexts [_text K])]
 
 ssa_list K Xs =
-| unless Xs.size: leave: ssa move K 'Empty'
+| less Xs.size: leave: ssa move K 'Empty'
 | L = ssa_var l
 | ssa arglist L Xs.size
 | for [I X] Xs.i: ssa arg_store L I X^ev
@@ -305,11 +305,11 @@ ssa_data K Type Xs =
 | for [I X] Xs.i: ssa dinit K I X^ev
 
 ssa_dget K Src Off =
-| unless Off.is_int: bad "dget: offset must be integer"
+| less Off.is_int: bad "dget: offset must be integer"
 | ssa dget K Src^ev Off
 
 ssa_dset K Dst Off Value =
-| unless Off.is_int: bad "dset: offset must be integer"
+| less Off.is_int: bad "dset: offset must be integer"
 | D = ev Dst
 | ssa_expr K Value
 | ssa dset D Off K
@@ -371,8 +371,8 @@ ssa_ffi_call K Type F As =
             ptr | 'voidp_'
             T | T
 | [ResultType @AsTypes] = Type
-| unless As.size >< AsTypes.size: bad "argument number doesn't match signature"
-| R = unless ResultType >< void: ssa_ffi_var ResultType r
+| less As.size >< AsTypes.size: bad "argument number doesn't match signature"
+| R = less ResultType >< void: ssa_ffi_var ResultType r
 | ATs = AsTypes
 | Vs = map A As | AType = pop ATs
                 | V = ssa_ffi_var AType v

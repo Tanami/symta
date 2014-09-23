@@ -15,7 +15,7 @@ load_symbol Library Name =
 | Module = GModuleCompiler Library
 | when no Module: mex_error "couldn't compile [Library]"
 | Found = Module^load_library.find{X => X.0 >< Name}
-| unless got Found: mex_error "couldn't load `[Name]` from `[Library]`"
+| less got Found: mex_error "couldn't load `[Name]` from `[Library]`"
 | Found.1
 
 expand_list_hole Key Hole Hit Miss = case Hole
@@ -31,7 +31,7 @@ expand_list_hole Key Hole Hit Miss = case Hole
                    (expand_hole H X Hit Miss)]]
 
 expand_hole Key Hole Hit Miss =
-| unless case Hole [X@Xs]
+| less case Hole [X@Xs]
   | when Hole >< '_': leave Hit
   | when Hole.is_keyword: Hole <= [_quote Hole]
   | leave: if Hole.is_text then [let_ [[Hole Key]] Hit]
@@ -57,7 +57,7 @@ expand_hole Key Hole Hit Miss =
                      | _goto L
             | form: `|` $@Xs{[`=` [?.1.title] ?.2]}
                         (As = Key)
-                        (times I As.size: unless I%2:
+                        (times I As.size: less I%2:
                           `|` $@Body
                               (_label L))
                         Hit
@@ -98,7 +98,7 @@ not @Xs = [_if Xs 0 1]
 `and` A B = [_if A B 0]
 `or` A B = form: let_ ((~V A)) (_if ~V ~V B)
 when @Xs = [_if Xs.lead Xs.last Void]
-unless @Xs = [_if Xs.lead Void Xs.last]
+less @Xs = [_if Xs.lead Void Xs.last]
 
 expand_while Head Body =
 | L = @rand l
@@ -115,7 +115,7 @@ times Var Count Body =
 | N = @rand 'N'
 | ['|' ['=' [N] Count]
        ['=' [I] [0]]
-       [unless [`and` [_eq [_tag N] 0]
+       [less [`and` [_eq [_tag N] 0]
                       [_gte N 0]]
          [_fatal 'dup: bad loop count']]
        [while [_lt I N]
@@ -128,7 +128,7 @@ expand_dup Var Count Body =
 | Ys = @rand 'Ys'
 | ['|' ['=' [N] Count]
        ['=' [I] [0]]
-       [unless [`and` [_eq [_tag N] 0]
+       [less [`and` [_eq [_tag N] 0]
                       [_gte N 0]]
          [_fatal 'dup: bad loop count']]
        ['=' [Ys] [_alloc N]]
@@ -156,7 +156,7 @@ map Item Items Body = expand_map_for dup Item Items Body
 for Item Items Body = expand_map_for times Item Items Body
 
 expand_quasiquote O =
-| unless O.is_list: leave [_quote O]
+| less O.is_list: leave [_quote O]
 | case O
   [`$` X] | X
   Else | ['[]' @(map X O: expand_quasiquote X)]
@@ -164,7 +164,7 @@ expand_quasiquote O =
 `\\` O = expand_quasiquote O
 
 expand_form O AGT =
-| unless O.is_list: leave
+| less O.is_list: leave
   if O.is_text and not O.is_keyword then O
   else if O.is_text and O.size > 1 and O.0 >< '~' then
     | AG = AGT.O
@@ -252,7 +252,7 @@ expand_method_arg_r A FX FY =
       | M <= M.tail
     | when M.is_digit: M <= M.int{10}
     | leave: expand_method_arg_r ['.' V M] FX FY
-| unless A.is_list: leave A
+| less A.is_list: leave A
 | case A
    [`{}` X Y] | [A.0 (expand_method_arg_r X FX FY) Y]
    [`{}` @Xs] | A
@@ -299,14 +299,14 @@ table @As_ =
 | T = form ~T
 | As <= As.group{2}
 | if As.size
-  then | unless Size: Size <= 2*As.size
+  then | less Size: Size <= 2*As.size
        | form: `|` (T = table_ Size)
                    $@(map [K V] As
                      | when K.is_text: K <= form \K
                      | when V.is_text: V <= form \V
                      | form: T.K <= V)
                  T
-  else | unless Size: Size <= 256
+  else | less Size: Size <= 256
        | form: table_ Size
 
 //FIXME: move it to compiler.s
@@ -415,7 +415,7 @@ expand_block_item Expr =
   [`=` [[`.` Type Method] @Args] Body] | expand_block_item_method Type Method Args Body
   [`=` [[`[]` @Bs]] Value] | leave: expand_destructuring Value Bs
   [`=` [Name @Args] Value]
-    | unless Name.is_text: mex_error "[Name] is not text in `=`"
+    | less Name.is_text: mex_error "[Name] is not text in `=`"
     | if Name.is_keyword then expand_block_item_fn Name Args Value else [Name Value]
   Else
     | Z = mex Expr
@@ -445,7 +445,7 @@ expand_block Xs =
 | for X Xs: case X
   [`=>` A B] | push X Ms
   Else | push X Ys
-| unless Ms.end: push Ms.flip^make_multimethod Ys
+| less Ms.end: push Ms.flip^make_multimethod Ys
 | Xs <= Ys.flip
 | Xs <= map X Xs: expand_block_item X
 | Xs <= Xs.join
@@ -575,7 +575,7 @@ mex Expr =
 | when no GMacros: mex_error 'lib_path got clobbered again'
 | Expr <= normalize_nesting Expr
 | when Expr.is_text and not Expr.is_keyword and got GMacros.Expr: Expr <= GMacros.Expr.expander
-| unless Expr.is_list: leave Expr
+| less Expr.is_list: leave Expr
 | let GExpansionDepth GExpansionDepth+1: case Expr
   [_fn As Body] | [_fn As Body^mex]
   [_set Place Value] | [_set Place (if Value.is_keyword then [_quote Value] else mex Value)]
@@ -600,7 +600,7 @@ macroexpand Expr Macros ModuleCompiler =
   | R
 
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '@' '[]' 'table' '\\' 'form'
-       'not' 'and' 'or' 'when' 'unless' 'while' 'till' 'dup' 'times' 'map' 'for'
+       'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for'
        'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' 'init'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
        'ffi_begin' 'ffi' 'min' 'max' '"'
