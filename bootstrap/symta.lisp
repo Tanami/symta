@@ -1363,27 +1363,36 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                      (normalize-matryoshka x)))
             (x x))
 
-(to expand-method-arg-r a arg-name
+(to expand-method-arg-r a fx fy
   ! when (stringp a)
-    (! when (equal a "?") (return-from expand-method-arg-r (funcall arg-name a))
+    (! when (equal a "?") (return-from expand-method-arg-r (funcall fx a))
+     ! when (equal a "??") (return-from expand-method-arg-r (funcall fy a))
      ! when (and (> (length a) 1) (eql (aref a 0) #\?))
        (return-from expand-method-arg-r
          (! m = subseq a 1
+          ! v = "?"
+          ! when (eql (aref a 0) #\?)
+              (setf v "??")
+              (setf m (subseq m 1))
           ! when (digit-char-p (aref m 0)) (setf m (read-from-string m))
-          ! expand-method-arg-r `("." "?" ,m) arg-name)))
+          ! expand-method-arg-r `("." ,v ,m) fx fy)))
   ! unless (listp a) (return-from expand-method-arg-r a)
   ! match a
-     ((''"{}" x y) `(,(first a) ,(expand-method-arg-r x arg-name) ,y))
+     ((''"{}" x y) `(,(first a) ,(expand-method-arg-r x fx fy) ,y))
      ((''"{}" . xs) a)
      (("\\" . xs) a)
      (("_quote" . xs) a)
-     (else (m x a (expand-method-arg-r x arg-name))))
+     (else (m x a (expand-method-arg-r x fx fy))))
 
-(to expand-method-arg a
-  ! g = nil
-  ! r = expand-method-arg-r a (fn x ! unless g (setf g (ssa-name "G")) ! g)
-  ! when g (setf a `("_fn" (,g) ,r))
-  ! a)
+(to expand-method-arg expr
+  ! x = nil
+  ! y = nil
+  ! r = expand-method-arg-r expr
+          (fn n ! unless x (setf x (ssa-name "G")) ! x)
+          (fn n ! unless y (setf y (ssa-name "G")) ! y)
+  ! as = remove nil (list x y)
+  ! when as (setf expr `("_fn" ,as ,r))
+  ! expr)
 
 (to expand-as name value expr
   ! `("|" ("=" (,name) ,value)
@@ -1493,6 +1502,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("as" name value expr) (expand-as name value expr))
         (("," (x . xs) . ys) `(,x ,xs ,@ys))
         (("," . xs) (error "bad `,`"))
+        (("init" var default)
+         `("|" ("when" ("no" ,var) ("<=" (,var) ,default))
+               ,var))
         ((z . zs)
          (when (find-if (fn x ! headed "@" x) xs)
            (when (headed "@" z)

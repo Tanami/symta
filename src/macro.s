@@ -237,29 +237,36 @@ let @As =
   [[X@Xs] @Ys] | [X Xs @Ys]
   Else | mex_error "invalid arglist to `,`"
 
-expand_method_arg_r A ArgName =
+init Var Default = form | when (no Var) (`<=` (Var) Default)
+                        | Var
+
+expand_method_arg_r A FX FY =
 | when A.is_text
-  | when A >< '?': leave: ArgName A
+  | when A >< '?': leave: FX A
+  | when A >< '??': leave: FY A
   | when A.size > 1 and A.0 >< '?':
     | M = A.tail
+    | V = '?'
+    | when M.0 >< '?'
+      | V <= '??'
+      | M <= M.tail
     | when M.is_digit: M <= M.int{10}
-    | leave: expand_method_arg_r ['.' '?' M] ArgName
-| when A >< '?': leave: ArgName A
+    | leave: expand_method_arg_r ['.' V M] FX FY
 | unless A.is_list: leave A
 | case A
-   [`{}` X Y] | [A.0 (expand_method_arg_r X ArgName) Y]
+   [`{}` X Y] | [A.0 (expand_method_arg_r X FX FY) Y]
    [`{}` @Xs] | A
    [`\\` @Xs] | A
    [_quote @Xs] | A
-   Else | map X A: expand_method_arg_r X ArgName
+   Else | map X A: expand_method_arg_r X FX FY
 
-expand_method_arg A =
-| G = Void
-| R = expand_method_arg_r A: X =>
-      | when no G: G <= form ~G
-      | G
-| when got G: A <= form: _fn (G) R
-| A
+expand_method_arg Expr =
+| X = Void
+| Y = Void
+| R = expand_method_arg_r Expr (N => init X: form ~X) (N => init Y: form ~Y)
+| As = [X Y].skip{Void}
+| when As.size: Expr <= form: _fn As R
+| Expr
 
 `{}` H @As =
 | As = map X As: expand_method_arg X
@@ -594,6 +601,6 @@ macroexpand Expr Macros ModuleCompiler =
 
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '@' '[]' 'table' '\\' 'form'
        'not' 'and' 'or' 'when' 'unless' 'while' 'till' 'dup' 'times' 'map' 'for'
-       'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ','
+       'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' 'init'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
        'ffi_begin' 'ffi' 'min' 'max' '"'

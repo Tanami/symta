@@ -207,12 +207,16 @@ hard_list.count F =
 
 list.keep F =
 | Ys = []
-| for X Me: when F X: Ys <= [X@Ys]
+| if F.is_fn
+  then for X Me: when F X: Ys <= [X@Ys]
+  else for X Me: when F >< X: Ys <= [X@Ys]
 | Ys.flip
 
 list.skip F =
 | Ys = []
-| for X Me: unless F X: Ys <= [X@Ys]
+| if F.is_fn
+  then for X Me: unless F X: Ys <= [X@Ys]
+  else for X Me: unless F >< X: Ys <= [X@Ys]
 | Ys.flip
 
 list.join =
@@ -501,7 +505,18 @@ list.shuffle =
   | Xs.N <= X
 | Xs
 
-list.sort F =
+sort_asc &[] [H@Zs] =
+| Xs = []
+| Ys = []
+| for Z Zs: if Z < H then push Z Xs else push Z Ys
+| [@Xs^sort_asc H @Ys^sort_asc]
+
+list.sort @As =
+| F = Void
+| case As
+  [A] | F <= A
+  [] | leave: sort_asc Me.shuffle
+  Else | bad "list.sort: invalid number of arguments"
 | h &[] [H@Zs] =
   | Xs = []
   | Ys = []
