@@ -733,7 +733,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! lib = second lib
   ! symbol = second symbol
   ! g = ssa-global "i"
-  ! push `(import ,g ,lib ,symbol ,(gethash lib *import-libs*) ,(ssa-cstring symbol)) *ssa-raw-inits*
+  ! lib-exports = gethash lib *import-libs*
+  ! unless lib-exports (error "missing exports for {lib}?{symbol}")
+  ! push `(import ,g ,lib ,symbol ,lib-exports ,(ssa-cstring symbol)) *ssa-raw-inits*
   ! ssa 'move k g)
 
 (to ssa-label name ! ssa 'local_label name)
@@ -1357,12 +1359,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! `("@" ("|" ("=" (,f) ("ffi_load" ,lib ,symbol))
                ("=" (,name ,@gs) ("_ffi_call" ("\\" (,result ,@args)) ,f ,@gs)))))
 
-(to normalize-matryoshka o
-  ! match o ((x) (if (fn-sym? x)
-                     o
-                     (normalize-matryoshka x)))
-            (x x))
-
 (to expand-method-arg-r a fx fy
   ! when (stringp a)
     (! when (equal a "?") (return-from expand-method-arg-r (funcall fx a))
@@ -1405,6 +1401,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (("." a b) `("_mcall" ,a ,b ,@as))
      (("^" a b) `(,b ,@as ,a))
      (else (if (fn-sym? h) `(,h ,@as) `("_mcall" ,h ,'"{}" ,@as))))
+
+(to handle-package x
+  ! p = position #\? x
+  ! l = length x
+  ! unless (and p (> p 0) (< p (- l 1))) (return-from handle-package x)
+  ! pkg = subseq x 0 p
+  ! sym = subseq x (+ p 1)
+  ! `("_import" ("_quote" ,pkg) ("_quote" ,sym)))
+
+;;FIXME: currently doesn't work correctly, because `_import` argument to _fn
+(to normalize-matryoshka o
+  ! y = match o ((x) (if (fn-sym? x) o (normalize-matryoshka x)))
+                (x x)
+  ! if (stringp y) (handle-package y) y)
 
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
@@ -1459,7 +1469,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         ((":" a b) `(,@a ,b))
         (("\"" . xs) (expand-string-splice xs))
         (("." a b) (cond
-                     ((fn-sym? a) `("_import" ("_quote" ,a) ("_quote" ,b)))
+                     ((fn-sym? a) `(,a ,b))
                      ((fn-sym? b) `("{}" ,xs))
                      (t `("_mcall" ,a "." ,b))))
         (("{}" h . as) (expand-curly h as))

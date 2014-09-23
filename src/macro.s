@@ -224,12 +224,7 @@ let @As =
 `><` A B = [_mcall A '><' B]
 `<>` A B = [_mcall A '<>' B]
 `^` A B = [B A]
-`.` A B = if A.is_keyword and A <> '?' then
-            | Sym = load_symbol A B
-            | when Sym.is_macro
-              | when B.is_keyword: mex_error "cant reference macro's value in [A].[B]"
-              | leave Sym.expander
-            | form: let_ ((~R (_import (_quote A) (_quote B)))) ~R
+`.` A B = if A.is_keyword then [A B]
           else if B.is_keyword then ['{}' ['.' A B]]
           else [_mcall A '.' B]
 `:` A B = [@A B]
@@ -515,9 +510,10 @@ expand_ffi Name Result Symbol Args =
 | F = "FFI_[FFI_Package]_[Name]_"
 | ATs = map A Args A.2 // argument types
 | ANs = map A Args A.1 // argument names
+| Extern = "[FFI_Package]?[F]"
 | R = form @| F = ffi_load FFI_Lib \Symbol
-            | Name $@ANs = | ~X = \F
-                           | form (_ffi_call \(Result $@ATs) FFI_Package.~X $@ANs)
+            | Name $@ANs = | ~X = \Extern
+                           | form (_ffi_call \(Result $@ATs) ~X $@ANs)
             | export_hidden F \Name
 | R
 
@@ -544,16 +540,37 @@ export @Xs =
 | GExports <= [@Xs @GExports]
 | [_list @GExports^exports_preprocess]
 
-normalize_nesting O =
-| case O [X] | if X.is_keyword then O else normalize_nesting X
-         X | X
+handle_extern X =
+| P = X.locate{'?'}
+| L = X.size
+| less got P and P > 0 and P < L-1: leave X
+| Pkg = X.take{P}
+| Sym = X.drop{P+1}
+| [Pkg Sym]
+
+mex_extern Pkg Name =
+| Sym = load_symbol Pkg Name
+| when Sym.is_macro
+  | when Name.is_keyword: mex_error "cant reference macro's value in [Pkg]?[Name]"
+  | leave: mex Sym.expander
+| leave: mex: form: let_ ((~R (_import (_quote Pkg) (_quote Name)))) ~R
+
+normalize_arg X =
+| if X.is_keyword
+  then case X^handle_extern
+       [Pkg Name] | mex_extern Pkg Name
+       Else | [_quote X]
+  else mex X
 
 mex_normal X Xs =
 | when GExpansionDepth > GExpansionDepthLimit: mex_error "macroexpansion depth exceed at [[X@Xs]]"
 | Macro = when X.is_keyword: GMacros.X
-| case X [`.` Library Name]: when Library.is_keyword and Name.is_keyword and Library <> '?':
-  | Sym = load_symbol Library Name
-  | when Sym.is_macro: Macro <= Sym
+| when X.is_text: case X^handle_extern [Pkg Sym]: when Sym.is_keyword:
+  | M = load_symbol Pkg Sym
+  | if M.is_macro
+    then Macro <= M
+    else | S = Sym.rand
+         | leave: mex [let_ [[S [_import [_quote Pkg] [_quote Sym]]]] [S @Xs]]
 | when no Macro
   | case X [`@` Z]: leave: mex [_mcall Xs.last Z @Xs.lead]
   | when got Xs.locate{&0[`@` X]=>1}
@@ -563,7 +580,7 @@ mex_normal X Xs =
   | Y = X^mex
   | if (X.is_list and not Y.is_list) or (X.is_text and X <> Y)
     then leave: mex [Y@Xs]
-    else leave [Y @(map X Xs: if X.is_keyword then [_quote X] else mex X)]
+    else leave [Y @(map X Xs: normalize_arg X)]
 | Expander = Macro.expander
 | NArgs = Expander.nargs
 | when NArgs >> 0 and NArgs <> Xs.size:
@@ -571,10 +588,16 @@ mex_normal X Xs =
   | mex_error "bad number of args to macro [Macro.name]"
 | mex Xs.apply{Expander}
 
+normalize_nesting O =
+| case O [X] | if X.is_keyword then O else normalize_nesting X
+         X | X
+
 mex Expr =
 | when no GMacros: mex_error 'lib_path got clobbered again'
 | Expr <= normalize_nesting Expr
-| when Expr.is_text and not Expr.is_keyword and got GMacros.Expr: Expr <= GMacros.Expr.expander
+| when Expr.is_text
+  | case Expr^handle_extern [Pkg Name]: leave: mex_extern Pkg Name
+  | when not Expr.is_keyword and got GMacros.Expr: Expr <= GMacros.Expr.expander
 | less Expr.is_list: leave Expr
 | let GExpansionDepth GExpansionDepth+1: case Expr
   [_fn As Body] | [_fn As Body^mex]

@@ -312,6 +312,7 @@ hard_list.drop S =
 
 text.drop S = Me.list.drop{S}.text
 text.take S = Me.list.take{S}.text
+text.locate F = Me.list.locate{F}
 text.last = Me.(Me.size-1)
 text.head = Me.0
 text.tail = Me.drop{1}
@@ -326,14 +327,18 @@ list.infix Item = // intersperse from Haskell
 | if N < 0 then [] else dup I N: if I%2 then Item else Me^pop
 
 list.locate F =
+| less F.is_fn: F <= (X => F >< X)
 | I = 0
 | till Me.end
   | when F Me^pop: leave I
   | I !+ 1
 
-hard_list.locate F = times I Me.size: when F Me.I: leave I
+hard_list.locate F =
+| if F.is_fn then times I Me.size: when F Me.I: leave I
+  else times I Me.size: when F >< Me.I: leave I
 
 list.find F =
+| less F.is_fn: F <= (X => F >< X)
 | I = 0
 | till Me.end
   | X = Me^pop
@@ -341,6 +346,7 @@ list.find F =
   | I !+ 1
 
 hard_list.find F =
+| less F.is_fn: F <= (X => F >< X)
 | times I Me.size
   | X = Me.I
   | when F X: leave X
@@ -362,10 +368,12 @@ list.group N =
 | Ys.flip
 
 list.all F =
+| less F.is_fn: F <= (X => F >< X)
 | for X Me: less F X: leave 0
 | 1
 
 list.any F =
+| less F.is_fn: F <= (X => F >< X)
 | for X Me: when F X: leave 1
 | 0
 
