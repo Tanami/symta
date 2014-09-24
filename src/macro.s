@@ -18,10 +18,27 @@ load_symbol Library Name =
 | less got Found: mex_error "couldn't load `[Name]` from `[Library]`"
 | Found.1
 
+expand_list_hole_advanced H Hs Key Hit Miss =
+| [Again Took Rest I N Else] = form: ~Again ~Took ~Rest ~I ~N ~Else
+| Fail = form: if I < N
+               then | I !+ 1
+                    | _goto Again
+               else Miss
+| form | I = 0
+       | N = Key.size
+       | _label Again
+       | Took = Key.take{I}
+       | Rest = Key.drop{I}
+       | case Took
+         H | case Rest
+               [$@Hs] Hit
+               Else Fail
+         Else | Fail
+
 expand_list_hole Key Hole Hit Miss = case Hole
   [] | [_if [_mcall Key end] Hit Miss]
   [[`@` Zs]] | expand_hole Key Zs Hit Miss
-  [[`@` Zs] @More] | mex_error "FIXME: implement @ in the middle"
+  [[`@` Zs] @More] | expand_list_hole_advanced Zs More Key Hit Miss
   [X@Xs] | H = @rand 'X'
          | Hit <= expand_list_hole Key Xs Hit Miss
          | [`if` [_mcall Key end]
