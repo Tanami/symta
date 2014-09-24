@@ -959,6 +959,26 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                     (,key ("_mcall" ,key "tail")))
                ,(expand-hole h (car hole) hit miss)))))
 
+(to expand-hole-keywords key hit xs
+  ! i = ssa-name "I"
+  ! as = ssa-name "As"
+  ! size = ssa-name "Size"
+  ! ks = m x xs (second x)
+  ! `("|" ,@(m k ks `("=" (,(string-capitalize k)) 0))
+          ("=" (,as) ,key)
+          ("=" (,size) ("_mcall" ,as "size"))
+          ,@(m (o k v) xs
+              (! l = ssa-name "l"
+               ! kk = string-capitalize k
+               ! `("named" ,l
+                    ("|" ("times" ,i ,size
+                           ("less" ("%" ,i 2)
+                             ("when" ("><" ,k ("_mcall" ,as "." ,i))
+                               ("|" ("<=" (,kk) ("_mcall" ,as "." ("+" ,i 1)))
+                                    ("leave" ,l 0)))))
+                         ("<=" (,kk) ,v)))))
+          ,hit))
+
 (defun expand-hole (key hole hit miss)
   (unless (consp hole)
     (return-from expand-hole
@@ -982,18 +1002,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      `("if" ("_mcall" ,key ("_quote" "is_list"))
             ,(expand-list-hole key xs hit miss)
             ,miss))
-    (("/" . xs)
-     (! i = ssa-name "I"
-      ! as = ssa-name "As"
-      ! `("|" ,@(m x xs `("=" (,(string-capitalize (second x))) ,(third x)))
-              ("=" (,as) ,key)
-              ("times" ,i ("_mcall" ,as "size")
-                ("less" ("%" ,i 2)
-                  ("|" ,@(m k (m x xs (second x))
-                           `("when" ("><" ,k ("_mcall" ,as "." ,i))
-                              ("<=" (,(string-capitalize k))
-                                    ("_mcall" ,as "." ("+" ,i 1))))))))
-              ,hit)))
+    (("/" . xs) (expand-hole-keywords key hit xs))
     (else (error "bad hole: ~a" hole))))
 
 (defun expand-match (keyform cases default &key (keyvar nil))

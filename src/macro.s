@@ -30,6 +30,21 @@ expand_list_hole Key Hole Hit Miss = case Hole
                         [Key [_mcall Key tail]]]
                    (expand_hole H X Hit Miss)]]
 
+expand_hole_keywords Key Hit Xs =
+| [I As Size] = form: ~I ~As ~Size
+| form: `|` $@Xs{[`=` [?.1.title] 0]}
+            (As = Key)
+            (Size = As.size)
+            $@(map [O K V] Xs
+               | L = @rand 'l'
+               | form: named L
+                 | times I Size: less I%2
+                   | when K >< As.I
+                     | $K.title <= As.(I+1)
+                     | leave L 0
+                 | (`<=` ($K.title) V))
+            Hit
+
 expand_hole Key Hole Hit Miss =
 | less case Hole [X@Xs]
   | when Hole >< '_': leave Hit
@@ -50,17 +65,7 @@ expand_hole Key Hole Hit Miss =
              | [_if [_mcall Key is_list]
                     (expand_list_hole Key Xs Hit Miss)
                     Miss]
-  [`/` @Xs] | [I As] = form: ~I ~As
-            | L = @rand label
-            | Body = map K Xs{?.1}: form: when K >< As.I
-                     | $K.title <= As.(I+1)
-                     | _goto L
-            | form: `|` $@Xs{[`=` [?.1.title] ?.2]}
-                        (As = Key)
-                        (times I As.size: less I%2:
-                          `|` $@Body
-                              (_label L))
-                        Hit
+  [`/` @Xs] | expand_hole_keywords Key Hit Xs
   Else | mex_error "bad match case: [Hole]"
 
 expand_match Keyform Cases Default Key =
