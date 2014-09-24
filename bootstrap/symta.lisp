@@ -1562,10 +1562,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        (return-from get-lib-exports
          (! text = load-text-file lib-file
           ! expr = /normalize (/read text)
-          ! match (first (last expr))
-             (("export" . xs)
-              (remove-if (fn x ! match x (("\\" x) t)) xs))
-             (_ nil))))
+          ! r = match (first (last expr))
+             (("export" . xs) (remove-if (fn x ! match x (("\\" x) t)) xs))
+             (_ nil)
+          ! unless r (setf r `(,(ssa-name "Dummy")))
+          ! r)))
   ! error "no {lib-name}.s")
 
 

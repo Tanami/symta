@@ -9,7 +9,7 @@ GShowInfo = 0
 GCompiledModules = Void
 
 read_normalized Text Filename =
-| Expr = parse Text Filename
+| Expr = Text.parse{src Filename}
 | case Expr [`|` @As] Expr
             X [`|` X]
 
@@ -23,7 +23,7 @@ get_lib_exports LibName =
     | Text = LibFile.get_text
     | Expr = read_normalized Text LibFile
     | leave: case Expr.last [export @Xs] | [@Xs 'Dummy'.rand]
-                            Else | Void
+                            Else | ['Dummy'.rand]
 | bad "no [LibName].s"
 
 c_runtime_compiler Dst Src =

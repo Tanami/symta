@@ -335,15 +335,11 @@ parse_strip X =
        | Ys
   else X
 
-parse @As =
-| Stream = case As
-   [Chars Src] | makeTextStream Chars Src
-   [Chars] | makeTextStream Chars '<none>'
-   Else | bad "bad args to `read`: [As]"
+text.parse src/'<none>' =
 | init_tokenizer
-| R = parse_strip: parse_tokens: tokenize Stream
+| R = parse_strip: parse_tokens: tokenize: makeTextStream Me Src
 | less R.end: R <= R.0
 | case R [X S] S
          R R
 
-export parse
+export
