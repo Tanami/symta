@@ -715,9 +715,44 @@ BUILTIN1("view.tail",view_tail,C_ANY,o)
     VIEW(R, &VIEW_REF(A,0,0), start+1, FIXNUM(size-1));
   }
 RETURNS(R)
+BUILTIN2("view.take",view_take,C_ANY,o,C_INT,count)
+  intptr_t c = UNFIXNUM(count);
+  uint32_t size = UNFIXNUM(VIEW_SIZE(o));
+  if (c == 0) {
+    R = Empty;
+  } else if ((uintptr_t)c < (uintptr_t)size) {
+    uint32_t start = VIEW_START(o);
+    A = o;
+    VIEW(R, &VIEW_REF(A,0,0), start, FIXNUM(c));
+  } else if (c == size) {
+    R = o;
+  } else {
+    fprintf(stderr, "list.take: count %d is invalid for list size = %d\n", (int)c, (int)size);
+    TEXT(P, "take");
+    bad_call(REGS_ARGS(P),P);
+  }
+RETURNS(R)
+BUILTIN2("view.drop",view_drop,C_ANY,o,C_INT,count)
+  intptr_t c = UNFIXNUM(count);
+  uint32_t size = UNFIXNUM(VIEW_SIZE(o));
+  if (c == 0) {
+    R = o;
+  } else if ((uintptr_t)c < (uintptr_t)size) {
+    uint32_t start = VIEW_START(o);
+    A = o;
+    VIEW(R, &VIEW_REF(A,0,0), start+c, FIXNUM(size-c));
+  } else if (c == size) {
+    R = Empty;
+  } else {
+    fprintf(stderr, "list.drop: count %d is invalid for list size = %d\n", (int)c, (int)size);
+    TEXT(P, "take");
+    bad_call(REGS_ARGS(P),P);
+  }
+RETURNS(R)
 BUILTIN2("view.pre",view_pre,C_ANY,o,C_ANY,head)
   CONS(R, head, o);
 RETURNS(R)
+
 
 BUILTIN1("list.size",list_size,C_ANY,o)
 RETURNS(LIST_SIZE(o))
@@ -759,6 +794,36 @@ BUILTIN1("list.tail",list_tail,C_ANY,o)
   } else {
     fprintf(stderr, "list tail: list is empty\n");
     TEXT(P, "tail");
+    bad_call(REGS_ARGS(P),P);
+  }
+RETURNS(R)
+BUILTIN2("list.take",list_take,C_ANY,o,C_INT,count)
+  intptr_t c = UNFIXNUM(count);
+  intptr_t size = UNFIXNUM(LIST_SIZE(o));
+  if (c == 0) {
+    R = Empty;
+  } else if ((uintptr_t)c < (uintptr_t)size) {
+    VIEW(R, &REF(o,0), 0, FIXNUM(c));
+  } else if (c == size) {
+    R = o;
+  } else {
+    fprintf(stderr, "list.take: count %d is invalid for list size = %d\n", (int)c, (int)size);
+    TEXT(P, "take");
+    bad_call(REGS_ARGS(P),P);
+  }
+RETURNS(R)
+BUILTIN2("list.drop",list_drop,C_ANY,o,C_INT,count)
+  intptr_t c = UNFIXNUM(count);
+  intptr_t size = UNFIXNUM(LIST_SIZE(o));
+  if (c == 0) {
+    R = o;
+  } else if ((uintptr_t)c < (uintptr_t)size) {
+    VIEW(R, &REF(o,0), c, FIXNUM(size-c));
+  } else if (c == size) {
+    R = Empty;
+  } else {
+    fprintf(stderr, "list.drop: count %d is invalid for list size = %d\n", (int)c, (int)size);
+    TEXT(P, "drop");
     bad_call(REGS_ARGS(P),P);
   }
 RETURNS(R)
@@ -1817,6 +1882,8 @@ static void init_types(api_t *api) {
   METHOD_FN("shr", b_int_shr, 0, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("head", 0, 0, 0, b_list_head, 0, 0, b_view_head, b_cons_head, 0);
   METHOD_FN("tail", 0, 0, 0, b_list_tail, 0, 0, b_view_tail, b_cons_tail, 0);
+  METHOD_FN("take", 0, 0, 0, b_list_take, 0, 0, b_view_take, 0, 0);
+  METHOD_FN("drop", 0, 0, 0, b_list_drop, 0, 0, b_view_drop, 0, 0);
   METHOD_FN("pre", 0, 0, 0, b_list_pre, 0, 0, b_view_pre, b_cons_pre, 0);
   METHOD_FN("end", 0, 0, 0, b_list_end, 0, 0, b_view_end, b_cons_end, 0);
   METHOD_FN("size", 0, 0, 0, b_list_size, b_fixtext_size, b_text_size, b_view_size, 0, 0);

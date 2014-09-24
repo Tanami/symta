@@ -19,16 +19,17 @@ load_symbol Library Name =
 | Found.1
 
 expand_list_hole_advanced H Hs Key Hit Miss =
-| [Again Took Rest I N Else] = form: ~Again ~Took ~Rest ~I ~N ~Else
+| [Again Took Rest Xs I N Else] = form: ~Again ~Took ~Rest ~Xs ~I ~N ~Else
 | Fail = form: if I < N
                then | I !+ 1
                     | _goto Again
                else Miss
-| form | I = 0
-       | N = Key.size
+| form | Xs = Key.list // ensure it is simple list
+       | I = 0
+       | N = Xs.size
        | _label Again
-       | Took = Key.take{I}
-       | Rest = Key.drop{I}
+       | Took = Xs.take{I}
+       | Rest = Xs.drop{I}
        | case Took
          H | case Rest
                [$@Hs] Hit
