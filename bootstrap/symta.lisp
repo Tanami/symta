@@ -280,6 +280,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (! as = /parse (getf o :value)
      ! as = if (find-if #'delim? as) (list as) as ;allow Xs.map{X=>...}
      ! ret (/binary-loop ops down `((,@o :parsed "{}") ,e ,@as)))
+  ! when (token-is :! o) (ret (/binary-loop ops down `(,o ,e)))
   ! b = try (funcall down) (parser-error "no right operand for" o)
   ! unless (and (token-is :. o) (token-is :integer e) (token-is :integer b))
     (ret (/binary-loop ops down (list o e b)))
@@ -288,8 +289,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ret (/binary-loop ops down f))
 
 (to /binary down ops ! a = try (funcall down) :fail ! /binary-loop ops down a)
-(to /suffix-loop e ! o = try (/op '(:!)) e ! /suffix-loop (list o e))
-(to /suffix ! a = try (/binary #'/term '(:. :^ :-> :|{}|)) :fail ! /suffix-loop a)
+(to /suffix ! /binary #'/term '(:. :^ :-> :|{}| :!))
 (to /pow ! /binary #'/suffix '(:**))
 (to /prefix ! o = try (/op '(:negate :\\ :$ :@ :&)) (/pow)
             ! when (token-is :negate o) (ret (/negate o))

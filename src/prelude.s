@@ -312,7 +312,6 @@ hard_list.drop S =
 
 text.drop S = Me.list.drop{S}.text
 text.take S = Me.list.take{S}.text
-text.locate F = Me.list.locate{F}
 text.last = Me.(Me.size-1)
 text.head = Me.0
 text.tail = Me.drop{1}
@@ -334,6 +333,10 @@ list.locate F =
   | I !+ 1
 
 hard_list.locate F =
+| if F.is_fn then times I Me.size: when F Me.I: leave I
+  else times I Me.size: when F >< Me.I: leave I
+
+text.locate F =
 | if F.is_fn then times I Me.size: when F Me.I: leave I
   else times I Me.size: when F >< Me.I: leave I
 

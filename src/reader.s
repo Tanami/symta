@@ -252,6 +252,7 @@ binary_loop Ops Down E =
   | As <= if got As.find{&is_delim} then [As] else As //allows Xs.map{X=>...}
   | O.parsed <= [`{}`]
   | leave: binary_loop Ops Down [O E @As]
+| when O^token_is{`!`}: leave: binary_loop Ops Down [O E]
 | B = &Down or parser_error "no right operand for" o
 | less O^token_is{'.'} and E^token_is{integer} and B^token_is{integer}:
   | leave: binary_loop Ops Down [O E B]
@@ -260,8 +261,7 @@ binary_loop Ops Down E =
 | leave: binary_loop Ops Down F
 
 parse_binary Down Ops = binary_loop Ops Down: &Down or leave 0
-suffix_loop E = suffix_loop [(parse_op [`!`] or leave E) E]
-parse_suffix = suffix_loop: parse_binary &parse_term [`.` `^` `->` `{}`] or leave 0
+parse_suffix = parse_binary &parse_term [`.` `^` `->` `{}` `!`]
 parse_pow = parse_binary &parse_suffix [`**`]
 parse_prefix =
 | O = parse_op [negate `\\` `$` `@` `&`] or leave (parse_pow)
