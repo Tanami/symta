@@ -218,7 +218,7 @@ expr_symbols_sub Expr Syms =
   else when Expr.is_list: map X Expr: expr_symbols_sub X Syms 
 
 expr_symbols Expr =
-| Syms = table size/1000
+| Syms = m size/1000
 | expr_symbols_sub Expr Syms
 | Syms
 
@@ -442,9 +442,9 @@ produce_ssa Entry Expr =
       GRawInits []
       GClosure []
       GBases [[]]
-      GHoistedTexts (table size/1000)
-      GResolvedMethods (table size/500)
-      GImportLibs (table)
+      GHoistedTexts (m size/1000)
+      GResolvedMethods (m size/500)
+      GImportLibs (m)
   | ssa entry Entry
   | R = ssa_var result
   | uniquify Expr!
@@ -466,7 +466,7 @@ cnorm [X@Xs] = c "  [X.upcase]([(map X Xs X.as_text).text{','}]);"
 ssa_to_c Xs = let GCompiled []
 | Statics = []
 | Decls = []
-| Imports = table
+| Imports = m
 | c 'BEGIN_CODE'
 | for X Xs: case X
   [entry Name] | c "ENTRY([Name])"

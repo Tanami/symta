@@ -443,16 +443,16 @@ bad Text =
 | halt
 
 // hashtable
-data table buckets
-table_ Size = new_table: dup Size Void
-table.`.` K =
+data map buckets
+map_ Size = new_map: dup Size Void
+map.`.` K =
 | Bs = Me.buckets
 | H = K.hash%Bs.size
 | Xs = Bs.H
 | when no Xs: leave Void
 | for X Xs: when X.0 >< K: leave X.1
 | Void
-table.`!` K V =
+map.`!` K V =
 | Bs = Me.buckets
 | H = K.hash%Bs.size
 | Xs = Bs.H
@@ -461,7 +461,7 @@ table.`!` K V =
        | if no Old then Bs.H <= [[K V]@Xs]
          else Old.1 <= V
 | Void
-table.`$` K =
+map.`$` K =
 | Bs = Me.buckets
 | H = K.hash%Bs.size
 | Xs = Bs.H
@@ -469,21 +469,21 @@ table.`$` K =
 | L = Xs.locate{X => X.0><K}
 | when got L: Bs.H <= $Xs.L
 | Me
-table._ Name =
+map._ Name =
 | if Me.size > 1 then Me.0.(Name.drop{4}) <= Me.1 else Me.0.Name
 
 
-table.size = Me.buckets.map{X => if got X then X.size else 0}.sum
-table.list = Me.buckets.skip{X => X >< Void}.join
-table.as_text = "#table[Me.list.as_text]"
+map.size = Me.buckets.map{X => if got X then X.size else 0}.sum
+map.list = Me.buckets.skip{X => X >< Void}.join
+map.as_text = "#m{Me.list.join.as_text}"
 
-list.as_table =
-| T = table size/(Me.size*2)
+list.as_map =
+| T = m size/(Me.size*2)
 | for [K V] Me: T.K <= V
 | T
 
 list.uniq =
-| Seen = table size/(Me.size*2)
+| Seen = m size/(Me.size*2)
 | Me.skip{X => got Seen.X or (Seen.X <= 1) and 0}
 
 text.pad Count Item =
@@ -604,4 +604,4 @@ int.s4b =
 | when Me < 0: #100000000+Me!
 | [Me/#1000000%256 Me/#10000%256 Me/#100%256 Me%256]
 
-export non say bad no got table_ new_macro new_meta
+export non say bad no got map_ new_macro new_meta
