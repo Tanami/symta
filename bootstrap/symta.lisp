@@ -1454,7 +1454,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           ! expand-method-arg-r `("." ,v ,m) fx fy)))
   ! unless (listp a) (return-from expand-method-arg-r a)
   ! match a
-     ((''"{}" x y) `(,(first a) ,(expand-method-arg-r x fx fy) ,y))
+     ((''"{}" x . xs) `(,(first a) ,(expand-method-arg-r x fx fy) ,@xs))
      ((''"{}" . xs) a)
      (("\\" . xs) a)
      (("_quote" . xs) a)

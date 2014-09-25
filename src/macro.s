@@ -318,7 +318,7 @@ expand_method_arg_r A FX FY =
     | leave: expand_method_arg_r ['.' V M] FX FY
 | less A.is_list: leave A
 | case A
-   [`{}` X Y] | [A.0 (expand_method_arg_r X FX FY) Y]
+   [`{}` X @Xs] | [A.0 (expand_method_arg_r X FX FY) @Xs]
    [`{}` @Xs] | A
    [`\\` @Xs] | A
    [_quote @Xs] | A

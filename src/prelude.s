@@ -496,7 +496,7 @@ text.pad Count Item =
 
 list.pad Count Item =
 | N = Count.abs - Me.size
-| when N < 0: bad "text is larger than [Count.abs]: '[Me]'"
+| when N < 0: bad "list is larger than [Count.abs]: '[Me]'"
 | Pad = dup N Item
 | if Count < 0 then [@Pad @Me] else [@Me @Pad]
 
