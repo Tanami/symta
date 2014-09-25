@@ -68,12 +68,18 @@ expand_hole_keywords Key Hit Xs =
                  | (`<=` ($K.title) V))
             Hit
 
+expand_hole_term Key Hole Hit Miss =
+| when Hole >< '_': leave Hit
+| when Hole >< '~': leave: form: if Key >< Void then Miss else Hit
+| when Hole.is_keyword
+  | when Hole.size and Hole.last >< '?':
+    | leave: form: _if (@$"is_[Hole.lead]" Key) Hit Miss
+  | Hole <= [_quote Hole]
+| leave: if Hole.is_text then [let_ [[Hole Key]] Hit]
+         else [_if ['><' Hole Key] Hit Miss]
+
 expand_hole Key Hole Hit Miss =
-| less case Hole [X@Xs]
-  | when Hole >< '_': leave Hit
-  | when Hole.is_keyword: Hole <= [_quote Hole]
-  | leave: if Hole.is_text then [let_ [[Hole Key]] Hit]
-           else [_if ['><' Hole Key] Hit Miss]
+| less Hole^is{[X@Xs]}: leave: expand_hole_term Key Hole Hit Miss
 | case Hole
   [`[]` @Xs] | P = Xs.locate{&0[`/`@_]=>1}
              | when got P: Xs <= [@Xs.take{P} [`@` [`/` @Xs.drop{P}]]]
@@ -292,6 +298,8 @@ let @As =
 `,` @As = case As
   [[X@Xs] @Ys] | [X Xs @Ys]
   Else | mex_error "invalid arglist to `,`"
+
+`$` [`.` A B] = [_mcall A '$' B]
 
 init Var Default = form | when (no Var) (`<=` (Var) Default)
                         | Var
@@ -685,6 +693,6 @@ macroexpand Expr Macros ModuleCompiler =
 
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[]' 'table' '\\' 'form'
        'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for'
-       'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' 'init'
+       'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$' 'init'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
        'ffi_begin' 'ffi' 'min' 'max' '"'

@@ -1009,13 +1009,24 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to string-chars x ! map 'list (fn c ! string c) x)
 
+(to expand-hole-term key hole hit miss
+  ! cond
+     ((equal hole "_") hit)
+     ((equal hole "~") `("if" ("><" ,key :void) ,miss ,hit))
+     ((var-sym? hole) `("let_" ((,hole ,key)) ,hit))
+     (t (when (fn-sym? hole)
+          (let ((l (length hole)))
+            (when (and (> l 0) (equal (aref hole (- l 1)) #\?))
+              (return-from expand-hole-term
+                `("_if" ("_mcall" ,key ,"is_{subseq hole 0 (- l 1)}")
+                        ,hit
+                        ,miss))))
+          (setf hole `("_quote" ,hole)))
+        `("if" ("><" ,hole ,key) ,hit ,miss)))
+
+
 (defun expand-hole (key hole hit miss)
-  (unless (consp hole)
-    (return-from expand-hole
-      (cond ((equal hole "_") hit)
-            ((var-sym? hole) `("let_" ((,hole ,key)) ,hit))
-            (t (when (fn-sym? hole) (setf hole `("_quote" ,hole)))
-               `("if" ("><" ,hole ,key) ,hit ,miss)))))
+  (unless (consp hole) (return-from expand-hole (expand-hole-term key hole hit miss)))
   (match hole
     (("[]" . xs)
      (let ((p (position-if (fn x ! headed "/" x) xs)))
@@ -1583,6 +1594,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("as" name value expr) (expand-as name value expr))
         (("," (x . xs) . ys) `(,x ,xs ,@ys))
         (("," . xs) (error "bad `,`"))
+        (("$" ("." a b)) `("_mcall" ,a "$" ,b))
         (("init" var default)
          `("|" ("when" ("no" ,var) ("<=" (,var) ,default))
                ,var))

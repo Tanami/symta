@@ -118,6 +118,8 @@ list.`.` K =
 | times I K: Me <= Me.tail
 | Me.head
 
+list.`$` K = [@Me.take{K} @Me.drop{K+1}]
+
 list.x = Me.0
 list.y = Me.1
 list.z = Me.2
@@ -448,9 +450,8 @@ table.`.` K =
 | H = K.hash%Bs.size
 | Xs = Bs.H
 | when no Xs: leave Void
-| X = Xs.find{X => X.0><K}
-| when no X: leave Void
-| X.1
+| for X Xs: when X.0 >< K: leave X.1
+| Void
 table.`!` K V =
 | Bs = Me.buckets
 | H = K.hash%Bs.size
@@ -460,6 +461,17 @@ table.`!` K V =
        | if no Old then Bs.H <= [[K V]@Xs]
          else Old.1 <= V
 | Void
+table.`$` K =
+| Bs = Me.buckets
+| H = K.hash%Bs.size
+| Xs = Bs.H
+| when no Xs: leave Void
+| L = Xs.locate{X => X.0><K}
+| when got L: Bs.H <= $Xs.L
+| Me
+table._ Name =
+| if Me.size > 1 then Me.0.(Name.drop{4}) <= Me.1 else Me.0.Name
+
 
 table.size = Me.buckets.map{X => if got X then X.size else 0}.sum
 table.list = Me.buckets.skip{X => X >< Void}.join
