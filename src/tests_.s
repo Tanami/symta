@@ -112,6 +112,10 @@ test_list =
 | Ys <= Xs.1
 | less Validate Ys: failed
 
+| tsay '[2 2 3 1]^([C @(Xs<(&C).size) @Ys] => [@Ys @Xs])'
+| Ys <= [2 2 3 1]^([C @(Xs<(&C).size) @Ys] => [@Ys @Xs])
+| less Validate Ys: failed
+
 | tsay '[1 2 3]+[1 2 3]-[1 2 3]'
 | Ys <= [1 2 3]+[1 2 3]-[1 2 3]
 | less Validate Ys: failed

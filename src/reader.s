@@ -152,7 +152,7 @@ read_string R Incut End =
              `n` | L <= ['\n' @L]
              `t` | L <= ['\t' @L]
              `\\` | L <= ['\\' @L]
-             C>(in &Incut &End) | L <= [C@L]
+             C<&Incut+&End | L <= [C@L]
              Void | R.error{'EOF in string'}
              Else | R.error{"Invalid escape code: [Else]"}
      &End | Ys = [L.flip.text]
@@ -221,7 +221,7 @@ parse_term =
 | when Tok.parsed: parser_error "already parsed token" Tok
 | V = Tok.value
 | P = case Tok.symbol
-         (in escape symbol text) | leave Tok
+         escape+symbol+text | leave Tok
          splice | [(new_token symbol `"` Tok.src 0) @V^parse_tokens] //"
          integer | V.int{10}
          hex | V.tail.int{16}
@@ -237,7 +237,7 @@ parse_term =
 | Tok.parsed <= [P]
 | Tok
 
-is_delim X = X.is_token and case X.symbol (in `:` `=` `=>` `<=` `,` `if` `then` `else`) 1
+is_delim X = X.is_token and case X.symbol `:`+`=`+`=>`+`<=`+`,`+`if`+`then`+`else` 1
 
 parse_op Ops =
 | when GInput.end: leave 0

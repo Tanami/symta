@@ -942,22 +942,50 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (defun var-sym? (s) (and (stringp s) (string/= s "") (upper-case-p (aref s 0))))
 (defun fn-sym? (s) (and (stringp s) (not (var-sym? s))))
 
+(to expand-list-hole-advanced h hs key hit miss
+  ! again = ssa-name "Again"
+  ! took = ssa-name "Took"
+  ! rest = ssa-name "Rest"
+  ! xs = ssa-name "Xs"
+  ! i = ssa-name "I"
+  ! n = ssa-name "N"
+  ! else = ssa-name "Else"
+  ! fail = `("_if" ("<" ,i ,n)
+                   ("|" ("<=" (,i) ("+" ,i 1))
+                        ("_goto" ,again))
+                   ,miss)
+  ! `("|" ("=" (,xs) ("_mcall" ,key "list"))
+          ("=" (,i) 0)
+          ("=" (,n) ("_mcall" ,xs "size"))
+          ("_label" ,again)
+          ("=" (,took) ("_mcall" ,xs "take" ,i))
+          ("=" (,rest) ("_mcall" ,xs "drop" ,i))
+          ("case" ,took
+             ,h ("case" ,rest
+                 ("[]" ,@hs) ,hit
+                 ,else ,fail)
+             ,else ,fail)))
+
 (defun expand-list-hole (key hole hit miss)
   (match hole
-    (() (return-from expand-list-hole
-          `("if" ("_mcall" ,key "end")
-                 ,hit
-                 ,miss)))
-        ;;(return-from expand-list-hole (expand-hole key :empty hit miss)))
-    ((("@" zs)) (return-from expand-list-hole (expand-hole key zs hit miss)))
-    ((("@" zs) . more) (error "@ in the middle isn't supported")))
-  (let* ((h (ssa-name "X"))
-         (hit (expand-list-hole key (cdr hole) hit miss)))
-    `("if" ("_mcall" ,key "end")
-           ,miss
-           ("let_" ((,h ("_mcall" ,key "head"))
-                    (,key ("_mcall" ,key "tail")))
-               ,(expand-hole h (car hole) hit miss)))))
+    (() `("if" ("_mcall" ,key "end") ,hit ,miss))
+    ((("@" zs)) (expand-hole key zs hit miss))
+    ((("@" zs) . more) (expand-list-hole-advanced zs more key hit miss))
+    ((("*" a b) . xs)
+     (let* ((g (ssa-name "G"))
+            (else (ssa-name "Else"))
+            (hole `(("@" ,a) ("@" ("<" ,g ("+" ("[]" ("-" ,b) ("@" "_")) ("[]"))))))
+            (hit `("case" ,g ("[]" ,@xs) ,hit ,else ,miss)))
+       (expand-list-hole key hole hit miss)))
+    ((("%" a b) . xs)
+     (expand-list-hole key `(("*" ("<" ("[]" ,b ("@" "_")) ,a) ,b) ,@xs) hit miss))
+    ((x . xs) (let* ((h (ssa-name "X"))
+                     (hit (expand-list-hole key xs hit miss)))
+                `("if" ("_mcall" ,key "end")
+                       ,miss
+                       ("let_" ((,h ("_mcall" ,key "head"))
+                                (,key ("_mcall" ,key "tail")))
+                         ,(expand-hole h x hit miss)))))))
 
 (to expand-hole-keywords key hit xs
   ! i = ssa-name "I"
@@ -979,6 +1007,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                          ("<=" (,kk) ,v)))))
           ,hit))
 
+(to string-chars x ! map 'list (fn c ! string c) x)
+
 (defun expand-hole (key hole hit miss)
   (unless (consp hole)
     (return-from expand-hole
@@ -987,22 +1017,52 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
             (t (when (fn-sym? hole) (setf hole `("_quote" ,hole)))
                `("if" ("><" ,hole ,key) ,hit ,miss)))))
   (match hole
-    ((">" a b) (expand-hole key a (expand-hole key b hit miss) miss))
-    (("in" . xs) `("if" ,(expand-match key (m x xs `(,x 1)) 0) ,hit ,miss))
-    (("not" . xs) `("if" ,(expand-match key (m x xs `(,x 1)) 0) ,miss ,hit))
-    (("bind" a b) (let ((g (ssa-name "G")))
-                    `("let_" ((,g (,a ,key)))
-                       ,(expand-hole g b hit miss))))
-    (("=>" a b) `("let_" ((,(first a) ,key))
-                   ("if" ("|" ,@b) ,hit ,miss)))
-    (("&" x) `("if" ("><" ,x ,key) ,hit ,miss))
     (("[]" . xs)
      (let ((p (position-if (fn x ! headed "/" x) xs)))
        (when p (setf xs `(,@(subseq xs 0 p) ("@" ("/" ,@(subseq xs p)))))))
      `("if" ("_mcall" ,key ("_quote" "is_list"))
             ,(expand-list-hole key xs hit miss)
             ,miss))
+    (("<" a b) (expand-hole key b (expand-hole key a hit miss) miss))
+    (("+" . xs) `("if" ,(expand-match key (m x xs `(,x 1)) 0) ,hit ,miss))
+    (("-" . xs) `("if" ,(expand-match key (m x xs `(,x 1)) 0) ,miss ,hit))
+    (("+" ("+" . xs) . ys) (expand-hole key `("+" ,@xs ,@ys) hit miss))
+    (("-" ("-" . xs) . ys) (expand-hole key `("-" ,@xs ,@ys) hit miss))
+    (((= x (or "." "^")) ((= y (or "." "^")) a b) . as)
+     (let* ((g (ssa-name "G"))
+            (hit (expand-hole g `(,x ,g ,@as) hit miss)))
+        (expand-hole key `(,y ("<" ,g ,a) ,b) hit miss)))
+    (("." a b . as)
+     (let ((g (ssa-name "G")))
+       `("let_" ((,g ,(if (fn-sym? b)
+                          `("_mcall" ,key ,b ,@as)
+                          `("_mcall" ,key "." ,b ,@as))))
+          ,(expand-hole g a hit miss))))
+    (("^" a b . as)
+     (let ((g (ssa-name "G")))
+       `("let_" ((,g `(,b ,@as)))
+          ,(expand-hole g a hit miss))))
+    (("{}" (op a b) . as) (expand-hole key `(,op ,a ,b ,@as) hit miss))
+    (("=>" a b) `("let_" ((,(first a) ,key))
+                   ("if" ("|" ,@b) ,hit ,miss)))
+    (("&" x) `("if" ("><" ,x ,key) ,hit ,miss))
     (("/" . xs) (expand-hole-keywords key hit xs))
+    (("\\" x) `("if" ("><" ,hole ,key) ,hit ,miss))
+    (("\"" . xs)
+     (let* ((vs nil)
+            (cs (m x xs (if (stringp x)
+                            (m c (string-chars x) `("\\" ,c))
+                            (let ((n (first x))
+                                  (v (ssa-name "G")))
+                              (unless (equal n "_") (push `(,n ,v) vs))
+                              `(("@" ,v))))))
+            (xs (apply #'concatenate 'list cs))
+            (hit `("|" ,@(m (a b) vs `("=" (,a) ("_mcall" ,b "text")))
+                       ,hit)))
+       `("_if" ("_mcall" ,key "is_text")
+               ,(expand-list-hole key xs hit miss)
+               ,miss)))
+    (((x . xs)) (expand-hole key `(,x ,@xs) hit miss))
     (else (error "bad hole: ~a" hole))))
 
 (defun expand-match (keyform cases default &key (keyvar nil))
@@ -1506,6 +1566,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("<=" (place) value) (expand-assign place value))
         (("!!" . as) (expand-assign-result as))
         (("case" keyform . cases) (expand-match keyform (group-by 2 cases) 0))
+        (("is" a b) `("case" ,b ,a 1))
+        (("is" a) `("=>" (("&" 0) ,a) 1))
         (("let" . xs) (expand-shade (group-by 2 (butlast xs)) (car (last xs))))
         (("export" . xs) (expand-export xs))
         (("callcc" f) (expand-callcc f))

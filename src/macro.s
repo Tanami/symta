@@ -40,6 +40,11 @@ expand_list_hole Key Hole Hit Miss = case Hole
   [] | [_if [_mcall Key end] Hit Miss]
   [[`@` Zs]] | expand_hole Key Zs Hit Miss
   [[`@` Zs] @More] | expand_list_hole_advanced Zs More Key Hit Miss
+  [[`*` A B] @Xs] | [G Else] = form: ~G ~Else
+                  | Hole = form: @A @(`<` G [-B @_]+[])
+                  | Hit = form: case G [$@Xs] Hit Else Miss
+                  | expand_list_hole Key Hole Hit Miss
+  [[`%` A B] @Xs] | expand_list_hole Key (form: (`<` [B@_] A)*B $@Xs) Hit Miss
   [X@Xs] | H = @rand 'X'
          | Hit <= expand_list_hole Key Xs Hit Miss
          | [`if` [_mcall Key end]
@@ -70,20 +75,47 @@ expand_hole Key Hole Hit Miss =
   | leave: if Hole.is_text then [let_ [[Hole Key]] Hit]
            else [_if ['><' Hole Key] Hit Miss]
 | case Hole
-  [`>` A B] | expand_hole Key A (expand_hole Key B Hit Miss) Miss
-  [in @Xs] | [_if (expand_match Key (map X Xs [X 1]) 0 Void) Hit Miss]
-  [not @Xs] | [_if (expand_match Key (map X Xs [X 1]) 0 Void) Miss Hit]
-  [bind A B] | G = @rand 'G'
-             | [let_ [[G [A Key]]] (expand_hole G B Hit Miss)]
-  [`=>` A B] | [let_ [[A.0 Key]]
-                 [_if ['|' @B] Hit Miss]]
-  [`&` X] | form: _if X >< Key Hit Miss
   [`[]` @Xs] | P = Xs.locate{&0[`/`@_]=>1}
              | when got P: Xs <= [@Xs.take{P} [`@` [`/` @Xs.drop{P}]]]
              | [_if [_mcall Key is_list]
                     (expand_list_hole Key Xs Hit Miss)
                     Miss]
+  [`<` A B] | expand_hole Key B (expand_hole Key A Hit Miss) Miss
+  [`+` @Xs] | [_if (expand_match Key (map X Xs [X 1]) 0 Void) Hit Miss]
+  [`-` @Xs] | [_if (expand_match Key (map X Xs [X 1]) 0 Void) Miss Hit]
+  [O<`+`+`-` [&O @Xs] @Ys] | expand_hole Key [O @Xs @Ys] Hit Miss
+  [X<`.`+`^` [Y<`.`+`^` A B] @As]
+    | G = @rand 'G'
+    | Hit = expand_hole G [X G @As] Hit Miss
+    | expand_hole Key [Y [`<` G A] B] Hit Miss
+  [X<`.`+`^` [`{}` [Y A B] @As] @Bs] | expand_hole Key [X [Y A B @As] @Bs] Hit Miss
+  [`.` A B @As] | G = @rand 'G'
+                | [let_ [[G (if B.is_keyword
+                             then [_mcall Key B @As]
+                             else [_mcall Key "." B @As])]]
+                    (expand_hole G A Hit Miss)]
+  [`^` A B @As] | G = @rand 'G'
+                | [let_ [[G [B @As]]]
+                    (expand_hole G A Hit Miss)]
+  [`{}` [Op A B] @As] | expand_hole Key [Op A B @As] Hit Miss
+  [`=>` A B] | [let_ [[A.0 Key]]
+                 [_if ['|' @B] Hit Miss]]
+  [`&` X] | form: _if X >< Key Hit Miss
   [`/` @Xs] | expand_hole_keywords Key Hit Xs
+  [`\\` X] | form: _if Hole >< Key Hit Miss
+  [`"` @Xs] /*"*/ //FIXME: use special matcher for text
+    | Vs = []
+    | Cs = map X Xs: if X.is_text then map C X.list [`\\` C]
+                     else | V = form ~G
+                          | N = X.0
+                          | less N >< _: push [X.0 V] Vs
+                          | [[`@` V]]
+    | Hit = form: `|` $@(map [A B] Vs: form (A = _mcall B text))
+                      Hit
+    | form: _if (_mcall Key is_text)
+                $(expand_list_hole Key Cs.join Hit Miss)
+                Miss
+  [[X@Xs]] | expand_hole Key [X@Xs] Hit Miss
   Else | mex_error "bad match case: [Hole]"
 
 expand_match Keyform Cases Default Key =
@@ -108,6 +140,12 @@ expand_match Keyform Cases Default Key =
     R]
 
 case @Xs = expand_match Xs.0 Xs.tail.group{2} 0 Void
+
+is @As =
+| case As
+   [A] | form: &0 A => 1
+   [A B] | [case B A 1]
+   Else | mex_error "invalid number of args to `is`: [As]"
 
 min A B = form | ~A = A
                | ~B = B
@@ -645,7 +683,7 @@ macroexpand Expr Macros ModuleCompiler =
   | R = mex Expr
   | R
 
-export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'if' '@' '[]' 'table' '\\' 'form'
+export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[]' 'table' '\\' 'form'
        'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for'
        'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' 'init'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'

@@ -131,6 +131,8 @@ list.size =
 
 list.end = not Me.size
 
+text.end = not Me.size
+
 _bytes_.list = dup I Me.size Me.I
 
 bytes.bytes = Me
