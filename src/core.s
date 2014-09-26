@@ -14,6 +14,7 @@ export address
        load_library
        register_library_folder
        time
+       clock
        unix
        main_args
        get_line

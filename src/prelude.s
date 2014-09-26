@@ -475,7 +475,7 @@ map._ Name =
 
 map.size = Me.buckets.map{X => if got X then X.size else 0}.sum
 map.list = Me.buckets.skip{X => X >< Void}.join
-map.as_text = "#m{Me.list.join.as_text}"
+map.as_text = "#m{[Me.list{}{?0}]}"
 
 list.as_map =
 | T = m size/(Me.size*2)

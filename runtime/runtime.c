@@ -1355,6 +1355,9 @@ RETURNS(R)
 BUILTIN0("time",time)
 RETURNS(FIXNUM((intptr_t)time(0)))
 
+BUILTIN0("clock",clock)
+  LOAD_FLOAT(R, (double)clock()/(double)CLOCKS_PER_SEC);
+RETURNS(R)
 
 BUILTIN0("main_args", main_args)
 RETURNS(main_args)
@@ -1491,6 +1494,7 @@ static struct {
   {"register_library_folder", b_register_library_folder},
   {"unix", b_unix},
   {"time", b_time},
+  {"clock", b_clock},
   {"main_args", b_main_args},
   {"get_line", b_get_line},
   {"parse_float", b_parse_float},
