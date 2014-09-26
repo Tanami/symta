@@ -1,10 +1,10 @@
 #include "gfx.h"
 
-void *gfx_alloc(int size) {
+void *ffi_alloc_(int size) {
   return malloc(size);
 }
 
-void gfx_free(void *ptr) {
+void ffi_free_(void *ptr) {
   free(ptr);
 }
 
@@ -23,6 +23,12 @@ gfx_t *new_gfx(uint32_t w, uint32_t h) {
   gfx->hotspot_y = 0;
   return gfx;
 }
+
+void free_gfx(gfx_t *gfx) {
+  free(gfx->data);
+  if (gfx->cmap) free(gfx->cmap);
+}
+
 
 void gfx_resize(gfx_t *gfx, uint32_t w, uint32_t h) {
   free(gfx->data);
@@ -414,6 +420,56 @@ void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int 
 
 #undef SC
 #undef DC
+
+static uint32_t margins_result[4];
+
+void *gfx_margins(gfx_t *gfx) {
+  int w = gfx->w;
+  int h = gfx->h;
+  uint32_t *d = gfx->data;
+  uint32_t *m = gfx->cmap;
+  int x1 = w;
+  int x2 = -1;
+  int sx = 0;
+  int xb = w;
+  int xe = 0;
+  int yb = h;
+  int ye = 0;
+  int x;
+  int y;
+  for (y = 0; y < h; y++) {
+    sx = y*w;
+    xb = w;
+    xe = -1;
+    for (x = 0; x < w; x++) {
+      uint32_t c = d[x+sx];
+      if (m) c = m[c];
+      if ((c>>24) != 255) {
+        if (xb == w) xb = x;
+        xe = x;
+      }
+    }
+    if (xe != -1) {
+      if (yb == h) yb = y;
+      if (xb < x1) x1 = xb;
+      if (xe > x2) x2 = xe;
+      ye = y;
+    }
+  }
+  if (x1 != w) {
+    margins_result[0] = x1;
+    margins_result[1] = yb;
+    margins_result[2] = x2-x1+1;
+    margins_result[3] = ye-yb+1;
+  } else {
+    margins_result[0] = 0;
+    margins_result[1] = 0;
+    margins_result[2] = w;
+    margins_result[3] = h;
+  }
+  return margins_result;
+}
+
 
 uint32_t array[] = {123,456,789};
 

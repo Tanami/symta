@@ -343,7 +343,13 @@ expand_method_arg Expr =
 
 is_incut X = case X [`@` Xs] 1
 
-`[]` @As =
+`[]` @Xs =
+| Save = 0
+| As = map A Xs: case A
+                 ['!!' '@' ['!' X]] | Save <= X
+                                    | ['@' X]
+                 Else | A
+| when Save: leave: form: Save <= `[]` $@As
 | IncutCount = As.count{&is_incut}
 | when IncutCount >< 0: leave [_list @As]
 | when IncutCount >< 1

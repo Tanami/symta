@@ -1332,8 +1332,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to incut? x ! match x (("@" x) t))
 
 (to expand-list as
+  ! save = nil
+  ! as = m a as (match a
+                  (("!!" "@" ("!" x))
+                   (setf save x)
+                   `("@" ,x))
+                  (else a))
+  ! when save (return-from expand-list `("<=" (,save) ("[]" ,@as)))
   ! incut-count = count-if #'incut? as
-  ! when (= 0 incut-count)  (return-from expand-list `("_list" ,@as))
+  ! when (= 0 incut-count) (return-from expand-list `("_list" ,@as))
   ! when (= 1 incut-count) 
       (match (car (last as))
         (("@" xs)

@@ -384,6 +384,18 @@ list.any F =
 | for X Me: when F X: leave 1
 | 0
 
+list.max =
+| when Me.end: leave Void
+| M = Me.head
+| for X Me: when X > M: M <= X
+| M
+
+list.min =
+| when Me.end: leave Void
+| M = Me.head
+| for X Me: when X < M: M <= X
+| M
+
 HexChars = '0123456789ABCDEF'
 
 int.x =

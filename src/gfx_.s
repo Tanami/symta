@@ -1,5 +1,6 @@
 ffi_begin gfx_ '/Users/nikita/Documents/git/symta/bindings/gfx/lib/main'
 ffi new_gfx_: new_gfx.ptr W.u4 H.u4
+ffi free_gfx.void Gfx.ptr
 ffi gfx_load_png.ptr Filename.text
 ffi gfx_save_png.void Filename.text Gfx.ptr
 ffi gfx_w.u4 Gfx.ptr
@@ -18,9 +19,9 @@ ffi gfx_enable_cmap.ptr Gfx.ptr
 ffi gfx_resize.void Gfx.ptr W.int H.int
 ffi gfx_blit.void Gfx.ptr X.int Y.int Src.ptr SX.int SY.int W.int H.int
                   FlipX.int FlipY.int Map.ptr
-
-ffi gfx_alloc.ptr Size.int
-ffi gfx_free.void Ptr.ptr
+ffi gfx_margins.ptr Gfx.ptr
+ffi ffi_alloc_.ptr Size.int
+ffi ffi_free_.void Ptr.ptr
 
 
 dummy = Void
