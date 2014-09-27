@@ -248,7 +248,7 @@ uniquify_let Xs =
 | Xs
 
 uniquify_form Expr =
-| Src = when Expr.is_meta: Expr.info_
+| Src = Expr.meta_
 | let GSrc (if got Src then Src else GSrc)
   | case Expr
     [_fn As @Body]

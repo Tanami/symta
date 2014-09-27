@@ -71,8 +71,6 @@ txt.set_value Text =
 
 font.as_text = "#font{}"
 
-setSkin '/Users/nikita/Documents/git/symta/build/test_macro/data/ui'
-
 skin F = init SkinCache.F: gfx_load "[Skin]/[F].png"
 
 cursor F =
@@ -193,7 +191,7 @@ box.draw G P =
 | for R Me.rendered
   | W = R.w
   | H = R.h
-  | Rect = Is^pop.info_
+  | Rect = Is^pop.meta_
   | RX = case D v(0) h(N)
   | RY = case D v(N) h(0)
   | G.blit{P+[RX RY] R}
@@ -241,7 +239,8 @@ gui.input Es =
 gui.exit Result =
 | Me.result <= Result
 | Me.fb <= Void
-gui Root =
+gui Root = //FIXME: create a default skin and allow picking user defined skins
+| setSkin '/Users/nikita/Documents/git/symta/build/test_macro/data/ui'
 | GUI <= new_gui Root [] [0 0] point Void gfx{1 1} (m) Void
 | show: Es => | GUI.input{Es}
               | GUI.render

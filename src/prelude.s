@@ -2,6 +2,8 @@ non F = X => if F X then 0 else 1
 no X = Void >< X
 got X = Void <> X
 
+_.meta_ = Void
+
 _.`<>` B = not Me >< B
 _.`<<` B = not B < Me
 _.`>` B = B < Me
@@ -514,7 +516,7 @@ list.pad Count Item =
 
 data macro name expander
 
-data meta object_ info_
+data meta object_ meta_
 meta._ Name =
 | M = _this_method
 | Me.0 <= Me.0.object_

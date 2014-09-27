@@ -683,7 +683,7 @@ mex Expr =
   [_nomex X] | X // no macroexpand
   [`&` O] | if O.is_keyword then O else [O^mex]
   [] | Expr
-  [X@Xs] | Src = when Expr.is_meta: Expr.info_ 
+  [X@Xs] | Src = when Expr.is_meta: Expr.meta_ 
          | let GSrc (if got Src then Src else GSrc)
            | Result = mex_normal X Xs
            | when got Src and Result.is_list: Result <= new_meta Result Src
