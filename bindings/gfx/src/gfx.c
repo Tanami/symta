@@ -25,8 +25,9 @@ gfx_t *new_gfx(uint32_t w, uint32_t h) {
 }
 
 void free_gfx(gfx_t *gfx) {
-  free(gfx->data);
   if (gfx->cmap) free(gfx->cmap);
+  free(gfx->data);
+  free(gfx);
 }
 
 
