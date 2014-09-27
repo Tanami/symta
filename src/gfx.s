@@ -29,6 +29,7 @@ gfx.circle Color Fill C R = gfx_circle Me.handle Color Fill C.0 C.1 R
 gfx.resize W H = gfx_resize Me.handle W H
 gfx.cmap =
 | P = gfx_cmap Me.handle
+| less P: leave 0
 | dup I 256: _ffi_get uint32_t P I
 gfx.set_cmap NewCM =
 | when NewCM.size > 256: bad "cant set color map larger than 256"
@@ -45,9 +46,9 @@ gfx.margins =
 | [(_ffi_get uint32_t P 0) (_ffi_get uint32_t P 1)
    (_ffi_get uint32_t P 2) (_ffi_get uint32_t P 3)]
 gfx.cut X Y W H =
-| CMap = Me.cmap
 | G = gfx W H
 | G.clear{0}
+| CMap = Me.cmap
 | when CMap: G.cmap <= CMap
 | G.blit{[0 0] Me rect [X Y W H]}
 | G
