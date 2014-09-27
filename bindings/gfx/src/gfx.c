@@ -406,13 +406,15 @@ void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int 
         if (sa) {
           int dr, dg, db, da;
           fromR8G8B8A8(dr,dg,db,da,DC);
+          //NOTE: X>>8 is a division by 256, while max alpha is 0xFF
+          //      this leads to some loss of precision
           sm = 0xFF - sa;
           r = (sr*sm + dr*sa)>>8;
           g = (sg*sm + dg*sa)>>8;
           b = (sb*sm + db*sa)>>8;
           c = R8G8B8(r,g,b);
         } else {
-          c = DC;
+          c = SC;
         }
         end_blit(c);
     }

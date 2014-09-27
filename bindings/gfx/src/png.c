@@ -114,8 +114,14 @@ jmpbuf_fail:
       }
     }
   } else if (color_type == PNG_COLOR_TYPE_RGB_ALPHA) {
-    fprintf(stderr, "load_png: implement PNG_COLOR_TYPE_RGB_ALPHA\n");
-    abort();
+    gfx = new_gfx(width, height);
+    for (y = 0; y < height; y++) {
+      png_byte *row = row_pointers[y];
+      for (x = 0; x < width; x++) {
+        gfx_set(gfx, x, y, R8G8B8A8(row[0], row[1], row[2], 0xFF-row[3]));
+        row += 4;
+      }
+    }
   } else if (color_type == PNG_COLOR_TYPE_PALETTE) {
     uint32_t cmap[GFX_CMAP_SIZE];
     png_colorp palette;
