@@ -290,12 +290,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to /binary down ops ! a = try (funcall down) :fail ! /binary-loop ops down a)
 (to /suffix ! /binary #'/term '(:. :^ :-> :|{}| :!))
-(to /pow ! /binary #'/suffix '(:**))
-(to /prefix ! o = try (/op '(:negate :\\ :$ :@ :&)) (/pow)
+(to /prefix ! o = try (/op '(:negate :\\ :$ :@ :&)) (/suffix)
             ! when (token-is :negate o) (ret (/negate o))
             ! a = try (/prefix) (parser-error "no operand for" o)
             ! list o a)
-(to /mul ! /binary #'/prefix '(:* :/ :%))
+(to /pow ! /binary #'/prefix '(:**))
+(to /mul ! /binary #'/pow '(:* :/ :%))
 (to /add ! /binary #'/mul '(:+ :-))
 (to /dots ! /binary #'/add '(:..))
 (to /bool ! /binary #'/dots '(:>< :<> :< :> :<< :>>))
@@ -424,11 +424,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        ))
      (else (error "undefined variable: ~a" x)))
 
-(to ssa-quote-list-rec xs
-   ! `("_list" ,@(m x xs (if (listp x) (ssa-quote-list-rec x) `("_quote" ,x)))))
-
-(to ssa-quote-list k xs ! ssa-expr k (ssa-quote-list-rec xs))
-
 (to cstring s ! `(,@(m c (coerce s 'list) (char-code c)) 0))
 
 (to ssa-cstring src
@@ -454,7 +449,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to ssa-quote k x
   ! cond
      ((stringp x) (ssa-expr k (gethash x *hoisted-texts*)))
-     ((listp x) (ssa-quote-list k x))
+     ((listp x) (error "ssa-quote: got list ~a" x))
      (t (ssa-expr k x)))
 
 (to ssa-resolved name ! cons name *ssa-ns*)
@@ -1180,6 +1175,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (if (fn-sym? field)
          `("_mcall" ,object ,"set_{field}" ,value)
          `("_mcall" ,object "!" ,field ,value)))
+    (("$" ("." a b)) (expand-assign `("." ("$" ,a) ,b) value))
+    (("$" x) (expand-assign `("." "Me" ,x) value))
     (else `("_set" ,place ,value)))
 
 (to expand-assign-result as
@@ -1379,6 +1376,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! v = ssa-name "V"
   ! `("let_" ((,v ,a)) ("if" ,v ,v ,b)))
 
+(to expand-quoted-list xs ! `("_list" ,@(m x xs (if (listp x)
+                                                  (expand-quoted-list x)
+                                                  `("_quote" ,x)))))
+
 (to expand-quasiquote o
   ! unless (listp o) (return-from expand-quasiquote `("_quote" ,o))
   ! match o
@@ -1537,7 +1538,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                                 (builtin-expander value)))))
         (("_label" name) (return-from builtin-expander xs))
         (("_goto" name) (return-from builtin-expander xs))
-        (("_quote" x) (return-from builtin-expander xs))
+        (("_quote" x)
+         (unless (listp x) (return-from builtin-expander xs))
+         (expand-quoted-list x))
         (("_nomex" x) (return-from builtin-expander x))
         (("&" o) (return-from builtin-expander
                    (if (fn-sym? o) o `(,(builtin-expander o)))))
@@ -1618,7 +1621,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("as" name value expr) (expand-as name value expr))
         (("," (x . xs) . ys) `(,x ,xs ,@ys))
         (("," . xs) (error "bad `,`"))
-        (("$" ("." a b)) `("_mcall" ,a "$" ,b))
+        (("$" ("{}" x . xs)) `("{}" ("$" ,x) ,@xs))
+        (("$" ("." a b)) `("." ("$" ,a) ,b))
+        (("$" expr) `("." "Me" ,expr))
         (("init" var default)
          `("|" ("when" ("no" ,var) ("<=" (,var) ,default))
                ,var))

@@ -53,11 +53,6 @@ ssa_symbol K X Value =
      Else
        | bad "unknown symbol: [X]"
 
-ssa_quote_list_rec Xs =
-| [list @(map X Xs: if X.is_list then ssa_quote_list_rec X else [_quote X])]
-
-ssa_quote_list K Xs = ssa_expr K: ssa_quote_list_rec Xs
-
 cstring_bytes S = [@S.list.map{C => C.code} 0]
 
 ssa_cstring Src = as Name 'b'.rand: ssa bytes Name Src^cstring_bytes
@@ -69,7 +64,7 @@ ssa_global Name = as V Name.rand: ssa global V
 ev X = as R 'r'^ssa_var: ssa_expr R X
 
 ssa_quote K X = if X.is_text then ssa_expr K GHoistedTexts.X
-                else if X.is_list then ssa_quote_list K X
+                else if X.is_list then compiler_error "ssa_quote: got list [X]"
                 else ssa_expr K X
 
 ssa_resolve Name = [Name GNs]

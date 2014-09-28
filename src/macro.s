@@ -222,6 +222,10 @@ expand_map_for Type Item Items Body =
 map Item Items Body = expand_map_for dup Item Items Body
 for Item Items Body = expand_map_for times Item Items Body
 
+expand_quoted_list Xs =
+| Ys = map X Xs: if X.is_list then expand_quoted_list X else [_quote X]
+| ['_list' @Ys]
+
 expand_quasiquote O =
 | less O.is_list: leave [_quote O]
 | case O
@@ -299,7 +303,10 @@ let @As =
   [[X@Xs] @Ys] | [X Xs @Ys]
   Else | mex_error "invalid arglist to `,`"
 
-`$` [`.` A B] = [_mcall A '$' B]
+`$` Expr = case Expr
+  [`.` A B] | [`.` [`$` A] B]
+  [`{}` X @Xs] | [`{}` [`$` X] @Xs]
+  Else | [`.` 'Me' Expr]
 
 init Var Default = form | when (no Var) (`<=` (Var) Default)
                         | Var
@@ -448,6 +455,8 @@ expand_assign Place Value =
   [`.` Object Field] | if Field.is_keyword
                        then [_mcall Object "set_[Field]" Value]
                        else [_mcall Object "!" Field Value]
+  [`$` [`.` A B]] | expand_assign [`.` [`$` A] B] Value
+  [`$` X] | expand_assign [`.` 'Me' X] Value
   Else | [_set Place Value]
 
 `<=` Place Value = expand_assign Place.0 Value
@@ -685,7 +694,7 @@ mex Expr =
   [_set Place Value] | [_set Place (if Value.is_keyword then [_quote Value] else mex Value)]
   [_label Name] | Expr
   [_goto Name] | Expr
-  [_quote X] | Expr
+  [_quote X] | if X.is_list then expand_quoted_list X else Expr
   [_nomex X] | X // no macroexpand
   [`&` O] | if O.is_keyword then O else [O^mex]
   [] | Expr

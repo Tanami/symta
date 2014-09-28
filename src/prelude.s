@@ -120,7 +120,7 @@ list.`.` K =
 | times I K: Me <= Me.tail
 | Me.head
 
-list.`$` K = [@Me.take{K} @Me.drop{K+1}]
+list.del K = [@Me.take{K} @Me.drop{K+1}]
 
 list.x = Me.0
 list.y = Me.1
@@ -475,7 +475,7 @@ map.`!` K V =
        | if no Old then Bs.H <= [[K V]@Xs]
          else Old.1 <= V
 | Void
-map.`$` K =
+map.del K =
 | Bs = Me.buckets
 | H = K.hash%Bs.size
 | Xs = Bs.H
