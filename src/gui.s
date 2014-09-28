@@ -84,7 +84,6 @@ cursor F =
   | Gfx.hotspot <= "[Skin]/[F].txt".get.utf8.parse
   | Gfx
 
-timer Interval Handler = [@GUI.timers! [Interval (clock)+Interval Handler]]
 
 // FIXME: expose inheritance and make them part of `widget` superclass
 _.input @E =
@@ -176,9 +175,10 @@ arrow.render = skin "arrow/[Me.direction]-[Me.state]"
 arrow.input @In = case In
   [mice left 1 P] | case Me.state normal
                     | Me.state <= \pressed
-                    | timer 0.25: => when Me.state >< pressed
-                                     | Me.on_click{}{}
-                                     | 1
+                    | Repeat = => when Me.state >< pressed
+                                  | Me.on_click{}{}
+                                  | 1
+                    | GUI.add_timer{0.25 Repeat}
   [mice left 0 P] | case Me.state pressed
                     | Me.on_click{}{}
                     | Me.state <= \normal
@@ -234,15 +234,24 @@ gui.render =
   | Pop = Me.popup
   | when got Pop: FB.blit{XY-[0 Pop.h] Pop}
 | FB
+gui.add_timer Interval Handler =
+| [@Me.timers! [Interval (clock)+Interval Handler]]
+gui.update_timers Time =
+| Ts = Me.timers
+| less Ts.size: leave 0
+| Me.timers <= [] // user code can insert additional timers
+| Remove = []
+| for [N T] Ts.i: case T [Interval Expiration Fn]:
+  | when Time >> Expiration
+    | if Fn{} then Me.timers.N.1 <= (Time)+Interval
+      else push N Remove
+| when Remove.size
+  | N = -1
+  | Me.timers <= Me.timers.skip{X=>Remove.locate{N!+1}^got}
+| 0
 gui.input Es =
 | T = clock
-| /*Ts = Me.timers
-| Me.timers <= [] // user code can insert additional timers
-| Ts = map [Interval Expiration Fn] Ts
-  | if T < Expiration then [Interval Expiration Fn]
-    else if Fn{} then [Interval (clock)+Interval Fn]
-    else 0
-| [@Ts.skip{0} @Me.timers!]*/
+| Me.update_timers{T}
 | [NW_XY NW] = Me.root.itemAt{Me.mice_xy [0 0]} //new widget under cursor
 | Me.popup <= NW.popup
 | Me.cursor <= NW.cursor
