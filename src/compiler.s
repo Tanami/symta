@@ -175,6 +175,12 @@ ssa_apply K F As =
   | for [I V] Vs.i: ssa arg_store E I V
   | if F.is_keyword then ssa call K H else ssa call_tagged K H
 
+resolve_type Name =
+| TypeNameBytes = ssa_cstring Name
+| TypeVar = ssa_global t
+| push [resolve_type TypeVar TypeNameBytes] GRawInits
+| TypeVar
+
 resolve_method Name =
 | M = GResolvedMethods.Name
 | when got M: leave M
@@ -304,6 +310,10 @@ ssa_data K Type Xs =
 | ssa alloc_data K TypeVar Size
 | for [I X] Xs.i: ssa dinit K I X^ev
 
+ssa_subtype K Super Sub =
+| ssa subtype Super.1^resolve_type Sub.1^resolve_type
+| ssa move K 0
+
 ssa_dget K Src Off =
 | less Off.is_int: bad "dget: offset must be integer"
 | ssa dget K Src^ev Off
@@ -316,9 +326,7 @@ ssa_dset K Dst Off Value =
 
 ssa_dmet K MethodName TypeName Handler =
 | MethodVar = MethodName.1^resolve_method
-| TypeNameBytes = ssa_cstring TypeName.1
-| TypeVar = ssa_global t
-| push [resolve_type TypeVar TypeNameBytes] GRawInits
+| TypeVar = resolve_type TypeName.1
 | ssa dmet MethodVar TypeVar Handler^ev
 | ssa move K 0
 
@@ -391,6 +399,7 @@ ssa_form K Xs = case Xs
   [_goto Name] | ssa_goto Name
   [_mark Name] | ssa_mark Name
   [_data Type @Xs] | ssa_data K Type Xs
+  [_subtype Super Sub] | ssa_subtype K Super Sub
   [_dget Src Index] | ssa_dget K Src Index
   [_dset Dst Index Value] | ssa_dset K Dst Index Value
   [_dmet Method Type Handler] | ssa_dmet K Method Type Handler

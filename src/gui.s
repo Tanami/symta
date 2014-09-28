@@ -12,6 +12,22 @@ ImgCache = Void
 FontCache = Void
 FontTints = Void
 
+data widget
+
+widget.input @E =
+widget.items = Void
+widget.render = Me
+widget.draw G P =
+widget.popup = Void
+widget.cursor = \point
+widget.itemAt Point XY =
+| Items = Me.items
+| when no Items: leave [XY Me]
+| Item = Items.find{I => Point.in{I.meta_}}
+| when no Item: leave [XY Me]
+| ItemXY = Item.meta_.take{2}
+| Item.itemAt{Point-ItemXY XY+ItemXY}
+
 cfg P = P.get.utf8.lines{}{?parse}.skip{is.[]}
 
 setSkin Path =
@@ -52,7 +68,7 @@ font.draw G X Y Tint Text =
     | CX <= CX+W+1
   | CY !+ H
 
-data txt g value_ size tint font
+data txt.widget g value_ size tint font
 txt Value size/small tint/white =
 | R = new_txt 0 '' Size Tint Size^font
 | R.value <= Value
@@ -84,32 +100,16 @@ cursor F =
   | Gfx.hotspot <= "[Skin]/[F].txt".get.utf8.parse
   | Gfx
 
-
-// FIXME: expose inheritance and make them part of `widget` superclass
-_.input @E =
-_.items = Void
-_.render = Me
-_.draw G P =
-_.popup = Void
-_.cursor = \point
-_.itemAt Point XY =
-| Items = Me.items
-| when no Items: leave [XY Me]
-| Item = Items.find{I => Point.in{I.meta_}}
-| when no Item: leave [XY Me]
-| ItemXY = Item.meta_.take{2}
-| Item.itemAt{Point-ItemXY XY+ItemXY}
-
-data spacer w h
+data spacer.widget w h
 spacer W H = new_spacer W H
 spacer.as_text = "#spacer{[Me.w] [Me.h]}"
 
-data pic value
+data pic.widget value
 pic Path = new_pic value
 pic.render = if Me.value.is_text then skin Me.value else Me.value
 pic.as_text = "#pic{[Me.value]}"
 
-data tabs tab all
+data tabs.widget tab all
 tabs Initial Tabs = new_tabs Tabs.Initial Tabs
 tabs.pick TabName = Me.tab <= Me.all.TabName
 tabs.as_text = "#tabs{[Me.tab]}"
@@ -119,11 +119,11 @@ tabs._ Name =
 | Me.apply_method{M}
 
 
-data canvas w h paint
+data canvas.widget w h paint
 canvas W H Paint = new_canvas W H Paint
 canvas.draw G P = case Me (F<~).paint: F G P Me.w Me.h 
 
-data bar value_ bg
+data bar.widget value_ bg
 bar InitialValue = new_bar InitialValue.clip{0 100} (skin "bar/bg")
 bar.render = Me
 bar.value = Me.value_
@@ -132,7 +132,7 @@ bar.draw G P =
 | G.blit{P Me.bg}
 | G.rect{#347004 1 P+[3 3] [152*Me.value_/100 14]}
 
-data button value on_click state over w_size h_size skin cache
+data button.widget value on_click state over w_size h_size skin cache
 button Text Fn state/normal w_size/large h_size/medium =
 | new_button Text Fn State 0 W_size H_size Void (m)
 button.reskin =
@@ -169,7 +169,7 @@ button.input @In = case In
                     | Me.state <= \normal
 button.as_text = "#button{[Me.value]}"
 
-data arrow direction on_click state
+data arrow.widget direction on_click state
 arrow Direction Fn state/normal = new_arrow Direction Fn State
 arrow.render = skin "arrow/[Me.direction]-[Me.state]"
 arrow.input @In = case In
@@ -184,7 +184,7 @@ arrow.input @In = case In
                     | Me.state <= \normal
 arrow.as_text = "#arrow{[Me.direction] state([Me.state])}"
 
-data box w h dir spacing items rendered
+data box.widget w h dir spacing items rendered
 box Direction Spacing @Xs =
 | Items = for X Xs: new_meta X [0 0 1 1]
 | new_box 0 0 Direction Spacing Items Void
@@ -256,13 +256,14 @@ gui.input Es =
 | Me.popup <= NW.popup
 | Me.cursor <= NW.cursor
 | for E Es: case E
-  [mice_move XY] | Me.mice_xy <= XY
-                 | NW.input{mice_move XY XY-NW_XY}
-                 | LW = Me.last_widget
-                 | when LW^address <> NW^address:
-                   | when got LW: LW.input{mice over 0 XY}
-                   | Me.last_widget <= NW
-                   | NW.input{mice over 1 XY}
+  [mice_move XY]
+    | Me.mice_xy <= XY
+    | NW.input{mice_move XY XY-NW_XY}
+    | LW = Me.last_widget
+    | when LW^address <> NW^address:
+      | when got LW: LW.input{mice over 0 XY}
+      | Me.last_widget <= NW
+      | NW.input{mice over 1 XY}
   [mice Button State]
     | MP = Me.mice_xy
     | NW.input{mice Button State MP-NW_XY}
@@ -274,7 +275,7 @@ gui.input Es =
       | FW.input{focus 1 MP-NW_XY}
     | LastClickTime = Me.click_time.Button
     | when got LastClickTime and T-LastClickTime < 0.25:
-      | NW.input{"double_[Button]" 1 MP-NW_XY}
+      | NW.input{mice "double_[Button]" 1 MP-NW_XY}
     | Me.click_time.Button <= T
   [key Key State] | Me.keys.Key <= State
                   | NW.input{key Key State Me.mice_xy-Me.focus_xy}
@@ -285,7 +286,8 @@ gui.exit Result =
 | Me.fb <= Void
 gui Root = //FIXME: create a default skin and allow picking user defined skins
 | setSkin '/Users/nikita/Documents/git/symta/build/test_macro/data/ui'
-| GUI <= new_gui Root [] [0 0] point Void gfx{1 1} (m) Void Void Void [0 0] (m)
+| GUI <= new_gui Root [] [0 0] point Void gfx{1 1} (m) Void
+                 (new_widget) (new_widget) [0 0] (m)
 | show: Es => | GUI.input{Es}
               | GUI.render
 | R = GUI.result

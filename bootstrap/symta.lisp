@@ -561,6 +561,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! e v vs (ssa 'arg_store e (incf i) v)
   ! if (fn-sym? f) (ssa 'call k h) (ssa 'call_tagged k h))
 
+(to resolve-type name
+  ! type-name-bytes = ssa-cstring name
+  ! type-var = ssa-global "t"
+  ! push `(resolve_type ,type-var ,type-name-bytes) *ssa-raw-inits*
+  ! type-var)
+
 (to resolve-method name
   ! m = gethash name *resolved-methods*
   ! when m (return-from resolve-method m)
@@ -710,6 +716,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! i = -1
   ! e x xs (ssa 'dinit k (incf i) (ev x)))
 
+(to ssa-subtype k super sub
+  ! ssa 'subtype (resolve-type (second super)) (resolve-type (second sub))
+  ! ssa 'move k 0)
+
 (to ssa-dget k src off
   ! unless (integerp off) (error "dget: offset must be integer")
   ! ssa 'dget k (ev src) off)
@@ -723,9 +733,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-dmet k method-name type-name handler
   ! method-var = resolve-method (second method-name)
-  ! type-name-bytes = ssa-cstring (second type-name)
-  ! type-var = ssa-global "t"
-  ! push `(resolve_type ,type-var ,type-name-bytes) *ssa-raw-inits*
+  ! type-var = resolve-type (second type-name)
   ! ssa 'dmet method-var type-var (ev handler)
   ! ssa 'move k 0)
 
@@ -806,6 +814,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_goto" name) (ssa-goto name))
     (("_mark" name) (ssa-mark name))
     (("_data" type . xs) (ssa-data k type xs))
+    (("_subtype" super sub) (ssa-subtype k super sub))
     (("_dget" src index) (ssa-dget k src index))
     (("_dset" dst index value) (ssa-dset k dst index value))
     (("_dmet" method type handler) (ssa-dmet k method type handler))
@@ -1182,12 +1191,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! expand-assign v ys)
 
 (to expand-block-item-data name fields
+  ! super = ()
+  ! while (consp name)
+    (match name
+      (("." a b)
+       (setf name a)
+       (push b super))
+      (else (error "bad data declarator: ~a" name)))
   ! gs = m f fields (ssa-name "A")
   ! o = ssa-name "O"
   ! v = ssa-name "V"
   ! j = -1
   ! k = -1
   ! `(("=" (,"new_{name}" ,@gs) ("_data" ,name ,@gs))
+      ,@(m s super `("_subtype" ,s ,name))
       ("=" (("." ,name ,"is_{name}")) 1)
       ("=" (("." "_" ,"is_{name}")) 0)
       ,@(m f fields `("=" (("." ,name ,f)) ("_dget" "Me" ,(incf j))))

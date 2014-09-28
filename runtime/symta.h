@@ -145,6 +145,7 @@ typedef struct api_t {
   void (*fatal_chars)(struct api_t *api, char *msg);
   void **(*resolve_method)(struct api_t *api, char *name);
   int (*resolve_type)(struct api_t *api, char *name);
+  void (*add_subtype)(struct api_t *api, intptr_t super, intptr_t sub);
   void (*set_type_size_and_name)(struct api_t *api, intptr_t tag, intptr_t size, void *name);
   void (*set_method)(struct api_t *api, void *method, void *type, void *handler);
   void *(*find_export)(struct api_t *api, void *name, void *exports);
@@ -218,6 +219,7 @@ typedef void *(*pfun)(REGS);
 #define RESOLVE_METHOD(dst,name) dst = api->resolve_method(api, name);
 #define SET_TYPE_SIZE_AND_NAME(tag,size,name) api->set_type_size_and_name(api,tag,size,name);
 #define DMET(method,type,handler) api->set_method(api,method,type,handler);
+#define SUBTYPE(super,sub) api->add_subtype(api,(intptr_t)(super),(intptr_t)(sub));
 
 #define IS_LIST(o) (O_TAG(o) == TAG(T_LIST))
 

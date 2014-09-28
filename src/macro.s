@@ -463,10 +463,16 @@ expand_assign_result As =
 | expand_assign V Ys
 
 expand_block_item_data Name Fields =
+| Super = []
+| while Name.is_list: case Name
+  ['.' A B] | Name <= A
+            | push B Super
+  Else | mex_error "data: bad declarator [Name]"
 | Gs = map F Fields: @rand 'A'
 | O = @rand 'O'
 | V = @rand 'V'
 | [[`=` ["new_[Name]" @Gs] [_data Name @Gs]]
+   @(map S Super [_subtype S Name])
    [`=` [[`.` Name "is_[Name]"]] 1]
    [`=` [[`.` '_' "is_[Name]"]] 0]
    @(map [I F] Fields.i [`=` [[`.` Name F]]  [_dget 'Me' I]])

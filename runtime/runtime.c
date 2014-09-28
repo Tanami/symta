@@ -103,7 +103,7 @@ static void **resolve_method(api_t *api, char *name) {
   return methods[i];
 }
 
-static void add_subtype(api_t *api, int type, int subtype);
+static void add_subtype(api_t *api, intptr_t type, intptr_t subtype);
 static void *collect_data(void *o);
 
 #define SET_COLLECTOR(type,handler) api->collectors[type] = handler;
@@ -170,7 +170,7 @@ static void set_method_r(api_t *api, void *method, void *type, void *handler, in
   }
 }
 
-static void add_subtype(api_t *api, int type, int subtype) {
+static void add_subtype(api_t *api, intptr_t type, intptr_t subtype) {
   int j;
   if (type == subtype) return;
   subtypings[type].items[subtypings[type].used++] = subtype;
@@ -2039,6 +2039,7 @@ static api_t *init_api() {
   api->fatal_chars = fatal_error_chars;
   api->resolve_method = resolve_method;
   api->resolve_type = resolve_type;
+  api->add_subtype = add_subtype;
   api->set_type_size_and_name = set_type_size_and_name;
   api->set_method = set_method;
   api->find_export = find_export;
