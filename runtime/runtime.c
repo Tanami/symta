@@ -1749,25 +1749,26 @@ static void gc_lifts() {
   lifted_count = 0;
   ys = Lifts;
   while (xs) {
-    void **x = (void**)LIFTS_HEAD(xs);
-    if (!IMMEDIATE(*x)) {
-      void *p;
-      GC_REC(p, *x);
+    void **p = (void**)LIFTS_HEAD(xs);
+    if ((uintptr_t)*p&LIFT_FLAG) {
+      void *q;
+      GC_REC(q, *p);
+      *--lifted = q;
       *--lifted = p;
-      *--lifted = x;
-      *x = 0;
+      *p = 0;
       lifted_count++;
     }
     xs = LIFTS_TAIL(xs);
   }
   for (i = 0; i < lifted_count; i++) {
-    void **x = (void**)*lifted++;
-    *x = (void*)*lifted++;
-    if (ON_CURRENT_LEVEL(x)) {
+    void **p = (void**)*lifted++;
+    *p = (void*)*lifted++;
+    if (ON_CURRENT_LEVEL(p)) {
       // object got lifted to the level of it's holder
       //fprintf(stderr, "lifted!\n");
     } else { // needs future lifting
-      LIFTS_CONS(ys, x, ys);
+      *p = (void*)((uintptr_t)*p | LIFT_FLAG);
+      LIFTS_CONS(ys, p, ys);
     }
   }
   if (lifted_count > max_lifted) {

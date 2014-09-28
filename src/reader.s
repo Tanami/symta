@@ -1,8 +1,8 @@
 GTable = Void
+GSpecs = Void //kludge to recognize if/then/else
 GError = Msg => bad Msg
 GInput = Void
 GOutput = Void
-GSpecs = Void
 
 data text_stream chars origin row col off last len
 text_stream.`{}` K = Me.chars.K
@@ -253,7 +253,7 @@ binary_loop Ops Down E =
   | O.parsed <= [`{}`]
   | leave: binary_loop Ops Down [O E @As]
 | when O^token_is{`!`}: leave: binary_loop Ops Down [O E]
-| B = &Down or parser_error "no right operand for" o
+| B = &Down or parser_error "no right operand for" O
 | less O^token_is{'.'} and E^token_is{integer} and B^token_is{integer}:
   | leave: binary_loop Ops Down [O E B]
 | V = "[E.value].[B.value]"

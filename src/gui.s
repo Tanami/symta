@@ -1,5 +1,9 @@
 use gfx show
 
+int.in Start End = Start << Me and Me < End
+list.in [RX RY RW RH] = Me.0.in{RX RX+RW} and Me.1.in{RY RY+RH}
+rects_intersect [AX AY AW AH] [BX BY BW BH] = AX<BX+BW and AY<BY+BH and BX<AX+AW and BY<AY+AH
+
 GUI = Void
 
 Skin = Void
@@ -83,13 +87,19 @@ cursor F =
 timer Interval Handler = [@GUI.timers! [Interval (clock)+Interval Handler]]
 
 // FIXME: expose inheritance and make them part of `widget` superclass
-_.input E =
-_.items =
+_.input @E =
+_.items = Void
 _.render = Me
 _.draw G P =
-_.popup = Me
-_.cursor = Void
-_.itemAt Where XY = [0 0] // now Me is the Widget
+_.popup = Void
+_.cursor = \point
+_.itemAt Point XY =
+| Items = Me.items
+| when no Items: leave [XY Me]
+| Item = Items.find{I => Point.in{I.meta_}}
+| when no Item: leave [XY Me]
+| ItemXY = Item.meta_.take{2}
+| Item.itemAt{Point-ItemXY XY+ItemXY}
 
 data spacer w h
 spacer W H = new_spacer W H
@@ -102,11 +112,13 @@ pic.as_text = "#pic{[Me.value]}"
 
 data tabs tab all
 tabs Initial Tabs = new_tabs Tabs.Initial Tabs
-tabs.items = Me.tab.items
-tabs.render = Me.tab.render
-tabs.input E = Me.tab.input{E}
 tabs.pick TabName = Me.tab <= Me.all.TabName
 tabs.as_text = "#tabs{[Me.tab]}"
+tabs._ Name =
+| M = _this_method
+| Me.0 <= Me.0.tab
+| Me.apply_method{M}
+
 
 data canvas w h paint
 canvas W H Paint = new_canvas W H Paint
@@ -150,10 +162,10 @@ button.render =
 | State = Me.state
 | when State >< normal and Me.over: State <= \over
 | Me.cache.Skin.State
-button.input In = case In
-  [mice_over S P] | Me.over <= S
-  [mice_left 1 P] | case Me.state normal: Me.state <= \pressed
-  [mice_left 0 P] | case Me.state pressed
+button.input @In = case In
+  [mice over S P] | Me.over <= S
+  [mice left 1 P] | case Me.state normal: Me.state <= \pressed
+  [mice left 0 P] | case Me.state pressed
                     | when Me.over: Me.on_click{}{}
                     | Me.state <= \normal
 button.as_text = "#button{[Me.value]}"
@@ -161,13 +173,13 @@ button.as_text = "#button{[Me.value]}"
 data arrow direction on_click state
 arrow Direction Fn state/normal = new_arrow Direction Fn State
 arrow.render = skin "arrow/[Me.direction]-[Me.state]"
-arrow.input In = case In
-  [mice_left 1 P] | case Me.state normal
+arrow.input @In = case In
+  [mice left 1 P] | case Me.state normal
                     | Me.state <= \pressed
                     | timer 0.25: => when Me.state >< pressed
                                      | Me.on_click{}{}
                                      | 1
-  [mice_left 0 P] | case Me.state pressed
+  [mice left 0 P] | case Me.state pressed
                     | Me.on_click{}{}
                     | Me.state <= \normal
 arrow.as_text = "#arrow{[Me.direction] state([Me.state])}"
@@ -202,6 +214,7 @@ box.draw G P =
   | N <= case D v(N+H+S) h(N+W+S)
 
 data gui root timers mice_xy cursor result fb keys popup
+         last_widget focus_widget focus_xy click_time
 gui.render =
 | FB = Me.fb
 | when no FB: leave Void
@@ -223,28 +236,51 @@ gui.render =
 | FB
 gui.input Es =
 | T = clock
-| Ts = Me.timers
+| /*Ts = Me.timers
 | Me.timers <= [] // user code can insert additional timers
 | Ts = map [Interval Expiration Fn] Ts
   | if T < Expiration then [Interval Expiration Fn]
     else if Fn{} then [Interval (clock)+Interval Fn]
     else 0
-| [@Ts.skip{0} @Me.timers!]
-| [NP NW] = Me.root.itemAt{Me.mice_xy [0 0]} //used to determine when mouse leaves widget
+| [@Ts.skip{0} @Me.timers!]*/
+| [NW_XY NW] = Me.root.itemAt{Me.mice_xy [0 0]} //new widget under cursor
+| Me.popup <= NW.popup
+| Me.cursor <= NW.cursor
 | for E Es: case E
   [mice_move XY] | Me.mice_xy <= XY
-  [mice Button State] | 
-  [key Key State] | 
+                 | NW.input{mice_move XY XY-NW_XY}
+                 | LW = Me.last_widget
+                 | when LW^address <> NW^address:
+                   | when got LW: LW.input{mice over 0 XY}
+                   | Me.last_widget <= NW
+                   | NW.input{mice over 1 XY}
+  [mice Button State]
+    | MP = Me.mice_xy
+    | NW.input{mice Button State MP-NW_XY}
+    | FW = Me.focus_widget
+    | when FW^address <> NW^address
+      | when got FW: FW.input{focus 0 MP-Me.focus_xy}
+      | Me.focus_widget <= NW
+      | Me.focus_xy <= NW_XY
+      | FW.input{focus 1 MP-NW_XY}
+    | LastClickTime = Me.click_time.Button
+    | when got LastClickTime and T-LastClickTime < 0.25:
+      | NW.input{"double_[Button]" 1 MP-NW_XY}
+    | Me.click_time.Button <= T
+  [key Key State] | Me.keys.Key <= State
+                  | NW.input{key Key State Me.mice_xy-Me.focus_xy}
   Else |
+| Void
 gui.exit Result =
 | Me.result <= Result
 | Me.fb <= Void
 gui Root = //FIXME: create a default skin and allow picking user defined skins
 | setSkin '/Users/nikita/Documents/git/symta/build/test_macro/data/ui'
-| GUI <= new_gui Root [] [0 0] point Void gfx{1 1} (m) Void
+| GUI <= new_gui Root [] [0 0] point Void gfx{1 1} (m) Void Void Void [0 0] (m)
 | show: Es => | GUI.input{Es}
               | GUI.render
 | R = GUI.result
+| GUI.fb.free
 | GUI <= Void
 | R
 

@@ -26,6 +26,8 @@
 #define TAGH_MASK ((((uintptr_t)1<<TAGH_BITS)-1)<<TAGH_SHIFT)
 #define ALIGN_MASK (((uintptr_t)1<<ALIGN_BITS)-1)
 
+#define LIFT_FLAG ((uintptr_t)4)
+
 #define O_TAGL(o) ((uintptr_t)(o)&TAGL_MASK)
 #define O_TAGH(o) ((uintptr_t)(o)>>TAGH_SHIFT)
 #define O_TAG(o) ((uintptr_t)(o)&(TAGH_MASK|TAGL_MASK))
@@ -319,8 +321,12 @@ typedef void *(*collector_t)( void *o);
 #define LIFT(base,pos,value) \
   { \
     void **p_ = (void**)(base)+(pos); \
-    *p_ = (value); \
-    if (!IMMEDIATE(value) && O_LEVEL(base) < O_LEVEL(value)) { \
+    if (IMMEDIATE(value)) { \
+      *p_ = (value); \
+    } else if (O_LEVEL(value) <= O_LEVEL(base)) { \
+      *p_ = (void*)((uintptr_t)(value) & ~LIFT_FLAG); \
+    } else { \
+      *p_ = (void*)((uintptr_t)(value) | LIFT_FLAG); \
       LIFTS_CONS(Lifts, p_, Lifts); \
     } \
   }
