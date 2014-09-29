@@ -15,49 +15,49 @@ new_cmap Xs =
 | P
 
 gfx W H = new_gfx (new_gfx_ W H)
-gfx.free = free_gfx Me.handle
-gfx.w = gfx_w Me.handle
-gfx.h = gfx_h Me.handle
-gfx.hotspot = [(gfx_hotspot_x Me.handle) (gfx_hotspot_y Me.handle)]
-gfx.set_hotspot [X Y] = gfx_set_hotspot Me.handle X Y
-gfx.get X Y = gfx_get Me.handle X Y
-gfx.set X Y Color = gfx_set Me.handle X Y Color
-gfx.clear Color = gfx_clear Me.handle Color
-gfx.line Color A B = gfx_line Me.handle Color A.0 A.1 B.0 B.1
-gfx.rect Color Fill X Y W H = gfx_rect Me.handle Color Fill X Y W H
-gfx.circle Color Fill C R = gfx_circle Me.handle Color Fill C.0 C.1 R
-gfx.resize W H = gfx_resize Me.handle W H
+gfx.free = free_gfx $handle
+gfx.w = gfx_w $handle
+gfx.h = gfx_h $handle
+gfx.hotspot = [(gfx_hotspot_x $handle) (gfx_hotspot_y $handle)]
+gfx.set_hotspot [X Y] = gfx_set_hotspot $handle X Y
+gfx.get X Y = gfx_get $handle X Y
+gfx.set X Y Color = gfx_set $handle X Y Color
+gfx.clear Color = gfx_clear $handle Color
+gfx.line Color A B = gfx_line $handle Color A.0 A.1 B.0 B.1
+gfx.rect Color Fill X Y W H = gfx_rect $handle Color Fill X Y W H
+gfx.circle Color Fill C R = gfx_circle $handle Color Fill C.0 C.1 R
+gfx.resize W H = gfx_resize $handle W H
 gfx.cmap =
-| P = gfx_cmap Me.handle
+| P = gfx_cmap $handle
 | less P: leave 0
 | dup I 256: _ffi_get uint32_t P I
 gfx.set_cmap NewCM =
 | when NewCM.size > 256: bad "cant set color map larger than 256"
-| P = gfx_enable_cmap Me.handle
+| P = gfx_enable_cmap $handle
 | for [I E] NewCM.i: _ffi_set uint32_t P I E
 gfx.blit P Src rect/0 flipX/0 flipY/0 map/0 =
 | less Src.is_gfx:
   | Src.draw{Me P}
   | leave 0
 | [SX SY SW SH] = if Rect then Rect else [0 0 Src.w Src.h]
-| gfx_blit Me.handle P.0 P.1 Src.handle SX SY SW SH FlipX FlipY Map
+| gfx_blit $handle P.0 P.1 Src.handle SX SY SW SH FlipX FlipY Map
 gfx.margins =
-| P = gfx_margins Me.handle
+| P = gfx_margins $handle
 | [(_ffi_get uint32_t P 0) (_ffi_get uint32_t P 1)
    (_ffi_get uint32_t P 2) (_ffi_get uint32_t P 3)]
 gfx.cut X Y W H =
 | G = gfx W H
 | G.clear{0}
-| CMap = Me.cmap
+| CMap = $cmap
 | when CMap: G.cmap <= CMap
 | G.blit{[0 0] Me rect [X Y W H]}
 | G
-gfx.copy = Me.cut{0 0 Me.w Me.h}
+gfx.copy = $cut{0 0 $w $h}
 gfx.frames W H =
-| GW = Me.w
-| dup I GW*Me.h/(W*H): Me.cut{I*W%GW I*W/GW*H W H}
+| GW = $w
+| dup I GW*$h/(W*H): $cut{I*W%GW I*W/GW*H W H}
 gfx.render = Me
-gfx.as_text = "#gfx{[Me.w] [Me.h]}"
+gfx.as_text = "#gfx{[$w] [$h]}"
 
 load_png Filename =
 | Handle = gfx_load_png Filename

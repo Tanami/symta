@@ -280,7 +280,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (! as = /parse (getf o :value)
      ! as = if (find-if #'delim? as) (list as) as ;allow Xs.map{X=>...}
      ! ret (/binary-loop ops down `((,@o :parsed "{}") ,e ,@as)))
-  ! when (token-is :! o) (ret (/binary-loop ops down `(,o ,e)))
   ! b = try (funcall down) (parser-error "no right operand for" o)
   ! unless (and (token-is :. o) (token-is :integer e) (token-is :integer b))
     (ret (/binary-loop ops down (list o e b)))
@@ -289,8 +288,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ret (/binary-loop ops down f))
 
 (to /binary down ops ! a = try (funcall down) :fail ! /binary-loop ops down a)
-(to /suffix ! /binary #'/term '(:. :^ :-> :|{}| :!))
-(to /prefix ! o = try (/op '(:negate :\\ :$ :@ :&)) (/suffix)
+(to /suffix ! /binary #'/term '(:. :^ :-> :|{}|))
+(to /prefix ! o = try (/op '(:negate :\\ :$ :@ :& :!)) (/suffix)
             ! when (token-is :negate o) (ret (/negate o))
             ! a = try (/prefix) (parser-error "no operand for" o)
             ! list o a)
@@ -1521,6 +1520,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                 (x x)
   ! if (stringp y) (handle-package y) y)
 
+(to expand-self-ref o
+  ! match o
+     (("." x . xs) `("." ,(expand-self-ref x) ,@xs))
+     (('"{}" x . xs) `(,'"{}" ,(expand-self-ref x) ,@xs))
+     (("^" x . xs) `("^" ,(expand-self-ref x) ,@xs))
+     (else `("." "Me" ,o)))
+
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
   (let ((xs (normalize-matryoshka xs))
@@ -1621,9 +1627,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("as" name value expr) (expand-as name value expr))
         (("," (x . xs) . ys) `(,x ,xs ,@ys))
         (("," . xs) (error "bad `,`"))
-        (("$" ("{}" x . xs)) `("{}" ("$" ,x) ,@xs))
-        (("$" ("." a b)) `("." ("$" ,a) ,b))
-        (("$" expr) `("." "Me" ,expr))
+        (("$" x) (expand-self-ref x))
         (("init" var default)
          `("|" ("when" ("no" ,var) ("<=" (,var) ,default))
                ,var))

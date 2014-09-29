@@ -451,7 +451,7 @@ produce_ssa Entry Expr =
       GImportLibs (m)
   | ssa entry Entry
   | R = ssa_var result
-  | uniquify Expr!
+  | uniquify !Expr
   | Ssa = ssa_expr R Expr
   | ssa return R
   | ssa entry setup

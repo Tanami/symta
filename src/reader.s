@@ -5,19 +5,19 @@ GInput = Void
 GOutput = Void
 
 data text_stream chars origin row col off last len
-text_stream.`{}` K = Me.chars.K
-text_stream.peek = when Me.off < Me.len: Me.chars.(Me.off)
+text_stream.`{}` K = $chars.K
+text_stream.peek = when $off < $len: $chars.($off)
 text_stream.next =
-| when Me.off < Me.len
-  | Me.last <= Me.chars.(Me.off)
-  | Me.col !+ 1
-  | Me.off !+ 1
-  | when Me.last >< '\n'
-    | Me.col <= 0
-    | Me.row !+ 1
-  | Me.last
-text_stream.src = [Me.row Me.col Me.origin]
-text_stream.error Msg = bad "at [Me.src]: [Msg]"
+| when $off < $len
+  | $last <= $chars.($off)
+  | !$col + 1
+  | !$off + 1
+  | when $last >< '\n'
+    | $col <= 0
+    | !$row + 1
+  | $last
+text_stream.src = [$row $col $origin]
+text_stream.error Msg = bad "at [$src]: [Msg]"
 
 makeTextStream Text Origin = new_text_stream Text.list Origin 0 0 0 Void Text.size
 
@@ -175,9 +175,9 @@ read_multi_comment R Cs =
 | while O > 0
   | case [R.next R.peek]
       [X Void] | R.error{"`/*`: missing `*/`"}
-      [`*` `/`] | O !- 1
+      [`*` `/`] | !O - 1
                 | R.next
-      [`/` `*`] | O !+ 1
+      [`/` `*`] | !O + 1
                 | R.next
 | read_token R 0
 
@@ -252,7 +252,6 @@ binary_loop Ops Down E =
   | As <= if got As.find{&is_delim} then [As] else As //allows Xs.map{X=>...}
   | O.parsed <= [`{}`]
   | leave: binary_loop Ops Down [O E @As]
-| when O^token_is{`!`}: leave: binary_loop Ops Down [O E]
 | B = &Down or parser_error "no right operand for" O
 | less O^token_is{'.'} and E^token_is{integer} and B^token_is{integer}:
   | leave: binary_loop Ops Down [O E B]
@@ -261,9 +260,9 @@ binary_loop Ops Down E =
 | leave: binary_loop Ops Down F
 
 parse_binary Down Ops = binary_loop Ops Down: &Down or leave 0
-parse_suffix = parse_binary &parse_term [`.` `^` `->` `{}` `!`]
+parse_suffix = parse_binary &parse_term [`.` `^` `->` `{}`]
 parse_prefix =
-| O = parse_op [negate `\\` `$` `@` `&`] or leave (parse_suffix)
+| O = parse_op [negate `\\` `$` `@` `&` `!`] or leave (parse_suffix)
 | when O^token_is{negate}: leave O^parse_negate
 | [O (parse_prefix or parser_error "no operand for" O)]
 parse_pow = parse_binary &parse_prefix [`**`]

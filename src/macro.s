@@ -21,7 +21,7 @@ load_symbol Library Name =
 expand_list_hole_advanced H Hs Key Hit Miss =
 | [Again Took Rest Xs I N Else] = form: ~Again ~Took ~Rest ~Xs ~I ~N ~Else
 | Fail = form: if I < N
-               then | I !+ 1
+               then | !I + 1
                     | _goto Again
                else Miss
 | form | Xs = Key.list // ensure it is simple list
@@ -303,10 +303,11 @@ let @As =
   [[X@Xs] @Ys] | [X Xs @Ys]
   Else | mex_error "invalid arglist to `,`"
 
-`$` Expr = case Expr
-  [`.` A B] | [`.` [`$` A] B]
-  [`{}` X @Xs] | [`{}` [`$` X] @Xs]
-  Else | [`.` 'Me' Expr]
+expand_self_ref O = case O
+  [H<`.`+`{}`+`^` X @Xs] | [H (expand_self_ref X) @Xs]
+  Else | [`.` 'Me' O]
+
+`$` Expr = expand_self_ref Expr
 
 init Var Default = form | when (no Var) (`<=` (Var) Default)
                         | Var
@@ -346,7 +347,13 @@ expand_method_arg Expr =
   [`^` A B] | [B @As A]
   Else | if H.is_keyword then [H @As] else [_mcall H '{}' @As]
 
-`!!` @As = expand_assign_result As
+`!!` @As =
+| Ys = map A As A
+| V = Void
+| P = As.locate{&0[`!` X] =>| V<=X; 1}
+| when no P: mex_error "invalid !! - no ! in [As]"
+| Ys.P <= V
+| expand_assign V Ys
 
 is_incut X = case X [`@` Xs] 1
 
@@ -460,16 +467,6 @@ expand_assign Place Value =
   Else | [_set Place Value]
 
 `<=` Place Value = expand_assign Place.0 Value
-
-expand_assign_result As =
-| Ys = map A As A
-| V = Void
-| P = As.locate{X => case X [`!` X]
-                     | V <= X
-                     | 1}
-| when no P: mex_error 'invalid !! - no ! in [As]'
-| Ys.P <= V
-| expand_assign V Ys
 
 expand_block_item_data Name Fields =
 | Super = []
