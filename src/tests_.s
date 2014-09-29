@@ -132,6 +132,11 @@ test_list =
 data object x y z
 object.sum = $x + $y + $z
 
+data super
+super.method = 'Super'
+data sub.super
+sub.method = 'Sub'
+
 test_oop =
 | say 'testing OOP...'
 | O = new_object 1 2 3
@@ -141,6 +146,16 @@ test_oop =
 | less O.sum >< 1+2+3: failed
 | tsay 'O.x >< 1 and O.y >< 2 and O.z >< 3'
 | less O.x >< 1 and O.y >< 2 and O.z >< 3: failed
+| tsay "new_super{}.method >< 'Super'"
+| less new_super{}.method >< 'Super': failed
+| tsay "new_sub{}.method >< 'Sub'"
+| less new_sub{}.method >< 'Sub': failed
+| T = m{def(456) abc(123)}
+| tsay "T.'abc'+T.'def' >< 456+123"
+| less T.'abc'+T.'def' >< 456+123: failed
+| tsay "T.abc+T.def >< 456+123"
+| less T.abc+T.def >< 456+123: failed
+| 1
 
 run_tests =
 | test_int

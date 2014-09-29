@@ -4,6 +4,8 @@ GMacros = Void
 GDefaultLeave = Void
 GModuleCompiler = Void
 GSrc = [0 0 unknown]
+GTypes = Void
+GVarsTypes = []
 
 mex_error Message =
 | [Row Col Orig] = GSrc
@@ -296,7 +298,12 @@ let @As =
 `<>` A B = [_mcall A '<>' B]
 `^` A B = [B A]
 `.` A B = if A.is_keyword then [A B]
-          else if B.is_keyword then ['{}' ['.' A B]]
+          else if B.is_keyword
+               then | when A^is_var_sym: case GVarsTypes.find{?0><A} [Var Type]
+                      | Fields = GTypes.Type
+                      | P = got Fields and Fields.locate{B}
+                      | when got P: leave [_dget A P]
+                    | ['{}' ['.' A B]]
           else [_mcall A '.' B]
 `:` A B = [@A B]
 `,` @As = case As
@@ -459,9 +466,13 @@ expand_destructuring Value Bs =
 
 expand_assign Place Value =
 | case Place
-  [`.` Object Field] | if Field.is_keyword
-                       then [_mcall Object "set_[Field]" Value]
-                       else [_mcall Object "!" Field Value]
+  [`.` A B] | if B.is_keyword
+              then | when A^is_var_sym: case GVarsTypes.find{?0><A} [Var Type]
+                     | Fields = GTypes.Type
+                     | P = got Fields and Fields.locate{B}
+                     | when got P: leave [_dset A P Value]
+                   | [_mcall A "set_[B]" Value]
+              else [_mcall A "!" B Value]
   [`$` [`.` A B]] | expand_assign [`.` [`$` A] B] Value
   [`$` X] | expand_assign [`.` 'Me' X] Value
   Else | [_set Place Value]
@@ -476,6 +487,7 @@ expand_block_item_data Name Fields =
               then Super <= Super.skip{_}
               else push B Super
   Else | mex_error "data: bad declarator [Name]"
+| GTypes.Name <= Fields
 | Gs = map F Fields: @rand 'A'
 | O = @rand 'O'
 | V = @rand 'V'
@@ -487,7 +499,9 @@ expand_block_item_data Name Fields =
    @(map [I F] Fields.i [`=` [[`.` Name "set_[F]"] V]  [_dset 'Me' I V]])]
 
 expand_block_item_method Type Name Args Body =
-| less Name >< _: [\Me @!Args]
+| less Name >< _
+  | [\Me @!Args]
+  | when got GTypes.Type: Body <= form: _type Type $\Me Body
 | when Name >< _
   | case Args
     [Method As] | Args <= [['@' As]]
@@ -702,6 +716,7 @@ mex Expr =
   [_goto Name] | Expr
   [_quote X] | if X.is_list then expand_quoted_list X else Expr
   [_nomex X] | X // no macroexpand
+  [_type Type Var Body] | let GVarsTypes [[Var Type]@GVarsTypes]: mex Body
   [`&` O] | if O.is_keyword then O else [O^mex]
   [] | Expr
   [X@Xs] | Src = when Expr.is_meta: Expr.meta_ 
@@ -715,6 +730,7 @@ macroexpand Expr Macros ModuleCompiler =
       GExpansionDepth 0
       GExports []
       GModuleCompiler ModuleCompiler
+      GTypes (m)
   | R = mex Expr
   | R
 
