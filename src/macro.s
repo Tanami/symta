@@ -485,8 +485,15 @@ expand_block_item_data Name Fields =
    @(map [I F] Fields.i [`=` [[`.` Name "set_[F]"] V]  [_dset 'Me' I V]])]
 
 expand_block_item_method Type Name Args Body =
+| less Name >< _: [\Me @!Args]
+| when Name >< _
+  | case Args
+    [Method As] | Args <= [['@' As]]
+                | Body <= form: `|` (Method = _this_method)
+                                    Body
+    Else | mex_error "bad arglist for _; should be: Method Args"
 | Body <= form: default_leave_ Name $(expand_named Name Body)
-| [Void [_dmet Name Type [`=>` [\Me @Args] [_progn [_mark "[Type].[Name]"] Body]]]]
+| [Void [_dmet Name Type [`=>` Args [_progn [_mark "[Type].[Name]"] Body]]]]
 
 expand_block_item Expr =
 | Y = case Expr

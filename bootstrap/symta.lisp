@@ -827,6 +827,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     (("_fatal" msg) (ssa 'fatal (ev msg)))
     (("_method" name) (ssa 'move k (resolve-method (second name))))
     (("_this_method") (ssa 'this_method k))
+    (("_method_name" method) (ssa 'method_name k (ev method)))
     (("_type_id" o) (ssa 'type_id k (ev o)))
     (("_setjmp") (ssa 'setjmp k))
     (("_longjmp" state value) (ssa 'longjmp (ev state) (ev value)))
@@ -1207,9 +1208,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       ,@(m f fields `("=" (("." ,name ,"set_{f}") ,v) ("_dset" "Me" ,(incf k) ,v)))))
 
 (to expand-block-item-method type name args body
+  ! unless (equal name "_") (setf args `("Me" ,@args))
+  ! when (equal name "_")
+     (match args
+       ((method as)
+        (setf args `(("@" ,as)))
+        (setf body `("|" ("=" (,method) ("_this_method"))
+                         ,body)))
+       (else (error "bad arglist for `_`: ~a" args)))
   ! setf body `("default_leave_" ,name ,(expand-named name body))
-  ! list nil `("_dmet" ,name ,type ("=>" ("Me" ,@args)
-                                      ("_progn" ("_mark" ,"{type}.{name}") ,body))))
+  ! list nil `("_dmet" ,name ,type ("=>" ,args ("_progn" ("_mark" ,"{type}.{name}") ,body))))
 
 (to expand-block-item x
   ! y = match x

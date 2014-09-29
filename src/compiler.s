@@ -412,6 +412,7 @@ ssa_form K Xs = case Xs
   [_tag X] | ssa_fixed1 K fixnum_tag X
   [_fatal Msg] | ssa fatal Msg^ev
   [_this_method] | ssa this_method K
+  [_method_name Method] | ssa method_name K Method^ev
   [_method Name] | ssa move K: resolve_method Name.1
   [_type_id O] | ssa type_id K O^ev
   [_setjmp] | ssa setjmp K

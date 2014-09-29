@@ -101,7 +101,6 @@
   }
 
 #define HEAP_SIZE (32*1024*1024)
-#define BASE_HEAD_SIZE 1
 #define OBJ_HEAD_SIZE 2
 
 // should be less than C's stack, which is 1024*1024 bytes
@@ -236,7 +235,8 @@ typedef void *(*pfun)(REGS);
 #define LOAD_FIXNUM(dst,x) dst = (void*)FIXNUM(x)
 #define TEXT(dst,x) dst = api->alloc_text((char*)(x))
 #define DECL_LABEL(name) static void *name(REGS);
-#define THIS_METHOD(dst) dst = ADD_TAG(api->method, T_LIST);
+#define THIS_METHOD(dst) dst = api->method;
+#define METHOD_NAME(dst,method) dst = ((void**)(method))[T_NAME_TEXT];
 #define TYPE_ID(dst,o) dst = (void*)FIXNUM(O_TYPE(o));
 
 #define getArg(i) (*((void**)E+(i)))
@@ -261,7 +261,7 @@ typedef void *(*pfun)(REGS);
    { \
       void *f_; \
       f_ = ((void**)(m))[O_TYPE(o)]; \
-      k = O_FN(f_)(REGS_ARGS(f_)); \
+      CALL(k,f_); \
    }
 #define CALL_METHOD(k,o,m) \
    api->method = m; \
@@ -269,7 +269,7 @@ typedef void *(*pfun)(REGS);
 #define CALL_TAGGED(k,o) \
   { \
     if (O_TAG(o) == TAG(T_CLOSURE)) { \
-      k = O_FN(o)(REGS_ARGS(o)); \
+      CALL(k,o); \
     } else { \
       void *as = ADD_TAG((void**)Top+OBJ_HEAD_SIZE, T_LIST); \
       void *e; \

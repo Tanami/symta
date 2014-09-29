@@ -1447,30 +1447,26 @@ RETURNS(R)
 /*
 // that is how a method can be reapplied to other type:
 data meta object_ info_
-meta._ Name =
-| M = _this_method
-| Me.0 <= Me.0.object_
-| Me.apply_method{M}
+meta._ Method Args =
+| Args.0 <= Args.0.object_
+| Args.apply_method{Method}
 */
-BUILTIN2("_",sink,C_ANY,as,C_ANY,name)
+BUILTIN_VARARGS("_",sink)
+  void *name;
   void *o = REF(getArg(0),0);
+  METHOD_NAME(name, api->method);
   fprintf(stderr, "%s has no method ", print_object(tag_of(o)));
   fprintf(stderr, "%s\n", print_object(name));
   print_stack_trace(api);
   abort();
 RETURNS(0)
 
+// handles methods that werent defined or inherited by type
 BUILTIN_VARARGS("undefined",undefined)
   void *o = getArg(0);
   void **m = methods[M_SINK];
-  void *name = ((void**)api->method)[T_NAME_TEXT];
-  void *as = ADD_TAG(E, T_LIST);
-  void *e;
-  ARGLIST(e,2);
-  ARG_STORE(e,0,as);
-  ARG_STORE(e,1,name);
   CALL_METHOD_NO_SAVE(R,o,m);
-  return (void*)R;
+  return (void*)R; //no need to FLIP_HEAP or GC
 RETURNS(0)
 
 static struct {
@@ -2046,6 +2042,7 @@ static api_t *init_api() {
   api->load_lib = load_lib;
   api->text_chars = text_chars;
 
+#define BASE_HEAD_SIZE 1
   api->frame[0].base = api->heap[0] + HEAP_SIZE;
   api->top[0] = (void**)api->frame[0].base - BASE_HEAD_SIZE;
   api->frame[1].base = api->heap[1] + HEAP_SIZE;

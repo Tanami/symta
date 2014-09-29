@@ -2,8 +2,6 @@ non F = X => if F X then 0 else 1
 no X = Void >< X
 got X = Void <> X
 
-_.meta_ = Void
-
 _.`<>` B = not Me >< B
 _.`<<` B = not B < Me
 _.`>` B = B < Me
@@ -481,12 +479,14 @@ map.del K =
 | L = Xs.locate{X => X.0><K}
 | when got L: Bs.H <= $Xs.L
 | Me
-map._ Name =
-| if $size > 1 then $0.(Name.drop{4}) <= $1 else $0.Name
+map._ Method Args =
+| if Args.size > 1
+  then Args.0.(Method^_method_name.drop{4}) <= Args.1 // `set_`
+  else Args.0.(Method^_method_name)
 
 
 map.size = $buckets.map{X => if got X then X.size else 0}.sum
-map.list = $buckets.skip{X => X >< Void}.join
+map.list = $buckets.skip{Void}.join
 map.as_text = "#m{[$list{}{?0}]}"
 
 list.as_map =
@@ -515,10 +515,10 @@ list.pad Count Item =
 data macro name expander
 
 data meta object_ meta_
-meta._ Name =
-| M = _this_method
-| $0 <= $0.object_
-| $apply_method{M}
+_.meta_ = Void
+meta._ Method Args =
+| Args.0 <= Args.0.object_
+| Args.apply_method{Method}
 
 meta.is_list = $object_.is_list
 meta.is_text = $object_.is_text

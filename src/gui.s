@@ -113,11 +113,9 @@ data tabs.widget tab all
 tabs Initial Tabs = new_tabs Tabs.Initial Tabs
 tabs.pick TabName = $tab <= $all.TabName
 tabs.as_text = "#tabs{[$tab]}"
-tabs._ Name =
-| M = _this_method
-| $0 <= $0.tab
-| $apply_method{M}
-
+tabs._ Method Args =
+| Args.0 <= Args.0.tab
+| Args.apply_method{Method}
 
 data canvas.widget w h paint
 canvas W H Paint = new_canvas W H Paint
