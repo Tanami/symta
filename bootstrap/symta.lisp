@@ -1638,7 +1638,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("," (x . xs) . ys) `(,x ,xs ,@ys))
         (("," . xs) (error "bad `,`"))
         (("$" x) (expand-self-ref x))
-        (("init" var default)
+        (("have" var default)
          `("|" ("when" ("no" ,var) ("<=" (,var) ,default))
                ,var))
         ((z . zs)

@@ -39,7 +39,7 @@ setSkin Path =
 
 data font glyphs widths height
 
-font N = init FontCache.N:
+font N = have FontCache.N:
 | Path = "[Skin]/font/[N]"
 | G = gfx_load "[Path].png"
 | [W H] = "[Path].txt".get.utf8.parse
@@ -91,11 +91,11 @@ txt.set_value Text =
 
 font.as_text = "#font{}"
 
-skin F = init SkinCache.F: gfx_load "[Skin]/[F].png"
+skin F = have SkinCache.F: gfx_load "[Skin]/[F].png"
 
 cursor F =
 | F = "cursor/[F]"
-| init SkinCache.F: leave
+| have SkinCache.F: leave
   | Gfx = skin F
   | Gfx.hotspot <= "[Skin]/[F].txt".get.utf8.parse
   | Gfx

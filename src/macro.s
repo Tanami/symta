@@ -316,7 +316,7 @@ expand_self_ref O = case O
 
 `$` Expr = expand_self_ref Expr
 
-init Var Default = form | when (no Var) (`<=` (Var) Default)
+have Var Default = form | when (no Var) (`<=` (Var) Default)
                         | Var
 
 expand_method_arg_r A FX FY =
@@ -342,7 +342,7 @@ expand_method_arg_r A FX FY =
 expand_method_arg Expr =
 | X = Void
 | Y = Void
-| R = expand_method_arg_r Expr (N => init X: form ~X) (N => init Y: form ~Y)
+| R = expand_method_arg_r Expr (N => have X: form ~X) (N => have Y: form ~Y)
 | As = [X Y].skip{Void}
 | when As.size: Expr <= form: _fn As R
 | Expr
@@ -736,6 +736,6 @@ macroexpand Expr Macros ModuleCompiler =
 
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[]' 'm' '\\' 'form'
        'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for'
-       'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$' 'init'
+       'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$' 'have'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
        'ffi_begin' 'ffi' 'min' 'max' '"'
