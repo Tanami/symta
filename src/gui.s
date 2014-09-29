@@ -109,7 +109,7 @@ pic Path = new_pic value
 pic.render = if $value.is_text then skin $value else $value
 pic.as_text = "#pic{[$value]}"
 
-data tabs.widget tab all
+data tabs.~.widget tab all
 tabs Initial Tabs = new_tabs Tabs.Initial Tabs
 tabs.pick TabName = $tab <= $all.TabName
 tabs.as_text = "#tabs{[$tab]}"

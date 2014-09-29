@@ -1188,12 +1188,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! expand-assign v ys)
 
 (to expand-block-item-data name fields
-  ! super = ()
+  ! super = '("_")
   ! while (consp name)
     (match name
       (("." a b)
        (setf name a)
-       (push b super))
+       (if (equal b "~")
+           (setf super (remove-if (fn x ! equal x "_") super))
+           (push b super)))
       (else (error "bad data declarator: ~a" name)))
   ! gs = m f fields (ssa-name "A")
   ! o = ssa-name "O"

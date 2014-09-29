@@ -469,10 +469,12 @@ expand_assign Place Value =
 `<=` Place Value = expand_assign Place.0 Value
 
 expand_block_item_data Name Fields =
-| Super = []
+| Super = [_]
 | while Name.is_list: case Name
   ['.' A B] | Name <= A
-            | push B Super
+            | if B >< ~
+              then Super <= Super.skip{_}
+              else push B Super
   Else | mex_error "data: bad declarator [Name]"
 | Gs = map F Fields: @rand 'A'
 | O = @rand 'O'

@@ -129,9 +129,22 @@ test_list =
 | less Validate Ys: failed
 | 1
 
+data object x y z
+object.sum = $x + $y + $z
+
+test_oop =
+| say 'testing OOP...'
+| O = new_object 1 2 3
+| tsay 'O.is_object'
+| less O.is_object: failed
+| tsay 'O.sum >< 1+2+3'
+| less O.sum >< 1+2+3: failed
+| tsay 'O.x >< 1 and O.y >< 2 and O.z >< 3'
+| less O.x >< 1 and O.y >< 2 and O.z >< 3: failed
 
 run_tests =
 | test_int
 | test_list
+| test_oop
 
 export run_tests

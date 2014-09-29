@@ -8,7 +8,7 @@
 #define FN_GET_META  FIXNUM(-3)
 #define FN_GET_NARGS FIXNUM(-4)
 
-#define MAX_METHODS (8*1024)
+#define MAX_METHODS (4*1024)
 #define MAX_LIBS 1024
 
 // predefine method slots

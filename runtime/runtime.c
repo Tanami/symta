@@ -108,6 +108,8 @@ static void *collect_data(void *o);
 
 #define SET_COLLECTOR(type,handler) api->collectors[type] = handler;
 
+static int initializing = 1;
+
 static int resolve_type(api_t *api, char *name) {
   int i, j;
   for (i = 0; i < types_used; i++)
@@ -127,7 +129,9 @@ static int resolve_type(api_t *api, char *name) {
     SET_COLLECTOR(i, collect_data);
   }
 
-  add_subtype(api, T_OBJECT, i);
+  if (initializing) { //builtin types all inherit `_`
+    add_subtype(api, T_OBJECT, i);
+  }
 
   return i;
 }
@@ -1453,7 +1457,7 @@ meta._ Method Args =
 */
 BUILTIN_VARARGS("_",sink)
   void *name;
-  void *o = REF(getArg(0),0);
+  void *o = getArg(0);
   METHOD_NAME(name, api->method);
   fprintf(stderr, "%s has no method ", print_object(tag_of(o)));
   fprintf(stderr, "%s\n", print_object(name));
@@ -2065,9 +2069,11 @@ int main(int argc, char **argv) {
   api_t *api;
   void *R;
 
+  initializing = 1;
   api = init_api();
   init_args(api, argc, argv);
   init_builtins(api);
+  initializing = 0;
 
   runtime_reserved0 = get_heap_used(0);
   runtime_reserved1 = get_heap_used(1);

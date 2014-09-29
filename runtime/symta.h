@@ -17,7 +17,8 @@
 #define TAGH_BITS ((uintptr_t)10)
 #define ALIGN_BITS ((uintptr_t)3)
 
-#define MAX_TYPES (1<<TAGH_BITS)
+//#define MAX_TYPES (1<<TAGH_BITS)
+#define MAX_TYPES 512
 
 #define TAGH_SHIFT (64-TAGH_BITS)
 

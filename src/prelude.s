@@ -514,15 +514,11 @@ list.pad Count Item =
 
 data macro name expander
 
-data meta object_ meta_
+data meta.~ object_ meta_
 _.meta_ = Void
 meta._ Method Args =
 | Args.0 <= Args.0.object_
 | Args.apply_method{Method}
-
-meta.is_list = $object_.is_list
-meta.is_text = $object_.is_text
-meta.as_text = $object_.as_text
 
 LCG_Seed = Void
 LCG_M = 2147483647
