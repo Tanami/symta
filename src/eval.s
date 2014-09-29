@@ -51,7 +51,7 @@ add_imports Expr Deps =
    @(map D Deps [_import [_quote D.0] [_quote D.1]])]
 
 compile_expr Name Dst Expr =
-| Uses = [core prelude]
+| Uses = [rt_ core_]
 | Expr <= case Expr
             [`|` [use @Us] @Xs]
                | Uses <= [@Uses @Us]

@@ -1723,7 +1723,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                               ("_quote" ,(second d))))))
 
 (to symta-compile-expr name dst expr
-  ! uses = list "core" "prelude"
+  ! uses = list "rt_" "core_"
   ! expr = match expr
              (("|" ("use" . us) . xs)
               (setf uses `(,@uses ,@us))

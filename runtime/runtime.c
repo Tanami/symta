@@ -431,7 +431,7 @@ static void *load_lib(struct api_t *api, char *name) {
   char tmp[1024];
   void *exports;
 
-  if (name[0] != '/' && name[0] != '\\' && strcmp(name,"core")) {
+  if (name[0] != '/' && name[0] != '\\' && strcmp(name,"rt_")) {
     for (i = 0; i < lib_folders_used; i++) {
       sprintf(tmp, "%s/%s", lib_folders[i], name);
       if (file_exists(tmp)) break;
@@ -1945,7 +1945,7 @@ static void init_types(api_t *api) {
 
 static void init_builtins(api_t *api) {
   int i;
-  void *core;
+  void *rt;
 
   for (i = 0; builtins[i].name; i++) {
     void *t;
@@ -1954,19 +1954,19 @@ static void init_builtins(api_t *api) {
     builtins[i].fun = t;
   }
 
-  LIST_ALLOC(core, i);
+  LIST_ALLOC(rt, i);
   for (i = 0; builtins[i].name; i++) {
     void *pair;
     LIST_ALLOC(pair, 2);
     REF(pair,0) = builtins[i].name;
     REF(pair,1) = builtins[i].fun;
-    REF(core,i) = pair;
+    REF(rt,i) = pair;
   }
 
   LIST_ALLOC(lib_exports, MAX_LIBS);
 
-  lib_names[libs_used] = "core";
-  REF(lib_exports,libs_used) = core;
+  lib_names[libs_used] = "rt_";
+  REF(lib_exports,libs_used) = rt;
   ++libs_used;
 
   for (i = 0; i < 128; i++) {
