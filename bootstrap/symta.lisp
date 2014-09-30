@@ -1173,7 +1173,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
  ! match place
     (("." object field)
      (if (fn-sym? field)
-         `("_mcall" ,object ,"set_{field}" ,value)
+         `("_mcall" ,object ,"!{field}" ,value)
          `("_mcall" ,object "!" ,field ,value)))
     (("$" ("." a b)) (expand-assign `("." ("$" ,a) ,b) value))
     (("$" x) (expand-assign `("." "Me" ,x) value))
@@ -1207,7 +1207,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       ("=" (("." ,name ,"is_{name}")) 1)
       ("=" (("." "_" ,"is_{name}")) 0)
       ,@(m f fields `("=" (("." ,name ,f)) ("_dget" "Me" ,(incf j))))
-      ,@(m f fields `("=" (("." ,name ,"set_{f}") ,v) ("_dset" "Me" ,(incf k) ,v)))))
+      ,@(m f fields `("=" (("." ,name ,"!{f}") ,v) ("_dset" "Me" ,(incf k) ,v)))))
 
 (to expand-block-item-method type name args body
   ! unless (equal name "_") (setf args `("Me" ,@args))

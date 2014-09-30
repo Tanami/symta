@@ -19,7 +19,7 @@ gfx.free = free_gfx $handle
 gfx.w = gfx_w $handle
 gfx.h = gfx_h $handle
 gfx.hotspot = [(gfx_hotspot_x $handle) (gfx_hotspot_y $handle)]
-gfx.set_hotspot [X Y] = gfx_set_hotspot $handle X Y
+gfx.`!hotspot` [X Y] = gfx_set_hotspot $handle X Y
 gfx.get X Y = gfx_get $handle X Y
 gfx.set X Y Color = gfx_set $handle X Y Color
 gfx.clear Color = gfx_clear $handle Color
@@ -31,7 +31,7 @@ gfx.cmap =
 | P = gfx_cmap $handle
 | less P: leave 0
 | dup I 256: _ffi_get uint32_t P I
-gfx.set_cmap NewCM =
+gfx.`!cmap` NewCM =
 | when NewCM.size > 256: bad "cant set color map larger than 256"
 | P = gfx_enable_cmap $handle
 | for [I E] NewCM.i: _ffi_set uint32_t P I E

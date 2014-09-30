@@ -471,7 +471,7 @@ expand_assign Place Value =
                      | Fields = GTypes.Type
                      | P = got Fields and Fields.locate{B}
                      | when got P: leave [_dset A P Value]
-                   | [_mcall A "set_[B]" Value]
+                   | [_mcall A "![B]" Value]
               else [_mcall A "!" B Value]
   [`$` [`.` A B]] | expand_assign [`.` [`$` A] B] Value
   [`$` X] | expand_assign [`.` 'Me' X] Value
@@ -496,7 +496,7 @@ expand_block_item_data Name Fields =
    [`=` [[`.` Name "is_[Name]"]] 1]
    [`=` [[`.` '_' "is_[Name]"]] 0]
    @(map [I F] Fields.i [`=` [[`.` Name F]]  [_dget 'Me' I]])
-   @(map [I F] Fields.i [`=` [[`.` Name "set_[F]"] V]  [_dset 'Me' I V]])]
+   @(map [I F] Fields.i [`=` [[`.` Name "![F]"] V]  [_dset 'Me' I V]])]
 
 expand_block_item_method Type Name Args Body =
 | less Name >< _

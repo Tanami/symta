@@ -481,10 +481,8 @@ map.del K =
 | Me
 map._ Method Args =
 | if Args.size > 1
-  then Args.0.(Method^_method_name.drop{4}) <= Args.1 // `set_`
+  then Args.0.(Method^_method_name.tail) <= Args.1 // strip `!`
   else Args.0.(Method^_method_name)
-
-
 map.size = $buckets.map{X => if got X then X.size else 0}.sum
 map.list = $buckets.skip{Void}.join
 map.as_text = "#m{[$list{}{?0}]}"
