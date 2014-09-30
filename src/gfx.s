@@ -26,6 +26,7 @@ gfx.clear Color = gfx_clear $handle Color
 gfx.line Color A B = gfx_line $handle Color A.0 A.1 B.0 B.1
 gfx.rect Color Fill X Y W H = gfx_rect $handle Color Fill X Y W H
 gfx.circle Color Fill C R = gfx_circle $handle Color Fill C.0 C.1 R
+gfx.triangle Color A B C = gfx_triangle $handle Color A.0 A.1 B.0 B.1 C.0 C.1
 gfx.resize W H = gfx_resize $handle W H
 gfx.cmap =
 | P = gfx_cmap $handle

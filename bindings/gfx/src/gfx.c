@@ -276,6 +276,90 @@ void gfx_circle(gfx_t *gfx, uint32_t color, int fill, int x, int y, int r) {
   else gfx_circle_empty(gfx, color, x, y, r);
 }
 
+typedef struct lerp {double x, i} lerp;
+
+static void lerp_init(lerp *l, int sx, int ex, int first_step, int steps) {
+  l->i = (double)(ex - sx) / steps;
+  l->x = (double)sx + first_step*l->i;
+}
+
+static void lerp_advance(lerp *l) {
+  l->x += l->i;
+}
+
+#define SWAP(x,y) do {int t_ = x; x = y; y = t_;} while(0)
+
+#define TRIANGLE_ROW(a,b) do { \
+  int x1 = (int)a.x; \
+  int x2 = (int)b.x; \
+  if (x1 < x2) gfx_hline(gfx, color, x1, y, x2-x1); \
+  else gfx_hline(gfx, color, x2, y, x1-x2); \
+} while (0)
+
+void gfx_triangle(gfx_t *gfx, uint32_t color, int ax, int ay, int bx, int by, int cx, int cy) {
+  int beg_y, cen_y, end_y;
+  int y, e;
+  lerp l, r;
+
+  if(ax < 0 && bx < 0 && cx < 0) return;
+  if(ax >= gfx->w && bx >= gfx->w && cx >= gfx->w) return;
+  if(ax == bx && ax == cx) return;
+
+  if (ay > by) {
+    SWAP(ax,bx);
+    SWAP(ay,by);
+  }
+
+  if (ay > cy) {
+    SWAP(ax,cx);
+    SWAP(ay,cy);
+  }
+
+  if(by > cy) {
+    SWAP(bx,cx);
+    SWAP(by,cy);
+  }
+
+  beg_y = ay;
+  cen_y = by;
+  end_y = cy;
+
+  if(end_y == beg_y || end_y < 0 || beg_y >= gfx->h) return;
+
+  if (beg_y < 0) {
+    lerp_init(&r, ax, cx, -beg_y, end_y-beg_y);
+    y = 0;
+  } else {
+    lerp_init(&r, ax, cx, 0, end_y-beg_y);
+    y = beg_y;
+  }
+
+  if (y < cen_y) {
+    if (beg_y < 0) lerp_init(&l, ax, bx,-beg_y, cen_y-beg_y);
+    else lerp_init(&l, ax, bx, 0, cen_y-beg_y);
+
+    if (cen_y > gfx->h) e = gfx->h;
+    else e = cen_y;
+
+    for (; y < e; ++y) {
+      TRIANGLE_ROW(l,r);
+      lerp_advance(&l);
+      lerp_advance(&r);
+    }
+  }
+
+  if(cen_y < end_y) {
+    lerp_init(&l, bx, cx, y-cen_y, end_y-cen_y);
+    if (end_y > gfx->h) end_y = gfx->h;
+    
+    for (; y < end_y; ++y) {
+      TRIANGLE_ROW(l,r);
+      lerp_advance(&l);
+      lerp_advance(&r);
+    }
+  }
+}
+
 #define begin_blit() \
   while (y < ey) { \
     pd = y*dw + x; \

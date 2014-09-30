@@ -14,6 +14,7 @@ ffi gfx_clear.void Gfx.ptr Color.u4
 ffi gfx_line.void Gfx.ptr Color.u4 SX.int SY.int DX.int DY.int
 ffi gfx_rect.void Gfx.ptr Color.u4 Fill.int X.int Y.int W.int H.int
 ffi gfx_circle.void Gfx.ptr Color.u4 Fill.int X.int Y.int R.int
+ffi gfx_triangle.void Gfx.ptr Color.u4 AX.int AY.int BX.int BY.int CX.int CY.int
 ffi gfx_cmap.ptr Gfx.ptr
 ffi gfx_enable_cmap.ptr Gfx.ptr
 ffi gfx_resize.void Gfx.ptr W.int H.int
