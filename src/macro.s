@@ -48,11 +48,12 @@ expand_list_hole Key Hole Hit Miss = case Hole
                   | expand_list_hole Key Hole Hit Miss
   [[`%` A B] @Xs] | expand_list_hole Key (form: (`<` [B@_] A)*B $@Xs) Hit Miss
   [X@Xs] | H = @rand 'X'
-         | Hit <= expand_list_hole Key Xs Hit Miss
+         | Hs = @rand 'Xs'
+         | Hit <= expand_list_hole Hs Xs Hit Miss
          | [`if` [_mcall Key end]
                  Miss
                  [let_ [[H [_mcall Key head]]
-                        [Key [_mcall Key tail]]]
+                        [Hs [_mcall Key tail]]]
                    (expand_hole H X Hit Miss)]]
 
 expand_hole_keywords Key Hit Xs =
@@ -454,15 +455,10 @@ expand_block_item_fn Name Args Body =
 | B <= [default_leave_ Name (expand_named Name B)]
 | [Name [_fn A [_progn [_mark Name] B]]]
 
-expand_destructuring Value Bs =
-| XsVar = Void
-| when Bs.size: case Bs.last [`@` X]
-  | XsVar <= X
-  | Bs <= Bs.lead
+expand_destructuring Value Bs Body =
 | O = @rand 'O'
 | Ys = map [I B] Bs.i: [B [_mcall O '.' I]]
-| when got XsVar: Ys <= [[XsVar [_mcall O drop Bs.size]] @Ys]
-| [[O Value] @Ys]
+| [let_ [[O Value]] [let_ Ys Body]]
 
 expand_assign Place Value =
 | case Place
@@ -518,10 +514,10 @@ expand_block_item Expr =
     | leave Ys.join
   [`=` [`!!` [`!` Place]] Value] | [Void (expand_assign Place Value)]
   [`=` [[`.` Type Method] @Args] Body] | expand_block_item_method Type Method Args Body
-  [`=` [[`[]` @Bs]] Value] | leave: expand_destructuring Value Bs
   [`=` [Name @Args] Value]
-    | less Name.is_text: mex_error "[Name] is not text in `=`"
-    | if Name.is_keyword then expand_block_item_fn Name Args Value else [Name Value]
+    | if Name.is_keyword then expand_block_item_fn Name Args Value
+      else | when Args.size: mex_error "`=`: left side has too many expressions"
+           | [Name Value]
   Else
     | Z = mex Expr
     | case Z [`=` [] [`|` @Xs]]
@@ -537,11 +533,20 @@ make_multimethod Xs =
 | All = @rand 'A'
 | Key = @rand 'K'
 | Cases = map X Xs: case X
-    [`=>` As Expr] 
+    [`=>` As Expr]
       | when As.size >< 0: mex_error 'prototype doesnt support no args multimethods'
       | [As.0 [_fn (if As.0^is_var_sym then As else [Dummy As.tail]) Expr]]
 | Sel = expand_match [_mcall All '.' 1] Cases [no_method_ Key] Key
 | [_fn All [_mcall All apply Sel]]
+
+expand_block_helper R A B =
+| if no A then [B @R]
+  else if A.is_keyword then [[_set A B] @R]
+  else | R = if R.size then [_progn @R] else Void
+       | if A^is_var_sym then [[let_ [[A B]] R]]
+         else if case A [`[]` @Bs] Bs.all{?^is_var_sym} then
+            [(expand_destructuring B A.tail R)]
+         else [(expand_match B [[A R]] [_fatal "couldnt match [B] to [A]"] Void)]
 
 expand_block Xs =
 | when Xs.size >< 1 and not case Xs.0 [`=` @Zs] 1: leave Xs.0
@@ -555,13 +560,7 @@ expand_block Xs =
 | Xs <= map X Xs: expand_block_item X
 | Xs <= Xs.join
 | R = []
-| for X Xs.flip
-  | R <= case X [A B]
-         | if got A
-           then if A.is_keyword
-                then [[_set A B] @R]
-                else [[let_ [[A B]] (if R.size then [_progn @R] else Void)]]
-           else [B @R]
+| for [A B] Xs.flip: R <= expand_block_helper R A B
 | R <= [_progn @R]
 | Bs = Xs.keep{X => X.0.is_keyword}
 | when Bs.size: R <= [let_ (map B Bs [B.0 Void]) R]

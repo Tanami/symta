@@ -984,11 +984,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
     ((("%" a b) . xs)
      (expand-list-hole key `(("*" ("<" ("[]" ,b ("@" "_")) ,a) ,b) ,@xs) hit miss))
     ((x . xs) (let* ((h (ssa-name "X"))
-                     (hit (expand-list-hole key xs hit miss)))
+                     (hs (ssa-name "Xs"))
+                     (hit (expand-list-hole hs xs hit miss)))
                 `("if" ("_mcall" ,key "end")
                        ,miss
                        ("let_" ((,h ("_mcall" ,key "head"))
-                                (,key ("_mcall" ,key "tail")))
+                                (,hs ("_mcall" ,key "tail")))
                          ,(expand-hole h x hit miss)))))))
 
 (to expand-hole-keywords key hit xs
@@ -1157,17 +1158,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! setf body `("default_leave_" ,name ,(expand-named name body))
   ! list name `("_fn" ,args ("_progn" ("_mark" ,name) ,body)))
 
-(to expand-destructuring value bs
-  ! xs-var = nil
-  ! match (car (last bs))
-     (("@" x)
-      (setf xs-var x)
-      (setf bs (butlast bs)))
+(to expand-destructuring value bs body
   ! i = -1
   ! o = ssa-name "O"
   ! ys = m b bs (list b `("_mcall" ,o ,'"." ,(incf i)))
-  ! when xs-var (setf ys `((,xs-var ("_mcall" ,o "drop" ,(length bs))) ,@ys))
-  ! `((,o ,value) ,@ys))
+  ! `("let_" ((,o ,value)) ("let_" ,ys ,body)))
 
 (to expand-assign place value
  ! match place
@@ -1230,11 +1225,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                   (expand-block-item x)))))
      (("=" ("!!" ("!" place)) value) (list nil (expand-assign place value)))
      (("=" (("." type method) . args) body) (expand-block-item-method type method args body))
-     (("=" (("[]" . bs)) value) (return-from expand-block-item (expand-destructuring value bs)))
      (("=" (name . args) value)
-      (if (var-sym? name)
-          (list name value) ;; FIXME: check that args are empty
-          (expand-block-item-fn name args value)))
+      (cond ((fn-sym? name) (expand-block-item-fn name args value))
+            (t (when args (error "`=`: left-side has too many expressions"))
+               (list name value))))
      (else
       (let ((z (builtin-expander x)))
         (match z
@@ -1260,6 +1254,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! sel = expand-match `("_mcall" ,all "." 1) cases `("no_method_" ,key) :keyvar key
   ! `("_fn" ,all ("_mcall" ,all "apply" ,sel)))
 
+(to expand-block-helper r a b
+  ! cond
+     ((not a) `(,b ,@r))
+     ((fn-sym? a) `(("_set" ,a ,b) ,@r))
+     (t (! r = if r `("_progn" ,@r) :void
+         ! cond
+           ((var-sym? a) `(("let_" ((,a ,b)) ,r)))
+           ((match a (("[]" . bs) (every #'var-sym? bs))) `(,(expand-destructuring b (cdr a) r)))
+           (t `(,(expand-match b `((,a ,r)) `("_fatal" ,"couldnt match {b} to {a}")))))))
+
 (to expand-block xs
   ! when (and (= (length xs) 1)
               (or (atom (first xs))
@@ -1275,15 +1279,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! xs = m x xs (expand-block-item x)
   ! xs = apply #'concatenate 'list xs
   ! r = nil
-  ! e x (reverse xs)
-      (setf r
-        (match x
-          ((a b)
-           (if a
-               (if (fn-sym? a)
-                   `(("_set" ,a ,b) ,@r)
-                   `(("let_" ((,a ,b)) ,(if r `("_progn" ,@r) :void))))
-               `(,b ,@r)))))
+  ! e (a b) (reverse xs) (setf r (expand-block-helper r a b))
   ! setf r `("_progn" ,@r)
   ! bs = remove-if-not (fn x ! fn-sym? (car X)) xs
   ! when bs (setf r `("let_" ,(m b bs `(,(first b) :void)) ,r))
