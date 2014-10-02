@@ -323,6 +323,9 @@ list.last = $($size-1)
 list.suf X = [@Me X]
 list.lead = $take{$size-1}
 
+_.rmap F = F Me
+list.rmap F = map X Me X.rmap{F}
+
 list.infix Item = // intersperse from Haskell
 | N = $size*2-1
 | if N < 0 then [] else dup I N: if I%2 then Item else Me^pop

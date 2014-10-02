@@ -1533,6 +1533,26 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (("^" x . xs) `("^" ,(expand-self-ref x) ,@xs))
      (else `("." "Me" ,o)))
 
+(to rmap f xs ! if (atom xs) (funcall f xs) (m x xs (rmap f x)))
+
+(to expand-colon-r e found
+  ! when (atom e) (ret e)
+  ! p = position-if (fn x ! match x (("!" y) (fn-sym? y))) e
+  ! unless p (ret (m x e (expand-colon-r x found)))
+  ! name = second (nth p e)
+  ! expr = subseq e (+ p 1)
+  ! g = ssa-name "G"
+  ! funcall found name g
+  ! `(,@(subseq e 1 p) ("|" ("<=" (,g) ,expr) ,g)))
+
+(to expand-colon a b
+  ! name = nil
+  ! g = nil
+  ! e = expand-colon-r a (fn x y ! setf name x ! setf g y)
+  ! unless name (ret `(,@a ,b))
+  ! b = rmap (fn x ! if (equal x name) g x) b
+  ! `("let_" ((,g 0)) (,@e ,b)))
+
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
   (let ((xs (normalize-matryoshka xs))
@@ -1585,7 +1605,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         ((";" . xs) (expand-block xs))
         (("[]" . as) (expand-list as))
         (("^" a b) `(,b ,a))
-        ((":" a b) `(,@a ,b))
+        ((":" a b) (expand-colon a b))
         (("\"" . xs) (expand-string-splice xs))
         (("." a b) (cond
                      ((fn-sym? a) `(,a ,b))

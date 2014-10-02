@@ -306,7 +306,25 @@ let @As =
                       | when got P: leave [_dget A P]
                     | ['{}' ['.' A B]]
           else [_mcall A '.' B]
-`:` A B = [@A B]
+
+expand_colon_r E Found =
+| less E.is_list: leave E
+| P = E.locate{&0["!" Y] => Y.is_keyword}
+| less got P: leave: map X E: expand_colon_r X Found
+| Name = E.P.1
+| Expr = E.drop{P+1}
+| G = 'G'.rand
+| Found Name G
+| [@E.take{P}.tail ['|' ['<=' [G] Expr] G]]
+
+`:` A B =
+| Name = 0
+| G = 0
+| E = expand_colon_r A: X Y => | Name <= X; G <= Y
+| less Name: leave [@A B]
+| B = B.rmap{if Name >< ? then G else ?} //FIXME: preserve metainfo
+| [let_ [[G 0]] [@E B]]
+
 `,` @As = case As
   [[X@Xs] @Ys] | [X Xs @Ys]
   Else | mex_error "invalid arglist to `,`"
