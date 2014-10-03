@@ -1312,6 +1312,31 @@ BUILTIN_VARARGS("items",text_items)
 RETURNS(R)
 
 
+#ifdef WIN32
+#define m_mkdir(X) mkdir(X)
+#else
+#define m_mkdir(X) mkdir(X, S_IRWXU|S_IRWXG|S_IROTH|S_IXOTH)
+#endif
+
+static void makePath(char *Path) {
+  char T[1024], *P;
+  strcpy(T, Path);
+  P = T;
+  while((P = strchr(P+1, '/'))) {
+    *P = 0;
+    // create a directory named with read/write/search permissions for
+    // owner and group, and with read/search permissions for others.
+    if (!file_exists(T)) m_mkdir(T);
+    *P = '/';
+  }
+  if (!file_exists(T)) m_mkdir(T);
+  //free(shell("mkdir -p '%s'", Path));
+}
+
+BUILTIN1("mkpath_",mkpath_,C_TEXT,filename_text)
+  makePath(text_to_cstring(filename_text));
+RETURNS(filename_text)
+
 static char *exec_command(char *cmd) {
   char *r;
   int rdsz = 1024;
@@ -1490,6 +1515,7 @@ static struct {
   {"set_text_file_", b_set_text_file_},
   {"file_exists_", b_file_exists_},
   {"file_time_", b_file_time_},
+  {"mkpath_", b_mkpath_},
   {"load_library", b_load_library},
   {"register_library_folder", b_register_library_folder},
   {"unix", b_unix},

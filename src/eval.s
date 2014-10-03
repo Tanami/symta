@@ -121,6 +121,7 @@ build @As =
       GHeaderTimestamp "[GRootFolder]/runtime/symta.h".time
       GShowInfo 1
       GCompiledModules (m)
+  | GDstFolder.mkpath
   | register_library_folder GDstFolder
   | RuntimeSrc = "[GRootFolder]runtime/runtime.c"
   | RuntimePath = "[DstFolder]run"

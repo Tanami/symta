@@ -182,9 +182,15 @@ hard_list.flip =
 
 text.flip = $list.flip.text
 
+list.transpose = Me.0.size{}{I=>Me.map{?.I}}
+
 list.map F = dup $size: F Me^pop
 hard_list.map F = dup I $size: F $I
 text.map F = $list.map{F}
+
+list.fold Run F =
+| for X Me: F !Run X
+| Run
 
 list.e F = till $end: F Me^pop
 hard_list.e F = times I $size: F $I
@@ -267,6 +273,7 @@ text.set Value =
 | 0
 text.exists = file_exists_ Me
 text.time = file_time_ Me
+text.mkpath = mkpath_ Me
 
 text.paths @As =
 | Path = if $last >< '/' then Me else "[Me]/"
@@ -512,6 +519,20 @@ list.pad Count Item =
 | when N < 0: bad "list is larger than [Count.abs]: '[Me]'"
 | Pad = dup N Item
 | if Count < 0 then [@Pad @Me] else [@Me @Pad]
+
+int.digits Base =
+| Ys = []
+| while Me > 0
+  | [Me%Base@!Ys]
+  | !Me / Base
+| Ys
+
+list.digits Base =
+| R = 0
+| for X Me
+  | !R * Base
+  | !R + X
+| R
 
 data macro name expander
 
