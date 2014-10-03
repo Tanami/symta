@@ -1,3 +1,8 @@
-use tile
+use common tile macros
 
-say fixme
+M = main '/Users/nikita/Documents/git/symcraft/data'
+M.tilesets{}{?0}
+
+
+
+Dirs

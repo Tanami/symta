@@ -71,4 +71,4 @@ gfx_load Filename = load_png Filename
 rgb R G B = form R*#10000 + G*#100 + B
 rgba R G B A = form A*#1000000 + R*#10000 + G*#100 + B
 
-export gfx load_png save_png gfx_load new_cmap ffi_alloc ffi_free 'rgb' 'rgba' 'GFX_RGB' 'GFX_RGBA' 'GFX_MAP'
+export gfx save_png gfx_load new_cmap ffi_alloc ffi_free 'rgb' 'rgba' 'GFX_RGB' 'GFX_RGBA' 'GFX_MAP'

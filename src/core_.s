@@ -49,6 +49,7 @@ list.`/` A = map X Me: X/A
 list.`%` A = map X Me: X%A
 list.float = map X Me: X.float
 list.int = map X Me: X.int
+list.round = Me{?round}
 
 list.length =
 | R = 0.0
@@ -495,6 +496,7 @@ map._ Method Args =
   else Args.0.(Method^_method_name)
 map.size = $buckets.map{X => if got X then X.size else 0}.sum
 map.list = $buckets.skip{Void}.join
+map.map F = $list.map{F}
 map.as_text = "#m{[$list{}{?0}]}"
 
 list.as_map =

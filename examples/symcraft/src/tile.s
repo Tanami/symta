@@ -1,9 +1,9 @@
-use gfx
+use common gfx reader
 
 Data = Void
 I2E = Void //index to edge
 E2I = Void //edge to index
-Tilesets
+Tilesets = Void
 
 MCs = | C = [water land plain air forest wall rock dead invuln 0 1 2 3 4 5 6 7 8 9 10]
       | (C.i){[?1 2**?0]}.as_map
@@ -28,30 +28,20 @@ TTypes = m // tile types
   wallR   | m base block   mc [air land] rm 0
   wallCR  | m base block   mc [air land] rm 0
 
-
 foldEdges X = X.i.map{[I V]=>V.digits{2}.shl{3*I}}.fold{0 (@ior ? ??)}
 
 calcEdges X =
-| T = transpose X
+| T = X.transpose
 | [X.0 T.2 X.2 T.0]^foldEdges.ior{X.1.1.shl{12}}
 
-cfg P = P.get.utf8.lines{}{?parse}.skip{is.[]}
-
-data entity
-entity.size = [1 1]
-entity.owner = 0
-entity.hp = 0
-entity.armor = 0
-entity.rm = Void
-entity.resource = Void
-
-data cell.entity type base rm mask tileId gfxId gfx edges mc hp resource gold wood
-cell = new_cell 0 0 0 0 0 0 0 0 0 0
+data cell.entity type base rm mask tileId gfxId gfx edges mc hp armor resource gold wood
+cell = new_cell 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+cell.as_text = "#cell{[$type] [$tileId]}"
 
 data tileset name tiles trns
 
 loadTileset P =
-| Frames = "[P]/gfx.png"^load_gfx.frames{32 32}
+| Frames = "[P]/gfx.png"^gfx_load.frames{32 32}
 | Ts = dup 4096
 | Tr = m
 | N = 0
@@ -79,10 +69,9 @@ loadTileset P =
     | !N+I
 | new_tileset P.url.1 Ts Tr
 
-tile_init Path =
-| Data <= Path
-| I2E <= "$[Data]/cfg/grid.txt"^cfg.group{3}{?^calcEdges}.i.as_table
-| E2I <= E2I{?flip}.as_table
-| "[Data]/tiles".paths{}{?^loadTileset}{[?.name ?]}.as_table
+main.init_tiles =
+| I2E <= "[$data]/cfg/grid.txt"^cfg.group{3}{?^calcEdges}.i.as_map
+| E2I <= I2E{?flip}.as_map
+| $tilesets <= "[$data]/tiles".paths{}{?^loadTileset}{[?.name ?]}.as_map
 
-export tile_init
+export
