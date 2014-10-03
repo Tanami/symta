@@ -182,23 +182,19 @@ arrow.input @In = case In
                     | $state <= \normal
 arrow.as_text = "#arrow{[$direction] state([$state])}"
 
-data box.widget w h dir spacing items rendered
-box Direction Spacing @Xs =
-| Items = for X Xs: new_meta X [0 0 1 1]
-| new_box 0 0 Direction Spacing Items Void
-box.render =
-| S = $spacing
-| Rs = $items{}{?render}
-| case $dir v | $w <= Rs{?w}.max; $h <= Rs{?h}.infix{S}.sum
-            h | $h <= Rs{?h}.max; $w <= Rs{?w}.infix{S}.sum
-| $rendered <= Rs
-| Me
-box.draw G P =
+data lay.widget w h dir spacing items
+lay Direction Spacing @Xs =
+| Items = map X Xs: new_meta X [0 0 1 1]
+| new_lay 1 1 Direction Spacing Items
+lay.draw G P =
 | D = $dir
 | S = $spacing
 | Is = $items
+| Rs = Is{?render}
+| case $dir v | $w <= Rs{?w}.max; $h <= Rs{?h}.infix{S}.sum
+            h | $h <= Rs{?h}.max; $w <= Rs{?w}.infix{S}.sum
 | N = 0
-| for R $rendered
+| for R Rs
   | W = R.w
   | H = R.h
   | Rect = Is^pop.meta_
@@ -219,7 +215,7 @@ gui.render =
 | R = $root.render
 | W = R.w
 | H = R.h
-| when not R.is_gfx or W <> FB.w or H <> FB.h:
+| when W <> FB.w or H <> FB.h:
   | FB.free
   | FB <= gfx W H
   | $fb <= FB
@@ -293,5 +289,4 @@ gui Root = //FIXME: create a default skin and allow picking user defined skins
 | GUI <= Void
 | R
 
-
-export gui button
+export gui button lay spacer

@@ -33,7 +33,7 @@ gfx.cmap =
 | less P: leave 0
 | dup I 256: _ffi_get uint32_t P I
 gfx.`!cmap` NewCM =
-| when NewCM.size > 256: bad "cant set color map larger than 256"
+| when NewCM.size > 256: bad "cant set color map with more than 256 colors"
 | P = gfx_enable_cmap $handle
 | for [I E] NewCM.i: _ffi_set uint32_t P I E
 gfx.blit P Src rect/0 flipX/0 flipY/0 map/0 =
