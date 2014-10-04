@@ -34,11 +34,11 @@ calcEdges X =
 | T = X.transpose
 | [X.0 T.2 X.2 T.0]^foldEdges.ior{X.1.1.shl{12}}
 
-data cell.entity type base rm mask tileId gfxId gfx edges mc hp armor resource gold wood
+type cell.entity type base rm mask tileId gfxId gfx edges mc hp armor resource gold wood
 cell = new_cell 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 cell.as_text = "#cell{[$type] [$tileId]}"
 
-data tileset name tiles trns
+type tileset name tiles trns
 
 loadTileset P =
 | Frames = "[P]/gfx.png"^gfx_load.frames{32 32}

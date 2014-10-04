@@ -493,7 +493,7 @@ expand_assign Place Value =
 
 `<=` Place Value = expand_assign Place.0 Value
 
-expand_block_item_data Name Fields =
+expand_block_item_type Name Fields =
 | Super = [_]
 | while Name.is_list: case Name
   ['.' A B] | Name <= A
@@ -527,8 +527,8 @@ expand_block_item_method Type Name Args Body =
 
 expand_block_item Expr =
 | Y = case Expr
-  [data Name @Fields]
-    | Ys = map X (expand_block_item_data Name Fields): expand_block_item X
+  [type Name @Fields]
+    | Ys = map X (expand_block_item_type Name Fields): expand_block_item X
     | leave Ys.join
   [`=` [`!!` [`!` Place]] Value] | [Void (expand_assign Place Value)]
   [`=` [[`.` Type Method] @Args] Body] | expand_block_item_method Type Method Args Body

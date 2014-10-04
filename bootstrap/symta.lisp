@@ -1182,7 +1182,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! setf (nth p ys) v
   ! expand-assign v ys)
 
-(to expand-block-item-data name fields
+(to expand-block-item-type name fields
   ! super = '("_")
   ! while (consp name)
     (match name
@@ -1218,10 +1218,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to expand-block-item x
   ! y = match x
-     (("data" name . fields)
+     (("type" name . fields)
       (return-from expand-block-item
         (apply #'concatenate 'list
-               (m x (expand-block-item-data name fields)
+               (m x (expand-block-item-type name fields)
                   (expand-block-item x)))))
      (("=" ("!!" ("!" place)) value) (list nil (expand-assign place value)))
      (("=" (("." type method) . args) body) (expand-block-item-method type method args body))

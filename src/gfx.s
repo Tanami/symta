@@ -1,5 +1,4 @@
 use gfx_
-data gfx handle
 
 GFX_RGB  = 0
 GFX_RGBA = 1
@@ -14,6 +13,7 @@ new_cmap Xs =
 | for [I E] Xs.i: _ffi_set uint32_t P I E
 | P
 
+type gfx handle
 gfx W H = new_gfx (new_gfx_ W H)
 gfx.free = free_gfx $handle
 gfx.w = gfx_w $handle

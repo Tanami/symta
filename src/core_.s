@@ -464,7 +464,7 @@ bad Text =
 | halt
 
 // hashtable
-data map buckets
+type map buckets
 map_ Size = new_map: dup Size Void
 map.`.` K =
 | Bs = $buckets
@@ -536,9 +536,9 @@ list.digits Base =
   | !R + X
 | R
 
-data macro name expander
+type macro name expander
 
-data meta.~ object_ meta_
+type meta.~ object_ meta_
 _.meta_ = Void
 meta._ Method Args =
 | Args.0 <= Args.0.object_

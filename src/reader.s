@@ -4,7 +4,7 @@ GError = Msg => bad Msg
 GInput = Void
 GOutput = Void
 
-data text_stream chars origin row col off last len
+type text_stream chars origin row col off last len
 text_stream.`{}` K = $chars.K
 text_stream.peek = when $off < $len: $chars.($off)
 text_stream.next =
@@ -21,7 +21,7 @@ text_stream.error Msg = bad "at [$src]: [Msg]"
 
 makeTextStream Text Origin = new_text_stream Text.list Origin 0 0 0 Void Text.size
 
-data token symbol value src parsed
+type token symbol value src parsed
 token_is What O = O.is_token and O.symbol >< What
 
 //FIXME: optimize memory usage

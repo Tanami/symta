@@ -12,7 +12,7 @@ ImgCache = Void
 FontCache = Void
 FontTints = Void
 
-data widget
+type widget
 
 widget.input @E =
 widget.items = Void
@@ -37,7 +37,7 @@ setSkin Path =
 | FontCache <= m
 | FontTints <= "[Skin]/font/tints.txt"^cfg{}.map{[?0 ?.tail.pad{256 #FF000000}^new_cmap]}.as_map
 
-data font glyphs widths height
+type font glyphs widths height
 
 font N = have FontCache.N:
 | Path = "[Skin]/font/[N]"
@@ -68,7 +68,7 @@ font.draw G X Y Tint Text =
     | W+1+!CX
   | !CY + H
 
-data txt.widget g value_ size tint font
+type txt.widget g value_ size tint font
 txt Value size/small tint/white =
 | R = new_txt 0 '' Size Tint Size^font
 | R.value <= Value
@@ -100,16 +100,16 @@ cursor F =
   | Gfx.hotspot <= "[Skin]/[F].txt".get.utf8.parse
   | Gfx
 
-data spacer.widget w h
+type spacer.widget w h
 spacer W H = new_spacer W H
 spacer.as_text = "#spacer{[$w] [$h]}"
 
-data pic.widget value
+type pic.widget value
 pic Path = new_pic value
 pic.render = if $value.is_text then skin $value else $value
 pic.as_text = "#pic{[$value]}"
 
-data tabs.~.widget tab all
+type tabs.~.widget tab all
 tabs Initial Tabs = new_tabs Tabs.Initial Tabs
 tabs.pick TabName = $tab <= $all.TabName
 tabs.as_text = "#tabs{[$tab]}"
@@ -117,11 +117,11 @@ tabs._ Method Args =
 | Args.0 <= Args.0.tab
 | Args.apply_method{Method}
 
-data canvas.widget w h paint
+type canvas.widget w h paint
 canvas W H Paint = new_canvas W H Paint
 canvas.draw G P = case Me (F<~).paint: F G P $w $h 
 
-data bar.widget value_ bg
+type bar.widget value_ bg
 bar InitialValue = new_bar InitialValue.clip{0 100} (skin "bar/bg")
 bar.render = Me
 bar.value = $value_
@@ -130,7 +130,7 @@ bar.draw G P =
 | G.blit{P $bg}
 | G.rect{#347004 1 P+[3 3] [152*$value_/100 14]}
 
-data button.widget value on_click state over w_size h_size skin cache
+type button.widget value on_click state over w_size h_size skin cache
 button Text Fn state/normal w_size/large h_size/medium =
 | new_button Text Fn State 0 W_size H_size Void (m)
 button.reskin =
@@ -167,7 +167,7 @@ button.input @In = case In
                     | $state <= \normal
 button.as_text = "#button{[$value]}"
 
-data arrow.widget direction on_click state
+type arrow.widget direction on_click state
 arrow Direction Fn state/normal = new_arrow Direction Fn State
 arrow.render = skin "arrow/[$direction]-[$state]"
 arrow.input @In = case In
@@ -182,7 +182,7 @@ arrow.input @In = case In
                     | $state <= \normal
 arrow.as_text = "#arrow{[$direction] state([$state])}"
 
-data lay.widget w h dir spacing items
+type lay.widget w h dir spacing items
 lay Direction Spacing @Xs =
 | Items = map X Xs: new_meta X [0 0 1 1]
 | new_lay 1 1 Direction Spacing Items
@@ -207,7 +207,7 @@ lay.draw G P =
   | Rect.3 <= H
   | N <= case D v(N+H+S) h(N+W+S)
 
-data gui root timers mice_xy cursor result fb keys popup
+type gui root timers mice_xy cursor result fb keys popup
          last_widget focus_widget focus_xy click_time
 gui.render =
 | FB = $fb

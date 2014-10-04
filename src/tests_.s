@@ -129,12 +129,12 @@ test_list =
 | less Validate Ys: failed
 | 1
 
-data object x y z
+type object x y z
 object.sum = $x + $y + $z
 
-data super
+type super
 super.method = 'Super'
-data sub.super
+type sub.super
 sub.method = 'Sub'
 
 test_oop =
