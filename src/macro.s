@@ -493,7 +493,7 @@ expand_assign Place Value =
 
 `<=` Place Value = expand_assign Place.0 Value
 
-expand_block_item_type Name Fields =
+type Name @Fields =
 | Super = [_]
 | while Name.is_list: case Name
   ['.' A B] | Name <= A
@@ -501,16 +501,24 @@ expand_block_item_type Name Fields =
               then Super <= Super.skip{_}
               else push B Super
   Else | mex_error "data: bad declarator [Name]"
-| GTypes.Name <= Fields
-| Gs = map F Fields: @rand 'A'
-| O = @rand 'O'
+| As = []
+| Vs = []
+| Fs = map F Fields: case F
+       [`/` Name Value] | push Value Vs
+                        | Name
+       Else | Name = 'A'.rand
+            | push Name As
+            | push Name Vs
+            | F
+| GTypes.Name <= Fs
 | V = @rand 'V'
-| [[`=` ["new_[Name]" @Gs] [_data Name @Gs]]
-   @(map S Super [_subtype S Name])
-   [`=` [[`.` Name "is_[Name]"]] 1]
-   [`=` [[`.` '_' "is_[Name]"]] 0]
-   @(map [I F] Fields.i [`=` [[`.` Name F]]  [_dget 'Me' I]])
-   @(map [I F] Fields.i [`=` [[`.` Name "![F]"] V]  [_dset 'Me' I V]])]
+| ['@' ['|' [`=` ["new_[Name]" @As] [_data Name @Vs]]
+            @(map S Super [_subtype S Name])
+            [`=` [[`.` Name "is_[Name]"]] 1]
+            [`=` [[`.` '_' "is_[Name]"]] 0]
+            @(map [I F] Fs.i [`=` [[`.` Name F]]  [_dget 'Me' I]])
+            @(map [I F] Fs.i [`=` [[`.` Name "![F]"] V]  [_dset 'Me' I V]])
+            ]]
 
 expand_block_item_method Type Name Args Body =
 | less Name >< _
@@ -527,9 +535,6 @@ expand_block_item_method Type Name Args Body =
 
 expand_block_item Expr =
 | Y = case Expr
-  [type Name @Fields]
-    | Ys = map X (expand_block_item_type Name Fields): expand_block_item X
-    | leave Ys.join
   [`=` [`!!` [`!` Place]] Value] | [Void (expand_assign Place Value)]
   [`=` [[`.` Type Method] @Args] Body] | expand_block_item_method Type Method Args Body
   [`=` [Name @Args] Value]
@@ -752,7 +757,7 @@ macroexpand Expr Macros ModuleCompiler =
   | R
 
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[]' 'm' '\\' 'form'
-       'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for'
+       'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for' 'type'
        'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$' 'have'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
        'ffi_begin' 'ffi' 'min' 'max' '"'

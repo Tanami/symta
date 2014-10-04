@@ -1182,7 +1182,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! setf (nth p ys) v
   ! expand-assign v ys)
 
-(to expand-block-item-type name fields
+(to expand-type name fields
   ! super = '("_")
   ! while (consp name)
     (match name
@@ -1192,17 +1192,27 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
            (setf super (remove-if (fn x ! equal x "_") super))
            (push b super)))
       (else (error "bad data declarator: ~a" name)))
-  ! gs = m f fields (ssa-name "A")
-  ! o = ssa-name "O"
+  ! as = nil
+  ! vs = nil
+  ! fs = m f fields
+     (match f
+       (("/" name value)
+        (push value vs)
+        name)
+       (else
+        (let ((name (ssa-name "A")))
+          (push name as)
+          (push name vs))
+        f))
   ! v = ssa-name "V"
   ! j = -1
   ! k = -1
-  ! `(("=" (,"new_{name}" ,@gs) ("_data" ,name ,@gs))
-      ,@(m s super `("_subtype" ,s ,name))
-      ("=" (("." ,name ,"is_{name}")) 1)
-      ("=" (("." "_" ,"is_{name}")) 0)
-      ,@(m f fields `("=" (("." ,name ,f)) ("_dget" "Me" ,(incf j))))
-      ,@(m f fields `("=" (("." ,name ,"!{f}") ,v) ("_dset" "Me" ,(incf k) ,v)))))
+  ! `("@" ("|" ("=" (,"new_{name}" ,@as) ("_data" ,name ,@vs))
+               ,@(m s super `("_subtype" ,s ,name))
+               ("=" (("." ,name ,"is_{name}")) 1)
+               ("=" (("." "_" ,"is_{name}")) 0)
+               ,@(m f fs `("=" (("." ,name ,f)) ("_dget" "Me" ,(incf j))))
+               ,@(m f fs `("=" (("." ,name ,"!{f}") ,v) ("_dset" "Me" ,(incf k) ,v))))))
 
 (to expand-block-item-method type name args body
   ! unless (equal name "_") (setf args `("Me" ,@args))
@@ -1218,11 +1228,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to expand-block-item x
   ! y = match x
-     (("type" name . fields)
-      (return-from expand-block-item
-        (apply #'concatenate 'list
-               (m x (expand-block-item-type name fields)
-                  (expand-block-item x)))))
      (("=" ("!!" ("!" place)) value) (list nil (expand-assign place value)))
      (("=" (("." type method) . args) body) (expand-block-item-method type method args body))
      (("=" (name . args) value)
@@ -1657,6 +1662,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("have" var default)
          `("|" ("when" ("no" ,var) ("<=" (,var) ,default))
                ,var))
+        (("type" name . fields) (expand-type name fields))
         ((z . zs)
          (when (find-if (fn x ! headed "@" x) xs)
            (when (headed "@" z)
