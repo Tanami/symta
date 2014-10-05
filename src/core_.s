@@ -111,6 +111,15 @@ text.title =
 _.is_keyword = 0
 text.is_keyword = not: $size and $0.is_upcase
 
+text.trim s/' ' i/0 l/1 r/1 =
+| Xs = $list
+| when L: while!it case Xs [&S@Zs] Zs: Xs <= it
+| when R
+  | Xs <= Xs.flip
+  | while!it case Xs [&S@Zs] Zs: Xs <= it
+  | Xs <= Xs.flip
+| Xs.text
+
 int.list = dup I Me: I //iota operator
 
 int.map F = dup I Me: F I
@@ -332,6 +341,9 @@ text.lead = $take{$size-1}
 list.last = $($size-1)
 list.suf X = [@Me X]
 list.lead = $take{$size-1}
+
+list.cut P S = $drop{P}.take{S}
+text.cut P S = $drop{P}.take{S}
 
 _.rmap F = F Me
 list.rmap F = map X Me X.rmap{F}
