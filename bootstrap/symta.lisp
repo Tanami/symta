@@ -1261,18 +1261,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to make-multimethod xs
   ! when (match xs ((("=>" as expr)) (or (not as) (var-sym? (first as)))))
      (return-from make-multimethod (first xs))
-  ! dummy = ssa-name "D"
   ! all = ssa-name "A"
-  ! key = ssa-name "K"
-  ! cases = m x xs
-      (match x
-        (("=>" as expr)
-         (unless as (error "prototype doesnt support no args multimethods"))
-         (list (first as)
-               `("_fn" ,(if (var-sym? (first as)) as `(,dummy ,@(cdr as)))
-                       ,expr))))
-  ! sel = expand-match `("_mcall" ,all "." 1) cases `("no_method_" ,key) :keyvar key
-  ! `("_fn" ,all ("_mcall" ,all "apply" ,sel)))
+  ! default = `("_fatal" "couldn't match lambda")
+  ! xs = m x xs
+        (match x
+          (("=>" as expr)
+           (match as
+             ((("&" d) . zs)
+              (setf default d)
+              (setf as zs)))
+           `(("[]" ,@as) ,expr)))
+  ! `("=>" (("@" ,all)) ,(expand-match all xs default)))
 
 (to expand-block-helper r a b
   ! cond

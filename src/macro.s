@@ -567,15 +567,12 @@ expand_block_item Expr =
 make_multimethod Xs =
 | when case Xs [[`=>` As Expr]] (As.size >< 0 or As.0^is_var_sym)
   | leave Xs.0
-| Dummy = @rand 'D'
 | All = @rand 'A'
-| Key = @rand 'K'
-| Cases = map X Xs: case X
-    [`=>` As Expr]
-      | when As.size >< 0: mex_error 'prototype doesnt support no args multimethods'
-      | [As.0 [_fn (if As.0^is_var_sym then As else [Dummy As.tail]) Expr]]
-| Sel = expand_match [_mcall All '.' 1] Cases [no_method_ Key] Key
-| [_fn All [_mcall All apply Sel]]
+| Default = [_fatal "couldn't match lambda"]
+| Xs = map X Xs: case X
+    [`=>` As Expr] | case As [['&' D] @Zs] | Default <= D; As <= Zs
+                   | [['[]' @As] Expr]
+| ['=>' [['@' All]] (expand_match All Xs Default Void)]
 
 expand_block_helper R A B =
 | if no A then [B @R]

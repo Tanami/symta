@@ -12,15 +12,22 @@ entity.armor = 0
 entity.rm = Void
 entity.resource = Void
 
+
 type main{Data} data/Data tilesets/0 es cache/(m) pf_range/2**14
 | $init_tiles
 | $init_entities
 
 main.gfx File =
 | when got!it $cache.File: leave it
-| G = gfx_load "[$data]/[File]"
+| G = gfx "[$data]/[File]"
 | $cache.File <= G
 | G
+
+main.unitFrames C S File =
+| G = $gfx{File}
+| W = if S then S.0 else G.w/C
+| H = if S then S.1 else W
+| G.frames{W H}.group{C}{[X]}
 
 main.load_entity Path =
 | T = Path.url.0.split{'/'}.last

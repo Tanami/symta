@@ -40,7 +40,7 @@ cell.as_text = "#cell{[$type] [$tileId]}"
 type tileset{Name Tiles Trns} name/Name tiles/Tiles trns/Trns
 
 loadTileset P =
-| Frames = "[P]/gfx.png"^gfx_load.frames{32 32}
+| Frames = "[P]/gfx.png"^gfx.frames{32 32}
 | Ts = dup 4096
 | Tr = m
 | N = 0
