@@ -37,6 +37,8 @@ float.sign = if Me < 0.0 then -1.0
              else if Me > 0.0 then 1.0
              else 0.0
 
+list.sign = map X Me X.sign
+
 int.abs = if Me < 0 then -Me else Me
 
 float.abs = if Me < 0.0 then -Me else Me
@@ -464,8 +466,7 @@ bad Text =
 | halt
 
 // hashtable
-type map buckets
-map_ Size = new_map: dup Size Void
+type map{map_ Size} buckets/(dup Size Void)
 map.`.` K =
 | Bs = $buckets
 | H = K.hash%Bs.size
@@ -536,9 +537,9 @@ list.digits Base =
   | !R + X
 | R
 
-type macro name expander
+type macro{new_macro N E} name/N expander/E
 
-type meta.~ object_ meta_
+type meta.~{new_meta O M} object_/O meta_/M
 _.meta_ = Void
 meta._ Method Args =
 | Args.0 <= Args.0.object_

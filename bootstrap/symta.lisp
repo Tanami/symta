@@ -1183,31 +1183,46 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! expand-assign v ys)
 
 (to expand-type name fields
+  ! ctor-name = nil
+  ! ctor-args = nil
+  ! ctor-body = nil
   ! super = '("_")
   ! while (consp name)
     (match name
+      (('"{}" n . as)
+       (when (fn-sym? (car as)) (setf ctor-name (pop as)))
+       (setf ctor-args as)
+       (setf name n))
       (("." a b)
        (setf name a)
        (if (equal b "~")
            (setf super (remove-if (fn x ! equal x "_") super))
            (push b super)))
       (else (error "bad data declarator: ~a" name)))
-  ! as = nil
+  ! unless ctor-name (setf ctor-name name)
   ! vs = nil
   ! fs = m f fields
      (match f
        (("/" name value)
         (push value vs)
         name)
+       (("|" . body)
+        (setf ctor-body f)
+        nil)
        (else
-        (let ((name (ssa-name "A")))
-          (push name as)
-          (push name vs))
+        (push 0 vs)
         f))
+  ! fs = remove nil fs
+  ! vs = reverse vs
+  ! ctor = if ctor-body
+      `("=" (,ctor-name ,@ctor-args)  ("|" ("=" ("Me") ("_data" ,name ,@vs))
+                                           ,ctor-body
+                                           "Me"))
+      `("=" (,ctor-name ,@ctor-args) ("_data" ,name ,@vs))
   ! v = ssa-name "V"
   ! j = -1
   ! k = -1
-  ! `("@" ("|" ("=" (,"new_{name}" ,@as) ("_data" ,name ,@vs))
+  ! `("@" ("|" ,ctor
                ,@(m s super `("_subtype" ,s ,name))
                ("=" (("." ,name ,"is_{name}")) 1)
                ("=" (("." "_" ,"is_{name}")) 0)

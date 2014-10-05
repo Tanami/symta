@@ -494,25 +494,40 @@ expand_assign Place Value =
 `<=` Place Value = expand_assign Place.0 Value
 
 type Name @Fields =
+| CtorName = 0
+| CtorArgs = []
+| CtorBody = 0
 | Super = [_]
 | while Name.is_list: case Name
+  ['{}' N @As]
+    | when case As [A@_] A.is_keyword: CtorName <= pop As
+    | CtorArgs <= As
+    | Name <= N
   ['.' A B] | Name <= A
             | if B >< ~
               then Super <= Super.skip{_}
               else push B Super
   Else | mex_error "data: bad declarator [Name]"
-| As = []
+| less CtorName: CtorName <= Name
 | Vs = []
 | Fs = map F Fields: case F
        [`/` Name Value] | push Value Vs
                         | Name
-       Else | Name = 'A'.rand
-            | push Name As
-            | push Name Vs
+       [`|` @Body] | CtorBody <= F
+                   | Void
+       Else | push 0 Vs
             | F
+| Fs = Fs.skip{Void}
+| Vs = Vs.flip
 | GTypes.Name <= Fs
+| Ctor = if CtorBody
+         then [`=` [CtorName @CtorArgs]
+                   [`|` [`=` ['Me'] [_data Name @Vs]]
+                        [_type Name 'Me' CtorBody]
+                        'Me']]
+         else [`=` [CtorName @CtorArgs] [_data Name @Vs]]
 | V = @rand 'V'
-| ['@' ['|' [`=` ["new_[Name]" @As] [_data Name @Vs]]
+| ['@' ['|' Ctor
             @(map S Super [_subtype S Name])
             [`=` [[`.` Name "is_[Name]"]] 1]
             [`=` [[`.` '_' "is_[Name]"]] 0]

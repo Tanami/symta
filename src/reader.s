@@ -4,7 +4,7 @@ GError = Msg => bad Msg
 GInput = Void
 GOutput = Void
 
-type text_stream chars origin row col off last len
+type text_stream{T O} chars/T.list len/T.size off last/Void row col origin/O
 text_stream.`{}` K = $chars.K
 text_stream.peek = when $off < $len: $chars.($off)
 text_stream.next =
@@ -19,9 +19,7 @@ text_stream.next =
 text_stream.src = [$row $col $origin]
 text_stream.error Msg = bad "at [$src]: [Msg]"
 
-makeTextStream Text Origin = new_text_stream Text.list Origin 0 0 0 Void Text.size
-
-type token symbol value src parsed
+type token{Sym Val Src P} symbol/Sym value/Val src/Src parsed/P
 token_is What O = O.is_token and O.symbol >< What
 
 //FIXME: optimize memory usage
@@ -101,7 +99,7 @@ read_token R LeftSpaced =
       | when Value.is_token: leave Value
       | Type <= Value.0
       | Value <= Value.1
-    | leave: new_token Type Value Src 0
+    | leave: token Type Value Src 0
   | push C Cs
   | R.next
 
@@ -113,7 +111,7 @@ add_bars Xs =
   | [Row Col Orig] = X.src
   | S = X.symbol
   | when (Col >< 0 or First) and S <> `|` and S <> `then` and S <> `else`:
-    | push (new_token '|' '|' [Row Col-1 Orig] 0) Ys 
+    | push (token '|' '|' [Row Col-1 Orig] 0) Ys 
     | First <= 0
   | push X Ys
 | Ys.flip
@@ -138,9 +136,9 @@ str_is_empty X = bad fixme
 
 spliced_string_normalize Xs =
 | Ys = Xs.skip{X => '' >< X}
-| map Y Ys: if Y.is_text then new_token symbol Y [0 0 none] 0
+| map Y Ys: if Y.is_text then token symbol Y [0 0 none] 0
             else if Y.is_token then Y
-            else new_token '()' Y [0 0 none] 0
+            else token '()' Y [0 0 none] 0
 
 read_string R Incut End =
 | L = []
@@ -213,7 +211,7 @@ parse_bar H =
 parse_negate H =
 | A = parse_mul or leave 0
 | less A^token_is{integer} or A^token_is{hex} or A^token_is{float}: leave [H A]
-| new_token A.symbol "-[A.value]" H.src [-A.parsed.0]
+| token A.symbol "-[A.value]" H.src [-A.parsed.0]
 
 parse_term =
 | when GInput.end: leave 0
@@ -222,16 +220,16 @@ parse_term =
 | V = Tok.value
 | P = case Tok.symbol
          escape+symbol+text | leave Tok
-         splice | [(new_token symbol `"` Tok.src 0) @V^parse_tokens] //"
+         splice | [(token symbol `"` Tok.src 0) @V^parse_tokens] //"
          integer | V.int{10}
          hex | V.tail.int{16}
          void | Void
          `()` | parse_tokens V
-         `[]` | [(new_token symbol `[]` Tok.src 0) @V^parse_tokens]
+         `[]` | [(token symbol `[]` Tok.src 0) @V^parse_tokens]
          `|` | leave Tok^parse_bar
          `if` | leave Tok^parse_if
          `-` | leave Tok^parse_negate
-         `,` | new_token symbol `,` Tok.src 0
+         `,` | token symbol `,` Tok.src 0
          Else | push Tok GInput
               | leave 0
 | Tok.parsed <= [P]
@@ -256,7 +254,7 @@ binary_loop Ops Down E =
 | less O^token_is{'.'} and E^token_is{integer} and B^token_is{integer}:
   | leave: binary_loop Ops Down [O E B]
 | V = "[E.value].[B.value]"
-| F = new_token float V E.src [V^parse_float]
+| F = token float V E.src [V^parse_float]
 | leave: binary_loop Ops Down F
 
 parse_binary Down Ops = binary_loop Ops Down: &Down or leave 0
@@ -336,7 +334,7 @@ parse_strip X =
 
 text.parse src/'<none>' =
 | init_tokenizer
-| R = parse_strip: parse_tokens: tokenize: makeTextStream Me Src
+| R = parse_strip: parse_tokens: tokenize: text_stream Me Src
 | less R.end: R <= R.0
 | case R [X S] S
          R R

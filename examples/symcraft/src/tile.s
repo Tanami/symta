@@ -35,10 +35,9 @@ calcEdges X =
 | [X.0 T.2 X.2 T.0]^foldEdges.ior{X.1.1.shl{12}}
 
 type cell.entity type base rm mask tileId gfxId gfx edges mc hp armor resource gold wood
-cell = new_cell 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 cell.as_text = "#cell{[$type] [$tileId]}"
 
-type tileset name tiles trns
+type tileset{Name Tiles Trns} name/Name tiles/Tiles trns/Trns
 
 loadTileset P =
 | Frames = "[P]/gfx.png"^gfx_load.frames{32 32}
@@ -67,7 +66,7 @@ loadTileset P =
     | C.wood <= T.wood
     | Ts.(N+I) <= C
     | !N+I
-| new_tileset P.url.1 Ts Tr
+| tileset P.url.1 Ts Tr
 
 main.init_tiles =
 | I2E <= "[$data]/cfg/grid.txt"^cfg.group{3}{?^calcEdges}.i.as_map

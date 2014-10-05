@@ -13,8 +13,11 @@ new_cmap Xs =
 | for [I E] Xs.i: _ffi_set uint32_t P I E
 | P
 
-type gfx handle
-gfx W H = new_gfx (new_gfx_ W H)
+type gfx{@As} handle
+| $handle <= case As
+  [W H] | new_gfx_ W H
+  [Filename<1.is_text] | gfx_load_png Filename
+  Else | bad "cant create gfx from [As]"
 gfx.free = free_gfx $handle
 gfx.w = gfx_w $handle
 gfx.h = gfx_h $handle
@@ -28,6 +31,7 @@ gfx.rect Color Fill X Y W H = gfx_rect $handle Color Fill X Y W H
 gfx.circle Color Fill C R = gfx_circle $handle Color Fill C.0 C.1 R
 gfx.triangle Color A B C = gfx_triangle $handle Color A.0 A.1 B.0 B.1 C.0 C.1
 gfx.resize W H = gfx_resize $handle W H
+gfx.save Filename = gfx_save_png Filename $handle
 gfx.cmap =
 | P = gfx_cmap $handle
 | less P: leave 0
@@ -60,15 +64,7 @@ gfx.frames W H =
 gfx.render = Me
 gfx.as_text = "#gfx{[$w] [$h]}"
 
-load_png Filename =
-| Handle = gfx_load_png Filename
-| new_gfx Handle
-
-save_png Filename Gfx = gfx_save_png Filename Gfx.handle
-
-gfx_load Filename = load_png Filename
-
 rgb R G B = form R*#10000 + G*#100 + B
 rgba R G B A = form A*#1000000 + R*#10000 + G*#100 + B
 
-export gfx save_png gfx_load new_cmap ffi_alloc ffi_free 'rgb' 'rgba' 'GFX_RGB' 'GFX_RGBA' 'GFX_MAP'
+export gfx new_cmap ffi_alloc ffi_free 'rgb' 'rgba' 'GFX_RGB' 'GFX_RGBA' 'GFX_MAP'

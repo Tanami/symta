@@ -37,11 +37,11 @@ setSkin Path =
 | FontCache <= m
 | FontTints <= "[Skin]/font/tints.txt"^cfg{}.map{[?0 ?.tail.pad{256 #FF000000}^new_cmap]}.as_map
 
-type font glyphs widths height
+type font{new_font Gs W H} glyphs/Gs widths/W height/H
 
 font N = have FontCache.N:
 | Path = "[Skin]/font/[N]"
-| G = gfx_load "[Path].png"
+| G = gfx "[Path].png"
 | [W H] = "[Path].txt".get.utf8.parse
 | Glyphs = G.frames{W H}
 | Ws = Glyphs{[X Y W H].margins=>X+W}
@@ -68,11 +68,8 @@ font.draw G X Y Tint Text =
     | W+1+!CX
   | !CY + H
 
-type txt.widget g value_ size tint font
-txt Value size/small tint/white =
-| R = new_txt 0 '' Size Tint Size^font
-| R.value <= Value
-| R
+type txt.widget{Value size/small tint/white}
+     g value_ size/Size tint/Tint font/Size^font | $value <= Value
 txt.render = $g
 txt.as_text = "#txt{[$value]}"
 txt.value = $value_
@@ -91,7 +88,7 @@ txt.set_value Text =
 
 font.as_text = "#font{}"
 
-skin F = have SkinCache.F: gfx_load "[Skin]/[F].png"
+skin F = have SkinCache.F: gfx "[Skin]/[F].png"
 
 cursor F =
 | F = "cursor/[F]"
@@ -100,29 +97,24 @@ cursor F =
   | Gfx.hotspot <= "[Skin]/[F].txt".get.utf8.parse
   | Gfx
 
-type spacer.widget w h
-spacer W H = new_spacer W H
+type spacer.widget{W H} w/W h/H
 spacer.as_text = "#spacer{[$w] [$h]}"
 
-type pic.widget value
-pic Path = new_pic value
+type pic.widget{Path} value/Path
 pic.render = if $value.is_text then skin $value else $value
 pic.as_text = "#pic{[$value]}"
 
-type tabs.~.widget tab all
-tabs Initial Tabs = new_tabs Tabs.Initial Tabs
+type tabs.~.widget{Init Tabs} tab/Tabs.Init all/Tabs
 tabs.pick TabName = $tab <= $all.TabName
 tabs.as_text = "#tabs{[$tab]}"
 tabs._ Method Args =
 | Args.0 <= Args.0.tab
 | Args.apply_method{Method}
 
-type canvas.widget w h paint
-canvas W H Paint = new_canvas W H Paint
+type canvas.widget{W H P} w/W h/H paint/P
 canvas.draw G P = case Me (F<~).paint: F G P $w $h 
 
-type bar.widget value_ bg
-bar InitialValue = new_bar InitialValue.clip{0 100} (skin "bar/bg")
+type bar.widget{V} value_/V.clip{0 100} bg/skin."bar/bg"
 bar.render = Me
 bar.value = $value_
 bar.set_value New = $value_ <= New.clip{0 100}
@@ -130,9 +122,8 @@ bar.draw G P =
 | G.blit{P $bg}
 | G.rect{#347004 1 P+[3 3] [152*$value_/100 14]}
 
-type button.widget value on_click state over w_size h_size skin cache
-button Text Fn state/normal w_size/large h_size/medium =
-| new_button Text Fn State 0 W_size H_size Void (m)
+type button.widget{Text Fn state/normal w_size/large h_size/medium}
+  value/Text on_click/Fn state/State over w_size/W_size h_size/H_size skin/Void cache/(m)
 button.reskin =
 | Cache = $cache
 | $skin <= Skin
@@ -167,8 +158,7 @@ button.input @In = case In
                     | $state <= \normal
 button.as_text = "#button{[$value]}"
 
-type arrow.widget direction on_click state
-arrow Direction Fn state/normal = new_arrow Direction Fn State
+type arrow.widget{D Fn state/normal} direction/D on_click/Fn state/State
 arrow.render = skin "arrow/[$direction]-[$state]"
 arrow.input @In = case In
   [mice left 1 P] | case $state normal
@@ -182,10 +172,7 @@ arrow.input @In = case In
                     | $state <= \normal
 arrow.as_text = "#arrow{[$direction] state([$state])}"
 
-type lay.widget w h dir spacing items
-lay Direction Spacing @Xs =
-| Items = map X Xs: new_meta X [0 0 1 1]
-| new_lay 1 1 Direction Spacing Items
+type lay.widget{D S @Xs} w/1 h/1 dir/D spacing/S items/Xs{(new_meta ? [0 0 1 1])}
 lay.draw G P =
 | D = $dir
 | S = $spacing
@@ -207,8 +194,22 @@ lay.draw G P =
   | Rect.3 <= H
   | N <= case D v(N+H+S) h(N+W+S)
 
-type gui root timers mice_xy cursor result fb keys popup
-         last_widget focus_widget focus_xy click_time
+//FIXME: create a default skin and allow picking user defined skins
+type gui{Root} root/Root timers/[] mice_xy/[0 0] cursor/point result/Void fb/Void
+               keys/(m) popup/Void last_widget/(widget) focus_widget/(widget)
+               focus_xy/[0 0] click_time/(m)
+| setSkin '/Users/nikita/Documents/git/symta/build/test_macro/data/ui'
+| GUI <= Me
+| $fb <= gfx 1 1
+| show: Es => | GUI.input{Es}
+              | GUI.render
+| when got $fb
+  | $fb.free
+  | $fb <= Void
+| R = $result
+| $result <= Void
+| GUI <= Void
+| R
 gui.render =
 | FB = $fb
 | when no FB: leave Void
@@ -278,15 +279,5 @@ gui.input Es =
 gui.exit Result =
 | $result <= Result
 | $fb <= Void
-gui Root = //FIXME: create a default skin and allow picking user defined skins
-| setSkin '/Users/nikita/Documents/git/symta/build/test_macro/data/ui'
-| GUI <= new_gui Root [] [0 0] point Void gfx{1 1} (m) Void
-                 (new_widget) (new_widget) [0 0] (m)
-| show: Es => | GUI.input{Es}
-              | GUI.render
-| R = GUI.result
-| GUI.fb.free
-| GUI <= Void
-| R
 
 export gui button lay spacer

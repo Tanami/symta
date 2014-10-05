@@ -2,14 +2,19 @@ use gfx macros
 ResNames = [good wood oil food mana score]
 Dirs = 8{(?.float-2.0)*PI/4.0}{[?.cos ?.sin].round.int}
 
-//dirN V = pos V,sign Dirs
+dirN V = Dirs.locate{V.sign}
 
-type main data tilesets es cache pf_range
-main Data =
-| M = new_main Data 0 ut (m) 2**14
-| M.init_tiles
-| M.init_entities
-| M
+type entity
+entity.size = [1 1]
+entity.owner = 0
+entity.hp = 0
+entity.armor = 0
+entity.rm = Void
+entity.resource = Void
+
+type main{Data} data/Data tilesets/0 es cache/(m) pf_range/2**14
+| $init_tiles
+| $init_entities
 
 main.gfx File =
 | when got!it $cache.File: leave it
@@ -30,13 +35,6 @@ main.init_entities =
   | E.protoGfx <= Void
   | E.faces <= Void
 
-type entity
-entity.size = [1 1]
-entity.owner = 0
-entity.hp = 0
-entity.armor = 0
-entity.rm = Void
-entity.resource = Void
 
 
 cfg File = File.get.utf8.lines{}{?parse}.skip{is.[]}

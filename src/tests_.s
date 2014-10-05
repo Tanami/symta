@@ -129,7 +129,7 @@ test_list =
 | less Validate Ys: failed
 | 1
 
-type object x y z
+type object{X Y Z} x/X y/Y z/Z
 object.sum = $x + $y + $z
 
 type super
@@ -139,17 +139,17 @@ sub.method = 'Sub'
 
 test_oop =
 | say 'testing OOP...'
-| O = new_object 1 2 3
+| O = object 1 2 3
 | tsay 'O.is_object'
 | less O.is_object: failed
 | tsay 'O.sum >< 1+2+3'
 | less O.sum >< 1+2+3: failed
 | tsay 'O.x >< 1 and O.y >< 2 and O.z >< 3'
 | less O.x >< 1 and O.y >< 2 and O.z >< 3: failed
-| tsay "new_super{}.method >< 'Super'"
-| less new_super{}.method >< 'Super': failed
-| tsay "new_sub{}.method >< 'Sub'"
-| less new_sub{}.method >< 'Sub': failed
+| tsay "super{}.method >< 'Super'"
+| less super{}.method >< 'Super': failed
+| tsay "sub{}.method >< 'Sub'"
+| less sub{}.method >< 'Sub': failed
 | T = m{def(456) abc(123)}
 | tsay "T.'abc'+T.'def' >< 456+123"
 | less T.'abc'+T.'def' >< 456+123: failed
