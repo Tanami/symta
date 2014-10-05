@@ -14,6 +14,15 @@ yoba =
 | Ys
 yoba*/
 
+/*
+rle Xs =
+| Ys = []
+| while 1: case Xs [Z N%&Z @Zs] | [[N.size+1 Z] @!Ys]; Xs <= Zs
+                   [Z @Zs] | [Z @!Ys]; Xs <= Zs
+                   [] | leave Ys.flip
+
+*/
+
 tsay Msg =
 | say "  [Msg]"
 
