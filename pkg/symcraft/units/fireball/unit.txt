@@ -1,0 +1,9 @@
+proto: dragon_breath
+uiName: "Fireball"
+uCost: mana:100
+effect: hit (0 15)
+range: 8
+bounces: 9
+nonRMB: 1
+rule: <U A T = 1>
+do: 0 //no repeat

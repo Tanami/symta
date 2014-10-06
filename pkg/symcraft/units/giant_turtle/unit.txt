@@ -1,0 +1,3 @@
+pud: 39
+proto: gnomish_submarine
+deps: goblin_alchemist

@@ -1,0 +1,14 @@
+pud: 88
+proto: town_hall
+cost: gold=2000 wood=1000 oil=200 time=200
+hp: 1400
+boostsHarvest: gold:10
+morphs: castle
+deps: human_barracks
+role: hq2
+anims: still | (0 6)
+       `50` | (1 6)
+       `25` | (1 5)
+       `0` | (1 5)
+       attack | attack (0 60)
+       death | (4 200) (5 200)

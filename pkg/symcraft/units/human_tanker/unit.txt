@@ -1,0 +1,28 @@
+pud: 26
+proto: elven_destroyer
+uiName: "Tanker"
+selection: 48 48
+hp: 90
+sight: 3
+size: 1 1
+range: 1
+damage: 0
+cost: gold=400 wood=200 time=50
+role: tanker
+acts: move_ship stop_ship haul_oil
+       0         0         store
+builds: human_oil_platform
+upgrades: ship_armor2 ship_armor3
+anims: still |(0 6)
+        attack |(0 3) (0 3) (0 3) attack (0 5) (0 3) (0 7)
+        move |(0 1 2) (0 1 2) (0 1 2) (0 1 2)
+              (0 1 2) (0 1 2) (0 1 2) (0 1 2)
+              (0 1 2) (0 1 2) (0 1 2) (0 1 2)
+              (0 1 2) (0 1 2) (0 1 2) (0 1 2)
+        oilStill |(3 6)
+        oil |(3 1 2) (3 1 2) (3 1 2) (3 1 2)
+             (3 1 2) (3 1 2) (3 1 2) (3 1 2)
+             (3 1 2) (3 1 2) (3 1 2) (3 1 2)
+             (3 1 2) (3 1 2) (3 1 2) (3 1 2)
+        death |(1 50) (2 50)
+

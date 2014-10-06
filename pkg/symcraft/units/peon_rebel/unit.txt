@@ -1,0 +1,4 @@
+pud: 17
+proto: peon
+uiName: "Peon"
+role: rebel

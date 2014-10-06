@@ -1,5 +1,5 @@
 use common tile macros
 
-M = main '/Users/nikita/Documents/git/symcraft/data'
+M = main (main_path).url.0
 M.tilesets{}{?0}
 

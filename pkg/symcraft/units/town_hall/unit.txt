@@ -1,0 +1,11 @@
+pud: 74
+proto: building
+size: 4 4
+hp: 1200
+supply: 1
+cost: gold=1200 wood=800 time=255
+depot: gold=1 wood√
+rule: ruleGoldDepot
+role: hq1
+trains: peasant
+morphs: keep

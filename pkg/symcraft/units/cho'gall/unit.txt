@@ -1,0 +1,2 @@
+pud: 49
+proto: ogre_mage

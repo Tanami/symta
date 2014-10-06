@@ -1,0 +1,4 @@
+pud: 16
+proto: peasant
+uiName: "Peasant"
+role: rebel

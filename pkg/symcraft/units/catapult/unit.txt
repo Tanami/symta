@@ -1,0 +1,5 @@
+pud: 5
+proto: ballista
+acts: move stop catapult_rock
+deps: orc_blacksmith
+

@@ -1,0 +1,8 @@
+range: 8
+show: death
+say: dead
+forced: 1
+prio: 950
+do: <U: killUnit U | act remove>
+targets: self
+

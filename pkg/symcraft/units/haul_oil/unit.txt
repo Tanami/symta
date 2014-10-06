@@ -1,0 +1,3 @@
+proto: harvest
+uiName: "Haul Oil"
+harvests: oil

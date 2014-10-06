@@ -1,0 +1,5 @@
+pud: 73
+proto: human_shipyard
+trains: orc_tanker        troll_destroyer orc_transport
+         ogre_juggernaught giant_turtle
+deps: troll_lumber_mill

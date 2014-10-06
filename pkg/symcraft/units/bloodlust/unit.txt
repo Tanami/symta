@@ -1,0 +1,11 @@
+layer: 6
+movement: air
+show: attack
+rCost: gold=1000 time=100
+range: 6
+effect: set $<U M = u bloodlust1000 | efx U>
+uCost: mana:125
+rule: <U A T = T.organic>
+nonRMB: 1
+anims: move |(0 1 32)
+deps: bloodlust ogre_mage

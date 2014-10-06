@@ -1,0 +1,10 @@
+layer: 6
+movement: air
+show: attack
+range: 6
+impact: spell
+uCost: mana:70
+effect: set $<T M = spawnUnit M.owner holy_vision_spell T.tile  T>
+rule: <U A T = ruleMove UTs.holy_vision_spell A T>
+nonRMB: 1
+anims: move |(0 1 64)

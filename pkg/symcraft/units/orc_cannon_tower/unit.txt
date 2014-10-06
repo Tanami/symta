@@ -1,0 +1,3 @@
+pud: 99
+proto: human_cannon_tower
+deps: orc_blacksmith

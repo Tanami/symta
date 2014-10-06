@@ -1,0 +1,3 @@
+pud: 15
+proto: dwarven_demolition_squad
+uiName: "Goblin Sappers"

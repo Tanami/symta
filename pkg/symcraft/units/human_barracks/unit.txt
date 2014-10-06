@@ -1,0 +1,8 @@
+pud: 60
+uiName: "Barracks"
+proto: building
+hp: 800
+cost: gold=700 wood=450 time=200
+role: barracks
+trains: footman elven_archer ranger ballista knight paladin
+

@@ -1391,6 +1391,10 @@ RETURNS(R)
 BUILTIN0("main_args", main_args)
 RETURNS(main_args)
 
+BUILTIN0("main_path", main_path)
+  TEXT(R, main_path);
+RETURNS(R)
+
 BUILTIN1("parse_float", parse_float,C_TEXT,text)
   char buf[32];
   char *xs;
@@ -1522,6 +1526,7 @@ static struct {
   {"time", b_time},
   {"clock", b_clock},
   {"main_args", b_main_args},
+  {"main_path", b_main_path},
   {"get_line", b_get_line},
   {"parse_float", b_parse_float},
   {"ffi_load", b_ffi_load},

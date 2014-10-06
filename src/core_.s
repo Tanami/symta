@@ -120,6 +120,9 @@ text.trim s/' ' i/0 l/1 r/1 =
   | Xs <= Xs.flip
 | Xs.text
 
+list.replace A B = Me{|(&A)=>B; X=>X}
+text.replace A B = Me.list.replace{A B}.text
+
 int.list = dup I Me: I //iota operator
 
 int.map F = dup I Me: F I

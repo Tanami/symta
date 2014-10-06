@@ -18,6 +18,7 @@ export address
        clock
        unix
        main_args
+       main_path
        get_line
        parse_float
        ffi_load

@@ -1,0 +1,11 @@
+pud: 11
+proto: mage
+acts: board
+      move       stop         touch_of_darkness
+      death_coil raise_dead   haste
+      whirlwind  unholy_armor death_and_decay
+anims: still | (0 6) rotate
+        move |(0 2 3) (1 2 3) (1 2 4) (2 2 3) (2 2 3) (3 2 3)
+              (3 2 4) (4 2 3) (4 2 3) (0 1 3)
+        attack |(5 5) (6 5) attack (7 7) (8 5) (0 18)
+        death |(9 5) (10 5) (11 5) (12 5)

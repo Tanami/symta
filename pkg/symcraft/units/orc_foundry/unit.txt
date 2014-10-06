@@ -1,0 +1,3 @@
+pud: 79
+proto: human_foundry
+deps: orc_shipyard

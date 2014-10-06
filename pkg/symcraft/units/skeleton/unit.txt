@@ -1,0 +1,15 @@
+pud: 55
+proto: footman
+hp: 40
+armor: 0
+sight: 3
+corpse: 0
+damage: 6 3
+acts: board move stop fist
+anims: still |(0 6) rotate
+        move |(0 2 3) (2 2 3) (2 1 3) ( 5 2 2) ( 5 3 3) (0 1 2)
+              (0 2 3) (8 2 3) (8 1 3) (11 2 2) (11 2 3) (0 1 2)
+        attack |(3 4) (6 4) attack (9 4) (12 4) (0 18)
+        death |(1 3) (4 3) (7 3) (10 3) (13 3)
+        spawn |(13 3) (10 3) (7 3) (4 3) (1 3)
+

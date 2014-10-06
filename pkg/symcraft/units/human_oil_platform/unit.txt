@@ -1,0 +1,18 @@
+pud: 86
+uiName: "Oil Platform"
+proto: building
+movement: water
+hp: 650
+cost: gold=700 wood=450 time=200
+resource: oil
+oil: 15000
+extends: oil_patch
+role: oil_platform
+anims: still | (0 6)
+       `50` | (1 6)
+       `25` | (2 6)
+       `0` | (3 6)
+       attack | attack (0 60)
+       death | (4 200) (5 200)
+       working |(6 5)
+

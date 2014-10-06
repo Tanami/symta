@@ -1,0 +1,2 @@
+pud: 52
+proto: paladin

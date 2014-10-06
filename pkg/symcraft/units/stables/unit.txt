@@ -1,0 +1,6 @@
+pud: 66
+proto: building
+hp: 500
+cost: gold=1000 wood=300 time=150
+role: stables
+deps: (keep castle)

@@ -1,0 +1,7 @@
+pud: 22
+proto: gryphon_rider
+hp: 250
+damage: 0 13
+range: 5
+armor: 6
+

@@ -1,0 +1,13 @@
+layer: 6
+faces: 1
+movement: air
+show: attack
+uCost: mana:6
+rCost: gold=2000 time=200
+effect: heal ~1
+range: 6
+rule: <U A T = T.organic>
+nonRMB: 1
+anims: move |(0 1 16) (0 1 16)
+        death |(1 3) (2 3) (3 3) (4 3) (5 3) (6 3)
+deps: exorcism paladin

@@ -1,0 +1,2 @@
+proto: stop
+uiName: "Stand Ground"

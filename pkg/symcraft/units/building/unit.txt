@@ -1,0 +1,13 @@
+faces: 1
+layer: 2
+armor: 20
+movement: plain
+building: 1
+explodes: explosion
+size: 3 3
+anims: still | (0 6)
+       `50` | (1 6)
+       `25` | (2 6)
+       '0' | (3 6)
+       attack | attack (0 60)
+       death | (4 200) (5 200)

@@ -1,0 +1,4 @@
+pud: 77
+proto: elven_lumber_mill
+researches: ranged2 /*ranger longbow*/ ranged3 /*scouting marksmanship*/
+

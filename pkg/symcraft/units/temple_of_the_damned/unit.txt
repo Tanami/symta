@@ -1,0 +1,7 @@
+pud: 81
+proto: mage_tower
+trains: death_knight
+deps: fortress
+researches:           raise_dead   haste
+             whirlwind unholy_armor death_and_decay
+

@@ -1,0 +1,11 @@
+uiName: "Attack"
+grp: a
+layer: 4
+movement: 2 wall
+show: attack
+effect: hit
+rule: (canAttack ? ?? ???)
+do: y
+rmbPrio: 50
+anims: move |(0 1 64)
+

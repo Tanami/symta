@@ -1,0 +1,6 @@
+pud: 46
+proto: footman
+hp: 220
+damage: 15 8
+armor: 8
+

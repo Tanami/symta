@@ -1,0 +1,3 @@
+do: (doTrain ?)
+forced: 1
+prio: 400

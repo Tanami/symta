@@ -1,0 +1,21 @@
+pud: 4
+layer: 2
+movement: land
+selection: 64 64
+hp: 110
+sight: 8
+damage: 80 0
+range: 8
+cost: gold=900 wood=300 time=250
+role: siege
+acts: board move stop ballista_bolt
+explodes: explosion
+upgrades: siege2
+deps: human_blacksmith
+anims: still |(0 6)
+        move |(1 2 2) (0 2 2) (1 2 2) (0 2 2)
+              (1 2 2) (0 2 2) (1 2 2) (0 2 2)
+              (1 2 2) (0 2 2) (1 2 2) (0 2 2)
+              (1 2 2) (0 2 2) (1 2 2) (0 2 2)
+        attack |(2 25) attack (3 125) (0 50)
+

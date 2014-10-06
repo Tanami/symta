@@ -1,0 +1,6 @@
+pud: 63
+proto: church
+researches: ogre_mage bloodlust runes
+deps: fortress
+
+

@@ -1,0 +1,3 @@
+pud: 27
+proto: human_tanker
+builds: orc_oil_platform

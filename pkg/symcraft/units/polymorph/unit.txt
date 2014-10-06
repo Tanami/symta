@@ -1,0 +1,9 @@
+proto: haste
+impact: spell
+uCost: mana:200
+rCost: gold=2000 time=200
+range: 10
+effect: set $<X M : morph sheep X>
+rule: <U A T = T.organic>
+deps: polymorph
+anims: move |(0 1 16) (0 1 16)

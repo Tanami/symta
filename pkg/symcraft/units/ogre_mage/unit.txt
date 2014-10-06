@@ -1,0 +1,13 @@
+pud: 13
+proto: ogre
+shaded: 1
+mana: 85
+mp: 255
+rCost: gold=1000 time=250
+acts: board
+       move                 stop          fist
+       patrol               stand_ground  0
+       eye_of_kilrogg_spell bloodlust     runes
+deps: orc_blacksmith ogre_mound ogre_mage
+negs: nil
+morphAll: ogre

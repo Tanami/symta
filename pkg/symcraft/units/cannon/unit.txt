@@ -1,0 +1,5 @@
+proto: arrow
+layer: 5
+impact: cannon_impact
+splash: 1
+anims: move |(0 1 11) (0 1 10) (0 1 11)

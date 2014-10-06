@@ -1,0 +1,3 @@
+pud: 67
+proto: stables
+deps: (stronghold fortress)

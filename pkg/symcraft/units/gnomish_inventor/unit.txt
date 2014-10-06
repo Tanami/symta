@@ -1,0 +1,7 @@
+pud: 68
+proto: building
+hp: 500
+cost: gold=1000 wood=400 time=150
+role: inventor
+trains: gnomish_flying_machine dwarven_demolition_squad
+deps: (keep castle)

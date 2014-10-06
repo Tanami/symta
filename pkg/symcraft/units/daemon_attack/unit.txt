@@ -1,0 +1,3 @@
+proto: arrow
+anims: move |(0 1 16) (0 1 16)
+        death |(1 3) (2 3)

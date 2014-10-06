@@ -1,0 +1,18 @@
+layer: 5
+movement: 2 5 wall
+faces: 1
+uCost: mana:25
+rCost: gold=2000 time=200
+show: attack
+effect: hit (0 10)
+range: 12
+area: 2 2
+shards: 10
+offset: l ~4*32 ~4*32
+splash: 1
+nonRMB: 1
+do: y
+deps: blizzard
+anims: move |(1 2 11) (1 2 10) (1 2 11)
+        death |(2 6) (3 6)
+

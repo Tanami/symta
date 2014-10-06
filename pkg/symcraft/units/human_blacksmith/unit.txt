@@ -1,0 +1,9 @@
+pud: 82
+uiName: "Blacksmith"
+proto: building
+hp: 800
+cost: gold=800 wood=450 oil=100 time=200
+role: blacksmith
+researches: attack2 armor2 siege2
+             attack3 armor3
+

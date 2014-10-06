@@ -1,0 +1,6 @@
+pud: 35
+proto: dragon
+hp: 800
+damage: 5 13
+range: 5
+armor: 10

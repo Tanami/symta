@@ -1,0 +1,9 @@
+proto: touch_of_darkness
+grp: c
+uiName: "Death Coil"
+uCost: mana:100
+effect: hit (0 55)
+range: 9
+nonRMB: 1
+rule: <U A T = T.organic>
+do: 0 //no repeat

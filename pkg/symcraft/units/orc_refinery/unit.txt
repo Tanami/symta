@@ -1,0 +1,3 @@
+pud: 85
+proto: human_refinery
+deps: orc_shipyard

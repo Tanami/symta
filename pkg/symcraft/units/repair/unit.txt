@@ -1,0 +1,8 @@
+layer: 5
+movement: air
+show: attack
+range: 1
+effect: heal 3
+oCost: gold=1 wood1
+rule: <U A T = T.building |a T.hits,pos? |a T.act.type,<producing>,n>
+do: y

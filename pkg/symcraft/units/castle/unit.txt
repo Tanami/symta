@@ -1,0 +1,16 @@
+pud: 90
+proto: keep
+cost: gold=2500 wood=1200 oil=500 time=200
+hp: 1600
+boostsHarvest: gold:20
+morphs: []
+deps: elven_lumber_mill human_blacksmith stables
+role: hq3
+anims: still | (0 6)
+       `50` | (1 6)
+       `25` | (1 5)
+       `0`  | (1 5)
+       attack | attack (0 60)
+       death | (4 200) (5 200)
+
+
