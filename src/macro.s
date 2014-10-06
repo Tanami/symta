@@ -529,6 +529,8 @@ type Name @Fields =
 | V = @rand 'V'
 | ['@' ['|' Ctor
             @(map S Super [_subtype S Name])
+            [`=` [[`.` Name "copy"]] [_data Name @(map F Fs [`$` F])]]
+            [`=` [[`.` Name "deep_copy"]] [_data Name @(map F Fs [`$` [`.` F deep_copy]])]]
             [`=` [[`.` Name "is_[Name]"]] 1]
             [`=` [[`.` '_' "is_[Name]"]] 0]
             @(map [I F] Fs.i [`=` [[`.` Name F]]  [_dget 'Me' I]])

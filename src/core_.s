@@ -25,6 +25,12 @@ text.is_text = 1
 //_.is_hard_list = 0
 //list.is_hard_list = 1
 
+_.new = Me
+list.new = map X Me X
+
+_.deep_copy = Me
+list.deep_copy = map X Me X.deep_copy
+
 _.`{}` F = $map{F}
 fn.`{}` @As = As.apply{Me}
 

@@ -1223,6 +1223,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! j = -1
   ! k = -1
   ! `("@" ("|" ,ctor
+               ("=" (("." ,name ,"copy")) ("_data" ,name ,@(m f fs `("$" ,f))))
+               ("=" (("." ,name ,"deep_copy")) ("_data" ,name ,@(m f fs `("$" ("." ,f "deep_copy")))))
                ,@(m s super `("_subtype" ,s ,name))
                ("=" (("." ,name ,"is_{name}")) 1)
                ("=" (("." "_" ,"is_{name}")) 0)
