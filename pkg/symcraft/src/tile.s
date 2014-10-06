@@ -47,7 +47,7 @@ loadTileset P =
 | for [K Type @Gs] "[P]/tiles.txt"^cfg
   | Tr."[K]_[Type]" <= N
   | T = TTypes.Type
-  | Mask = T.mc{}{MCs.?}.fold{T.hp^(&0 0=>MCs.dead) (@ior ? ??)}
+  | Mask = T.mc{}{MCs.?}.fold{T.hp^($0 0=>MCs.dead) (@ior ? ??)}
   | for [I G] Gs.i
     | C = cell
     | C.type <= Type

@@ -1133,7 +1133,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to add-pattern-matcher args body
   ! default = match args
-               ((("&" default) . tail)
+               ((("$" default) . tail)
                 (setf args tail)
                 default)
                (else `("_fatal" ("_quote" "couldnt match args list")))

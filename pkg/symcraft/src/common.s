@@ -51,7 +51,7 @@ main.load_unit_hlp Path T =
 | Xs = "[Path]/unit.txt".get.utf8.parse{Path}.tail{}{?tail}{[?0.0 ?1]}
 | for X Xs: case X [proto [PT]]
   | T <= Xs.as_map
-  | Proto = $load_unit{PT}.raw.skip{&0[typename _]=>1}
+  | Proto = $load_unit{PT}.raw.skip{$0[typename _]=>1}
   | for [K V] Proto: T.K <= V
   | Xs <= T.list
 | for X Xs{[?0 @?1]}: case X

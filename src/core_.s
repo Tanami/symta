@@ -120,7 +120,7 @@ text.trim s/' ' i/0 l/1 r/1 =
   | Xs <= Xs.flip
 | Xs.text
 
-list.replace A B = Me{|(&A)=>B; X=>X}
+list.replace A B = Me{|&A=>B; X=>X}
 text.replace A B = Me.list.replace{A B}.text
 
 int.list = dup I Me: I //iota operator
@@ -597,7 +597,7 @@ list.shuffle =
   | Xs.N <= X
 | Xs
 
-sort_asc &[] [H@Zs] =
+sort_asc $[] [H@Zs] =
 | Xs = []
 | Ys = []
 | for Z Zs: if Z < H then push Z Xs else push Z Ys
@@ -609,7 +609,7 @@ list.sort @As =
   [A] | F <= A
   [] | leave: sort_asc $shuffle
   Else | bad "list.sort: invalid number of arguments"
-| h &[] [H@Zs] =
+| h $[] [H@Zs] =
   | Xs = []
   | Ys = []
   | for Z Zs: if F Z H then push Z Xs else push Z Ys

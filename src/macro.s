@@ -84,7 +84,7 @@ expand_hole_term Key Hole Hit Miss =
 expand_hole Key Hole Hit Miss =
 | less Hole^is{[X@Xs]}: leave: expand_hole_term Key Hole Hit Miss
 | case Hole
-  [`[]` @Xs] | P = Xs.locate{&0[`/`@_]=>1}
+  [`[]` @Xs] | P = Xs.locate{$0[`/`@_]=>1}
              | when got P: Xs <= [@Xs.take{P} [`@` [`/` @Xs.drop{P}]]]
              | [_if [_mcall Key is_list]
                     (expand_list_hole Key Xs Hit Miss)
@@ -152,7 +152,7 @@ case @Xs = expand_match Xs.0 Xs.tail.group{2} 0 Void
 
 is @As =
 | case As
-   [A] | form: &0 A => 1
+   [A] | form: $['$' 0] A => 1
    [A B] | [case B A 1]
    Else | mex_error "invalid number of args to `is`: [As]"
 
@@ -309,7 +309,7 @@ let @As =
 
 expand_colon_r E Found =
 | less E.is_list: leave E
-| P = E.locate{&0["!" Y] => Y.is_keyword}
+| P = E.locate{$0["!" Y] => Y.is_keyword}
 | less got P: leave: map X E: expand_colon_r X Found
 | Name = E.P.1
 | Expr = E.drop{P+1}
@@ -376,7 +376,7 @@ expand_method_arg Expr =
 `!!` @As =
 | Ys = map A As A
 | V = Void
-| P = As.locate{&0[`!` X] =>| V<=X; 1}
+| P = As.locate{$0[`!` X] =>| V<=X; 1}
 | when no P: mex_error "invalid !! - no ! in [As]"
 | Ys.P <= V
 | expand_assign V Ys
@@ -449,7 +449,7 @@ expand_leave Name Value =
 
 add_pattern_matcher Args Body =
 | Default = case Args
-    [[`&` D] @Tail]
+    [[`$` D] @Tail]
       | Args <= Tail
       | D
     Else | form: _fatal 'couldnt match args list'
@@ -717,7 +717,7 @@ mex_normal X Xs =
          | leave: mex [let_ [[S [_import [_quote Pkg] [_quote Sym]]]] [S @Xs]]
 | when no Macro
   | case X [`@` Z]: leave: mex [_mcall Xs.last Z @Xs.lead]
-  | when got Xs.locate{&0[`@` X]=>1}
+  | when got Xs.locate{$0[`@` X]=>1}
     | when X >< _mcall: leave: mex: form: _mcall [$Xs.0 $@Xs.drop{2}] apply_method (_method $Xs.1)
     | when X.is_keyword: X <= form &X
     | leave: mex: form [$@Xs].apply{X}
