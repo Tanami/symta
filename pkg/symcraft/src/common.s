@@ -4,6 +4,8 @@ Dirs = 8{(?.float-2.0)*PI/4.0}{[?.cos ?.sin].round.int}
 
 dirN V = Dirs.locate{V.sign}
 
+cfg File = File.get.utf8.lines{}{?parse}.skip{is.[]}
+
 type entity
 entity.type = \entity
 entity.size = [1 1]
@@ -19,7 +21,7 @@ resources.list = [[gold $gold] [wood $wood] [oil $oil] [time $time]]
 
 type unit.entity type pud typename movement organic role size/[1 1]
                  hp armor sight damage range cost/(resources)
-                 acts anims layer selection shadow proto_gfx faces raw
+                 acts anims layer selection shadow proto_gfx faces
 unit.as_text = "#unit{[$type]}"
 
 type main{Data} data/Data tilesets/0 es/(m) cache/(m) pf_range/2**14
@@ -43,18 +45,15 @@ normalize_cost C = case C [`=` A B] | [@A @B^normalize_cost]
                           B | B
 
 main.load_unit_hlp Path T =
-| say "load_unit [T]"
-| U = unit
-| U.typename <= T.split{_}{?title}.text{' '}
+//| say "load_unit [T]"
+| U = Void
 | Base = Path.url.0
+| Xs = "[Path]/unit.txt".get.utf8.parse{Path}^(|[`|`@Xs]=>Xs; X=>[X]){}{[?1.0 @?2]}
+| for X Xs: case X [proto PT]: U <= $load_unit{"[Base]/[PT]"}.copy
+| have U: unit
+| U.typename <= T.split{_}{?title}.text{' '}
 | less T >< daemon: leave U
-| Xs = "[Path]/unit.txt".get.utf8.parse{Path}.tail{}{?tail}{[?0.0 ?1]}
-| for X Xs: case X [proto [PT]]
-  | T <= Xs.as_map
-  | Proto = $load_unit{PT}.raw.skip{$0[typename _]=>1}
-  | for [K V] Proto: T.K <= V
-  | Xs <= T.list
-| for X Xs{[?0 @?1]}: case X
+| for X Xs: case X
   [pud Id] | U.pud <= Id
   [proto PT] |
   [movement @M] | U.movement <= M
@@ -77,7 +76,6 @@ main.load_unit_hlp Path T =
   [layer O] | U.layer <= O
   [selection @WH] | U.selection <= WH
   Else | bad "cant parse [X] in [Path]"
-| U.raw <= Xs
 | U.anims <= U.anims.group{2}{[?0 ?1.1]}.as_map
 | U.cost^say
 | U
@@ -94,8 +92,6 @@ main.init_units =
 | for [T E] $es
   | E.proto_gfx <= Void
   | E.faces <= Void
-  | E.raw <= Void
 
-cfg File = File.get.utf8.lines{}{?parse}.skip{is.[]}
 
 export main cfg

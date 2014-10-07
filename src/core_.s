@@ -25,8 +25,8 @@ text.is_text = 1
 //_.is_hard_list = 0
 //list.is_hard_list = 1
 
-_.new = Me
-list.new = map X Me X
+_.copy = Me
+list.copy = map X Me X
 
 _.deep_copy = Me
 list.deep_copy = map X Me X.deep_copy

@@ -13,7 +13,7 @@ new_cmap Xs =
 | for [I E] Xs.i: _ffi_set uint32_t P I E
 | P
 
-type gfx{@As} handle
+type gfx.no_copy{@As} handle
 | $handle <= case As
   [W H] | new_gfx_ W H
   [Filename<1.is_text] | gfx_load_png Filename
@@ -58,6 +58,7 @@ gfx.cut X Y W H =
 | G.blit{[0 0] Me rect [X Y W H]}
 | G
 gfx.copy = $cut{0 0 $w $h}
+gfx.deep_copy = $cut{0 0 $w $h}
 gfx.frames W H =
 | GW = $w
 | dup I GW*$h/(W*H): $cut{I*W%GW I*W/GW*H W H}

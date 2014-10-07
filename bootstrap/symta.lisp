@@ -1187,6 +1187,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ctor-args = nil
   ! ctor-body = nil
   ! super = '("_")
+  ! provide-copy = t
   ! while (consp name)
     (match name
       (('"{}" n . as)
@@ -1195,9 +1196,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        (setf name n))
       (("." a b)
        (setf name a)
-       (if (equal b "~")
-           (setf super (remove-if (fn x ! equal x "_") super))
-           (push b super)))
+       (cond
+         ((equal b "~") (setf super (remove-if (fn x ! equal x "_") super)))
+         ((equal b "no_copy") (setf provide-copy nil))
+         (t (push b super))))
       (else (error "bad data declarator: ~a" name)))
   ! unless ctor-name (setf ctor-name name)
   ! vs = nil
@@ -1222,9 +1224,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! v = ssa-name "V"
   ! j = -1
   ! k = -1
+  ! copy = if provide-copy 
+              `(("=" (("." ,name ,"copy")) ("_data" ,name ,@(m f fs `("$" ,f))))
+                ("=" (("." ,name ,"deep_copy")) ("_data" ,name ,@(m f fs `("$" ("." ,f "deep_copy"))))))
+              nil
   ! `("@" ("|" ,ctor
-               ("=" (("." ,name ,"copy")) ("_data" ,name ,@(m f fs `("$" ,f))))
-               ("=" (("." ,name ,"deep_copy")) ("_data" ,name ,@(m f fs `("$" ("." ,f "deep_copy")))))
+               ,@copy
                ,@(m s super `("_subtype" ,s ,name))
                ("=" (("." ,name ,"is_{name}")) 1)
                ("=" (("." "_" ,"is_{name}")) 0)
