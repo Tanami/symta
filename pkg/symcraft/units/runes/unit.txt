@@ -1,9 +1,9 @@
 proto: haste
 faces: 1
-movement: q 2 wall
-uCost: mana:50
-rCost: gold=1500 time=150
-effect: hit (25 0)
+move_class: 2 wall
+use_cost: mana=50
+research_cost: gold=1500 time=150
+effect: hit{25 0}
 offset: 0 0
 splash: 1
 impact: explosion

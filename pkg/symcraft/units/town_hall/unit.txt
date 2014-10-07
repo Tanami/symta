@@ -4,8 +4,8 @@ size: 4 4
 hp: 1200
 supply: 1
 cost: gold=1200 wood=800 time=255
-depot: gold=1 wood√
-rule: ruleGoldDepot
+depot: gold{1} wood{1}
+targets: ruleGoldDepot
 role: hq1
 trains: peasant
 morphs: keep

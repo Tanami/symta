@@ -1,4 +1,4 @@
 proto: haste
 range: 10
-effect: set $<U M = u slow=1000 haste0 | efx U>
+effect: slow{1000}
 deps: slow

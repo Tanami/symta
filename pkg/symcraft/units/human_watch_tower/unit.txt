@@ -1,5 +1,5 @@
 pud: 64
-uiName: "Watch Tower"
+typename: `Watch Tower`
 proto: building
 size: 2 2
 hp: 100

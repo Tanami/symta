@@ -1,11 +1,11 @@
 pud: 78
-uiName: "Foundry"
+typename: `Foundry`
 proto: building
-movement: water
+move_class: water
 hp: 750
 cost: gold=700 wood=400 oil=400 time=175
 deps: human_shipyard
-rule: (ruleCoast ?)
+targets: (ruleCoast ?)
 role: foundry
 researches: cannon2 ship_armor2 0
              cannon3 ship_armor3

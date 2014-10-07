@@ -1,5 +1,5 @@
 pud: 60
-uiName: "Barracks"
+typename: `Barracks`
 proto: building
 hp: 800
 cost: gold=700 wood=450 time=200

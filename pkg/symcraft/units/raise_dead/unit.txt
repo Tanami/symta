@@ -1,12 +1,12 @@
 layer: 6
-movement: land
+move_class: land
 show: attack
 impact: spell
-uCost: mana:100
-rCost: gold=1500 time=100
+use_cost: mana=100
+research_cost: gold=1500 time=100
 range: 6
-effect: set $<T M = spawnUnit M.owner skeleton T.tile A=spawn  T>
-rule: <U A T = ruleMove UTs.skeleton A T>
+effect: spawn{skeleton}
+targets: can_move{skeleton}
 nonRMB: 1
 anims: move |(0 1 16) (0 1 16)
 deps: raise_dead

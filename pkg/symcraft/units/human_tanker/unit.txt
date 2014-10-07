@@ -1,6 +1,6 @@
 pud: 26
 proto: elven_destroyer
-uiName: "Tanker"
+typename: `Tanker`
 selection: 48 48
 hp: 90
 sight: 3

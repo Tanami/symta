@@ -1,5 +1,5 @@
 proto: haste
-uCost: mana:100
-rCost: gold=2500 time=200
-effect: set $<U M = u unholy_armor500 | efx U>
+use_cost: mana=100
+research_cost: gold=2500 time=200
+effect: unholy_armor{500}
 deps: unholy_armor

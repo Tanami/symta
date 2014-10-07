@@ -1271,7 +1271,7 @@ RETURNS(FIXNUM(folderP(text_to_cstring(filename_text))))
 BUILTIN1("file",text_file,C_ANY,filename_text)
 RETURNS(FIXNUM(fileP(text_to_cstring(filename_text))))
 
-BUILTIN_VARARGS("items",text_items)
+BUILTIN_VARARGS("text.items",text_items)
   DIR *dir;
   struct dirent *ent;
   void *filename_text = getArg(0);
@@ -1307,7 +1307,7 @@ BUILTIN_VARARGS("items",text_items)
     }
     free(r);
   } else {
-    R = Void;
+    R = Empty;
   }
 RETURNS(R)
 

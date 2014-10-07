@@ -1,4 +1,4 @@
 targets: self
 nonRMB: 1
-do: (doStore ?)
-can: <U A = resources U>
+do: store
+enabled_if: carries_resources

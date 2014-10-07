@@ -5,9 +5,6 @@ I2E = Void //index to edge
 E2I = Void //edge to index
 Tilesets = Void
 
-MCs = | C = [water land plain air forest wall rock dead invuln 0 1 2 3 4 5 6 7 8 9 10]
-      | (C.i){[?1 2**?0]}.as_map
-
 TTypes = m // tile types
   block   | m base 0       mc 0
   plainL  | m base block   mc [air land plain]

@@ -1,6 +1,6 @@
 pud: 56
 layer: 5
-movement: air
+move_class: air
 selection: 48 48
 shadow: 48
 organic: 1

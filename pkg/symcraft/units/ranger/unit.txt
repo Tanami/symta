@@ -1,7 +1,7 @@
 pud: 18
 proto: elven_archer
 shaded: 1
-rCost: gold=1500 time=200
+research_cost: gold=1500 time=200
 sight: 5
 range: 5
 hp: 50

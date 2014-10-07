@@ -1,4 +1,4 @@
 range: 1
-do: (doMorph ?)
+do: morph
 forced: 1
 prio: 400

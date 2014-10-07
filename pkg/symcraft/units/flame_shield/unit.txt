@@ -1,14 +1,14 @@
 proto: fire_small
-movement: 2 5 wall
+move_class: 2 5 wall
 show: attack
 layer: 2
-uCost: mana:50
-rCost: gold=1000 time=100
-effect: hit (0 4)
+use_cost: mana=50
+research_cost: gold=1000 time=100
+effect: hit{0 4}
 range: 6
 shards: 5
 offset: circle
-move: l rotates 1/9
+move: rotates{0.1}
 inc: 0
 cycles: 600
 ignoresDst: 1

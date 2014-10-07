@@ -1,8 +1,8 @@
 pud: 28
 proto: elven_destroyer
-uiName: "Transport"
+typename: `Transport`
 size: 1 1
-movement: water
+move_class: water
 selection: 64 64
 hp: 150
 armor: 0

@@ -1,13 +1,13 @@
 pud: 72
-uiName: "Shipyard"
+typename: `Shipyard`
 proto: building
-movement: water
+move_class: water
 hp: 800
-depot: oil:1
-rule: ruleOilDepot
+depot: oil{1}
+targets: ruleOilDepot
 cost: gold=1100 wood=450 time=200
 role: shipyard
 trains: human_tanker elven_destroyer  human_transport
-         battleship   gnomish_submarine
+        battleship   gnomish_submarine
 deps: elven_lumber_mill
 

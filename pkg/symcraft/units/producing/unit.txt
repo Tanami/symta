@@ -1,4 +1,4 @@
 range: 1
-do: (doProducing ?)
+do: producing
 forced: 1
 prio: 440

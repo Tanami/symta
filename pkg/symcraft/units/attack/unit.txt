@@ -1,11 +1,11 @@
-uiName: "Attack"
-grp: a
+typename: `Attack`
+hotkey: a
 layer: 4
-movement: 2 wall
+move_class: 2 wall
 show: attack
 effect: hit
-rule: (canAttack ? ?? ???)
-do: y
+targets: can_attack
+do: repeat
 rmbPrio: 50
 anims: move |(0 1 64)
 

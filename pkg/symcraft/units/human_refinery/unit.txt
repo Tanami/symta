@@ -1,11 +1,11 @@
 pud: 84
-uiName: "Refinery"
+typename: `Refinery`
 proto: building
-movement: water
+move_class: water
 hp: 800
 cost: gold=600 wood=350 oil=200 time=225
-boostsHarvest: oil:25
-depot: oil:1
-rule: ruleOilDepot
+boostsHarvest: oil{25}
+depot: oil{1}
+targets: ruleOilDepot
 role: refinery
 deps: human_shipyard

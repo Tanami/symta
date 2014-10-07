@@ -1,6 +1,6 @@
 pud: 0
 layer: 2
-movement: land
+move_class: land
 corpse: human
 organic: 1
 hp: 60

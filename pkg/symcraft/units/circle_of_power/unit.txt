@@ -1,7 +1,7 @@
 pud: 100
 proto: building
 layer: 1
-movement: invuln
+move_class: invuln
 size: 2 2
 hp: 25500
 

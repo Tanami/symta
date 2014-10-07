@@ -1,5 +1,5 @@
 pud: 82
-uiName: "Blacksmith"
+typename: `Blacksmith`
 proto: building
 hp: 800
 cost: gold=800 wood=450 oil=100 time=200

@@ -1,11 +1,11 @@
 layer: 5
-movement: 2 5
+move_class: 2 5
 show: attack
-uCost: mana:50
-rCost: gold=500 time=100
+use_cost: mana=50
+research_cost: gold=500 time=100
 range: 6
-effect: set $<U = u slow=0 haste1000 | efx U>
-rule: <U A T = T.building,n>
+effect: slow{0} haste{1000}
+targets: non_buidling
 nonRMB: 1
 anims: move |(0 1 32)
 deps: haste

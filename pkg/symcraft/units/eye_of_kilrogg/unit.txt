@@ -1,6 +1,6 @@
 pud: 45
 layer: 5
-movement: air
+move_class: air
 hp: 100
 armor: 0
 sight: 3

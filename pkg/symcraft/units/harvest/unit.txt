@@ -1,11 +1,11 @@
 proto: attack
-uiName: "Harvest"
-movement: 2 5 forest
-grp: h
+typename: `Harvest`
+move_class: 2 5 forest
+hotkey: h
 range: 1
 effect: harvest 25
 harvests: gold wood
-rule: (ruleHarvest ? ?? ???)
-fix: (fixHarvest ?)
-do: (doHarvest ?)
+targets: can_harvest
+fix: fix_harvest
+do: harvest
 anims: move |(0 1 64)

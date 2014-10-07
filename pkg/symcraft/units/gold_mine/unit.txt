@@ -2,8 +2,8 @@ pud: 92
 proto: building
 hp: 25500
 resource: gold
-gold: 30000
-rule: ruleGoldMine
+resources: gold=30000
+targets: ruleGoldMine
 anims: still | (0 6)
        `50` | (1 6)
        `25` | (2 6)

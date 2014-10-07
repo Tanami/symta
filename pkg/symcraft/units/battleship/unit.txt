@@ -9,7 +9,7 @@ role: ship2
 acts: move_ship    stop_ship    cannon_big
        patrol_naval stand_ground
 cost: gold=1000 wood=500 oil=1000 time=140
-rCost: gold=1000 wood=400 oil=800 time=200
+research_cost: gold=1000 wood=400 oil=800 time=200
 anims: still | (0 6)
         attack | shipAttack
                  (0 5) (0 5) (0 5) (0 5) (0 5) (0 5)

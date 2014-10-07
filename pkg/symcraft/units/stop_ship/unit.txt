@@ -1,4 +1,4 @@
-grp: s
+hotkey: s
 targets: self
 nonRMB: 1
 do: doCancel

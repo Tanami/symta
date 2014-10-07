@@ -1,6 +1,6 @@
 pud: 40
 proto: daemon
-uiName: "   GnomishnFlying Machine"
+typename: `   GnomishnFlying Machine`
 size: 2 2
 hp: 150
 armor: 2

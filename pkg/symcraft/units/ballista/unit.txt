@@ -1,6 +1,6 @@
 pud: 4
 layer: 2
-movement: land
+move_class: land
 selection: 64 64
 hp: 110
 sight: 8

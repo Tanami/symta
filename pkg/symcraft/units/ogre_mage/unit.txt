@@ -1,9 +1,9 @@
 pud: 13
 proto: ogre
 shaded: 1
-mana: 85
+mana= 85
 mp: 255
-rCost: gold=1000 time=250
+research_cost: gold=1000 time=250
 acts: board
        move                 stop          fist
        patrol               stand_ground  0

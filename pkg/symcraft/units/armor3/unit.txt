@@ -1,6 +1,6 @@
 shaded: 1
-rCost: gold=900 wood=500 time=250
-prodName: "Armor +2"
-upgrade: armor:2
+research_cost: gold=900 wood=500 time=250
+prodName: `Armor +2`
+upgrade: armor{2}
 deps: armor2 armor3
 negs: nil

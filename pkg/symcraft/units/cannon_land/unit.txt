@@ -1,5 +1,5 @@
 proto: cannon
 layer: 4
-movement: 2 wall
+move_class: 2 wall
 
 

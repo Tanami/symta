@@ -1,11 +1,11 @@
 pud: 86
-uiName: "Oil Platform"
+typename: `Oil Platform`
 proto: building
-movement: water
+move_class: water
 hp: 650
 cost: gold=700 wood=450 time=200
 resource: oil
-oil: 15000
+resources: oil=15000
 extends: oil_patch
 role: oil_platform
 anims: still | (0 6)

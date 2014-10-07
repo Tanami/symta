@@ -1,4 +1,4 @@
-uiName: "Move"
-grp: m
+typename: `Move`
+hotkey: m
 range: 0
-rule: ruleMove
+targets: ruleMove

@@ -1,4 +1,4 @@
 pud: 16
 proto: peasant
-uiName: "Peasant"
+typename: `Peasant`
 role: rebel

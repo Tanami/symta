@@ -1,5 +1,5 @@
 pud: 98
-uiName: "Cannon Tower"
+typename: `Cannon Tower`
 proto: building
 size: 2 2
 hp: 160
@@ -13,6 +13,6 @@ role: cannon_tower
 anims: still | (0 6)
        `50` | (1 6)
        `25` | (1 5)
-       '0' | (1 5)
+       `0` | (1 5)
        attack | attack (0 150)
        death | (4 200) (5 200)

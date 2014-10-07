@@ -1,5 +1,5 @@
 pud: 96
-uiName: "Guard Tower"
+typename: `Guard Tower`
 proto: building
 size: 2 2
 hp: 130

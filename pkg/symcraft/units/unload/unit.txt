@@ -1,4 +1,4 @@
 proto: move
-uiName: "Unload"
-do: (doUnload ?)
-rule: <U A T=1>
+typename: `Unload`
+do: unload
+targets: any

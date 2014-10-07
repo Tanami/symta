@@ -1,7 +1,7 @@
 pud: 30
 layer: 2
 corpse: sink
-movement: water
+move_class: water
 size: 2 2
 hp: 100
 armor: 10

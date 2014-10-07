@@ -2,6 +2,6 @@ pud: 102
 proto: building
 size: 2 2
 hp: 5000
-mana: 85
+mana= 85
 mp: 255
 
