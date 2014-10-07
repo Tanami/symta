@@ -1,0 +1,11 @@
+typename: `Eye of Kilrogg`
+layer: 6
+move_class: air
+show: attack
+range: 6
+impact: spell
+use_cost: mana=70
+effect: spawn{eye_of_kilrogg}
+targets: can_move{eye_of_kilrogg}
+nonRMB: 1
+anims: move |(0 1 16) (0 1 16)
