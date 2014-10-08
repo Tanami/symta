@@ -31,6 +31,8 @@ list.copy = map X Me X
 _.deep_copy = Me
 list.deep_copy = map X Me X.deep_copy
 
+_.methods_ = Me^methods_.table
+
 _.`{}` F = $map{F}
 fn.`{}` @As = As.apply{Me}
 
@@ -487,7 +489,7 @@ bad Text =
 | halt
 
 // hashtable
-type table{table_ Size} buckets/(dup Size Void)
+type table.no_copy{table_ Size} buckets/(dup Size Void)
 table.`.` K =
 | Bs = $buckets
 | H = K.hash%Bs.size
@@ -520,6 +522,9 @@ table.size = $buckets.map{X => if got X then X.size else 0}.sum
 table.list = $buckets.skip{Void}.join
 table.map F = $list.map{F}
 table.as_text = "#t{[$list{}{?0}]}"
+
+table.copy = $list.table
+table.deep_copy = $list.table
 
 list.table =
 | T = t size/($size*2)

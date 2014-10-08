@@ -1,6 +1,7 @@
 export address
        inspect
        halt
+       methods_
        log
        say_
        rtstat

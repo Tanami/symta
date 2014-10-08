@@ -55,7 +55,7 @@ unit.as_text = "#unit{[$type]}"
 
 type main{Data} data/Data sounds/"[Data]/sounds"
                 tilesets/0 types/(t) roles/(t) upgrades/(t) cache/(t)
-                pf_range/2**14 ts_names pud/(t)
+                pf_range/2**14 ts_names pud/(t) unitSetters
 | $init_tiles
 | $ts_names <= $tilesets{}{?0}
 | DummySprite <= ($ts_names){[? (dup 5 DummyGfx)]}
@@ -87,26 +87,10 @@ main.load_type_hlp Path T =
 | U.type <= T
 | Corpse = 0
 | for X Xs: case X
-  [pud Id] | U.pud <= Id
-  [proto PT] |
   [move_class @Xs] | U.move_class <= Xs
-  [role R] | U.role <= R
-  [size W H] | U.size <= [W H]
-  [hp V] | U.hp <= V
-  [hits V] | U.hits <= V
-  [mp V] | U.mp <= V
-  [mana V] | U.mana <= V
-  [armor V] | U.armor <= V
-  [sight V] | U.sight <= V
-  [damage @V] | U.damage <= V
-  [range V] | U.range <= V
   [effect @Xs] | U.effect <= Xs
   [acts @Xs] | U.acts <= Xs
   [anims @Xs] | U.anims <= Xs.group{2}{[?0 ?1.1]}.table
-  [shadow O] | U.shadow <= O
-  [layer O] | U.layer <= MCs.O
-  [faces N] | U.faces <= N
-  [selection W H] | U.selection <= [W H]
   [cost @V] | U.cost <= cost_from_list V^normalize_cost
   [use_cost @V] | U.use_cost <= cost_from_list V^normalize_cost
   [research_cost @V] | U.research_cost <= cost_from_list V^normalize_cost
@@ -116,53 +100,24 @@ main.load_type_hlp Path T =
   [negs @Xs] | U.negs <= Xs
   [trains @Xs] | U.trains <= Xs
   [builds @Xs] | U.builds <= Xs
-  [shaded V] | U.shaded <= V
   [upgrades @Xs] | U.upgrades <= Xs
   [upgrade @Xs] | U.upgrade <= Xs
   [researches @Xs] | U.researches <= Xs
-  [show Anim] | U.show <= Anim
-  [area X Y] | U.area <= [X Y]
-  [shards V] | U.shards <= V
-  [offset circle] | U.offset <= \circle
-  [offset X Y] | U.offset <= [X Y]
-  [splash V] | U.splash <= V
-  [impact V] | U.impact <= V
-  [bounces V] | U.bounces <= V
-  [nonRMB V] | U.nonRMB <= V
-  [building V] | U.building <= V
-  [organic V] | U.organic <= V
-  [undead V] | U.undead <= V
-  [corpse V] | Corpse <= V
-  [move V] | U.move <= V
-  [inc V] | U.inc <= V
-  [cycles V] | U.cycles <= V
-  [ignoresDst V] | U.ignoresDst <= V
-  [explodes V] | U.explodes <= V
-  [typename V] | U.typename <= V
-  [prodName V] | U.prodName <= V
   [targets @Xs] | U.targets <= Xs
-  [hotkey V] | U.hotkey <= V
   [do @Xs] | U.do <= Xs
-  [forced V] | U.forced <= V
-  [prio V] | U.prio <= V
-  [rmbPrio V] | U.rmbPrio <= V
-  [fix V] | U.fix <= V
-  [morphAll V] | U.morphAll <= V
   [morphs @Xs] | U.morphs <= Xs
-  [hide V] | U.hide <= V
-  [supply V] | U.supply <= V
   [depot @Xs] | U.depot <= Xs
   [boostsHarvest @Xs] | U.boostsHarvest <= Xs
-  [say V] | U.say <= V
-  [ttl V] | U.ttl <= V
-  [detector V] | U.detector <= V
-  [resource V] | U.resource <= V
-  [extends V] | U.extends <= V
   [foundation @Xs] | U.foundation <= Xs
   [harvests @Xs] | U.harvests <= Xs
-  [transport V] | U.transport <= V
   [enabled_if @Xs] | U.enabled_if <= Xs
-  Else | bad "load_type{[T]}: cant parse [X] in [Path]"
+  [corpse V] | Corpse <= V
+  [layer O] | U.layer <= MCs.O
+  [proto PT] |
+  [K V] | S = $unitSetters.K
+        | when no S: bad "load_type{[T]}: no field [K] for [Path]"
+        | S U V
+  Else | bad "load_type{[T]}: bad entry [X] for [Path]"
 | have U.typename T.split{_}{?title}.text{' '}
 | less U.anims: U.anims <= t
 | less U.cost: U.cost <= cost
@@ -225,6 +180,7 @@ main.load_type Path =
 | U
 
 main.init_types =
+| $unitSetters <= (unit)^methods_.keep{?0.0 >< '!'}{[?0.tail ?1]}.table
 | for E "[$data]/types".paths: $load_type{E}
 | for [T E] $types
   | E.proto_gfx <= Void

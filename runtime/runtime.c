@@ -1116,6 +1116,25 @@ RETURNS(tag_of(o));
 BUILTIN1("address",address,C_ANY,o)
 RETURNS((uintptr_t)(o)&~ALIGN_MASK)
 
+BUILTIN1("methods_",methods_,C_ANY,o)
+  int i;
+  void **m;
+  int t = (int)O_TYPE(o);
+  R = Empty; 
+  for (i = 0; i < methods_used; i++) {
+     m = methods[i];
+     if (m[t] != undefined) {
+       void *name, *c, *pair;
+       LIST_ALLOC(pair, 2);
+       TEXT(name, (char*)m[T_NAME]);
+       REF(pair,0) = name;
+       REF(pair,1) = m[t];
+       CONS(c, pair, R);
+       R = c;
+     }
+  }
+RETURNS(R);
+
 BUILTIN0("halt",halt)
   printf("halted.\n");
   exit(0);
@@ -1509,6 +1528,7 @@ static struct {
   {"address", b_address},
   {"inspect", b_inspect},
   {"halt", b_halt},
+  {"methods_", b_methods_},
   {"log", b_log},
   {"say_", b_say_},
   {"rtstat", b_rtstat},

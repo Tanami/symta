@@ -1231,6 +1231,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! `("@" ("|" ,ctor
                ,@copy
                ,@(m s super `("_subtype" ,s ,name))
+               ("=" (("." ,name ,"fields_")) ("[]" ,@fs))
                ("=" (("." ,name ,"is_{name}")) 1)
                ("=" (("." "_" ,"is_{name}")) 0)
                ,@(m f fs `("=" (("." ,name ,f)) ("_dget" "Me" ,(incf j))))

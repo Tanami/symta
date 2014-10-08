@@ -535,6 +535,7 @@ type Name @Fields =
 | ['@' ['|' Ctor
             @Copy
             @(map S Super [_subtype S Name])
+            [`=` [[`.` Name "fields_"]] ['[]' @Fs]]
             [`=` [[`.` Name "is_[Name]"]] 1]
             [`=` [[`.` '_' "is_[Name]"]] 0]
             @(map [I F] Fs.i [`=` [[`.` Name F]]  [_dget 'Me' I]])
