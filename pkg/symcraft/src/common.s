@@ -75,9 +75,7 @@ main.unitFrames C S File =
 | G.free
 | R
 
-normalize_cost_r C = case C [`=` A B] | [@A @B^normalize_cost_r]
-                            B | B
-normalize_cost C = C^normalize_cost_r.group{2}
+normalize_cost Xs = Xs{?tail}
 
 main.load_type_hlp Path T =
 | say "load_type [T]"

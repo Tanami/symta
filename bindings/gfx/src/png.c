@@ -157,6 +157,42 @@ jmpbuf_fail:
           row++;
         }
       }
+    } else if (bit_depth == 4) {
+      for (y = 0; y < height; y++) {
+        png_byte *row = row_pointers[y];
+        for (x = 0; x < width; ) {
+          png_byte c = row[0];
+          for (i = 4; i >=0 ; i-=4) {
+            gfx_set(gfx, x, y, (c>>i)&0xF);
+            if (++x == width) break;
+          }
+          row++;
+        }
+      }
+    } else if (bit_depth == 2) {
+      for (y = 0; y < height; y++) {
+        png_byte *row = row_pointers[y];
+        for (x = 0; x < width; ) {
+          png_byte c = row[0];
+          for (i = 6; i >=0 ; i-=2) {
+            gfx_set(gfx, x, y, (c>>i)&0x3);
+            if (++x == width) break;
+          }
+          row++;
+        }
+      }
+    } else if (bit_depth == 1) {
+      for (y = 0; y < height; y++) {
+        png_byte *row = row_pointers[y];
+        for (x = 0; x < width; ) {
+          png_byte c = row[0];
+          for (i = 7; i >=0 ; i-=1) {
+            gfx_set(gfx, x, y, (c>>i)&0x1);
+            if (++x == width) break;
+          }
+          row++;
+        }
+      }
     } else {
       fprintf(stderr, "load_png: implement indexed bit_depth=%d\n", bit_depth);
       abort();
