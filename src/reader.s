@@ -38,7 +38,7 @@ add_lexeme Dst Pattern Type =
 | for C Cs
   | T = Dst.C
   | when no T: 
-    | T <= if Kleene then Dst else m
+    | T <= if Kleene then Dst else t
     | Dst.C <= T
   | add_lexeme T Next Type
 
@@ -67,8 +67,8 @@ init_tokenizer =
          (($HeadChar @$TailChar) symbol)
          )
 | Ss = \((`if` `if`) (`then` `then`) (`else` `else`) (`and` `and`) (`or` `or`) (`Void` `void`))
-| GTable <= m
-| GSpecs <= m
+| GTable <= t
+| GSpecs <= t
 | for [A B] Ss: GSpecs.A <= B
 | for L Ls
   | [Pattern Type] = if L.is_list then L else [L L]

@@ -3,7 +3,7 @@ ResNames = [good wood oil food mana score]
 Dirs = 8{(?.float-2.0)*PI/4.0}{[?.cos ?.sin].round.int}
 
 MCs = | C = [water land plain air forest wall rock dead invuln 0 1 2 3 4 5 6 7 8 9 10]
-      | (C.i){[?1 2**?0]}.as_map
+      | (C.i){[?1 2**?0]}.table
 
 dirN V = Dirs.locate{V.sign}
 
@@ -33,7 +33,7 @@ cost.as_text = "#cost{gold([$gold]) wood([$wood]) oil([$oil]) time([$time]) food
 cost.list = [[gold $gold] [wood $wood] [oil $oil] [mana $mana] [time $time]]
 
 DummyGfx = gfx 1 1
-DummyIcon = m human DummyGfx orc DummyGfx
+DummyIcon = t human DummyGfx orc DummyGfx
 DummySprite = Void
 StillAnim = [[0 6]]
 DeathAnim = [[0 0]]
@@ -54,8 +54,8 @@ type unit.entity type pud/Void typename/Void move_class/[] organic undead buildi
 unit.as_text = "#unit{[$type]}"
 
 type main{Data} data/Data sounds/"[Data]/sounds"
-                tilesets/0 types/(m) roles/(m) upgrades/(m) cache/(m)
-                pf_range/2**14 ts_names pud/(m)
+                tilesets/0 types/(t) roles/(t) upgrades/(t) cache/(t)
+                pf_range/2**14 ts_names pud/(t)
 | $init_tiles
 | $ts_names <= $tilesets{}{?0}
 | DummySprite <= ($ts_names){[? (dup 5 DummyGfx)]}
@@ -89,7 +89,7 @@ main.load_type_hlp Path T =
 | for X Xs: case X
   [pud Id] | U.pud <= Id
   [proto PT] |
-  [move_class @M] | U.move_class <= M
+  [move_class @Xs] | U.move_class <= Xs
   [role R] | U.role <= R
   [size W H] | U.size <= [W H]
   [hp V] | U.hp <= V
@@ -102,7 +102,7 @@ main.load_type_hlp Path T =
   [range V] | U.range <= V
   [effect @Xs] | U.effect <= Xs
   [acts @Xs] | U.acts <= Xs
-  [anims @Xs] | U.anims <= Xs.group{2}{[?0 ?1.1]}.as_map
+  [anims @Xs] | U.anims <= Xs.group{2}{[?0 ?1.1]}.table
   [shadow O] | U.shadow <= O
   [layer O] | U.layer <= MCs.O
   [faces N] | U.faces <= N
@@ -111,7 +111,7 @@ main.load_type_hlp Path T =
   [use_cost @V] | U.use_cost <= cost_from_list V^normalize_cost
   [research_cost @V] | U.research_cost <= cost_from_list V^normalize_cost
   [use_cost_player @V] | U.use_cost_player <= cost_from_list V^normalize_cost
-  [resources @V] | U.resources <= V^normalize_cost.as_map
+  [resources @V] | U.resources <= V^normalize_cost.table
   [deps @Xs] | U.deps <= Xs
   [negs @Xs] | U.negs <= Xs
   [trains @Xs] | U.trains <= Xs
@@ -164,11 +164,11 @@ main.load_type_hlp Path T =
   [enabled_if @Xs] | U.enabled_if <= Xs
   Else | bad "load_type{[T]}: cant parse [X] in [Path]"
 | have U.typename T.split{_}{?title}.text{' '}
-| less U.anims: U.anims <= m
+| less U.anims: U.anims <= t
 | less U.cost: U.cost <= cost
 | SpriteOverride = 0
 | when @exists "[Path]/gfxes"
-  | Gs = "[Path]/gfxes".paths{}{X=>[X.url.1 $unitFrames{U.faces 0 X}]}.as_map
+  | Gs = "[Path]/gfxes".paths{}{X=>[X.url.1 $unitFrames{U.faces 0 X}]}.table
   | have Gs.default: DummySprite
   | ($ts_names){(have Gs.?: Gs.default)}
   | SpriteOverride <= 1
@@ -180,16 +180,16 @@ main.load_type_hlp Path T =
 | when@exists!it "[Path]/icon.png": U.icon.human <= gfx it
 | U.icon.orc <= U.icon.human
 | when@exists!it "[Path]/icon_orc.png": U.icon.orc <= gfx it
-| less got U.sounds: U.sounds <= m
-| when@exists!it "[Path]/sounds": U.sounds <= it.paths{}{[?.url.1 ?.paths]}.as_map
+| less got U.sounds: U.sounds <= t
+| when@exists!it "[Path]/sounds": U.sounds <= it.paths{}{[?.url.1 ?.paths]}.table
 | if U.building and SpriteOverride
   then | Cs = $types.'_construction_site'.sprite
        | Ds = $types.'_destroyed_site'.sprite
        | if U.move_class^is{[plain]}
-         then U.sprite <= @as_map: map [T Gs] U.sprite
+         then U.sprite <= @table: map [T Gs] U.sprite
                           | N = [Gs.size 2].min
                           | [T [@Gs.take{N} @Cs.T @Ds.T.take{2} @Gs.drop{N}]]
-         else U.sprite <= @as_map: map [T Gs] U.sprite
+         else U.sprite <= @table: map [T Gs] U.sprite
                           | N = [Gs.size 4].min
                           | [T [@Gs.take{N} @Ds.T.drop{2} @Gs.drop{N}]]
   else | when U.hp: U.cost.food <= 1
@@ -198,7 +198,7 @@ main.load_type_hlp Path T =
          | G = C.sprite.default
          | O = U.sprite.summer.size
          | [@!U.anims.death @(C.anims.Corpse){[?0+O ?1]}]
-         | U.sprite <= @as_map: map [K V] U.sprite [K [@V @G]]
+         | U.sprite <= @table: map [K V] U.sprite [K [@V @G]]
 | have U.anims.still StillAnim
 | have U.anims.death DeathAnim
 | when got!it U.anims.move: U.speed <= animSpeed it

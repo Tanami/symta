@@ -66,7 +66,7 @@ compile_expr Name Dst Expr =
 | Imports = Imports.keep{X => X.1.is_text} // skip macros
 | ExprWithDeps = add_imports Expr Imports
 | Ms = [GMacros @(map M Macros "[GDstFolder][M]"^load_macros)].join
-| ExpandedExpr = macroexpand ExprWithDeps Ms.as_map &compile_module
+| ExpandedExpr = macroexpand ExprWithDeps Ms.table &compile_module
 | Text = ssa_produce_file ExpandedExpr
 | CFile = "[Dst].c"
 | CFile.set{Text}
@@ -120,7 +120,7 @@ build @As =
       GSrcFolders ["[SrcFolder]src/" "[GRootFolder]src/"]
       GHeaderTimestamp "[GRootFolder]/runtime/symta.h".time
       GShowInfo 1
-      GCompiledModules (m)
+      GCompiledModules (t)
   | GDstFolder.mkpath
   | register_library_folder GDstFolder
   | RuntimeSrc = "[GRootFolder]runtime/runtime.c"
@@ -135,7 +135,7 @@ eval Expr Env =
       GSrcFolders ["[GRootFolder]src/"]
       GHeaderTimestamp "[GRootFolder]/runtime/symta.h".time
       GDstFolder "[BuildFolder]lib/"
-      GCompiledModules (m)
+      GCompiledModules (t)
   | Entry = @rand tmp
   | DstFile = "[BuildFolder]lib/[Entry]"
   | Vars = map [K V] Env K

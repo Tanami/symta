@@ -487,15 +487,15 @@ bad Text =
 | halt
 
 // hashtable
-type map{map_ Size} buckets/(dup Size Void)
-map.`.` K =
+type table{table_ Size} buckets/(dup Size Void)
+table.`.` K =
 | Bs = $buckets
 | H = K.hash%Bs.size
 | Xs = Bs.H
 | when no Xs: leave Void
 | for X Xs: when X.0 >< K: leave X.1
 | Void
-map.`!` K V =
+table.`!` K V =
 | Bs = $buckets
 | H = K.hash%Bs.size
 | Xs = Bs.H
@@ -504,7 +504,7 @@ map.`!` K V =
        | if no Old then Bs.H <= [[K V]@Xs]
          else Old.1 <= V
 | Void
-map.del K =
+table.del K =
 | Bs = $buckets
 | H = K.hash%Bs.size
 | Xs = Bs.H
@@ -512,22 +512,22 @@ map.del K =
 | L = Xs.locate{X => X.0><K}
 | when got L: Bs.H <= $Xs.L
 | Me
-map._ Method Args =
+table._ Method Args =
 | if Args.size > 1
   then Args.0.(Method^_method_name.tail) <= Args.1 // strip `!`
   else Args.0.(Method^_method_name)
-map.size = $buckets.map{X => if got X then X.size else 0}.sum
-map.list = $buckets.skip{Void}.join
-map.map F = $list.map{F}
-map.as_text = "#m{[$list{}{?0}]}"
+table.size = $buckets.map{X => if got X then X.size else 0}.sum
+table.list = $buckets.skip{Void}.join
+table.map F = $list.map{F}
+table.as_text = "#t{[$list{}{?0}]}"
 
-list.as_map =
-| T = m size/($size*2)
+list.table =
+| T = t size/($size*2)
 | for [K V] Me: T.K <= V
 | T
 
 list.uniq =
-| Seen = m size/($size*2)
+| Seen = t size/($size*2)
 | $skip{X => got Seen.X or (Seen.X <= 1) and 0}
 
 text.pad Count Item =
@@ -658,4 +658,4 @@ int.s4b =
 | when Me < 0: #100000000+!Me
 | [Me/#1000000%256 Me/#10000%256 Me/#100%256 Me%256]
 
-export non say bad no got map_ new_macro new_meta
+export non say bad no got table_ new_macro new_meta

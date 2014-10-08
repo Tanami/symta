@@ -252,7 +252,7 @@ expand_form O AGT =
   Else | ['[]' @(map X O: expand_form X AGT)]
 
 form O =
-| AGT = m
+| AGT = t
 | R = expand_form O AGT
 | when AGT.size > 0: R <= [let_ (map [K V] AGT [V [_mcall [_quote K.tail] rand]]) R]
 | R
@@ -400,7 +400,7 @@ is_incut X = case X [`@` Xs] 1
 | As = map A As: if A^is_incut then A.1 else [_list A]
 | [_mcall [_list @As] join]
 
-m @As_ =
+t @As_ =
 | As = As_
 | Size = 0
 | case As [[`/` size S] @Xs]
@@ -410,14 +410,14 @@ m @As_ =
 | As <= As.group{2}
 | if As.size
   then | less Size: Size <= 2*As.size
-       | form: `|` (T = map_ Size)
+       | form: `|` (T = table_ Size)
                    $@(map [K V] As
                      | when K.is_text: K <= form \K
                      | when V.is_text: V <= form \V
                      | form: T.K <= V)
                  T
   else | less Size: Size <= 256
-       | form: map_ Size
+       | form: table_ Size
 
 //FIXME: move it to compiler.s
 mangle_name Name =
@@ -770,11 +770,11 @@ macroexpand Expr Macros ModuleCompiler =
       GExpansionDepth 0
       GExports []
       GModuleCompiler ModuleCompiler
-      GTypes (m)
+      GTypes (t)
   | R = mex Expr
   | R
 
-export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[]' 'm' '\\' 'form'
+export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[]' 't' '\\' 'form'
        'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for' 'type'
        'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$' 'have'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'

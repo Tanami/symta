@@ -1670,10 +1670,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("fin" . xs) (expand-fin (butlast xs) (car (last xs))))
         (("ffi" lib symbol result . args) (expand-ffi lib symbol result args))
         (("@" x) `("=" () ("_nomex" ,x)))
-        (("m" . as)
+        (("t" . as)
          (match as
-           ((("/" "size" size)) `("map_" ,size))
-           (() `("map_" 256))
+           ((("/" "size" size)) `("table_" ,size))
+           (() `("table_" 256))
            (else (error "bad ~a" xs))))
         (("as" value expr) (expand-as (ssa-name "N") value expr))
         (("as" name value expr) (expand-as name value expr))

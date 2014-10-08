@@ -5,7 +5,7 @@ M = main (main_path).url.0
 \done
 
 /*
-Effects = m
+Effects = t
   bloodlust | U Amount => U.effects.bloodlust <= Amount
   haste | U Amount => U.effects.haste <= Amount
   slow | U Amount => U.effects.slow <= Amount
@@ -14,7 +14,7 @@ Effects = m
   spawn | T M Type => say "spawn [Type]" //spawnUnit M.owner Type T.tile T
   morph | X M Type => say "spawn [Type]" //morph Type X
 
-Targets = m
+Targets = t
   organic | U A T => T.organic
   undead | U A T => T.undead
   non_buidling | U A T => not T.building
@@ -22,7 +22,7 @@ Targets = m
   true | U A T = 1
   carries_resources | U A T => T.has_resources
 
-Results = m //act results
+Results = t //act results
   die | U => | U.die; U.act{remove}
   store | U => bad 'fix store' //doStore U
   unload | U => bad 'fix unload' //doStore U

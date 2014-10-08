@@ -5,25 +5,25 @@ I2E = Void //index to edge
 E2I = Void //edge to index
 Tilesets = Void
 
-TTypes = m // tile types
-  block   | m base 0       mc 0
-  plainL  | m base block   mc [air land plain]
-  plainD  | m base plainL  mc [air land plain]
-  forest  | m base plainL  mc [air forest]
+TTypes = t // tile types
+  block   | t base 0       mc 0
+  plainL  | t base block   mc [air land plain]
+  plainD  | t base plainL  mc [air land plain]
+  forest  | t base plainL  mc [air forest]
               rm forestR  hp 1  wood 100  resource wood
-  mudL    | m base plainL  mc [air land]
-  mudD    | m base mudL    mc [air land]
-  waterL  | m base mudL    mc [air water]
-  waterD  | m base waterL  mc [air water]
-  rock    | m base mudL    mc [air rock] rm rockR  hp 1
-  wallH   | m base plainL  mc [air wall] rm wallR  hp 100 armor 20
-  wallO   | m base plainL  mc [air wall] rm wallR  hp 100 armor 20
-  wallCH  | m base plainL  mc [air wall] rm wallCR hp 100 armor 20
-  wallCO  | m base plainL  mc [air wall] rm wallCR hp 100 armor 20
-  rockR   | m base plainL  mc [air land] rm 0
-  forestR | m base block   mc [air land plain] rm 0
-  wallR   | m base block   mc [air land] rm 0
-  wallCR  | m base block   mc [air land] rm 0
+  mudL    | t base plainL  mc [air land]
+  mudD    | t base mudL    mc [air land]
+  waterL  | t base mudL    mc [air water]
+  waterD  | t base waterL  mc [air water]
+  rock    | t base mudL    mc [air rock] rm rockR  hp 1
+  wallH   | t base plainL  mc [air wall] rm wallR  hp 100 armor 20
+  wallO   | t base plainL  mc [air wall] rm wallR  hp 100 armor 20
+  wallCH  | t base plainL  mc [air wall] rm wallCR hp 100 armor 20
+  wallCO  | t base plainL  mc [air wall] rm wallCR hp 100 armor 20
+  rockR   | t base plainL  mc [air land] rm 0
+  forestR | t base block   mc [air land plain] rm 0
+  wallR   | t base block   mc [air land] rm 0
+  wallCR  | t base block   mc [air land] rm 0
 
 foldEdges X = X.i.map{[I V]=>V.digits{2}.shl{3*I}}.fold{0 (@ior ? ??)}
 
@@ -39,7 +39,7 @@ type tileset{Name Tiles Trns} name/Name tiles/Tiles trns/Trns
 loadTileset P =
 | Frames = "[P]/gfx.png"^gfx.frames{32 32}
 | Ts = dup 4096
-| Tr = m
+| Tr = t
 | N = 0
 | for [K Type @Gs] "[P]/tiles.txt"^cfg
   | Tr."[K]_[Type]" <= N
@@ -66,8 +66,8 @@ loadTileset P =
 | tileset P.url.1 Ts Tr
 
 main.init_tiles =
-| I2E <= "[$data]/cfg/grid.txt"^cfg.group{3}{?^calcEdges}.i.as_map
-| E2I <= I2E{?flip}.as_map
-| $tilesets <= "[$data]/tiles".paths{}{?^loadTileset}{[?.name ?]}.as_map
+| I2E <= "[$data]/cfg/grid.txt"^cfg.group{3}{?^calcEdges}.i.table
+| E2I <= I2E{?flip}.table
+| $tilesets <= "[$data]/tiles".paths{}{?^loadTileset}{[?.name ?]}.table
 
 export

@@ -32,10 +32,10 @@ cfg P = P.get.utf8.lines{}{?parse}.skip{is.[]}
 
 setSkin Path =
 | Skin <= Path
-| SkinCache <= m
-| ImgCache <= m
-| FontCache <= m
-| FontTints <= "[Skin]/font/tints.txt"^cfg{}.map{[?0 ?.tail.pad{256 #FF000000}^new_cmap]}.as_map
+| SkinCache <= t
+| ImgCache <= t
+| FontCache <= t
+| FontTints <= "[Skin]/font/tints.txt"^cfg{}.map{[?0 ?.tail.pad{256 #FF000000}^new_cmap]}.table
 
 type font{new_font Gs W H} glyphs/Gs widths/W height/H
 
@@ -123,7 +123,7 @@ bar.draw G P =
 | G.rect{#347004 1 P+[3 3] [152*$value_/100 14]}
 
 type button.widget{Text Fn state/normal w_size/large h_size/medium}
-  value/Text on_click/Fn state/State over w_size/W_size h_size/H_size skin/Void cache/(m)
+  value/Text on_click/Fn state/State over w_size/W_size h_size/H_size skin/Void cache/(t)
 button.reskin =
 | Cache = $cache
 | $skin <= Skin
@@ -131,7 +131,7 @@ button.reskin =
 | WSize = $w_size
 | HSize = $h_size
 | Text = $value
-| Cache.Skin <= @as_map: map N [normal over pressed disabled]: _list N
+| Cache.Skin <= @table: map N [normal over pressed disabled]: _list N
   | File = "button/[HSize]-[WSize]-[case N over normal _ N]"
   | G = File^skin.copy
   | P = case N pressed 2 _ 0
@@ -196,8 +196,8 @@ lay.draw G P =
 
 //FIXME: create a default skin and allow picking user defined skins
 type gui{Root} root/Root timers/[] mice_xy/[0 0] cursor/point result/Void fb/Void
-               keys/(m) popup/Void last_widget/(widget) focus_widget/(widget)
-               focus_xy/[0 0] click_time/(m)
+               keys/(t) popup/Void last_widget/(widget) focus_widget/(widget)
+               focus_xy/[0 0] click_time/(t)
 | setSkin '/Users/nikita/Documents/git/symta/build/test_macro/data/ui'
 | GUI <= Me
 | $fb <= gfx 1 1

@@ -159,7 +159,7 @@ test_oop =
 | less super{}.method >< 'Super': failed
 | tsay "sub{}.method >< 'Sub'"
 | less sub{}.method >< 'Sub': failed
-| T = m{def(456) abc(123)}
+| T = t{def(456) abc(123)}
 | tsay "T.'abc'+T.'def' >< 456+123"
 | less T.'abc'+T.'def' >< 456+123: failed
 | tsay "T.abc+T.def >< 456+123"
