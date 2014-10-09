@@ -1,4 +1,5 @@
 use gfx macros reader
+
 ResNames = [good wood oil food mana score]
 Dirs = 8{(?.float-2.0)*PI/4.0}{[?.cos ?.sin].round.int}
 
@@ -50,10 +51,11 @@ type unit.entity type pud/Void typename/Void move_class/[] organic undead buildi
                  area shards bounces offset/[0 0] splash impact extends foundation transport
                  move inc cycles ignoresDst nonRMB hotkey targets do forced prio enabled_if
                  fix rmbPrio morphAll morphs hide supply boostsHarvest depot harvests/[] ttl
+                 id disp
 
 unit.as_text = "#unit{[$type]}"
 
-type main{Data} data/Data sounds/"[Data]/sounds"
+type main{Data} world data/Data sounds/"[Data]/sounds"
                 tilesets/0 types/(t) roles/(t) upgrades/(t) cache/(t)
                 pf_range/2**14 ts_names pud/(t) unitSetters
 | $init_tiles
@@ -77,6 +79,12 @@ main.unitFrames C S File =
 
 normalize_cost Xs = Xs{?tail}
 
+ListFields =
+| Xs = [move_class effect acts deps negs trains builds upgrades upgrade
+        researches target do morphs depot boostsHarvest foundation
+        harvests enabled_if]
+| Xs{[? 1]}.table
+
 main.load_type_hlp Path T =
 | say "load_type [T]"
 | U = Void
@@ -87,36 +95,20 @@ main.load_type_hlp Path T =
 | U.type <= T
 | Corpse = 0
 | for X Xs: case X
-  [move_class @Xs] | U.move_class <= Xs
-  [effect @Xs] | U.effect <= Xs
-  [acts @Xs] | U.acts <= Xs
   [anims @Xs] | U.anims <= Xs.group{2}{[?0 ?1.1]}.table
   [cost @V] | U.cost <= cost_from_list V^normalize_cost
   [use_cost @V] | U.use_cost <= cost_from_list V^normalize_cost
   [research_cost @V] | U.research_cost <= cost_from_list V^normalize_cost
   [use_cost_player @V] | U.use_cost_player <= cost_from_list V^normalize_cost
   [resources @V] | U.resources <= V^normalize_cost.table
-  [deps @Xs] | U.deps <= Xs
-  [negs @Xs] | U.negs <= Xs
-  [trains @Xs] | U.trains <= Xs
-  [builds @Xs] | U.builds <= Xs
-  [upgrades @Xs] | U.upgrades <= Xs
-  [upgrade @Xs] | U.upgrade <= Xs
-  [researches @Xs] | U.researches <= Xs
-  [targets @Xs] | U.targets <= Xs
-  [do @Xs] | U.do <= Xs
-  [morphs @Xs] | U.morphs <= Xs
-  [depot @Xs] | U.depot <= Xs
-  [boostsHarvest @Xs] | U.boostsHarvest <= Xs
-  [foundation @Xs] | U.foundation <= Xs
-  [harvests @Xs] | U.harvests <= Xs
-  [enabled_if @Xs] | U.enabled_if <= Xs
   [corpse V] | Corpse <= V
   [layer O] | U.layer <= MCs.O
   [proto PT] |
-  [K V] | S = $unitSetters.K
-        | when no S: bad "load_type{[T]}: no field [K] for [Path]"
-        | S U V
+  [K @As] | S = $unitSetters.K
+          | when no S: bad "load_type{[T]}: uknown field [K] for [Path]"
+          | if got ListFields.K then S U As
+            else | when As.size <> 1: "load_type{[T]}: bad field [K] for [Path]"
+                 | S U As.0
   Else | bad "load_type{[T]}: bad entry [X] for [Path]"
 | have U.typename T.split{_}{?title}.text{' '}
 | less U.anims: U.anims <= t
@@ -186,5 +178,30 @@ main.init_types =
   | E.proto_gfx <= Void
   | E.faces <= Void
 
+PudTilesets = [summer winter wasteland swamp]
+PudTeams = t nobody(0) neutral(0) capturable(0) computer(1) person(2) rescueable(2)
+PudPlayers = [0 0 neutral 0 computer person capturable rescueable]
+Critters = t summer\sheep wasteland\boar winter\seal swamp\hellhog
+
+type world w h game_info owned/(dup 32 []) units cycle scheds vs vs_i
+           nqs trans orders free_ids new_units del_units margin/10 
+           margin_origin/[10 10] max_units/1200 max_w/300 max_h/300 tileset
+           world_rect tiles gfxes
+           players this_player
+| WxH = $max_w*$max_h
+| $units <= dup $max_units+WxH
+| $free_ids <= ($max_units){?+WxH}
+| $vs <= dup $units.size [] // visible units
+world.cellIndex P = $w*P.1 + P.0
+world.setTile P I =
+| C = $tiles.copy
+| Id = $cell_id{P}
+| C.id <= Id
+| C.disp <= P*32
+| C.neibs <= Dirs{?+P}.keep{?.in{$world_rect}}
+| $units.Id <= C
+
+main.load_pud Path =
+| W = world
 
 export main cfg MCs

@@ -1,7 +1,5 @@
 use gfx show
 
-int.in Start End = Start << Me and Me < End
-list.in [RX RY RW RH] = $0.in{RX RX+RW} and $1.in{RY RY+RH}
 rects_intersect [AX AY AW AH] [BX BY BW BH] = AX<BX+BW and AY<BY+BH and BX<AX+AW and BY<AY+AH
 
 GUI = Void

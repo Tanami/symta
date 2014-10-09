@@ -663,4 +663,9 @@ int.s4b =
 | when Me < 0: #100000000+!Me
 | [Me/#1000000%256 Me/#10000%256 Me/#100%256 Me%256]
 
-export non say bad no got table_ new_macro new_meta
+xy X Y W H = dup I W*H [X+I%W Y+I/W]
+
+int.in Start End = Start << Me and Me < End
+list.in [RX RY RW RH] = $0.in{RX RX+RW} and $1.in{RY RY+RH}
+
+export non say bad no got table_ new_macro new_meta xy

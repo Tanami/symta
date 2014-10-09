@@ -1116,12 +1116,14 @@ RETURNS(tag_of(o));
 BUILTIN1("address",address,C_ANY,o)
 RETURNS((uintptr_t)(o)&~ALIGN_MASK)
 
+#define NUM_SPECIAL_METHODS 6
+
 BUILTIN1("methods_",methods_,C_ANY,o)
   int i;
   void **m;
   int t = (int)O_TYPE(o);
   R = Empty; 
-  for (i = 0; i < methods_used; i++) {
+  for (i = NUM_SPECIAL_METHODS; i < methods_used; i++) {
      m = methods[i];
      if (m[t] != undefined) {
        void *name, *c, *pair;
@@ -1133,7 +1135,7 @@ BUILTIN1("methods_",methods_,C_ANY,o)
        R = c;
      }
   }
-RETURNS(R);
+RETURNS(R)
 
 BUILTIN0("halt",halt)
   printf("halted.\n");
