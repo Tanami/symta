@@ -1,6 +1,7 @@
-use common tile macros
+use common tile macros world
 
 M = main (main_path).url.0
+M.load_pud{'/Users/nikita/Documents/git/symta/build/symcraft/maps/test.pud'}
 
 \done
 

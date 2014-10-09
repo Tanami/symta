@@ -86,7 +86,7 @@ ListFields =
 | Xs{[? 1]}.table
 
 main.load_type_hlp Path T =
-| say "load_type [T]"
+//| say "load_type [T]"
 | U = Void
 | Base = Path.url.0
 | Xs = "[Path]/unit.txt".get.utf8.parse{Path}^(|[`|`@Xs]=>Xs; X=>[X]){}{[?1.0 @?2]}
@@ -178,30 +178,4 @@ main.init_types =
   | E.proto_gfx <= Void
   | E.faces <= Void
 
-PudTilesets = [summer winter wasteland swamp]
-PudTeams = t nobody(0) neutral(0) capturable(0) computer(1) person(2) rescueable(2)
-PudPlayers = [0 0 neutral 0 computer person capturable rescueable]
-Critters = t summer\sheep wasteland\boar winter\seal swamp\hellhog
-
-type world w h game_info owned/(dup 32 []) units cycle scheds vs vs_i
-           nqs trans orders free_ids new_units del_units margin/10 
-           margin_origin/[10 10] max_units/1200 max_w/300 max_h/300 tileset
-           world_rect tiles gfxes
-           players this_player
-| WxH = $max_w*$max_h
-| $units <= dup $max_units+WxH
-| $free_ids <= ($max_units){?+WxH}
-| $vs <= dup $units.size [] // visible units
-world.cellIndex P = $w*P.1 + P.0
-world.setTile P I =
-| C = $tiles.copy
-| Id = $cell_id{P}
-| C.id <= Id
-| C.disp <= P*32
-| C.neibs <= Dirs{?+P}.keep{?.in{$world_rect}}
-| $units.Id <= C
-
-main.load_pud Path =
-| W = world
-
-export main cfg MCs
+export main cfg Dirs MCs

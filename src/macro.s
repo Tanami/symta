@@ -47,6 +47,17 @@ expand_list_hole Key Hole Hit Miss = case Hole
                   | Hit = form: case G [$@Xs] Hit Else Miss
                   | expand_list_hole Key Hole Hit Miss
   [[`%` A B] @Xs] | expand_list_hole Key (form: (`<` [B@_] A)*B $@Xs) Hit Miss
+  [[`/` Size Sub] @Xs]
+    | Sz = @rand 'Sz'
+    | Ys = @rand 'Ys'
+    | Zs = @rand 'Zs'
+    | Hit = expand_list_hole Zs Xs Hit Miss
+    | form | Sz = Size
+           | _if Key.size < Sz
+                 Miss
+                 (`|` (Ys = Key.take{Sz})
+                      (Zs = Key.drop{Sz})
+                      $(expand_hole Ys Sub Hit Miss))
   [X@Xs] | H = @rand 'X'
          | Hs = @rand 'Xs'
          | Hit <= expand_list_hole Hs Xs Hit Miss
@@ -84,8 +95,8 @@ expand_hole_term Key Hole Hit Miss =
 expand_hole Key Hole Hit Miss =
 | less Hole^is{[X@Xs]}: leave: expand_hole_term Key Hole Hit Miss
 | case Hole
-  [`[]` @Xs] | P = Xs.locate{$0[`/`@_]=>1}
-             | when got P: Xs <= [@Xs.take{P} [`@` [`/` @Xs.drop{P}]]]
+  [`[]` @Xs] | P = Xs.locate{$0[`/` K V]=>K.is_keyword}
+             | when got P: Xs <= [@Xs.take{P} [`@` [`//` @Xs.drop{P}]]]
              | [_if [_mcall Key is_list]
                     (expand_list_hole Key Xs Hit Miss)
                     Miss]
@@ -110,7 +121,7 @@ expand_hole Key Hole Hit Miss =
   [`=>` A B] | [let_ [[A.0 Key]]
                  [_if ['|' @B] Hit Miss]]
   [`&` X] | form: _if X >< Key Hit Miss
-  [`/` @Xs] | expand_hole_keywords Key Hit Xs
+  [`//` @Xs] | expand_hole_keywords Key Hit Xs
   [`\\` X] | form: _if Hole >< Key Hit Miss
   [`"` @Xs] /*"*/ //FIXME: use special matcher for text
     | Vs = []
