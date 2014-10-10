@@ -1143,7 +1143,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                ("_goto" ,end)))
 
 (to add-pattern-matcher args body
+  ! g = ssa-name "As"
   ! default = match args
+               ((("$" "_") . tail)
+                (setf args tail)
+                `("." ,g 0))
                ((("$" default) . tail)
                 (setf args tail)
                 default)
@@ -1151,8 +1155,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! match args
     ((("@" all)) (setf args all))
     (else
-      (! g = ssa-name "As"
-       ! setf body (expand-match g `((("[]" ,@args) ,body)) default)
+      (! setf body (expand-match g `((("[]" ,@args) ,body)) default)
        ! setf args g))
   ! list args body)
 

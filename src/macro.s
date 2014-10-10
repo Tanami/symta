@@ -349,6 +349,10 @@ expand_self_ref O = case O
 have Var Default = form | when (no Var) (`<=` (Var) Default)
                         | Var
 
+supply Surrogate What =
+| form: `|` (`=` (~W) What)
+            (_if Void >< ~W Surrogate ~W)
+
 expand_method_arg_r A FX FY =
 | when A.is_text
   | when A >< '?': leave: FX A
@@ -459,15 +463,18 @@ expand_leave Name Value =
 | [_progn [_set R Value] [_goto End]]
 
 add_pattern_matcher Args Body =
+| G = @rand 'As'
 | Default = case Args
+    [[`$` '_'] @Tail]
+      | Args <= Tail
+      | form G.0
     [[`$` D] @Tail]
       | Args <= Tail
       | D
     Else | form: _fatal 'couldnt match args list'
 | case Args
    [[`@` All]] | Args <= All
-   Else | G = @rand 'As'
-        | Body <= expand_match G [[['[]' @Args] Body]] Default Void
+   Else | Body <= expand_match G [[['[]' @Args] Body]] Default Void
         | Args <= G
 | [Args Body]
 
@@ -799,6 +806,6 @@ macroexpand Expr Macros ModuleCompiler =
 
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[]' 't' '\\' 'form'
        'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for' 'type'
-       'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$' 'have'
+       'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
-       'ffi_begin' 'ffi' 'min' 'max' '"'
+       'ffi_begin' 'ffi' 'min' 'max' 'supply' 'have' '"'
