@@ -670,4 +670,11 @@ list.xy =
 int.in Start End = Start << Me and Me < End
 list.in [RX RY RW RH] = $0.in{RX RX+RW} and $1.in{RY RY+RH}
 
+int.clip A B = if Me < A then A
+               else if Me > B then B
+               else Me
+
+float.clip A B = if Me < A then A
+                 else if Me > B then B
+                 else Me
 export non say bad no got table_ new_macro new_meta
