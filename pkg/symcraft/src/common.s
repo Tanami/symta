@@ -41,27 +41,32 @@ DeathAnim = [[0 0]]
 
 animSpeed $0 [[_ W _]@Xs] = W+Xs^animSpeed
 
-type unit.entity type pud/Void typename/Void move_class/[] organic undead building role
+type unit.entity type pud/Void typename/Void move_class/[] role
+                 organic undead building nobody playable rescueable passive
                  size/[1 1] sprite/Void sounds/Void icon/DummyIcon prodName
                  hp hits mp mana armor sight damage range speed effect
                  cost/(cost) use_cost/(cost) use_cost_player/(cost) research_cost/(cost)
                  acts upgrades upgrade researches deps negs anims layer selection shaded
                  trains builds proto_gfx faces/5 explodes show say shadow
-                 dir/Dirs.0 frame mask detector resource resources
+                 dir/Dirs.0 frame mask detector resource resources/(t size/6)
                  area shards bounces offset/[0 0] splash impact extends foundation transport
                  move inc cycles ignoresDst nonRMB hotkey targets do forced prio enabled_if
                  fix rmbPrio morphAll morphs hide supply boostsHarvest depot harvests/[] ttl
-                 id disp
+                 id xy disp owner color team name side view
 
 unit.as_text = "#unit{[$type]}"
 
 type main{Data} world data/Data sounds/"[Data]/sounds"
                 tilesets/0 types/(t) roles/(t) upgrades/(t) cache/(t)
-                pf_range/2**14 ts_names pud/(t) unitSetters
+                pf_range/2**14 ts_names pud/(t) unitSetters player_colors
+                ui_colors
 | $init_tiles
 | $ts_names <= $tilesets{}{?0}
 | DummySprite <= ($ts_names){[? (dup 5 DummyGfx)]}
 | $init_types
+| Cs = cfg "[$data]/cfg/color.txt"
+| $player_colors <= Cs{?0}^(X=>[@X@X])
+| $ui_colors <= Cs{[?0 ?tail]}.table
 
 main.gfx File =
 | when got!it $cache.File: leave it
@@ -174,8 +179,9 @@ main.load_type Path =
 main.init_types =
 | $unitSetters <= (unit)^methods_.keep{?0.0 >< '!'}{[?0.tail ?1]}.table
 | for E "[$data]/types".paths: $load_type{E}
+| $pud.95 <= $pud.94 // start location
 | for [T E] $types
   | E.proto_gfx <= Void
   | E.faces <= Void
 
-export main cfg Dirs MCs
+export main unit cfg Dirs MCs
