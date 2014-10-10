@@ -1159,9 +1159,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to pattern-arg x ! or (not (stringp x)) (fn-sym? x))
 
 (to expand-lambda as body
+  ! name = nil
+  ! match as
+     ((("@" n) . zs)
+      (when (fn-sym? n)
+        (setf name n)
+        (setf as zs)))
   ! body = `("|" ,body)
   ! (as body) = if (find-if #'pattern-arg as) (add-pattern-matcher as body) (list as body)
-  ! `("_fn" ,as ,body))
+  ! r = `("_fn" ,as ,body)
+  ! when name
+     (setf r `("let_" ((,name 0))
+                ("|" ("_set" ,name ,r)
+                     ("&" ,name))))
+  ! r)
 
 (to expand-block-item-fn name args body
   ! kname = concatenate 'string "_k_" name
@@ -1282,15 +1293,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (return-from make-multimethod (first xs))
   ! all = ssa-name "A"
   ! default = `("_fatal" "couldn't match lambda")
+  ! name = nil
   ! xs = m x xs
         (match x
           (("=>" as expr)
+           (match as
+             ((("@" n) . zs)
+              (when (fn-sym? n)
+                (setf name `(("@" ,n)))
+                (setf as zs))))
            (match as
              ((("&" d) . zs)
               (setf default d)
               (setf as zs)))
            `(("[]" ,@as) ,expr)))
-  ! `("=>" (("@" ,all)) ,(expand-match all xs default)))
+  ! `("=>" (,@name ("@" ,all)) ,(expand-match all xs default)))
 
 (to expand-block-helper r a b
   ! cond

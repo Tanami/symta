@@ -474,9 +474,15 @@ add_pattern_matcher Args Body =
 pattern_arg X = not X.is_text or X.is_keyword
 
 `=>` As Body =
+| Name = 0
+| case As [[`@` N] @Zs]: when N.is_keyword
+  | Name <= N
+  | As <= Zs
 | Body <= [`|` Body]
 | [A B] = if no As.find{&pattern_arg} then [As Body] else add_pattern_matcher As Body
-| [_fn A B]
+| R = [_fn A B]
+| when Name: R <= [let_ [[Name 0]] [`|` [_set Name R] [`&` Name]]]
+| R
 
 expand_block_item_fn Name Args Body =
 | KName = "_k_[Name]"
@@ -587,10 +593,15 @@ make_multimethod Xs =
   | leave Xs.0
 | All = @rand 'A'
 | Default = [_fatal "couldn't match lambda"]
+| Name = []
 | Xs = map X Xs: case X
-    [`=>` As Expr] | case As [['&' D] @Zs] | Default <= D; As <= Zs
-                   | [['[]' @As] Expr]
-| ['=>' [['@' All]] (expand_match All Xs Default Void)]
+    [`=>` As Expr]
+      | case As [[`@` N] @Zs]: when N.is_keywrod:
+        | Name <= [[`@` N]]
+        | As <= Zs
+      | case As [['&' D] @Zs] | Default <= D; As <= Zs
+      | [['[]' @As] Expr]
+| ['=>' [@Name ['@' All]] (expand_match All Xs Default Void)]
 
 expand_block_helper R A B =
 | if no A then [B @R]

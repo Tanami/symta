@@ -23,8 +23,6 @@ world.setTile P I =
 | C.neibs <= Dirs{?+P}.keep{?.in{$world_rect}}
 | $units.Id <= C
 
-parse_chunks$[] [4/M.utf8 4/L.u4 L/D @Xs] = [[M D] @Xs^parse_chunks]
-
 main.load_pud Path =
 | W = world
 | Handlers = t
@@ -36,5 +34,5 @@ main.load_pud Path =
   'SGLD' | 0
   'AIPL' | 0
   'UNIT' | 0
-| Cs = Path.get^parse_chunks
+| Cs = Path.get^(@r$[] [4/M.utf8 4/L.u4 L/D @Xs] => [[M D] @Xs^r])
 | Cs{?0}
