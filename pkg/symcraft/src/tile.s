@@ -32,7 +32,7 @@ calcEdges X =
 | [X.0 T.2 X.2 T.0]^foldEdges.ior{X.1.1.shl{12}}
 
 type cell.entity type base rm mask tileId gfxId gfx edges mc hp armor resource gold wood
-                 id xy disp neibs
+                 id xy disp neibs content
 cell.as_text = "#cell{[$type] [$tileId]}"
 
 type tileset{Name Tiles Trns} name/Name tiles/Tiles trns/Trns

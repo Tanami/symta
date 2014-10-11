@@ -527,7 +527,8 @@ table.copy = $list.table
 table.deep_copy = $list.table
 
 list.table =
-| T = t size/($size*2)
+| S = $size*2
+| T = t size/(if S < 3 then 3 else S)
 | for [K V] Me: T.K <= V
 | T
 

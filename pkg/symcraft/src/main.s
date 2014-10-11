@@ -1,7 +1,8 @@
 use common tile macros world view gui
 
 M = main (main_path).url.0
-M.load_pud{'/Users/nikita/Documents/git/symta/build/symcraft/maps/test.pud'}
+W = world M
+W.load_pud{'/Users/nikita/Documents/git/symta/build/symcraft/maps/test.pud'}
 
 //when (main_args).size
 gui: view{640 480 M}

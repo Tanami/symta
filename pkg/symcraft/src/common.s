@@ -41,20 +41,19 @@ DeathAnim = [[0 0]]
 
 animSpeed $0 [[_ W _]@Xs] = W+Xs^animSpeed
 
-type unit.entity type pud/Void typename/Void move_class/[] role
-                 organic undead building nobody playable rescueable passive
-                 size/[1 1] sprite/Void sounds/Void icon/DummyIcon prodName
-                 hp hits mp mana armor sight damage range speed effect
-                 cost/(cost) use_cost/(cost) use_cost_player/(cost) research_cost/(cost)
-                 acts upgrades upgrade researches deps negs anims layer selection shaded
-                 trains builds proto_gfx faces/5 explodes show say shadow
-                 dir/Dirs.0 frame mask detector resource resources/(t size/6)
-                 area shards bounces offset/[0 0] splash impact extends foundation transport
-                 move inc cycles ignoresDst nonRMB hotkey targets do forced prio enabled_if
-                 fix rmbPrio morphAll morphs hide supply boostsHarvest depot harvests/[] ttl
-                 id xy disp owner color team name side view
-
-unit.as_text = "#unit{[$type]}"
+type utype.entity
+    id pud/Void typename/Void move_class/[] role
+    organic undead building detector
+    size/[1 1] sprite/Void sounds/Void icon/DummyIcon prodName
+    hp mp mana armor sight damage range speed effect
+    cost/(cost) use_cost/(cost) use_cost_player/(cost) research_cost/(cost)
+    acts upgrades upgrade researches deps negs anims layer selection shaded
+    trains builds proto_gfx faces/5 explodes show say shadow
+    frame mask resource resources/(t size/6)
+    area shards bounces offset/[0 0] splash impact extends foundation transport
+    move inc cycles ignoresDst nonRMB hotkey targets do forced prio enabled_if
+    fix rmbPrio morphAll morphs hide supply boostsHarvest depot harvests/[] ttl
+utype.as_text = "#type{[$id]}"
 
 type main{Data} world data/Data sounds/"[Data]/sounds"
                 tilesets/0 types/(t) roles/(t) upgrades/(t) cache/(t)
@@ -96,8 +95,8 @@ main.load_type_hlp Path T =
 | Base = Path.url.0
 | Xs = "[Path]/unit.txt".get.utf8.parse{Path}^(|[`|`@Xs]=>Xs; X=>[X]){}{[?1.0 @?2]}
 | for X Xs: case X [proto PT]: U <= $load_type{"[Base]/[PT]"}.copy
-| have U: unit
-| U.type <= T
+| have U: utype
+| U.id <= T
 | Corpse = 0
 | for X Xs: case X
   [anims @Xs] | U.anims <= Xs.group{2}{[?0 ?1.1]}.table
@@ -177,11 +176,11 @@ main.load_type Path =
 | U
 
 main.init_types =
-| $unitSetters <= (unit)^methods_.keep{?0.0 >< '!'}{[?0.tail ?1]}.table
+| $unitSetters <= (utype)^methods_.keep{?0.0 >< '!'}{[?0.tail ?1]}.table
 | for E "[$data]/types".paths: $load_type{E}
 | $pud.95 <= $pud.94 // start location
 | for [T E] $types
   | E.proto_gfx <= Void
   | E.faces <= Void
 
-export main unit cfg Dirs MCs
+export main utype cfg Dirs MCs

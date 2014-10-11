@@ -1,15 +1,35 @@
 use common tile
 
-type world w h rect owned/(dup 32 []) units cycle scheds vs vs_i
-           nqs trans orders free_ids new_units del_units margin/10 
-           top_left/[10 10] max_units/1200 max_w/300 max_h/300
-           tileset tileset_name tiles gfxes
-           players/16^dup this_player minimap_dim
+type unit.entity
+    id type xy disp owner color team name side view cell_next hits mana
+    dir/Dirs.0 resources/(t size/6)
+    enemies nobody playable rescueable passive
+
+unit.as_text = "#unit{[$type.id]}"
+
+unit._ Method Args =
+| Args.0 <= Args.0.type
+| Args.apply_method{Method}
+
+type world{Main}
+   main/Main w h rect owned/(dup 32 []) units cycle scheds vs vs_i
+   nqs trans orders free_ids used_ids new_units del_units margin/10 
+   top_left/[10 10] max_units/1200 max_w/300 max_h/300 max_cells
+   tileset tileset_name tiles gfxes
+   players/16^dup this_player/Void minimap_dim
 | WxH = $max_w*$max_h
+| $max_cells <= WxH
 | $units <= dup $max_units+WxH
 | $free_ids <= ($max_units){?+WxH}
+| for Id $free_ids
+  | U = unit
+  | U.id <= Id
+  | $units.Id <= unit
 | $vs <= dup $units.size [] // visible units
+| $main.world <= Me
+
 world.cell_id P = $w*P.1 + P.0
+
 world.init_cell XY Tile =
 | C = $tiles.Tile.copy
 | Id = $cell_id{XY}
@@ -19,10 +39,15 @@ world.init_cell XY Tile =
 | C.neibs <= Dirs{?+XY}.keep{?.in{$rect}}
 | $units.Id <= C
 
-main.new O T delay/6.rand =
-| U = if T.is_unit then T.copy else $types.T.copy
+world.new O T delay/6.rand =
+| T = if T.is_utype then T else $main.types.T
+| Id = $free_ids.($used_ids)
+| !$used_ids + 1
+| U = $units.Id
+| U.type <= T
+| U.mana <= T.mana
 | U.owner <= O
-| U.resources <= t
+| U.resources <= T.resources.copy
 | U
 
 PudTilesets = [summer winter wasteland swamp]
@@ -31,52 +56,74 @@ PudPlayers = [0 0 neutral 0 computer person capturable rescueable]
 Critters = t summer\sheep wasteland\boar winter\seal swamp\hellhog
 PudSides = [human orc neutral]
 
-main.load_pud Path =
-| R = world
-| $world <= R
+world.load_pud Path =
 | Units = []
 | era [N @_] =
-  | R.tileset_name <= PudTilesets.N
-  | R.tileset <= $tilesets.(R.tileset_name)
-  | R.tiles <= R.tileset.tiles
-| sres N Xs = for [I A] Xs.group{2}{?u2}.i: R.players.I.resources.N <= A
+  | $tileset_name <= PudTilesets.N
+  | $tileset <= $main.tilesets.($tileset_name)
+  | $tiles <= $tileset.tiles
+| sres N Xs = for [I A] Xs.group{2}{?u2}.i
+  | $players.I.resources.N <= A
 | Handlers = t
-  'DESC' | Xs => //R.description <= Xs.take{Xs.locate{0}^supply{32}}.utf8
+  'DESC' | Xs => //$description <= Xs.take{Xs.locate{0}^supply{32}}.utf8
   'OWNR' | Xs => for [I P] Xs{PudPlayers.?}.i
                  | U = $new{0 player}
                  | less P: U.nobody <= 1
-                 | U.color <= case P neutral yellow _ $player_colors.I
+                 | U.color <= case P neutral yellow _ $main.player_colors.I
                  | U.name <= "Player[I]"
                  | U.playable <= P >< person
                  | U.rescueable <= case P capturable+rescueable 1
-                 | U.xy <= R.top_left
+                 | U.xy <= $top_left
                  | U.team <= PudTeams.P
-                 | R.players.I <= U
+                 | $players.I <= U
   'ERA ' | Xs => era Xs
   'ERAX' | Xs => era Xs
   'DIM ' | [2/W.u2 2/H.u2 @_] =>
-            | R.w <= W + 2*R.margin
-            | R.h <= H + 2*R.margin
-            | R.rect <= [R.margin R.margin W H]
-            | R.minimap_dim <= 128/W //FIXME: breaks for 96x96 maps
-  'SIDE' | Xs => for [I S] Xs{PudSides.?}.i: R.players.I.side <= S
+            | $w <= W + 2*$margin
+            | $h <= H + 2*$margin
+            | $rect <= [$margin $margin W H]
+            | $minimap_dim <= 128/W //FIXME: breaks for 96x96 maps
+  'SIDE' | Xs => for [I S] Xs{PudSides.?}.i: $players.I.side <= S
   'SGLD' | Xs => sres gold Xs
   'SLBR' | Xs => sres wood Xs
   'SOIL' | Xs => sres oil Xs
-  'AIPL' | Xs => Xs.i{}{$0[1 I]=>R.players.I.passive<=1}
+  'AIPL' | Xs => Xs.i{}{$0[1 I]=>$players.I.passive<=1}
   'MTXM' | Xs => | M = Xs.group{2}{?u2}
                  | I = -1
-                 | for P R.rect.xy: R.init_cell{P M.(!I+1)}
+                 | for P $rect.xy: $init_cell{P M.(!I+1)}
   'UNIT' | @r$0 [2/X.u2 2/Y.u2 I O 2/D.u2 @Xs] =>
-           | XY = [X Y] + R.top_left
-           | T = case I 57 Critters.(R.tileset_name) _ $pud.I
+           | XY = [X Y] + $top_left
+           | T = case I 57 Critters.($tileset_name) _ $main.pud.I
            | case T
              Void | bad "Invalid unit slot: [I]"
-             player | R.players.O.xy <= XY
-                    | R.players.O.view <= XY*32 - [224 224]
-             _ | [[XY O+1 T D] @!Units]
+             player | $players.O.xy <= XY
+                    | $players.O.view <= XY*32 - [224 224]
+             _ | [[XY O T D] @!Units]
            | r Xs
 | Cs = Path.get^(@r$[] [4/M.utf8 4/L.u4 L/D @Xs] => [[M D] @Xs^r])
 | less Cs^is{[[\TYPE _]@_]}: bad "Invalid PUD file: [Path]"
 | for [T D] Cs: when got!it Handlers.T: it D
+| M = $margin
+| for B [[$w-M 0 M $h] [0 $h-M $w M] [0 0 M $h] [0 0 $w M]]
+  | for P B.xy: $init_cell{P 0}
+| for U $players
+  | U.owner <= U.id
+  | U.enemies <= $players.skip{?id >< U.id}.keep{P =>
+    | (P.team <> U.team and P.team <> 0 and U.team <> 0)
+      or (P.playable and U.playable)}
+  | $units.(U.id) <= U
+  | if no $this_player and U.playable then $this_player <= U
+    else if U.nobody then
+    else //U.order{plan}
+| for [XY O T D] Units
+  | P = $players.O
+  | U = $new{P T}
+  | when!it U.resource: U.resources.it <= D*2500
+  | Rs = P.resources
+  | have Rs.food 0
+  | !Rs.food + (U.supply - U.cost.food)
+  | less U.building: U.dir <= Dirs.rand
+  //| U.deploy{XY}
 | Void
+
+export world
