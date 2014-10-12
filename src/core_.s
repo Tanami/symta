@@ -188,6 +188,41 @@ hard_list.`><` B =
   | !I + 1
 | 1
 
+list.`<` Xs =
+| A = 0
+| B = 0
+| times I $size:
+  | A <= $I
+  | B <= Xs.I
+  | when A <> B: leave A < B
+| leave A < B
+
+list.`>` Xs =
+| A = 0
+| B = 0
+| times I $size:
+  | A <= $I
+  | B <= Xs.I
+  | when A <> B: leave A > B
+| leave A > B
+
+list.`<<` Xs =
+| A = 0
+| B = 0
+| times I $size:
+  | A <= $I
+  | B <= Xs.I
+  | when A <> B: leave A << B
+| leave A << B
+
+list.`>>` Xs =
+| A = 0
+| B = 0
+| times I $size:
+  | A <= $I
+  | B <= Xs.I
+  | when A <> B: leave A >> B
+| leave A >> B
 
 list.flip =
 | N = $size

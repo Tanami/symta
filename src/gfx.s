@@ -32,8 +32,9 @@ gfx.circle Color Fill C R = gfx_circle $handle Color Fill C.0 C.1 R
 gfx.triangle Color A B C = gfx_triangle $handle Color A.0 A.1 B.0 B.1 C.0 C.1
 gfx.resize W H = gfx_resize $handle W H
 gfx.save Filename = gfx_save_png Filename $handle
-gfx.cmap =
+gfx.cmap raw/0 =
 | P = gfx_cmap $handle
+| when Raw: leave P
 | less P: leave 0
 | dup I 256: _ffi_get uint32_t P I
 gfx.`!cmap` NewCM =

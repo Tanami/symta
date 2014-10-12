@@ -1,9 +1,10 @@
-use common tile
+use common tile gfx
 
-type unit.entity
-    id type xy disp owner color team name side view cell_next hits mana
-    dir/Dirs.0 resources/(t size/6)
-    enemies nobody playable rescueable passive
+type unit
+    id type xy disp owner color team name side hits mana
+    frame dir/Dirs.0 resources/(t size/6)
+    enemies nobody playable rescueable passive view
+    world content_next sensor_next last_drawn/-1
 
 unit.as_text = "#unit{[$type.id]}"
 
@@ -15,7 +16,7 @@ type world{Main}
    main/Main w h rect owned/(dup 32 []) units cycle scheds vs vs_i
    nqs trans orders free_ids used_ids new_units del_units margin/10 
    top_left/[10 10] max_units/1200 max_w/300 max_h/300 max_cells
-   tileset tileset_name tiles gfxes
+   tileset tileset_name tiles gfxes palette tints
    players/16^dup this_player/Void minimap_dim
 | WxH = $max_w*$max_h
 | $max_cells <= WxH
@@ -24,7 +25,8 @@ type world{Main}
 | for Id $free_ids
   | U = unit
   | U.id <= Id
-  | $units.Id <= unit
+  | U.world <= Me
+  | $units.Id <= U
 | $vs <= dup $units.size [] // visible units
 | $main.world <= Me
 
@@ -47,14 +49,42 @@ world.new O T delay/6.rand =
 | U.type <= T
 | U.mana <= T.mana
 | U.owner <= O
+| U.color <= when O: O.color
 | U.resources <= T.resources.copy
+| U.frame <= 0
 | U
+
+world.upd_area Rect F =
+| for [X Y] Rect.xy
+  | F $units.(Y*$w + X)
+  //| mmUpdate X Y
+
+unit.mark =
+| S = $sight
+| $world.upd_area{[@$xy @$size]
+  | C => | $content_next <= C.content
+         | C.content <= Me
+         | @xor !C.mask $layer}
+
+| $world.upd_area{[@($xy-[S S]) @($size+[2*S 2*S])]
+  | C => | $sensor_next <= C.sensors
+         | C.sensors <= Me}
+
+unit.deploy P =
+| $xy <= P
+| $disp <= P*32
+| $mark
 
 PudTilesets = [summer winter wasteland swamp]
 PudTeams = t nobody(0) neutral(0) capturable(0) computer(1) person(2) rescueable(2)
 PudPlayers = [0 0 neutral 0 computer person capturable rescueable]
 Critters = t summer\sheep wasteland\boar winter\seal swamp\hellhog
 PudSides = [human orc neutral]
+
+recolor Offset Pal Cs =
+| Pal = Pal.copy
+| for [I C] Cs.i: Pal.(Offset+I) <= C
+| new_cmap Pal
 
 world.load_pud Path =
 | Units = []
@@ -123,7 +153,9 @@ world.load_pud Path =
   | have Rs.food 0
   | !Rs.food + (U.supply - U.cost.food)
   | less U.building: U.dir <= Dirs.rand
-  //| U.deploy{XY}
+  | U.deploy{XY}
+| $palette <= $tileset.tiles.0.gfx.cmap
+| $tints <= @table: map [K C] $main.ui_colors [K (recolor 208 $palette C)]
 | Void
 
 export world

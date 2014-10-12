@@ -41,13 +41,13 @@ DeathAnim = [[0 0]]
 
 animSpeed $0 [[_ W _]@Xs] = W+Xs^animSpeed
 
-type utype.entity
+type utype
     id pud/Void typename/Void move_class/[] role
     organic undead building detector
     size/[1 1] sprite/Void sounds/Void icon/DummyIcon prodName
     hp mp mana armor sight damage range speed effect
     cost/(cost) use_cost/(cost) use_cost_player/(cost) research_cost/(cost)
-    acts upgrades upgrade researches deps negs anims layer selection shaded
+    acts upgrades upgrade researches deps negs anims layer selection/Void shaded
     trains builds proto_gfx faces/5 explodes show say shadow
     frame mask resource resources/(t size/6)
     area shards bounces offset/[0 0] splash impact extends foundation transport
@@ -183,4 +183,4 @@ main.init_types =
   | E.proto_gfx <= Void
   | E.faces <= Void
 
-export main utype cfg Dirs MCs
+export main utype cfg Dirs dirN MCs
