@@ -13,7 +13,9 @@ new_cmap Xs =
 | for [I E] Xs.i: _ffi_set uint32_t P I E
 | P
 
-type gfx.no_copy{@As} handle
+type widget
+
+type gfx.widget.no_copy{@As} handle
 | $handle <= case As
   [W H] | new_gfx_ W H
   [Filename<1.is_text] | gfx_load_png Filename
@@ -69,4 +71,4 @@ gfx.as_text = "#gfx{[$w] [$h]}"
 rgb R G B = form R*#10000 + G*#100 + B
 rgba R G B A = form A*#1000000 + R*#10000 + G*#100 + B
 
-export gfx new_cmap ffi_alloc ffi_free 'rgb' 'rgba' 'GFX_RGB' 'GFX_RGBA' 'GFX_MAP'
+export widget gfx new_cmap ffi_alloc ffi_free 'rgb' 'rgba' 'GFX_RGB' 'GFX_RGBA' 'GFX_MAP'

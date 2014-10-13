@@ -634,7 +634,7 @@ text.rand = "[Me]__[!GGensymCount+1]"
 lcg_init: time
 
 list.shuffle =
-| Xs = $list
+| Xs = $copy
 | N = Xs.size
 | while N > 1
   | !N - 1

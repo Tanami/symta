@@ -1,11 +1,24 @@
-use common tile macros world view gui
+use common tile macros world view gui gfx
 
 M = main (main_path).url.0
-W = world M
-W.load_pud{'/Users/nikita/Documents/git/symta/build/symcraft/maps/test.pud'}
+//W = world M
+//W.load_pud{'/Users/nikita/Documents/git/symta/build/symcraft/maps/test.pud'}
 
 //when (main_args).size
-gui: view{640 480 M}
+
+MainMenu = dlg: mtx
+  |   0   0 0 | gfx "[M.data]/ui/default/image/menu.png"
+  |  60 460 1 | txt 'SymCraft v0.1 by Nikita Sadkov'
+  | 208 240 1 | lay v 8: list
+                button{'New Campaign'    state/disabled (=>)}
+                button{'Custom Scenario' (=>)}
+                button{'Multi Player'    state/disabled (=>)}
+                button{'Load Game'       state/disabled (=>)}
+                button{'Map Editor'      state/disabled (=>)}
+                button{'Exit Program'    (=>get_gui{}.exit)}
+
+
+gui MainMenu
 
 \done
 

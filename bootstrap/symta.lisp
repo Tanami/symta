@@ -1729,6 +1729,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
            (when (fn-sym? z) (setf z `("&" ,z)))
            (return-from builtin-expander
              (builtin-expander `("_mcall" ("[]" ,@zs) "apply" ,z))))
+         (let ((ks nil)
+               (new-zs nil))
+           (e x zs (if (match x (("/" a b) (fn-sym? a)))
+                       (push (cdr x) ks)
+                       (push x new-zs)))
+           (when ks
+             (setf zs `(,@(reverse new-zs) ,@(apply #'concatenate 'list (reverse ks))))))
          (return-from builtin-expander
            (cons (builtin-expander z)
                  (m x zs

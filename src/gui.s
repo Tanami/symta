@@ -10,8 +10,6 @@ ImgCache = Void
 FontCache = Void
 FontTints = Void
 
-type widget
-
 widget.input @E =
 widget.items = Void
 widget.render = Me
@@ -67,11 +65,15 @@ font.draw G X Y Tint Text =
   | !CY + H
 
 type txt.widget{Value size/small tint/white}
-     g value_ size/Size tint/Tint font/Size^font | $value <= Value
-txt.render = $g
+     g value_/Value size/Size tint/Tint font
+txt.render =
+| less $font
+  | $font <= font $size
+  | $value <= $value_
+| $g
 txt.as_text = "#txt{[$value]}"
 txt.value = $value_
-txt.set_value Text =
+txt.`!value` Text =
 | Text <= "[Text]"
 | $value_ <= Text
 | F = $font
@@ -112,8 +114,10 @@ tabs._ Method Args =
 type canvas.widget{W H P} w/W h/H paint/P
 canvas.draw G P = case Me (F<~).paint: F G P $w $h 
 
-type bar.widget{V} value_/V.clip{0 100} bg/skin."bar/bg"
-bar.render = Me
+type bar.widget{V} value_/V.clip{0 100} bg/Void
+bar.render =
+| have $bg: skin."bar/bg"
+| Me
 bar.value = $value_
 bar.set_value New = $value_ <= New.clip{0 100}
 bar.draw G P =
@@ -129,7 +133,7 @@ button.reskin =
 | WSize = $w_size
 | HSize = $h_size
 | Text = $value
-| Cache.Skin <= @table: map N [normal over pressed disabled]: _list N
+| Cache.Skin <= @table: map N [normal over pressed disabled]: list N
   | File = "button/[HSize]-[WSize]-[case N over normal _ N]"
   | G = File^skin.copy
   | P = case N pressed 2 _ 0
@@ -170,7 +174,7 @@ arrow.input @In = case In
                     | $state <= \normal
 arrow.as_text = "#arrow{[$direction] state([$state])}"
 
-type lay.widget{D S @Xs} w/1 h/1 dir/D spacing/S items/Xs{(new_meta ? [0 0 1 1])}
+type lay.widget{D S Xs} w/1 h/1 dir/D spacing/S items/Xs{(new_meta ? [0 0 1 1])}
 lay.draw G P =
 | D = $dir
 | S = $spacing
@@ -192,6 +196,23 @@ lay.draw G P =
   | Rect.3 <= H
   | N <= case D v(N+H+S) h(N+W+S)
 
+type dlg.widget{Xs w/Void h/Void} w/W h/H ws items
+| $ws <= Xs.sort{?2 < ??2}{[X Y L W]=>[X Y L (new_meta W [0 0 1 1])]}
+| $items <= $ws.sort{?2 > ??2}{?3}
+dlg.render =
+| have $w: $ws{}{?0 + ?3.render.w}.max
+| have $h: $ws{}{?1 + ?3.render.h}.max
+| Me
+dlg.draw G P =
+| for [X Y _ W] $ws
+  | R = W.render
+  | Rect = W.meta_
+  | Rect.0 <= X
+  | Rect.1 <= Y
+  | Rect.2 <= R.w
+  | Rect.3 <= R.h
+  | G.blit{P+[X Y] R}
+
 //FIXME: create a default skin and allow picking user defined skins
 type gui{Root} root/Root timers/[] mice_xy/[0 0] cursor/point result/Void fb/Void
                keys/(t) popup/Void last_widget/(widget) focus_widget/(widget)
@@ -207,7 +228,7 @@ type gui{Root} root/Root timers/[] mice_xy/[0 0] cursor/point result/Void fb/Voi
 | R = $result
 | $result <= Void
 | GUI <= Void
-| R
+| leave R
 gui.render =
 | FB = $fb
 | when no FB: leave Void
@@ -274,8 +295,10 @@ gui.input Es =
                   | NW.input{key Key State $mice_xy-$focus_xy}
   Else |
 | Void
-gui.exit Result =
-| $result <= Result
+gui.exit @Result =
+| $result <= case Result [R](R) Else(Void)
 | $fb <= Void
 
-export gui button lay spacer
+get_gui = GUI
+
+export gui get_gui button spacer pic txt lay dlg

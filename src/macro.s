@@ -757,6 +757,10 @@ mex_normal X Xs =
     | when X >< _mcall: leave: mex: form: _mcall [$Xs.0 $@Xs.drop{2}] apply_method (_method $Xs.1)
     | when X.is_keyword: X <= form &X
     | leave: mex: form [$@Xs].apply{X}
+  | Ks = []
+  | NewXs = []
+  | for X Xs: if case X [`/` A B] A.is_keyword then push [X.1 X.2] Ks else push X NewXs
+  | when Ks.size: Xs <= [@NewXs.flip @Ks.flip.join]
   | Y = X^mex
   | if (X.is_list and not Y.is_list) or (X.is_text and X <> Y)
     then leave: mex [Y@Xs]
@@ -804,8 +808,12 @@ macroexpand Expr Macros ModuleCompiler =
   | R = mex Expr
   | R
 
+list @Xs = form [$@Xs]
+mtx Xs = form [$@Xs.tail{}{[`[]` @?]}]
+
+
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[]' 't' '\\' 'form'
-       'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for' 'type'
+       'mtx' 'list' 'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for' 'type'
        'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
        'ffi_begin' 'ffi' 'min' 'max' 'supply' 'have' '"'
