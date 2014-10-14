@@ -127,7 +127,7 @@ build @As =
   | RuntimePath = "[DstFolder]run"
   | compile_runtime RuntimeSrc RuntimePath
   | build_entry main
-  | unix "[RuntimePath] //':[GDstFolder]'"
+  | unix RuntimePath //"[RuntimePath] ':[GDstFolder]'"
 
 eval Expr Env =
 | BuildFolder = "[GRootFolder]build/tmp/"

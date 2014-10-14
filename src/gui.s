@@ -16,6 +16,8 @@ widget.render = Me
 widget.draw G P =
 widget.popup = Void
 widget.cursor = \point
+widget.parent = 
+widget.`!parent` P = 
 widget.itemAt Point XY =
 | Items = $items
 | when no Items: leave [XY Me]
@@ -104,7 +106,7 @@ type pic.widget{Path} value/Path
 pic.render = if $value.is_text then skin $value else $value
 pic.as_text = "#pic{[$value]}"
 
-type tabs.~.widget{Init Tabs} tab/Tabs.Init all/Tabs
+type tabs.~{Init Tabs} tab/Tabs.Init all/Tabs
 tabs.pick TabName = $tab <= $all.TabName
 tabs.as_text = "#tabs{[$tab]}"
 tabs._ Method Args =
@@ -281,8 +283,10 @@ gui.input Es =
       | NW.input{mice over 1 XY}
   [mice Button State]
     | MP = $mice_xy
-    | NW.input{mice Button State MP-NW_XY}
     | FW = $focus_widget
+    | if State
+      then NW.input{mice Button State MP-NW_XY}
+      else when got FW: FW.input{mice Button State MP-NW_XY}
     | when FW^address <> NW^address
       | when got FW: FW.input{focus 0 MP-$focus_xy}
       | $focus_widget <= NW
@@ -302,4 +306,4 @@ gui.exit @Result =
 
 get_gui = GUI
 
-export gui get_gui button spacer pic txt lay dlg
+export gui get_gui button spacer pic txt lay dlg tabs skin font
