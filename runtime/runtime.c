@@ -2053,6 +2053,14 @@ static void init_args(api_t *api, int argc, char **argv) {
     lib_path = argv[1]+1;
     --main_argc;
     ++main_argv;
+  } else if (strchr(argv[0], '/') || strchr(argv[0], '\\')) {
+    char *q = strdup(argv[0]);
+    char *p = strchr(q, 0);
+    while (*p != '/' && *p != '\\') --p;
+    *++p = 0;
+    sprintf(tmp, "%slib", q);
+    lib_path = strdup(tmp);
+    free(q);
   } else {
     lib_path = "./lib";
   }
