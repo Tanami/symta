@@ -30,6 +30,7 @@ widget.y = 0
 widget.w = 0
 widget.h = 0
 widget.above_all = 0
+widget.wants_focus = 0
 
 cfg P = P.get.utf8.lines{}{?parse}.skip{is.[]}
 
@@ -300,7 +301,7 @@ droplist.input @In = case In
 //FIXME: create a default skin and allow picking user defined skins
 type gui{Root} root/Root timers/[] mice_xy/[0 0] cursor/point result/Void fb/Void
                keys/(t) popup/Void last_widget/(widget) focus_widget/Void
-               focus_xy/[0 0] focus_wh/[0 0] click_time/(t)
+               focus_xy/[0 0] focus_wh/[0 0] last_clicked/(widget) click_time/(t)
 | setSkin '/Users/nikita/Documents/git/symta/build/test_macro/data/ui'
 | GUI <= Me
 | $fb <= gfx 1 1
@@ -369,13 +370,14 @@ gui.input Es =
       | NW.input{mice over 1 XY}
   [mice Button State]
     | MP = $mice_xy
-    | FW = $focus_widget
     | if State
-      then NW.input{mice Button State MP-NW_XY}
-      else when got FW: FW.input{mice Button State MP-NW_XY}
-    | when State
+      then | $last_clicked <= NW
+           | NW.input{mice Button State MP-NW_XY}
+      else $last_clicked.input{mice Button State MP-NW_XY}
+    | when State and NW.wants_focus:
       | $focus_xy <= NW_XY
       | $focus_wh <= NW_WH
+      | FW = $focus_widget
       | when FW^address <> NW^address:
         | when got FW: FW.input{focus 0 MP-$focus_xy}
         | $focus_widget <= NW
