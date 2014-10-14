@@ -220,8 +220,8 @@ void gfx_rect(gfx_t *gfx, uint32_t color, int fill, int x, int y, int w, int h) 
   } else {
     gfx_hline(gfx, color, x, y, w);
     gfx_hline(gfx, color, x, y+h - 1, w);
-    gfx_hline(gfx, color, x, y+1, h-2);
-    gfx_hline(gfx, color, x+w-1, y+1, h-2);
+    gfx_vline(gfx, color, x, y+1, h-2);
+    gfx_vline(gfx, color, x+w-1, y+1, h-2);
   }
 }
 

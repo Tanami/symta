@@ -174,6 +174,10 @@ max A B = form | ~A = A
                | ~B = B
                | if ~A > ~B then ~A else ~B
 
+swap A B = form | ~T = A
+                | A <= B
+                | B <= ~T
+
 `if` A B C = [_if A B C]
 not @Xs = [_if Xs 0 1]
 `and` A B = [_if A B 0]
@@ -816,4 +820,4 @@ export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[
        'mtx' 'list' 'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for' 'type'
        'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
-       'ffi_begin' 'ffi' 'min' 'max' 'supply' 'have' '"'
+       'ffi_begin' 'ffi' 'min' 'max' 'swap' 'supply' 'have' '"'

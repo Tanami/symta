@@ -18,13 +18,18 @@ widget.popup = Void
 widget.cursor = \point
 widget.parent = 
 widget.`!parent` P = 
-widget.itemAt Point XY =
+widget.itemAt Point XY WH =
 | Items = $items
-| when no Items: leave [XY Me]
+| when no Items: leave [Me XY WH]
 | Item = Items.find{I => Point.in{I.meta_}}
-| when no Item: leave [XY Me]
-| ItemXY = Item.meta_.take{2}
-| Item.itemAt{Point-ItemXY XY+ItemXY}
+| when no Item: leave [Me XY WH]
+| [IX IY W H] = Item.meta_
+| Item.itemAt{Point-[IX IY] XY+[IX IY] [W H]}
+widget.x = 0
+widget.y = 0
+widget.w = 0
+widget.h = 0
+widget.above_all = 0
 
 cfg P = P.get.utf8.lines{}{?parse}.skip{is.[]}
 
@@ -107,7 +112,9 @@ pic.render = if $value.is_text then skin $value else $value
 pic.as_text = "#pic{[$value]}"
 
 type tabs.~{Init Tabs} tab/Tabs.Init all/Tabs
-tabs.pick TabName = $tab <= $all.TabName
+tabs.pick TabName =
+| (get_gui).focus_widget <= Void
+| $tab <= $all.TabName
 tabs.as_text = "#tabs{[$tab]}"
 tabs._ Method Args =
 | Args.0 <= Args.0.tab
@@ -199,27 +206,101 @@ lay.draw G P =
   | Rect.3 <= H
   | N <= case D v(N+H+S) h(N+W+S)
 
-type dlg.widget{Xs w/Void h/Void} w/W h/H ws items
-| $ws <= Xs.sort{?2 < ??2}{[X Y L W]=>[X Y L (new_meta W [0 0 1 1])]}
-| $items <= $ws.sort{?2 > ??2}{?3}
+type dlg.widget{Xs w/Void h/Void} w/W h/H ws items rs
+| $ws <= Xs{[X Y W]=>[X Y (new_meta W [0 0 1 1])]}
+| $items <= $ws{}{?2}.flip
 dlg.render =
-| have $w: $ws{}{?0 + ?3.render.w}.max
-| have $h: $ws{}{?1 + ?3.render.h}.max
+| when got!it $items.locate{?above_all}:
+  | swap $items.0 $items.it
+  | swap $ws.($ws.size-1) $ws.($ws.size-it-1)
+  | $items.0.above_all <= 0
+| have $w: $ws{}{?0 + ?2.render.w}.max
+| have $h: $ws{}{?1 + ?2.render.h}.max
 | Me
 dlg.draw G P =
-| for [X Y _ W] $ws
+| for [X Y W] $ws
   | R = W.render
   | Rect = W.meta_
+  | !X + R.x
+  | !Y + R.y
   | Rect.0 <= X
   | Rect.1 <= Y
   | Rect.2 <= R.w
   | Rect.3 <= R.h
   | G.blit{P+[X Y] R}
 
+type litem.widget{Text w/140 on/1} text_/Text w/W h state font fw fh init
+| $state <= if On then \normal else \disabled
+litem.render =
+| less $init
+  | $h <= "litem/normal"^skin.h
+  | $font <= font small
+  | $fw <= $font.width{$text_}
+  | $fh <= $font.height
+  | $init <= 1
+| Me
+litem.text = $text_
+litem.`!text` Text =
+| $init <= 0
+| $text_ <= Text
+litem.draw G P =
+| BG = "litem/[$state]"^skin
+| G.blit{P BG rect/[0 0 $w BG.h]}
+| Tint = case $state picked(\white) disabled(\gray) _(\yellow)
+| X = 2
+| Y = BG.h/2-$fh/2
+| $font.draw{G P.0+X P.1+Y Tint $text_}
+litem.input @In = case In
+  [mice left 1 P] | $state <= case $state normal(\picked) picked(\normal) X(X)
+
+type droplist.widget{Xs w/140} w/W h/1 y ih xs/[] drop rs picked over above_all p
+| less Xs.size: Xs <= [' ']
+| $xs <= Xs{(litem ? w/$w)}
+droplist.text = $xs.($picked).text
+droplist.`!text` T = $xs.($picked).text <= T
+droplist.render =
+| $rs <= map X $xs X.render
+| case $rs [R@_]: $ih <= R.h
+| when $drop
+  | $y <= -$ih*$picked
+  | $h <= $ih*$rs.size
+| less $drop
+  | $y <= 0
+  | $h <= $ih
+| Me
+droplist.draw G P =
+| when $drop
+  | Y = 0
+  | for R $rs
+    | G.blit{P+[0 Y] R}
+    | !Y + R.h
+| less $drop
+  | G.blit{P $rs.($picked)}
+  | A = skin "arrow/down-normal"
+  | G.blit{P+[$w-A.w 0] A}
+| $rs <= 0
+| Void
+droplist.input @In = case In
+  [mice over S P] | $over <= S
+                  | $xs.($p).state <= case S 1(\picked) 0(\normal)
+  [mice_move _ P] | when $drop
+                    | $xs.($p).state <= \normal
+                    | $p <= (P.1/$ih).clip{0 $xs.size-1}
+                    | $xs.($p).state <= \picked
+  [mice left 1 P] | $drop <= 1
+                  | $p <= $picked
+                  | $above_all <= 1
+                  | $xs.($p).state <= \picked
+  [mice left 0 P] | $drop <= 0
+                  | $xs.($p).state <= \normal
+                  | $picked <= $p
+
+//  | when $over: G.rect{#FFFF00 0 P.0-1 P.1-1 $w+1 $h+1}
+
 //FIXME: create a default skin and allow picking user defined skins
 type gui{Root} root/Root timers/[] mice_xy/[0 0] cursor/point result/Void fb/Void
-               keys/(t) popup/Void last_widget/(widget) focus_widget/(widget)
-               focus_xy/[0 0] click_time/(t)
+               keys/(t) popup/Void last_widget/(widget) focus_widget/Void
+               focus_xy/[0 0] focus_wh/[0 0] click_time/(t)
 | setSkin '/Users/nikita/Documents/git/symta/build/test_macro/data/ui'
 | GUI <= Me
 | $fb <= gfx 1 1
@@ -243,6 +324,10 @@ gui.render =
   | FB <= gfx W H
   | $fb <= FB
 | FB.blit{[0 0] R}
+| when got!fw $focus_widget:
+  | P = $focus_xy+[fw.x fw.y]
+  | WH = if fw.w and fw.h then [fw.w fw.h] else $focus_wh
+  | FB.rect{#FFFF00 0 P.0-1 P.1-1 WH.0+2 WH.1+2}
 | C = $cursor
 | when got C
   | CG = cursor C
@@ -269,12 +354,13 @@ gui.update_timers Time =
 gui.input Es =
 | T = clock
 | $update_timers{T}
-| [NW_XY NW] = $root.itemAt{$mice_xy [0 0]} //new widget under cursor
+| [NW NW_XY NW_WH] = $root.itemAt{$mice_xy [0 0] [0 0]} //new widget
 | $popup <= NW.popup
 | $cursor <= NW.cursor
 | for E Es: case E
   [mice_move XY]
-    | $mice_xy <= XY
+    | $mice_xy.0 <= XY.0
+    | $mice_xy.1 <= XY.1
     | NW.input{mice_move XY XY-NW_XY}
     | LW = $last_widget
     | when LW^address <> NW^address:
@@ -287,11 +373,13 @@ gui.input Es =
     | if State
       then NW.input{mice Button State MP-NW_XY}
       else when got FW: FW.input{mice Button State MP-NW_XY}
-    | when FW^address <> NW^address
-      | when got FW: FW.input{focus 0 MP-$focus_xy}
-      | $focus_widget <= NW
+    | when State
       | $focus_xy <= NW_XY
-      | FW.input{focus 1 MP-NW_XY}
+      | $focus_wh <= NW_WH
+      | when FW^address <> NW^address:
+        | when got FW: FW.input{focus 0 MP-$focus_xy}
+        | $focus_widget <= NW
+        | NW.input{focus 1 MP-NW_XY}
     | LastClickTime = $click_time.Button
     | when got LastClickTime and T-LastClickTime < 0.25:
       | NW.input{mice "double_[Button]" 1 MP-NW_XY}
@@ -306,4 +394,4 @@ gui.exit @Result =
 
 get_gui = GUI
 
-export gui get_gui button spacer pic txt lay dlg tabs skin font
+export gui get_gui button spacer pic txt lay dlg litem droplist tabs skin font
