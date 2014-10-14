@@ -10,11 +10,11 @@ MainMenu = dlg: mtx
   |   0   0 0 | gfx "[M.data]/ui/default/image/menu.png"
   |  60 460 1 | txt 'SymCraft v0.1 by Nikita Sadkov'
   | 208 240 1 | lay v 8: list
-                button{'New Campaign'    state/disabled (=>)}
+                button{'New Campaign'    on/0 (=>)}
                 button{'Custom Scenario' (=>)}
-                button{'Multi Player'    state/disabled (=>)}
-                button{'Load Game'       state/disabled (=>)}
-                button{'Map Editor'      state/disabled (=>)}
+                button{'Multi Player'    on/0 (=>)}
+                button{'Load Game'       on/0 (=>)}
+                button{'Map Editor'      on/0 (=>)}
                 button{'Exit Program'    (=>get_gui{}.exit)}
 
 

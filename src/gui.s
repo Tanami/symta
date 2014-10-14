@@ -124,8 +124,9 @@ bar.draw G P =
 | G.blit{P $bg}
 | G.rect{#347004 1 P+[3 3] [152*$value_/100 14]}
 
-type button.widget{Text Fn state/normal w_size/large h_size/medium}
-  value/Text on_click/Fn state/State over w_size/W_size h_size/H_size skin/Void cache/(t)
+type button.widget{Text Fn on/1 w_size/large h_size/medium}
+  value/Text on_click/Fn state over w_size/W_size h_size/H_size skin/Void cache/(t)
+| $state <= if On then \normal else \disabled
 button.reskin =
 | Cache = $cache
 | $skin <= Skin
