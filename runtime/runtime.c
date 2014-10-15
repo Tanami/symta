@@ -1293,6 +1293,7 @@ BUILTIN1("file",text_file,C_ANY,filename_text)
 RETURNS(FIXNUM(fileP(text_to_cstring(filename_text))))
 
 BUILTIN_VARARGS("text.items",text_items)
+  char tmp[1024];
   DIR *dir;
   struct dirent *ent;
   void *filename_text = getArg(0);
@@ -1317,7 +1318,13 @@ BUILTIN_VARARGS("text.items",text_items)
         memcpy(r, t, pos*sizeof(void*));
         free(t);
       }
-      TEXT(r[pos], ent->d_name);
+      sprintf(tmp, "%s/%s", path, ent->d_name);
+      if (folderP(tmp)) {
+        sprintf(tmp, "%s/", ent->d_name);
+        TEXT(r[pos], tmp);
+      } else {
+        TEXT(r[pos], ent->d_name);
+      }
       ++pos;
     }
     closedir(dir);
