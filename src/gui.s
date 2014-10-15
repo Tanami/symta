@@ -373,7 +373,11 @@ gui.input Es =
     | if State
       then | $last_clicked <= NW
            | NW.input{mice Button State MP-NW_XY}
-      else $last_clicked.input{mice Button State MP-NW_XY}
+      else | LastClickTime = $click_time.Button
+           | if got LastClickTime and T-LastClickTime < 0.25
+             then NW.input{mice "double_[Button]" 1 MP-NW_XY}
+             else $last_clicked.input{mice Button State MP-NW_XY}
+           | $click_time.Button <= T
     | when State and NW.wants_focus:
       | $focus_xy <= NW_XY
       | $focus_wh <= NW_WH
@@ -382,10 +386,6 @@ gui.input Es =
         | when got FW: FW.input{focus 0 MP-$focus_xy}
         | $focus_widget <= NW
         | NW.input{focus 1 MP-NW_XY}
-    | LastClickTime = $click_time.Button
-    | when got LastClickTime and T-LastClickTime < 0.25:
-      | NW.input{mice "double_[Button]" 1 MP-NW_XY}
-    | $click_time.Button <= T
   [key Key State] | $keys.Key <= State
                   | NW.input{key Key State $mice_xy-$focus_xy}
   Else |
