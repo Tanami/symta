@@ -1,12 +1,16 @@
-use common tile macros world view gui gfx
+use common tile macros world gfx gui widgets view
 
 M = main (main_path).url.0
-World = world M
-//World.load_pud{'/Users/nikita/Documents/git/symta/build/symcraft/maps/test.pud'}
-
-//when (main_args).size
+World = Void
 
 set_skin "[M.data]ui/orc"
+
+/*World <= world M
+World.load_pud{'/Users/nikita/Documents/git/symta/build/symcraft/maps/test.pud'}
+View = view 640 480 M
+gui View cursor/(skin_cursor point)*/
+
+//when (main_args).size
 
 Tabs = Void
 MenuBG = gfx "[M.data]/ui/default/image/menu.png"
@@ -17,10 +21,14 @@ pud_desc Path =
 | for [T D] Cs: when T >< 'DESC': leave D.take{D.locate{0}^supply{32}}.utf8
 | ''
 
+View = view 640 480 M
+Ingame = View
+
 ScenarioMenu =
 | Desc = txt ''
 | File = Void
 | Start = button 'Start Game' state/disabled: =>
+          | World <= world M
           | World.load_pud{File}
           | Tabs.pick{ingame}
 | dlg: mtx
@@ -58,7 +66,7 @@ MainMenu = dlg: mtx
               button{'Map Editor'      state/disabled (=>)}
               button{'Exit Program'    (=>get_gui{}.exit)}
 
-Tabs <= tabs scenario: t main(MainMenu) scenario(ScenarioMenu) ingame(MenuBG)
+Tabs <= tabs scenario: t main(MainMenu) scenario(ScenarioMenu) ingame(Ingame)
 
 gui Tabs cursor/(skin_cursor point)
 

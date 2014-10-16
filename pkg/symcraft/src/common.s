@@ -1,4 +1,4 @@
-use gfx macros reader
+use util gfx macros reader
 
 ResNames = [good wood oil food mana score]
 Dirs = 8{(?.float-2.0)*PI/4.0}{[?.cos ?.sin].round.int}
@@ -7,12 +7,6 @@ MCs = | C = [water land plain air forest wall rock dead invuln 0 1 2 3 4 5 6 7 8
       | (C.i){[?1 2**?0]}.table
 
 dirN V = Dirs.locate{V.sign}
-
-cfg File =
-| less File.exists: bad "cant open [File]"
-| File.get.utf8.lines{}{?parse}.skip{is.[]}
-
-rects_intersect [AX AY AW AH] [BX BY BW BH] = AX<BX+BW and AY<BY+BH and BX<AX+AW and BY<AY+AH
 
 type entity
 entity.type = \entity
@@ -189,4 +183,4 @@ main.init_types =
   | E.proto_gfx <= Void
   | E.faces <= Void
 
-export main utype cfg rects_intersect Dirs dirN MCs
+export main utype Dirs dirN MCs

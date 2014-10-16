@@ -117,7 +117,7 @@ world.load_pud Path =
   'SGLD' | Xs => sres gold Xs
   'SLBR' | Xs => sres wood Xs
   'SOIL' | Xs => sres oil Xs
-  'AIPL' | Xs => Xs.i{}{$0[1 I]=>$players.I.passive<=1}
+  'AIPL' | Xs => Xs.i{}{$0[I 1]=>$players.I.passive<=1}
   'MTXM' | Xs => | M = Xs.group{2}{?u2}
                  | I = -1
                  | for P $rect.xy: $init_cell{P M.(!I+1)}

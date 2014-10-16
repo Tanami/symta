@@ -1637,7 +1637,13 @@ print_tail:
     out = decode_text(out, o);
     *out++ = '`';
   } else {
-    out += sprintf(out, "#(data %d %p)", type, o);
+    if (type < types_used) {
+      out += sprintf(out, "#(");
+      out = decode_text(out, methods[M_NAME][type]);
+      out += sprintf(out, " %p)", (void*)O_PTR(o));
+    } else {
+      out += sprintf(out, "#(bad_type{%d} %p)", type, o);
+    }
   }
   *out = 0;
 
