@@ -463,3 +463,7 @@ char *show_get_events() {
 
   return show_events;
 }
+
+void show_cursor(int state) {
+  SDL_ShowCursor(state ? 1 : 0);
+}
