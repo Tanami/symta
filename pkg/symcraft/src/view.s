@@ -2,7 +2,7 @@ use common gfx gui
 
 type view.widget{W H M} w/W h/H main/M paused/1 sel/[] last_click/[]
                         ack a m/[0 0] g visible notes speed/20 frame
-                        sel_blink/[0 0 0]
+                        sel_blink/[0 0 0] keys/(t)
 | $g <= gfx W H
 view.world = $main.world
 view.clear_clicks = $last_click <= [[Void 0] 0]
@@ -36,8 +36,9 @@ view.normalize_view =
 | M = $world.margin*32
 | WW = $world.w*32
 | WH = $world.h*32
-| NewSO = [X.clip{M M+WW-$g.w} Y.clip{M M+WW+$g.h}]
-| when SO <> NewSO: $world.this_player.view <= NewSO
+| VXY = $world.this_player.view
+| VXY.0 <= X.clip{M WW-M-$g.w}
+| VXY.1 <= Y.clip{M WH-M-$g.h}
 
 view.render =
 | $normalize_view
@@ -78,5 +79,16 @@ view.render =
 //| Vs{[?type.id ?building]}^say
 | G
 
+view.player_view = $world.this_player.view
+
+view.input @In = case In
+  [key up 1 _] | !$player_view.1 - 32
+  [key right 1 _] | !$player_view.0 + 32
+  [key down 1 _] | !$player_view.1 + 32
+  [key left 1 _] | !$player_view.0 - 32
+  [key Name S XY] | $keys.Name <= S
+
+view.pause =
+view.unpause =
 
 export view

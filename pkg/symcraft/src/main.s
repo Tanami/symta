@@ -1,18 +1,44 @@
 use common tile macros world gfx gui widgets view
 
+//when (main_args).size
+
 M = main (main_path).url.0
 World = Void
 
 set_skin "[M.data]ui/orc"
 
-/*World <= world M
-World.load_pud{'/Users/nikita/Documents/git/symta/build/symcraft/maps/test.pud'}
-View = view 640 480 M
-gui View cursor/(skin_cursor point)*/
-
-//when (main_args).size
+//World <= world M
+//World.load_pud{'/Users/nikita/Documents/git/symta/build/symcraft/maps/king.pud'}
+//View = view 640 480 M
 
 Tabs = Void
+GameMenu = Void
+View = view 448 448 M
+
+GameMenu <=
+| Save = button 'Save (F11)' w_size/small state/disabled (=>)
+| Load = button 'Load (F12)' w_size/small state/disabled (=>)
+| Show = dlg: mtx
+  |   0   0 | spacer 640 480
+  | 270 100 | skin 'panel/dlg1'
+  | 346 110 | txt size/medium 'Game Menu'
+  | 285 140 | lay v 8: list
+              lay{h 12 [Save Load]}
+              button{'Options (F5)' state/disabled (=>)}
+              button{'Help (F1)' state/disabled (=>)}
+              button{'Scenario Objectives' state/disabled (=>)}
+              (button 'End Scenario': =>
+                | GameMenu.pick{hide}
+                | Tabs.pick{main}
+                )
+              spacer{1 20}
+              (button 'Return to Game (Esc)': =>
+                 //| View.unpause
+                 | GameMenu.pick{hide})
+| Hide = spacer 0 0
+| tabs hide: t show(Show) hide(Hide)
+
+
 MenuBG = gfx "[M.data]/ui/default/image/menu.png"
 
 pud_desc Path =
@@ -21,8 +47,25 @@ pud_desc Path =
 | for [T D] Cs: when T >< 'DESC': leave D.take{D.locate{0}^supply{32}}.utf8
 | ''
 
-View = view 640 480 M
-Ingame = View
+Ingame = dlg: mtx
+  |   0   0 | spacer 640 480
+  |   0   0 | lay h 0: list
+                (lay v 0: list skin{'panel/buttonbg'}
+                               (dlg: mtx |  0 0 | skin{'panel/minimap'}
+                                       //| 24 2 | minimap
+                                      )
+                               skin{'panel/info'}
+                               skin{'panel/filler'})
+                (lay v 0: list skin{'panel/top'}
+                               View
+                               skin{'panel/bottom'})
+                skin{'panel/right'}
+  |  24   2 | button 'Menu (F10)' w_size/large h_size/small: =>
+              //| View.pause
+              | GameMenu.pick{show}
+  //|   0   0 | Stats.tabs
+  //|   8 340 | lay v 2: ActIcons.group{3}{(box h w ?)}
+  |   0   0 | GameMenu
 
 ScenarioMenu =
 | Desc = txt ''

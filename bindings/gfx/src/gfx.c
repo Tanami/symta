@@ -473,7 +473,8 @@ void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int 
       uint32_t c;
       if (SC >= GFX_CMAP_SIZE) {
         fprintf(stderr, "color map index is too big = 0x%X\n", c);
-        abort();
+        SC = 0;
+        //abort();
       }
       c = m[SC];
       fromR8G8B8A8(sr,sg,sb,sa,c);
