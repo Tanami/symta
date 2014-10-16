@@ -38,11 +38,11 @@ cell.as_text = "#cell{[$type] [$tileId]}"
 type tileset{Name Tiles Trns} name/Name tiles/Tiles trns/Trns
 
 loadTileset P =
-| Frames = "[P]/gfx.png"^gfx.frames{32 32}
+| Frames = "[P]gfx.png"^gfx.frames{32 32}
 | Ts = dup 4096
 | Tr = t
 | N = 0
-| for [K Type @Gs] "[P]/tiles.txt"^cfg
+| for [K Type @Gs] "[P]tiles.txt"^cfg
   | Tr."[K]_[Type]" <= N
   | T = TTypes.Type
   | Mask = T.mc{}{MCs.?}.fold{T.hp^($0 0=>MCs.dead) (@ior ? ??)}
@@ -67,8 +67,8 @@ loadTileset P =
 | tileset P.url.1 Ts Tr
 
 main.init_tiles =
-| I2E <= "[$data]/cfg/grid.txt"^cfg.group{3}{?^calcEdges}.i.table
+| I2E <= "[$data]cfg/grid.txt"^cfg.group{3}{?^calcEdges}.i.table
 | E2I <= I2E{?flip}.table
-| $tilesets <= "[$data]/tiles".paths{}{?^loadTileset}{[?.name ?]}.table
+| $tilesets <= "[$data]tiles".paths{}{?^loadTileset}{[?.name ?]}.table
 
 export

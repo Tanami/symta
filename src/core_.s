@@ -351,16 +351,14 @@ text.url =
 | Folder = Void
 | Name = Void
 | if got Sep
-  then | Folder <= Xs.drop{Sep+1}.flip.text
+  then | Folder <= "[Xs.drop{Sep+1}.flip.text]/"
        | Name <= Xs.take{Sep}.flip.text
-       | when Folder >< '': Folder <= '/'
   else | Folder <= ''
        | Name <= Xs.flip.text
 | [Folder Name Ext]
 
 list.unurl =
 | [Folder Name Ext] = Me
-| when Folder <> '/': Folder <= "[Folder]/"
 | when Ext <> '': Ext <= ".[Ext]"
 | "[Folder][Name][Ext]"
 

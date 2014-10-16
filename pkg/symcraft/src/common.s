@@ -8,7 +8,11 @@ MCs = | C = [water land plain air forest wall rock dead invuln 0 1 2 3 4 5 6 7 8
 
 dirN V = Dirs.locate{V.sign}
 
-cfg File = File.get.utf8.lines{}{?parse}.skip{is.[]}
+cfg File =
+| less File.exists: bad "cant open [File]"
+| File.get.utf8.lines{}{?parse}.skip{is.[]}
+
+rects_intersect [AX AY AW AH] [BX BY BW BH] = AX<BX+BW and AY<BY+BH and BX<AX+AW and BY<AY+AH
 
 type entity
 entity.type = \entity
@@ -55,7 +59,7 @@ type utype
     fix rmbPrio morphAll morphs hide supply boostsHarvest depot harvests/[] ttl
 utype.as_text = "#type{[$id]}"
 
-type main{Data} world data/Data sounds/"[Data]/sounds"
+type main{Data} world data/Data sounds/"[Data]sounds"
                 tilesets/0 types/(t) roles/(t) upgrades/(t) cache/(t)
                 pf_range/2**14 ts_names pud/(t) unitSetters player_colors
                 ui_colors
@@ -63,13 +67,13 @@ type main{Data} world data/Data sounds/"[Data]/sounds"
 | $ts_names <= $tilesets{}{?0}
 | DummySprite <= ($ts_names){[? (dup 5 DummyGfx)]}
 | $init_types
-| Cs = cfg "[$data]/cfg/color.txt"
+| Cs = cfg "[$data]cfg/color.txt"
 | $player_colors <= Cs{?0}^(X=>[@X@X])
 | $ui_colors <= Cs{[?0 ?tail]}.table
 
 main.gfx File =
 | when got!it $cache.File: leave it
-| G = gfx "[$data]/[File]"
+| G = gfx "[$data][File]"
 | $cache.File <= G
 | G
 
@@ -92,9 +96,9 @@ ListFields =
 main.load_type_hlp Path T =
 //| say "load_type [T]"
 | U = Void
-| Base = Path.url.0
+| Base = Path.lead.url.0
 | Xs = "[Path]/unit.txt".get.utf8.parse{Path}^(|[`|`@Xs]=>Xs; X=>[X]){}{[?1.0 @?2]}
-| for X Xs: case X [proto PT]: U <= $load_type{"[Base]/[PT]"}.copy
+| for X Xs: case X [proto PT]: U <= $load_type{"[Base][PT]"}.copy
 | have U: utype
 | U.id <= T
 | Corpse = 0
@@ -118,8 +122,8 @@ main.load_type_hlp Path T =
 | less U.anims: U.anims <= t
 | less U.cost: U.cost <= cost
 | SpriteOverride = 0
-| when @exists "[Path]/gfxes"
-  | Gs = "[Path]/gfxes".paths{}{X=>[X.url.1 $unitFrames{U.faces 0 X}]}.table
+| when @exists "[Path]gfxes"
+  | Gs = "[Path]gfxes".paths{}{X=>[X.url.1 $unitFrames{U.faces 0 X}]}.table
   | have Gs.default: DummySprite
   | ($ts_names){(have Gs.?: Gs.default)}
   | SpriteOverride <= 1
@@ -128,11 +132,11 @@ main.load_type_hlp Path T =
 | MC = U.move_class{}{|X<1.is_int=>X+5; X=>X}{MCs.?}
 | U.mask <= MC.fold{U.layer.shl{5} (@ior ? ??)}
 | have U.selection: U.size*2
-| when@exists!it "[Path]/icon.png": U.icon.human <= gfx it
+| when@exists!it "[Path]icon.png": U.icon.human <= gfx it
 | U.icon.orc <= U.icon.human
-| when@exists!it "[Path]/icon_orc.png": U.icon.orc <= gfx it
+| when@exists!it "[Path]icon_orc.png": U.icon.orc <= gfx it
 | less got U.sounds: U.sounds <= t
-| when@exists!it "[Path]/sounds": U.sounds <= it.paths{}{[?.url.1 ?.paths]}.table
+| when@exists!it "[Path]sounds": U.sounds <= it.paths{}{[?.url.1 ?.paths]}.table
 | if U.building and SpriteOverride
   then | Cs = $types.'_construction_site'.sprite
        | Ds = $types.'_destroyed_site'.sprite
@@ -153,7 +157,7 @@ main.load_type_hlp Path T =
 | have U.anims.still StillAnim
 | have U.anims.death DeathAnim
 | when got!it U.anims.move: U.speed <= animSpeed it
-| have U.sounds.selected "[$sounds]/click.wav"
+| have U.sounds.selected "[$sounds]click.wav"
 | less U.hp
   | if U.range
     then | //when!it U.splash: case !U.effect [E V] [E V/(it+1)] // FIXME
@@ -177,10 +181,10 @@ main.load_type Path =
 
 main.init_types =
 | $unitSetters <= (utype)^methods_.keep{?0.0 >< '!'}{[?0.tail ?1]}.table
-| for E "[$data]/types".paths: $load_type{E}
+| for E "[$data]types".paths: $load_type{E}
 | $pud.95 <= $pud.94 // start location
 | for [T E] $types
   | E.proto_gfx <= Void
   | E.faces <= Void
 
-export main utype cfg Dirs dirN MCs
+export main utype cfg rects_intersect Dirs dirN MCs

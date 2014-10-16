@@ -99,27 +99,47 @@ jmpbuf_fail:
 
   png_read_image(png_ptr, row_pointers);
 
-  if (bit_depth != 8 && color_type != PNG_COLOR_TYPE_PALETTE) {
+  if (bit_depth != 8 && bit_depth != 16 && color_type != PNG_COLOR_TYPE_PALETTE) {
     fprintf(stderr, "load_png: unsupported bit_depth=%d\n", bit_depth);
     goto fail;
   }
 
   if (color_type == PNG_COLOR_TYPE_RGB) { //RGB
     gfx = new_gfx(width, height);
-    for (y = 0; y < height; y++) {
-      png_byte *row = row_pointers[y];
-      for (x = 0; x < width; x++) {
-        gfx_set(gfx, x, y, R8G8B8(row[0], row[1], row[2]));
-        row += 3;
+    if (bit_depth == 8) {
+      for (y = 0; y < height; y++) {
+        png_byte *row = row_pointers[y];
+        for (x = 0; x < width; x++) {
+          gfx_set(gfx, x, y, R8G8B8(row[0], row[1], row[2]));
+          row += 3;
+        }
+      }
+    } else {
+      for (y = 0; y < height; y++) {
+        png_byte *row = row_pointers[y];
+        for (x = 0; x < width; x++) {
+          gfx_set(gfx, x, y, R8G8B8(row[1], row[3], row[5]));
+          row += 6;
+        }
       }
     }
   } else if (color_type == PNG_COLOR_TYPE_RGB_ALPHA) {
     gfx = new_gfx(width, height);
-    for (y = 0; y < height; y++) {
-      png_byte *row = row_pointers[y];
-      for (x = 0; x < width; x++) {
-        gfx_set(gfx, x, y, R8G8B8A8(row[0], row[1], row[2], 0xFF-row[3]));
-        row += 4;
+    if (bit_depth == 8) {
+      for (y = 0; y < height; y++) {
+        png_byte *row = row_pointers[y];
+        for (x = 0; x < width; x++) {
+          gfx_set(gfx, x, y, R8G8B8A8(row[0], row[1], row[2], 0xFF-row[3]));
+          row += 4;
+        }
+      }
+    } else {
+      for (y = 0; y < height; y++) {
+        png_byte *row = row_pointers[y];
+        for (x = 0; x < width; x++) {
+          gfx_set(gfx, x, y, R8G8B8A8(row[1], row[3], row[5], 0xFF-row[7]));
+          row += 8;
+        }
       }
     }
   } else if (color_type == PNG_COLOR_TYPE_PALETTE) {
