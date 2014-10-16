@@ -97,8 +97,10 @@ main.load_type_hlp Path T =
 //| say "load_type [T]"
 | U = Void
 | Base = Path.lead.url.0
-| Xs = "[Path]/unit.txt".get.utf8.parse{Path}^(|[`|`@Xs]=>Xs; X=>[X]){}{[?1.0 @?2]}
-| for X Xs: case X [proto PT]: U <= $load_type{"[Base][PT]"}.copy
+| UnitTxt = "[Path]unit.txt"
+| less UnitTxt.exists: bad "no [UnitTxt]"
+| Xs = UnitTxt.get.utf8.parse{Path}^(|[`|`@Xs]=>Xs; X=>[X]){}{[?1.0 @?2]}
+| for X Xs: case X [proto PT]: U <= $load_type{"[Base][PT]/"}.copy
 | have U: utype
 | U.id <= T
 | Corpse = 0
@@ -136,7 +138,7 @@ main.load_type_hlp Path T =
 | U.icon.orc <= U.icon.human
 | when@exists!it "[Path]icon_orc.png": U.icon.orc <= gfx it
 | less got U.sounds: U.sounds <= t
-| when@exists!it "[Path]sounds": U.sounds <= it.paths{}{[?.url.1 ?.paths]}.table
+| when@exists!it "[Path]sounds": U.sounds <= it.paths{}{[?.lead.url.1 ?.paths]}.table
 | if U.building and SpriteOverride
   then | Cs = $types.'_construction_site'.sprite
        | Ds = $types.'_destroyed_site'.sprite
@@ -151,7 +153,7 @@ main.load_type_hlp Path T =
        | when Corpse and SpriteOverride:
          | C = $types.'_corpse'
          | G = C.sprite.default
-         | O = U.sprite.summer.size
+         | O = U.sprite.default.size
          | [@!U.anims.death @(C.anims.Corpse){[?0+O ?1]}]
          | U.sprite <= @table: map [K V] U.sprite [K [@V @G]]
 | have U.anims.still StillAnim
@@ -173,7 +175,7 @@ main.load_type_hlp Path T =
 | U
 
 main.load_type Path =
-| T = Path.url.1
+| T = Path.lead.url.1
 | when got!it $types.T: leave it
 | U = $load_type_hlp{Path T}
 | $types.T <= U

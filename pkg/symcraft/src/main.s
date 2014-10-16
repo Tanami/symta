@@ -1,8 +1,8 @@
 use common tile macros world view gui gfx
 
 M = main (main_path).url.0
-//W = world M
-//W.load_pud{'/Users/nikita/Documents/git/symta/build/symcraft/maps/test.pud'}
+World = world M
+//World.load_pud{'/Users/nikita/Documents/git/symta/build/symcraft/maps/test.pud'}
 
 //when (main_args).size
 
@@ -11,8 +11,18 @@ set_skin "[M.data]ui/orc"
 Tabs = Void
 MenuBG = gfx "[M.data]/ui/default/image/menu.png"
 
+pud_desc Path =
+| Cs = Path.get^(@r$[] [4/M.utf8 4/L.u4 L/D @Xs] => [[M D] @Xs^r])
+| less Cs^is{[[\TYPE _]@_]}: bad "Invalid PUD file: [Path]"
+| for [T D] Cs: when T >< 'DESC': leave D.take{D.locate{0}^supply{32}}.utf8
+| ''
+
 ScenarioMenu =
 | Desc = txt ''
+| File = Void
+| Start = button 'Start Game' state/disabled: =>
+          | World.load_pud{File}
+          | Tabs.pick{ingame}
 | dlg: mtx
   |   0   0 | MenuBG
   | 230 220 | txt size/medium 'Custom Game Setup'
@@ -28,18 +38,24 @@ ScenarioMenu =
   | 220 322 | droplist ['Map Default' 'Forest' 'Winter' 'Wasteland' 'Swamp']
   |  14 400 | txt 'Description:'
   |  32 416 | Desc
-  | 320   0 | folder_widget "[M.data]/maps" //litems ['Hello World' 'Second Line']
-  | 400 370 | button 'Cancel Game': => Tabs.pick{main}
+  | 320   0 | folder_widget "[M.data]/maps": P =>
+              | if P.url.2 >< pud
+                then | Start.state <= \normal
+                     | File <= P
+                     | Desc.value <= pud_desc P
+                else | Start.state <= \disabled
+                     | Desc.value <= ''
+  | 400 370 | lay v 8 [Start (button 'Cancel Game': => Tabs.pick{main})]
 
 MainMenu = dlg: mtx
   |   0   0 | MenuBG
   |  60 460 | txt 'SymCraft v0.1 by Nikita Sadkov'
   | 208 240 | lay v 8: list
-              button{'New Campaign'    on/0 (=>)}
+              button{'New Campaign'    state/disabled (=>)}
               button{'Custom Scenario' (=>Tabs.pick{scenario})}
-              button{'Multi Player'    on/0 (=>)}
-              button{'Load Game'       on/0 (=>)}
-              button{'Map Editor'      on/0 (=>)}
+              button{'Multi Player'    state/disabled (=>)}
+              button{'Load Game'       state/disabled (=>)}
+              button{'Map Editor'      state/disabled (=>)}
               button{'Exit Program'    (=>get_gui{}.exit)}
 
 Tabs <= tabs scenario: t main(MainMenu) scenario(ScenarioMenu) ingame(MenuBG)
@@ -47,6 +63,7 @@ Tabs <= tabs scenario: t main(MainMenu) scenario(ScenarioMenu) ingame(MenuBG)
 gui Tabs cursor/(skin_cursor point)
 
 \done
+
 
 /*
 Effects = t

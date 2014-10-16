@@ -82,9 +82,8 @@ bar.draw G P =
 | G.blit{P $bg}
 | G.rect{#347004 1 P+[3 3] [152*$value_/100 14]}
 
-type button.widget{Text Fn on/1 w_size/large h_size/medium}
-  value/Text on_click/Fn state over w_size/W_size h_size/H_size skin/Void cache/(t)
-| $state <= if On then \normal else \disabled
+type button.widget{Text Fn state/normal w_size/large h_size/medium}
+  value/Text on_click/Fn state/State over w_size/W_size h_size/H_size skin/Void cache/(t)
 button.reskin =
 | Cache = $cache
 | $skin <= Skin
@@ -119,8 +118,8 @@ button.input @In = case In
                     | $state <= \normal
 button.as_text = "#button{[$value]}"
 
-type litem.widget{Text w/140 on/1} text_/Text w/W h state font fw fh init
-| $state <= if On then \normal else \disabled
+type litem.widget{Text w/140 state/normal}
+  text_/Text w/W h state/State font fw fh init
 litem.render =
 | less $init
   | $h <= "litem/normal"^skin.h
@@ -229,7 +228,7 @@ folder_nomalized Path =
 | Parent = if Path >< '/' or Path.last >< ':' then [] else ['../']
 | [@Parent @Folders @Files]
 
-type slider_.widget{D f/(N=>) size/124 value/0.0 on/1 state/normal delta/Void}
+type slider_.widget{D f/(N=>) size/124 value/0.0 state/normal delta/Void}
      dir/D f/F size/Size pos/0.0 state/State skin/Void w/1 h/1 delta/Delta
 | have $delta (10.0/$size.float)
 | $value <= Value
@@ -307,7 +306,7 @@ folder_litems.input @In = case In
   Else | $litems.input{@In}
 folder_litems.itemAt Point XY WH = [Me XY WH]
 
-folder_widget Root f/(V=>) =
+folder_widget Root F =
 | FL = folder_litems Root f/F
 | S = slider size/124 v f/(N => FL.offset <= @int N*FL.data.size.float)
 | lay h 0 [FL S]

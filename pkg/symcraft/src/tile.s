@@ -64,7 +64,7 @@ loadTileset P =
     | C.wood <= T.wood
     | Ts.(N+I) <= C
   | !N+16
-| tileset P.url.1 Ts Tr
+| tileset P.lead.url.1 Ts Tr
 
 main.init_tiles =
 | I2E <= "[$data]cfg/grid.txt"^cfg.group{3}{?^calcEdges}.i.table
