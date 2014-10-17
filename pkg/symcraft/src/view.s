@@ -1,4 +1,4 @@
-use common gfx gui
+use common gui
 
 type view.widget{W H M} w/W h/H main/M paused/1 sel/[] last_click/[]
                         ack a m/[0 0] g visible notes speed/20 frame

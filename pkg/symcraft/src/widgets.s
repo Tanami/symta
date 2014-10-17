@@ -1,4 +1,4 @@
-use util gfx gui
+use util gui
 
 Skin = Void
 Skins = t

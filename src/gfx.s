@@ -71,4 +71,4 @@ gfx.as_text = "#gfx{[$w] [$h]}"
 rgb R G B = form R*#10000 + G*#100 + B
 rgba R G B A = form A*#1000000 + R*#10000 + G*#100 + B
 
-export widget gfx new_cmap ffi_alloc ffi_free 'rgb' 'rgba' 'GFX_RGB' 'GFX_RGBA' 'GFX_MAP'
+export widget gfx new_cmap ffi_alloc ffi_free rgb rgba 'rgb' 'rgba' 'GFX_RGB' 'GFX_RGBA' 'GFX_MAP'
