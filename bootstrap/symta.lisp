@@ -1269,6 +1269,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        ((method as)
         (setf args `(("@" ,as)))
         (setf body `("|" ("=" (,method) ("_this_method"))
+                         ("=" ("Me") ("." ,as 0))
                          ,body)))
        (else (error "bad arglist for `_`: ~a" args)))
   ! setf body `("default_leave_" ,name ,(expand-named name body))

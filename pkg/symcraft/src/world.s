@@ -5,12 +5,8 @@ type unit
     frame dir/Dirs.0 resources/(t size/6)
     enemies nobody playable rescueable passive view
     world content_next sensor_next last_drawn/-1 mm_color
-
+heir unit $type
 unit.as_text = "#unit{[$type.id]}"
-
-unit._ Method Args =
-| Args.0 <= Args.0.type
-| Args.apply_method{Method}
 
 type world{Main}
    main/Main w h rect owned/(dup 32 []) units cycle scheds vs vs_i

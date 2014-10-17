@@ -550,7 +550,7 @@ table.del K =
 table._ Method Args =
 | if Args.size > 1
   then Args.0.(Method^_method_name.tail) <= Args.1 // strip `!`
-  else Args.0.(Method^_method_name)
+  else Me.(Method^_method_name)
 table.size = $buckets.map{X => if got X then X.size else 0}.sum
 table.list = $buckets.skip{Void}.join
 table.map F = $list.map{F}
@@ -602,7 +602,7 @@ type macro{new_macro N E} name/N expander/E
 type meta.~{new_meta O M} object_/O meta_/M
 _.meta_ = Void
 meta._ Method Args =
-| Args.0 <= Args.0.object_
+| Args.0 <= $object_
 | Args.apply_method{Method}
 
 LCG_Seed = Void

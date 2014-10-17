@@ -194,9 +194,7 @@ droplist.input @In = case In
 type litems.~{Xs w/300 lines/5 f/(V=>)} f/F ih/Void lines/Lines xs/Xs box picked o/Void
 | $box <= lay v 0: dup $lines: litem '' w/W
 | $offset <= 0
-litems._ Method Args =
-| Args.0 <= Args.0.box
-| Args.apply_method{Method}
+heir litems $box
 litems.offset = $o
 litems.`!offset` NO =
 | when NO >< $o: leave 0
@@ -300,9 +298,7 @@ slider D @Rest =
 type folder_litems.~{Root f/(V=>)} root/Root f/F litems
 | when $root.last <> '/': $root <= "[$root]/"
 | $litems <= litems lines/9 f/(N => F "[$root][N]") $root^folder_nomalized
-folder_litems._ Method Args =
-| Args.0 <= Args.0.litems
-| Args.apply_method{Method}
+heir folder_litems $litems
 folder_litems.input @In = case In
   [mice double_left 1 P] | R = if $litems.value >< '../'
                                then "[$root.lead.url.0]"

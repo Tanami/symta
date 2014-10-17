@@ -570,6 +570,11 @@ type Name @Fields =
             @(map [I F] Fs.i [`=` [[`.` Name "![F]"] V]  [_dset 'Me' I V]])
             ]]
 
+heir Child Parent =
+| form @| Child._ ~Method ~Args =
+          | ~Args.0 <= Parent
+          | ~Args.apply_method{~Method}
+
 expand_block_item_method Type Name Args Body =
 | less Name >< _
   | [\Me @!Args]
@@ -578,7 +583,8 @@ expand_block_item_method Type Name Args Body =
   | case Args
     [Method As] | Args <= [['@' As]]
                 | Body <= form: `|` (Method = _this_method)
-                                    Body
+                                    ($\Me = As.0)
+                                    (_type Type $\Me Body)
     Else | mex_error "bad arglist for _; should be: Method Args"
 | Body <= form: default_leave_ Name $(expand_named Name Body)
 | [Void [_dmet Name Type [`=>` Args [_progn [_mark "[Type].[Name]"] Body]]]]
@@ -815,9 +821,8 @@ macroexpand Expr Macros ModuleCompiler =
 list @Xs = form [$@Xs]
 mtx Xs = form [$@Xs.tail{}{[`[]` @?]}]
 
-
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[]' 't' '\\' 'form'
        'mtx' 'list' 'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for' 'type'
-       'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$'
+       'heir' 'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
        'ffi_begin' 'ffi' 'min' 'max' 'swap' 'supply' 'have' '"'
