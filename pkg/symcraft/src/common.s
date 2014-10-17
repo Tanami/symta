@@ -56,7 +56,7 @@ utype.as_text = "#type{[$id]}"
 type main{Data} world data/Data sounds/"[Data]sounds"
                 tilesets/0 types/(t) roles/(t) upgrades/(t) cache/(t)
                 pf_range/2**14 ts_names pud/(t) unitSetters player_colors
-                ui_colors
+                ui_colors minimap/gfx{128 128}
 | $init_tiles
 | $ts_names <= $tilesets{}{?0}
 | DummySprite <= ($ts_names){[? (dup 5 DummyGfx)]}

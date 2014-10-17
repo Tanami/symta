@@ -14,10 +14,11 @@ unit._ Method Args =
 
 type world{Main}
    main/Main w h rect owned/(dup 32 []) units cycle scheds vs vs_i
-   nqs trans orders free_ids used_ids new_units del_units margin/10 
-   top_left/[10 10] max_units/1200 max_w/300 max_h/300 max_cells
+   nqs trans orders free_ids used_ids new_units del_units
+   max_units/1200 max_w/300 max_h/300 max_cells
    tileset tileset_name tiles gfxes palette tints
-   players/16^dup this_player/Void minimap_dim
+   players/16^dup this_player/Void minimap_dim minimap/Main.minimap
+   minimap_cells
 | WxH = $max_w*$max_h
 | $max_cells <= WxH
 | $units <= dup $max_units+WxH
@@ -28,9 +29,31 @@ type world{Main}
   | U.world <= Me
   | $units.Id <= U
 | $vs <= dup $units.size [] // visible units
+| $minimap_cells <= dup $minimap.w*$minimap.h
 | $main.world <= Me
 
 world.cell_id P = $w*P.1 + P.0
+
+world.init_minimap =
+| [MW MH] = [$minimap.w $minimap.h]
+| [W H] = [$w $h]
+| for [MX MY] [0 0 MW MH].xy
+  | X = MX*W/MW
+  | Y = MY*H/MH
+  | $minimap_cells.(MW*MY+MX) <= $units.(Y*W+X)
+| $upd_minimap
+
+world.init_dimensions W H =
+| $w <= W
+| $h <= H
+| $rect <= [0 0 W H]
+| $minimap_dim <= 128/W //FIXME: breaks for 96x96 maps
+
+world.upd_minimap =
+| [MW MH] = [$minimap.w $minimap.h]
+| for [MX MY] [0 0 MW MH].xy
+  | C = $minimap_cells.(MY*MW + MX)
+  | $minimap.set{MX MY C.color}
 
 world.init_cell XY Tile =
 | C = $tiles.Tile.copy
@@ -55,9 +78,7 @@ world.new O T delay/6.rand =
 | U
 
 world.upd_area Rect F =
-| for [X Y] Rect.xy
-  | F $units.(Y*$w + X)
-  //| mmUpdate X Y
+| for [X Y] Rect.xy: when [X Y].in{$rect}: F $units.(Y*$w + X)
 
 unit.mark =
 | S = $sight
@@ -65,7 +86,6 @@ unit.mark =
   | C => | $content_next <= C.content
          | C.content <= Me
          | @xor !C.mask $layer}
-
 | $world.upd_area{[@($xy-[S S]) @($size+[2*S 2*S])]
   | C => | $sensor_next <= C.sensors
          | C.sensors <= Me}
@@ -103,16 +123,12 @@ world.load_pud Path =
                  | U.name <= "Player[I]"
                  | U.playable <= P >< person
                  | U.rescueable <= case P capturable+rescueable 1
-                 | U.xy <= $top_left
+                 | U.xy <= [0 0]
                  | U.team <= PudTeams.P
                  | $players.I <= U
   'ERA ' | Xs => era Xs
   'ERAX' | Xs => era Xs
-  'DIM ' | [2/W.u2 2/H.u2 @_] =>
-            | $w <= W + 2*$margin
-            | $h <= H + 2*$margin
-            | $rect <= [$margin $margin W H]
-            | $minimap_dim <= 128/W //FIXME: breaks for 96x96 maps
+  'DIM ' | [2/W.u2 2/H.u2 @_] => $init_dimensions{W H}
   'SIDE' | Xs => for [I S] Xs{PudSides.?}.i: $players.I.side <= S
   'SGLD' | Xs => sres gold Xs
   'SLBR' | Xs => sres wood Xs
@@ -122,7 +138,7 @@ world.load_pud Path =
                  | I = -1
                  | for P $rect.xy: $init_cell{P M.(!I+1)}
   'UNIT' | @r$0 [2/X.u2 2/Y.u2 I O 2/D.u2 @Xs] =>
-           | XY = [X Y] + $top_left
+           | XY = [X Y]
            | T = case I 57 Critters.($tileset_name) _ $main.pud.I
            | case T
              Void | bad "Invalid unit slot: [I]"
@@ -133,9 +149,6 @@ world.load_pud Path =
 | Cs = Path.get^(@r$[] [4/M.utf8 4/L.u4 L/D @Xs] => [[M D] @Xs^r])
 | less Cs^is{[[\TYPE _]@_]}: bad "Invalid PUD file: [Path]"
 | for [T D] Cs: when got!it Handlers.T: it D
-| M = $margin
-| for B [[$w-M 0 M $h] [0 $h-M $w M] [0 0 M $h] [0 0 $w M]]
-  | for P B.xy: $init_cell{P 0}
 | for U $players
   | U.owner <= U.id
   | U.enemies <= $players.skip{?id >< U.id}.keep{P =>
@@ -156,6 +169,7 @@ world.load_pud Path =
   | U.deploy{XY}
 | $palette <= $tileset.tiles.0.gfx.cmap
 | $tints <= @table: map [K C] $main.ui_colors [K (recolor 208 $palette C)]
+| $init_minimap
 | Void
 
 export world

@@ -15,6 +15,13 @@ Tabs = Void
 GameMenu = Void
 View = view 448 448 M
 
+type minimap.widget{Main} main/Main w/128 h/128
+minimap.draw G P =
+| MM = $main.world.minimap
+| G.blit{P MM}
+/*minimap.input In = case @In
+  [mice left 1 XY] | View.center_at{XY}*/
+
 GameMenu <=
 | Save = button 'Save (F11)' w_size/small state/disabled (=>)
 | Load = button 'Load (F12)' w_size/small state/disabled (=>)
@@ -28,12 +35,12 @@ GameMenu <=
               button{'Help (F1)' state/disabled (=>)}
               button{'Scenario Objectives' state/disabled (=>)}
               (button 'End Scenario': =>
+                | View.pause
                 | GameMenu.pick{hide}
-                | Tabs.pick{main}
-                )
+                | Tabs.pick{main})
               spacer{1 20}
               (button 'Return to Game (Esc)': =>
-                 //| View.unpause
+                 | View.unpause
                  | GameMenu.pick{hide})
 | Hide = spacer 0 0
 | tabs hide: t show(Show) hide(Hide)
@@ -52,7 +59,7 @@ Ingame = dlg: mtx
   |   0   0 | lay h 0: list
                 (lay v 0: list skin{'panel/buttonbg'}
                                (dlg: mtx |  0 0 | skin{'panel/minimap'}
-                                       //| 24 2 | minimap
+                                         | 24 2 | minimap M
                                       )
                                skin{'panel/info'}
                                skin{'panel/filler'})

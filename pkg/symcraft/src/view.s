@@ -28,21 +28,21 @@ view.draw_unit U =
 | RX = X - SW/2
 | RY = Y - SH/2
 | G.blit{[X-UG.w/2 Y-UG.h/2] UG map(Col) flipX(D > 4 and not U.building)}
-| !$world.cycle + 1
 
 view.normalize_view =
 | SO = $world.this_player.view
 | [X Y] = SO
-| M = $world.margin*32
 | WW = $world.w*32
 | WH = $world.h*32
 | VXY = $world.this_player.view
-| VXY.0 <= X.clip{M WW-M-$g.w}
-| VXY.1 <= Y.clip{M WH-M-$g.h}
+| VXY.0 <= X.clip{0 WW-$g.w}
+| VXY.1 <= Y.clip{0 WH-$g.h}
 
 view.render =
 | $normalize_view
 | G = $g
+| W = $world.w
+| H = $world.h
 | Cs = $world.units
 | TN = $world.tileset_name
 | TP = $world.this_player
@@ -53,8 +53,6 @@ view.render =
 | [CX CY] = SO/32
 | CW = @int: @ceil ($w.float+31.0)/32.0
 | CH = @int: @ceil ($h.float+31.0)/32.0
-| W = $world.w
-| H = $world.h
 | Vs = [] // visible units
 | EX = @clip 0 W CX+CW
 | EY = @clip 0 H CY+CH
@@ -76,15 +74,17 @@ view.render =
 | Vs = Vs.sort{[?layer ?disp.1] < [??layer ??disp.1]}
 | for X Vs.keep{?building}: $draw_unit{X}
 | for X Vs.skip{?building}: $draw_unit{X}
-//| Vs{[?type.id ?building]}^say
+| !$world.cycle + 1
 | G
 
 view.player_view = $world.this_player.view
 
+view.center_at XY = 
+
 view.input @In = case In
   [key up 1 _] | !$player_view.1 - 32
-  [key right 1 _] | !$player_view.0 + 32
   [key down 1 _] | !$player_view.1 + 32
+  [key right 1 _] | !$player_view.0 + 32
   [key left 1 _] | !$player_view.0 - 32
   [key Name S XY] | $keys.Name <= S
 
