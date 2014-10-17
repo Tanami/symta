@@ -32,7 +32,7 @@ calcEdges X =
 | [X.0 T.2 X.2 T.0]^foldEdges.ior{X.1.1.shl{12}}
 
 type cell.entity type base rm mask tileId gfxId gfx edges mc hp armor resource gold wood
-                 id xy disp neibs content sensors real_xy colors color
+                 id xy disp neibs content sensors real_xy mm_color 
 cell.as_text = "#cell{[$type] [$tileId]}"
 
 type tileset{Name Tiles Trns} name/Name tiles/Tiles trns/Trns
@@ -65,7 +65,7 @@ loadTileset P =
     | C.resource <= T.resource
     | C.gold <= T.gold
     | C.wood <= T.wood
-    | C.color <= Palette.(C.gfx.get{15 15})
+    | C.mm_color <= Palette.(C.gfx.get{15 15})
     | Ts.(N+I) <= C
   | !N+16
 | tileset P.lead.url.1 Ts Tr

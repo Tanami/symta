@@ -106,10 +106,10 @@ dlg.draw G P =
   | G.blit{P+[X Y] R}
 
 type gui{Root cursor/host}
-  root/Root timers/[] mice_xy/[0 0] cursor/default result/Void fb/Void
+  root/Root timers/[] mice_xy/[0 0] widget_cursor/default result/Void fb/Void
   keys/(t) popup/Void last_widget/(widget) focus_widget/Void
   focus_xy/[0 0] focus_wh/[0 0] last_clicked/(widget) click_time/(t)
-  default_cursor/Cursor host_cursor/0
+  cursor/Cursor host_cursor/0
 | GUI <= Me
 | $fb <= gfx 1 1
 | show: Es => | GUI.input{Es}
@@ -136,10 +136,10 @@ gui.render =
   | P = $focus_xy+[fw.x fw.y]
   | WH = if fw.w and fw.h then [fw.w fw.h] else $focus_wh
   | FB.rect{#FFFF00 0 P.0-1 P.1-1 WH.0+2 WH.1+2}
-| C = $cursor
+| C = $widget_cursor
 | when got C
   | XY = GUI.mice_xy
-  | CG = if C >< default then $default_cursor else C
+  | CG = if C >< default then $cursor else C
   | when got CG and host <> CG:
     | when $host_cursor: show_cursor 0
     | $host_cursor <= 0
@@ -172,7 +172,7 @@ gui.input Es =
 | $update_timers{T}
 | [NW NW_XY NW_WH] = $root.itemAt{$mice_xy [0 0] [0 0]} //new widget
 | $popup <= NW.popup
-| $cursor <= NW.cursor
+| $widget_cursor <= NW.cursor
 | for E Es: case E
   [mice_move XY]
     | $mice_xy.0 <= XY.0

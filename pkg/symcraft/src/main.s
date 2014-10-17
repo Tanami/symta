@@ -13,21 +13,14 @@ set_skin "[M.data]ui/orc"
 
 Tabs = Void
 GameMenu = Void
-View = view 448 448 M
-
-type minimap.widget{Main} main/Main w/128 h/128
-minimap.draw G P =
-| MM = $main.world.minimap
-| G.blit{P MM}
-/*minimap.input In = case @In
-  [mice left 1 XY] | View.center_at{XY}*/
+View = view M.view_w M.view_h M
 
 GameMenu <=
 | Save = button 'Save (F11)' w_size/small state/disabled (=>)
 | Load = button 'Load (F12)' w_size/small state/disabled (=>)
 | Show = dlg: mtx
   |   0   0 | spacer 640 480
-  | 270 100 | skin 'panel/dlg1'
+  | 270 100 | img 'panel/dlg1'
   | 346 110 | txt size/medium 'Game Menu'
   | 285 140 | lay v 8: list
               lay{h 12 [Save Load]}
@@ -37,6 +30,8 @@ GameMenu <=
               (button 'End Scenario': =>
                 | View.pause
                 | GameMenu.pick{hide}
+                | set_skin "[M.data]ui/orc"
+                | (get_gui).cursor <= skin_cursor{point}
                 | Tabs.pick{main})
               spacer{1 20}
               (button 'Return to Game (Esc)': =>
@@ -57,16 +52,16 @@ pud_desc Path =
 Ingame = dlg: mtx
   |   0   0 | spacer 640 480
   |   0   0 | lay h 0: list
-                (lay v 0: list skin{'panel/buttonbg'}
-                               (dlg: mtx |  0 0 | skin{'panel/minimap'}
-                                         | 24 2 | minimap M
+                (lay v 0: list img{'panel/buttonbg'}
+                               (dlg: mtx |  0 0 | img{'panel/minimap'}
+                                         | 24 2 | minimap M: XY => View.center_at{XY}
                                       )
-                               skin{'panel/info'}
-                               skin{'panel/filler'})
-                (lay v 0: list skin{'panel/top'}
+                               img{'panel/info'}
+                               img{'panel/filler'})
+                (lay v 0: list img{'panel/top'}
                                View
-                               skin{'panel/bottom'})
-                skin{'panel/right'}
+                               img{'panel/bottom'})
+                img{'panel/right'}
   |  24   2 | button 'Menu (F10)' w_size/large h_size/small: =>
               //| View.pause
               | GameMenu.pick{show}
@@ -80,6 +75,8 @@ ScenarioMenu =
 | Start = button 'Start Game' state/disabled: =>
           | World <= world M
           | World.load_pud{File}
+          | set_skin "[M.data]ui/[World.this_player.side]"
+          | (get_gui).cursor <= skin_cursor{point}
           | Tabs.pick{ingame}
 | dlg: mtx
   |   0   0 | MenuBG
@@ -118,7 +115,7 @@ MainMenu = dlg: mtx
 
 Tabs <= tabs scenario: t main(MainMenu) scenario(ScenarioMenu) ingame(Ingame)
 
-gui Tabs cursor/(skin_cursor point)
+gui Tabs cursor/skin_cursor{point}
 
 \done
 

@@ -4,7 +4,7 @@ type unit
     id type xy disp owner color team name side hits mana
     frame dir/Dirs.0 resources/(t size/6)
     enemies nobody playable rescueable passive view
-    world content_next sensor_next last_drawn/-1
+    world content_next sensor_next last_drawn/-1 mm_color
 
 unit.as_text = "#unit{[$type.id]}"
 
@@ -53,7 +53,9 @@ world.upd_minimap =
 | [MW MH] = [$minimap.w $minimap.h]
 | for [MX MY] [0 0 MW MH].xy
   | C = $minimap_cells.(MY*MW + MX)
-  | $minimap.set{MX MY C.color}
+  | U = C.content
+  | if U then $minimap.set{MX MY U.mm_color}
+    else $minimap.set{MX MY C.mm_color}
 
 world.init_cell XY Tile =
 | C = $tiles.Tile.copy
@@ -72,7 +74,8 @@ world.new O T delay/6.rand =
 | U.type <= T
 | U.mana <= T.mana
 | U.owner <= O
-| U.color <= when O: O.color
+| U.color <= if O then O.color else \yellow
+| U.mm_color <= $main.ui_colors.(U.color).0
 | U.resources <= T.resources.copy
 | U.frame <= 0
 | U

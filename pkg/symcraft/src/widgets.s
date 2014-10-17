@@ -1,12 +1,19 @@
 use util gfx gui
 
 Skin = Void
+Skins = t
 SkinCache = Void
 FontCache = Void
 FontTints = Void
 
 set_skin Path =
+| Skins.Skin <= [SkinCache FontCache FontTints]
 | Skin <= Path
+| when got!it Skins.Skin:
+  | SkinCache <= it.0
+  | FontCache <= it.1
+  | FontTints <= it.2
+  | leave 0
 | SkinCache <= t
 | FontCache <= t
 | FontTints <= "[Skin]/font/tints.txt"^cfg{}.map{[?0 ?.tail.pad{256 #FF000000}^new_cmap]}.table
@@ -311,4 +318,25 @@ folder_widget Root F =
 | S = slider size/124 v f/(N => FL.offset <= @int N*FL.data.size.float)
 | lay h 0 [FL S]
 
-export set_skin skin skin_cursor font txt button droplist slider folder_widget
+type minimap.widget{Main CenterAt} main/Main w/128 h/128 pressed center/CenterAt
+minimap.draw G P =
+| MM = $main.world.minimap
+| [X Y] = $main.world.this_player.view/32
+| X = X*$w/$main.world.w
+| Y = Y*$h/$main.world.h
+| W = $main.view_w/32*$w/$main.world.w
+| H = $main.view_h/32*$h/$main.world.h
+| G.blit{P MM}
+| G.rect{#A0A0A0 0 P.0+X P.1+Y W H}
+
+minimap.center_at P = ($center){[P.0*$main.world.w/$w P.1*$main.world.h/$h]}
+
+minimap.input @In = case In
+  [mice_move _ XY] | when $pressed: $center_at{XY}
+  [mice left 1 XY] | $pressed <= 1; $center_at{XY}
+  [mice left 0 XY] | $pressed <= 0
+
+type img.widget{Path} path/Path
+img.render = skin $path
+
+export set_skin skin_cursor font txt button droplist slider folder_widget minimap img

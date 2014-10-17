@@ -38,6 +38,12 @@ view.normalize_view =
 | VXY.0 <= X.clip{0 WW-$g.w}
 | VXY.1 <= Y.clip{0 WH-$g.h}
 
+view.player_view = $world.this_player.view
+
+view.center_at XY =
+| $world.this_player.view <= XY*32-[$w $h]/2
+| $normalize_view
+
 view.render =
 | $normalize_view
 | G = $g
@@ -76,10 +82,6 @@ view.render =
 | for X Vs.skip{?building}: $draw_unit{X}
 | !$world.cycle + 1
 | G
-
-view.player_view = $world.this_player.view
-
-view.center_at XY = 
 
 view.input @In = case In
   [key up 1 _] | !$player_view.1 - 32
