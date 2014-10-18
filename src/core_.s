@@ -711,4 +711,7 @@ int.clip A B = if Me < A then A
 float.clip A B = if Me < A then A
                  else if Me > B then B
                  else Me
-export non say bad no got table_ new_macro new_meta
+
+main_root = (main_lib).url.0
+
+export non say bad no got table_ new_macro new_meta main_root

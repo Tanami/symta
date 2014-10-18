@@ -1,4 +1,4 @@
-ffi_begin gfx_ '/Users/nikita/Documents/git/symta/bindings/gfx/lib/main'
+ffi_begin gfx_ gfx
 ffi new_gfx_: new_gfx.ptr W.u4 H.u4
 ffi free_gfx.void Gfx.ptr
 ffi gfx_load_png.ptr Filename.text

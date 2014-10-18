@@ -2,7 +2,7 @@ use common tile macros world gui widgets view
 
 //when (main_args).size
 
-M = main (main_path).url.0
+M = main: main_root
 World = Void
 
 set_skin "[M.data]ui/orc"

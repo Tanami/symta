@@ -3,6 +3,7 @@ GExpansionDepthLimit = 1000
 GMacros = Void
 GDefaultLeave = Void
 GModuleCompiler = Void
+GModuleFolders = Void
 GSrc = [0 0 unknown]
 GTypes = Void
 GVarsTypes = []
@@ -10,6 +11,10 @@ GVarsTypes = []
 mex_error Message =
 | [Row Col Orig] = GSrc
 | bad "[Orig]:[Row],[Col]: [Message]"
+
+source_ = [_quote GSrc]
+destination_ = [_quote GModuleFolders{}.2]
+compiler_ = [_quote GModuleFolders{}.0]
 
 is_var_sym X = X.is_text and not X.is_keyword
 
@@ -691,9 +696,24 @@ fin Finalizer Body =
 FFI_Package = Void
 FFI_Lib = Void
 
-ffi_begin Package Lib =
+copy_ffi S D =
+| D.mkpath
+| for X S.items
+  | SF = "[S][X]"
+  | DF = "[D][X]"
+  | when DF.url.2 <> o and (not DF.exists or DF.time < SF.time):
+    | unix "cp -f '[SF]' '[DF]'"
+
+ffi_begin Package Name =
+| [Root Srcs Dst] = GModuleFolders{}
+| RootFFI = "[Root]ffi/[Name]/lib/"
+| DstFFI = "[Dst]ffi/[Name]/"
+| less RootFFI.exists: mex_error "Missing [RootFFI]"
+| copy_ffi RootFFI DstFFI
 | FFI_Package <= Package
-| FFI_Lib <= Lib
+| FFI_Lib <= form | ~L = \$"[DstFFI]main"
+                  | if ~L.exists then ~L
+                    else "[main_lib]/ffi/[\Name]/main"
 | 0
 
 expand_ffi Name Result Symbol Args =
@@ -809,11 +829,12 @@ mex Expr =
            | when got Src and Result.is_list: Result <= new_meta Result Src
            | Result
 
-macroexpand Expr Macros ModuleCompiler =
+macroexpand Expr Macros ModuleCompiler ModuleFolders =
 | let GMacros Macros
       GExpansionDepth 0
       GExports []
       GModuleCompiler ModuleCompiler
+      GModuleFolders ModuleFolders
       GTypes (t)
   | R = mex Expr
   | R
@@ -825,4 +846,4 @@ export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[
        'mtx' 'list' 'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for' 'type'
        'heir' 'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
-       'ffi_begin' 'ffi' 'min' 'max' 'swap' 'supply' 'have' '"'
+       'ffi_begin' 'ffi' 'min' 'max' 'swap' 'supply' 'have' 'source_' '"'

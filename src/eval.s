@@ -1,6 +1,6 @@
 use compiler reader macro
 
-GRootFolder = '/Users/nikita/Documents/git/symta/'
+GRootFolder = Void
 GSrcFolders = Void
 GDstFolder = Void
 GHeaderTimestamp = Void
@@ -50,6 +50,8 @@ add_imports Expr Deps =
 | [[_fn (map D Deps D.1) Expr]
    @(map D Deps [_import [_quote D.0] [_quote D.1]])]
 
+module_folders = [GRootFolder GSrcFolders GDstFolder]
+
 compile_expr Name Dst Expr =
 | Uses = [rt_ core_]
 | Expr <= case Expr
@@ -66,7 +68,7 @@ compile_expr Name Dst Expr =
 | Imports = Imports.keep{X => X.1.is_text} // skip macros
 | ExprWithDeps = add_imports Expr Imports
 | Ms = [GMacros @(map M Macros "[GDstFolder][M]"^load_macros)].join
-| ExpandedExpr = macroexpand ExprWithDeps Ms.table &compile_module
+| ExpandedExpr = macroexpand ExprWithDeps Ms.table &compile_module &module_folders
 | Text = ssa_produce_file ExpandedExpr
 | CFile = "[Dst].c"
 | CFile.set{Text}
@@ -107,21 +109,16 @@ build_entry Entry =
   | when no DstFile: bad "cant compile [Entry]"
   | DstFile
 
-build @As =
-| SrcFolder = Void
-| DstFolder = Void
-| case As
-   [S D] | SrcFolder <= S
-         | DstFolder <= D
-   [S] | SrcFolder <= S
-       | DstFolder <= S
-   Else | bad "build: bad arglist = [As]"
-| let GDstFolder "[DstFolder]lib/"
+build RootFolder SrcFolder dst/0 =
+| DstFolder = Dst or SrcFolder
+| less RootFolder.last >< '/': RootFolder <= "[RootFolder]/"
+| let GRootFolder RootFolder
+      GDstFolder "[DstFolder]lib/"
       GSrcFolders ["[SrcFolder]src/" "[GRootFolder]src/"]
       GHeaderTimestamp "[GRootFolder]/runtime/symta.h".time
       GShowInfo 1
       GCompiledModules (t)
-  | GDstFolder.mkpath
+  | "[GDstFolder]/ffi".mkpath
   | register_library_folder GDstFolder
   | RuntimeSrc = "[GRootFolder]runtime/runtime.c"
   | RuntimePath = "[DstFolder]run"
@@ -129,9 +126,10 @@ build @As =
   | build_entry main
   | RuntimePath //unix RuntimePath //"[RuntimePath] ':[GDstFolder]'"
 
-eval Expr Env =
+eval RootFolder Expr Env =
 | BuildFolder = "[GRootFolder]build/tmp/"
-| let GMacros 'macro'^load_macros
+| let GRootFolder RootFolder
+      GMacros 'macro'^load_macros
       GSrcFolders ["[GRootFolder]src/"]
       GHeaderTimestamp "[GRootFolder]/runtime/symta.h".time
       GDstFolder "[BuildFolder]lib/"

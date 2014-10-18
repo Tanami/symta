@@ -18,7 +18,7 @@
   VIEW_SIZE(dst) = (uint32_t)(size);
 #define VIEW_REF(o,start,i) *((void**)O_CODE(o) + start + (i))
 
-static char *main_path;
+static char *main_lib;
 static void *main_args;
 
 typedef struct {
@@ -1419,8 +1419,8 @@ RETURNS(R)
 BUILTIN0("main_args", main_args)
 RETURNS(main_args)
 
-BUILTIN0("main_path", main_path)
-  TEXT(R, main_path);
+BUILTIN0("main_lib", main_lib)
+  TEXT(R, main_lib);
 RETURNS(R)
 
 BUILTIN1("parse_float", parse_float,C_TEXT,text)
@@ -1555,7 +1555,7 @@ static struct {
   {"time", b_time},
   {"clock", b_clock},
   {"main_args", b_main_args},
-  {"main_path", b_main_path},
+  {"main_lib", b_main_lib},
   {"get_line", b_get_line},
   {"parse_float", b_parse_float},
   {"ffi_load", b_ffi_load},
@@ -2091,7 +2091,7 @@ static void init_args(api_t *api, int argc, char **argv) {
   }
 
   add_lib_folder(lib_path);
-  main_path = strdup(lib_path);
+  main_lib = strdup(lib_path);
 
   LIST_ALLOC(main_args, main_argc);
   for (i = 0; i < main_argc; i++) {
@@ -2152,9 +2152,9 @@ int main(int argc, char **argv) {
   runtime_reserved0 = get_heap_used(0);
   runtime_reserved1 = get_heap_used(1);
 
-  sprintf(tmp, "%s/%s", main_path, "main");
+  sprintf(tmp, "%s/%s", main_lib, "main");
   R = exec_module(api, tmp);
-  fprintf(stderr, "%s\n", print_object(R));
+  //fprintf(stderr, "%s\n", print_object(R));
 
   return 0;
 }
