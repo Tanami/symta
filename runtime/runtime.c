@@ -21,6 +21,8 @@
 static char *main_lib;
 static void *main_args;
 
+static char *version = "0.0.1";
+
 typedef struct {
   int items[MAX_TYPES];
   int used;
@@ -1138,7 +1140,6 @@ BUILTIN1("methods_",methods_,C_ANY,o)
 RETURNS(R)
 
 BUILTIN0("halt",halt)
-  printf("halted.\n");
   exit(0);
 RETURNS(0)
 
@@ -1339,6 +1340,43 @@ BUILTIN_VARARGS("text.items",text_items)
   }
 RETURNS(R)
 
+
+BUILTIN0("get_rt_version_",get_rt_version_)
+  TEXT(R, version);
+RETURNS(R)
+
+BUILTIN1("get_rt_flag_",get_rt_flag_,C_TEXT,name_text)
+  char *name = text_to_cstring(name_text);
+  void *one = (void*)FIXNUM(1);
+  R = 0;
+
+#ifndef _WIN32
+#ifndef _WIN64
+  if (!strcmp(name, "unix")) R = one;
+#endif
+#endif
+
+#ifdef _WIN32
+  if (!strcmp(name, "windows")) R = one;
+#else
+#ifdef _WIN64
+  if (!strcmp(name, "windows")) R = one;
+#endif
+#endif
+
+#ifdef WIN32
+  if (!strcmp(name, "win32")) R = one;
+#endif
+
+#ifdef _WIN64
+  if (!strcmp(name, "win64")) R = one;
+#endif
+
+#ifdef __APPLE__
+  if (!strcmp(name, "apple")) R = one;
+#endif
+
+RETURNS(R)
 
 #ifdef WIN32
 #define m_mkdir(X) mkdir(X)
@@ -1548,6 +1586,8 @@ static struct {
   {"set_text_file_", b_set_text_file_},
   {"file_exists_", b_file_exists_},
   {"file_time_", b_file_time_},
+  {"get_rt_version_", b_get_rt_version_},
+  {"get_rt_flag_", b_get_rt_flag_},
   {"mkpath_", b_mkpath_},
   {"load_library", b_load_library},
   {"register_library_folder", b_register_library_folder},

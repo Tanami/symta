@@ -412,19 +412,25 @@ text.locate F =
   else times I $size: when F >< $I: leave I
 
 list.find F =
-| less F.is_fn: F <= (X => F >< X)
 | I = 0
-| till $end
-  | X = Me^pop
-  | when F X: leave X
-  | !I + 1
+| if F.is_fn
+  then | till $end
+         | X = Me^pop
+         | when F X: leave X
+         | !I + 1
+  else | till $end
+         | X = Me^pop
+         | when F >< X: leave X
+         | !I + 1
 
 hard_list.find F =
-| less F.is_fn: F <= (X => F >< X)
-| times I $size
-  | X = $I
-  | when F X: leave X
-
+| if F.is_fn
+  then | times I $size
+         | X = $I
+         | when F X: leave X
+  else | times I $size
+         | X = $I
+         | when F >< X: leave X
 text.list = dup I $size $I
 
 list.group N =
@@ -442,13 +448,13 @@ list.group N =
 | Ys.flip
 
 list.all F =
-| less F.is_fn: F <= (X => F >< X)
-| for X Me: less F X: leave 0
+| if F.is_fn then for X Me: less F X: leave 0
+  else for X Me: less F >< X: leave 0
 | 1
 
 list.any F =
-| less F.is_fn: F <= (X => F >< X)
-| for X Me: when F X: leave 1
+| if F.is_fn then for X Me: when F X: leave 1
+  else for X Me: when F >< X: leave 1
 | 0
 
 list.max =

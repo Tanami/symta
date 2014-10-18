@@ -12,6 +12,8 @@ export address
        set_text_file_
        file_exists_
        file_time_
+       get_rt_version_
+       get_rt_flag_
        mkpath_
        load_library
        register_library_folder

@@ -693,8 +693,15 @@ fin Finalizer Body =
           [_remove_unwind_handler]
           R]]]
 
-FFI_Package = Void
+compile_when @Conds Body =
+| Xs = map C Conds: case C
+       [`-` X] | not get_rt_flag_ X
+       Else  | get_rt_flag_ C
+| if Xs.all{1} then form @(`|` Body) else 0
+
 FFI_Lib = Void
+
+compile_when unix: copy_file A B = unix "cp -f '[A]' '[B]'"
 
 copy_ffi S D =
 | D.mkpath
@@ -702,21 +709,21 @@ copy_ffi S D =
   | SF = "[S][X]"
   | DF = "[D][X]"
   | when DF.url.2 <> o and (not DF.exists or DF.time < SF.time):
-    | unix "cp -f '[SF]' '[DF]'"
+    | copy_file SF DF
 
-ffi_begin Package Name =
+ffi_begin Name =
 | [Root Srcs Dst] = GModuleFolders{}
 | RootFFI = "[Root]ffi/[Name]/lib/"
 | DstFFI = "[Dst]ffi/[Name]/"
 | less RootFFI.exists: mex_error "Missing [RootFFI]"
 | copy_ffi RootFFI DstFFI
-| FFI_Package <= Package
 | FFI_Lib <= form | ~L = \$"[DstFFI]main"
                   | if ~L.exists then ~L
                     else "[main_lib]/ffi/[\Name]/main"
 | 0
 
 expand_ffi Name Result Symbol Args =
+| FFI_Package = GSrc.2.url.1 // determine package from current filename
 | F = "FFI_[FFI_Package]_[Name]_"
 | ATs = map A Args A.2 // argument types
 | ANs = map A Args A.1 // argument names
@@ -846,4 +853,4 @@ export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[
        'mtx' 'list' 'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for' 'type'
        'heir' 'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
-       'ffi_begin' 'ffi' 'min' 'max' 'swap' 'supply' 'have' 'source_' '"'
+       'ffi_begin' 'ffi' 'min' 'max' 'swap' 'supply' 'have' 'source_' 'compile_when' '"'

@@ -1612,6 +1612,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! b = rmap (fn x ! if (equal x name) g x) b
   ! `("let_" ((,g 0)) (,@e ,b)))
 
+(to rt-flag x ! cond
+  ((equal x "unix") t)
+  (t nil))
+
+(to expand-compile-when conds body
+  ! xs = m c conds
+         (match c
+          (("-" x) (not (rt-flag x)))
+          (x (rt-flag x)))
+  ! if (every (fn a ! eql a t) xs)
+       `("@" ("|" ,body))
+       0)
+
+
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
   (let ((xs (normalize-matryoshka xs))
@@ -1717,6 +1731,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
          `("|" ("when" ("no" ,var) ("<=" (,var) ,default))
                ,var))
         (("type" name . fields) (expand-type name fields))
+        (("compile_when" . xs) (expand-compile-when (butlast xs) (car (last xs))))
         ((z . zs)
          (when (find-if (fn x ! headed "@" x) xs)
            (when (headed "@" z)
