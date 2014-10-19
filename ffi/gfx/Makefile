@@ -39,7 +39,7 @@ lib/%.o: src/%.c
 	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -c -o $@ $<
 
 $(TARGET): lib/ $(OBJS) $(OBJA)
-	$(LD) $(LDFLAGS)  -fpic -shared -o $@ $(OBJS) $(OBJA)
+	$(LD) -fpic -shared -o $@ $(OBJS) $(OBJA) $(LDFLAGS)
 
 .PHONY: install uninstall clean
 

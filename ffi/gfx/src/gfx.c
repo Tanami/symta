@@ -276,7 +276,10 @@ void gfx_circle(gfx_t *gfx, uint32_t color, int fill, int x, int y, int r) {
   else gfx_circle_empty(gfx, color, x, y, r);
 }
 
-typedef struct lerp {double x, i} lerp;
+typedef struct lerp {
+  double x;
+  double i;
+} lerp;
 
 static void lerp_init(lerp *l, int sx, int ex, int first_step, int steps) {
   l->i = (double)(ex - sx) / steps;
