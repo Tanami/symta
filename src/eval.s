@@ -38,18 +38,28 @@ when get_rt_flag_ unix:
 
 c_runtime_compiler Dst Src =
 | RtFolder = "[GRootFolder]runtime"
-| unix "[GCC] -I '[RtFolder]' -o '[Dst]' '[Src]'"
+| unix "[GCC] -I '[RtFolder]' -o \"[Dst]\" \"[Src]\""
 
 c_compiler Dst Src =
 | RtFolder = "[GRootFolder]runtime"
-| unix "[GCC] -I '[RtFolder]' -fpic -shared -o '[Dst]' '[Src][DLL_EXT]'"
+| unix "[GCC] -I \"[RtFolder]\" -fpic -shared -o \"[Dst]\" \"[Src]\""
 
 // check if Dependent file is up to date with Source file
 newerThan Source Dependent =
 | DependentTime = Dependent.time
 | Source.time << DependentTime and GHeaderTimestamp << DependentTime
 
+copy_file A B =
+| if get_rt_flag_ windows
+  then | A <= A.replace{'/' '\\'}
+       | B <= B.replace{'/' '\\'}
+       | unix "copy /y \"[A]\" \"[B]\""
+  else unix "cp -f '[A]' '[B]'"
+
 compile_runtime Src Dst =
+| when get_rt_flag_ windows
+  | less "[Dst].exe".exists: copy_file "[GRootFolder]run.exe" "[Dst].exe"
+  | leave Void
 | when Dst^newerThan{Src}: leave Void
 | say "compiling runtime..."
 | Result = c_runtime_compiler Dst Src
@@ -94,7 +104,7 @@ compile_module_sub Name =
 | for Folder GSrcFolders
   | SrcFile = "[Folder][Name].s"
   | when SrcFile.exists
-    | DstFile = "[GDstFolder][Name]"
+    | DstFile = "[GDstFolder][Name][DLL_EXT]"
     | GCompiledModules.Name <= DstFile
     | DepFile = "[DstFile].dep"
     | when DepFile.exists and DepFile^newerThan{SrcFile}:
@@ -119,9 +129,13 @@ build_entry Entry =
   | when no DstFile: bad "cant compile [Entry]"
   | DstFile
 
+normalize_folder F = if F.last >< '/' then F else "[F]/"
+
 build RootFolder SrcFolder dst/0 =
 | DstFolder = Dst or SrcFolder
-| less RootFolder.last >< '/': RootFolder <= "[RootFolder]/"
+| normalize_folder !RootFolder
+| normalize_folder !SrcFolder
+| normalize_folder !DstFolder
 | let GRootFolder RootFolder
       GDstFolder "[DstFolder]lib/"
       GSrcFolders ["[SrcFolder]src/" "[GRootFolder]src/"]
