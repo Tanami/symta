@@ -439,7 +439,11 @@ static void *load_lib(struct api_t *api, char *name) {
 
   if (name[0] != '/' && name[0] != '\\' && strcmp(name,"rt_")) {
     for (i = 0; i < lib_folders_used; i++) {
+#ifdef WINDOWS
+      sprintf(tmp, "%s/%s.dll", lib_folders[i], name);
+#else
       sprintf(tmp, "%s/%s", lib_folders[i], name);
+#endif
       if (file_exists(tmp)) break;
     }
     if (i == lib_folders_used) {
@@ -449,18 +453,6 @@ static void *load_lib(struct api_t *api, char *name) {
       }
       abort();
     }
-
-    /*for (i = lib_folders_used-1; i >= 0; i--) {
-      sprintf(tmp, "%s/%s", lib_folders[i], name);
-      if (file_exists(tmp)) break;
-    }
-    if (i < 0) {
-      fprintf(stderr, "load_lib: couldnt locate library `%s` in:\n", name);
-      for (i = lib_folders_used-1; i >= 0; i--) {
-        fprintf(stderr, "  %s\n", lib_folders[i]);
-      }
-      abort();
-    }*/
     name = tmp;
   }
 
@@ -1354,23 +1346,17 @@ BUILTIN1("get_rt_flag_",get_rt_flag_,C_TEXT,name_text)
   void *one = (void*)FIXNUM(1);
   R = 0;
 
-#ifndef WIN32
-#ifndef _WIN64
+#ifndef WINDOWS
   if (!strcmp(name, "unix")) R = one;
 #endif
-#endif
 
-#ifdef WIN32
-  if (!strcmp(name, "windows")) R = one;
-#else
-#ifdef _WIN64
+#ifdef WINDOWS
   if (!strcmp(name, "windows")) R = one;
 #endif
-#endif
 
-#ifdef WIN32
-  if (!strcmp(name, "win32")) R = one;
-#endif
+  if (sizeof(long) == 4 && !strcmp(name, "bits32")) R = one;
+
+  if (sizeof(long) == 8 && !strcmp(name, "bits64")) R = one;
 
 #ifdef _WIN64
   if (!strcmp(name, "win64")) R = one;

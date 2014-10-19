@@ -5,7 +5,7 @@ Args = main_args
 
 print_usage =
 | say 'Usage: symta [OPTION] <SRC_DIR> [DST_DIR]'
-| say 'Produce DST_DIR/lib and SRC_DIR/run from SRC_DIR/src'
+| say 'Produce DST_DIR/lib and DST_DIR/run from SRC_DIR/src'
 | say 'If DST_DIR is unspecified, SRC_DIR is used instead'
 | say ''
 | say 'OPTIONS:'

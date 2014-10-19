@@ -26,13 +26,23 @@ get_lib_exports LibName =
                             Else | ['Dummy'.rand]
 | bad "no [LibName].s"
 
+GCC = 'gcc -O1 -Wno-return-type -Wno-pointer-sign'
+DLL_EXT = ''
+
+when get_rt_flag_ windows:
+| GCC <= "[GCC] -D WINDOWS"
+| DLL_EXT <= '.dll'
+
+when get_rt_flag_ unix:
+| GCC <= "[GCC] -g"
+
 c_runtime_compiler Dst Src =
 | RtFolder = "[GRootFolder]runtime"
-| unix "gcc -O1 -Wno-return-type -Wno-pointer-sign -I '[RtFolder]' -g -o '[Dst]' '[Src]'"
+| unix "[GCC] -I '[RtFolder]' -o '[Dst]' '[Src]'"
 
 c_compiler Dst Src =
 | RtFolder = "[GRootFolder]runtime"
-| unix "gcc -O1 -Wno-return-type -Wno-pointer-sign -I '[RtFolder]' -g -fpic -shared -o '[Dst]' '[Src]'"
+| unix "[GCC] -I '[RtFolder]' -fpic -shared -o '[Dst]' '[Src][DLL_EXT]'"
 
 // check if Dependent file is up to date with Source file
 newerThan Source Dependent =

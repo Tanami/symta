@@ -428,7 +428,9 @@ ssa_form K Xs = case Xs
   Else | bad "special form: [Xs]"
 
 ssa_atom K X =
-| if X.is_int then ssa load_fixnum K X
+| if X.is_int then
+    | when X > #7FFFFFFF or X < -#7FFFFFFF: X <= "[X]LL" //FIXME: kludge
+    | ssa load_fixnum K X
   else if X.is_text then ssa_symbol K X Void
   else if X >< Void then ssa move K 'Void'
   else if X.is_float then ssa load_float K X

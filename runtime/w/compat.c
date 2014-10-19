@@ -104,7 +104,7 @@ char *realpath(const char *path, char *resolved_path)
       }
 
       //If we get to here with a valid return_path, we're still doing good
-      if (return_path)
+      /*if (return_path)
       {
         struct stat stat_buffer;
 
@@ -120,7 +120,7 @@ char *realpath(const char *path, char *resolved_path)
           //stat() will set the correct errno for us
         }
         //else we succeeded!
-      }
+      }*/
     }
     else
     {
@@ -131,6 +131,13 @@ char *realpath(const char *path, char *resolved_path)
   {
     errno = EINVAL;
   }
-    
+
+  if (return_path) {
+    char *p = return_path;
+    for (; *p; p++) {
+      if (*p == '\\') *p = '/';
+    }
+  }
+
   return return_path;
 }

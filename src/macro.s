@@ -701,7 +701,12 @@ compile_when @Conds Body =
 
 FFI_Lib = Void
 
-compile_when unix: copy_file A B = unix "cp -f '[A]' '[B]'"
+copy_file A B =
+| if get_rt_flag_ windows
+  then | A <= A.replace{'/' '\\'}
+       | B <= B.replace{'/' '\\'}
+       | unix "copy /y \"[A]\" \"[B]\""
+  else unix "cp -f '[A]' '[B]'"
 
 copy_ffi S D =
 | D.mkpath

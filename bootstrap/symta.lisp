@@ -844,7 +844,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 (to ssa-atom k x
   ! cond
-    ((integerp x) (ssa 'load_fixnum k x))
+    ((integerp x)
+     (when (or (> x #x7FFFFFFF) (< x (- #x7FFFFFFF)))
+       (setf x (format nil "~aLL" x)))
+     (ssa 'load_fixnum k x))
     ((stringp x) (ssa-symbol k x nil))
     ((floatp x) (ssa 'load_float k x))
     ((eql x :void) (ssa 'move k "Void"))
