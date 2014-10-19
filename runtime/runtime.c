@@ -9,6 +9,10 @@
 
 #include "runtime.h"
 
+#ifdef WINDOWS
+#include "w/compat.h"
+#endif
+
 #define VIEW_START(o) REF4(o,0)
 #define VIEW_SIZE(o) REF4(o,1)
 #define VIEW(dst,base,start,size) \
@@ -1350,13 +1354,13 @@ BUILTIN1("get_rt_flag_",get_rt_flag_,C_TEXT,name_text)
   void *one = (void*)FIXNUM(1);
   R = 0;
 
-#ifndef _WIN32
+#ifndef WIN32
 #ifndef _WIN64
   if (!strcmp(name, "unix")) R = one;
 #endif
 #endif
 
-#ifdef _WIN32
+#ifdef WIN32
   if (!strcmp(name, "windows")) R = one;
 #else
 #ifdef _WIN64
@@ -1409,9 +1413,9 @@ static char *exec_command(char *cmd) {
   int len = rdsz;
   int pos = 0;
   int s;
-  FILE *stdin = popen(cmd, "r");
+  FILE *in = popen(cmd, "r");
 
-  if (!stdin) return 0;
+  if (!in) return 0;
 
   r = (char*)malloc(len);
 
@@ -1423,12 +1427,12 @@ static char *exec_command(char *cmd) {
       memcpy(r, t, pos);
       free(t);
     }
-    s = fread(r+pos,1,rdsz,stdin);
+    s = fread(r+pos,1,rdsz,in);
     pos += s;
     if (s != rdsz) break;
   }
   
-  pclose(stdin);
+  pclose(in);
 
   r[pos] = 0;
   if (pos && r[pos-1] == '\n') r[pos-1] = 0;
