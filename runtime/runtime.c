@@ -1339,6 +1339,8 @@ RETURNS(R)
 BUILTIN0("get_work_folder",get_work_folder)
   char cwd[1024];
   if (getcwd(cwd, 1024)) {
+    char *p;
+    for (p = cwd; *p; p++) if (*p == '\\') *p = '/';
     TEXT(R, cwd);
   } else {
     R = Void;

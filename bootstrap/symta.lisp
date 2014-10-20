@@ -1310,7 +1310,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                 (setf name `(("@" ,n)))
                 (setf as zs))))
            (match as
-             ((("&" d) . zs)
+             ((("$" d) . zs)
               (setf default d)
               (setf as zs)))
            `(("[]" ,@as) ,expr)))

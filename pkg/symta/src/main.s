@@ -34,6 +34,12 @@ case Args
   [Src] | SrcDir <= Src; DstDir <= Src
   Else | print_usage
 
+Root <= Root.replace{'\\' '/'}
+SrcDir <= SrcDir.replace{'\\' '/'}
+DstDir <= DstDir.replace{'\\' '/'}
+
+less Root.last >< '/': Root <= "[Root]/"
+
 less "[Root]src/rt_.s".exists: bad "Missing [Root]src/rt_.s"
 
 say: build Root SrcDir dst/DstDir

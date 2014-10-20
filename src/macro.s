@@ -621,7 +621,7 @@ make_multimethod Xs =
       | case As [[`@` N] @Zs]: when N.is_keywrod:
         | Name <= [[`@` N]]
         | As <= Zs
-      | case As [['&' D] @Zs] | Default <= D; As <= Zs
+      | case As [['$' D] @Zs] | Default <= D; As <= Zs
       | [['[]' @As] Expr]
 | ['=>' [@Name ['@' All]] (expand_match All Xs Default Void)]
 
