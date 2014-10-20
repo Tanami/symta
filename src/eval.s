@@ -87,7 +87,7 @@ compile_expr Name Dst Expr =
 | Macros = Imports.skip{X => X.1.is_text}.map{X => X.0}.uniq.skip{X => X><macro} // keep macros
 | Imports = Imports.keep{X => X.1.is_text} // skip macros
 | ExprWithDeps = add_imports Expr Imports
-| Ms = [GMacros @(map M Macros "[GDstFolder][M]"^load_macros)].join
+| Ms = [GMacros @(map M Macros "[GDstFolder][M][DLL_EXT]"^load_macros)].join
 | ExpandedExpr = macroexpand ExprWithDeps Ms.table &compile_module &module_folders
 | Text = ssa_produce_file ExpandedExpr
 | CFile = "[Dst].c"
@@ -136,6 +136,8 @@ build RootFolder SrcFolder dst/0 =
 | normalize_folder !RootFolder
 | normalize_folder !SrcFolder
 | normalize_folder !DstFolder
+| when DstFolder.0 <> '/' and DstFolder.1 <> ':':
+  | DstFolder <= "[get_work_folder]/[DstFolder]"
 | let GRootFolder RootFolder
       GDstFolder "[DstFolder]lib/"
       GSrcFolders ["[SrcFolder]src/" "[GRootFolder]src/"]

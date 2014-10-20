@@ -437,7 +437,7 @@ static void *load_lib(struct api_t *api, char *name) {
   char tmp[1024];
   void *exports;
 
-  if (name[0] != '/' && name[0] != '\\' && strcmp(name,"rt_")) {
+  if (name[0] != '/' && name[1] != ':' && strcmp(name,"rt_")) {
     for (i = 0; i < lib_folders_used; i++) {
 #ifdef WINDOWS
       sprintf(tmp, "%s/%s.dll", lib_folders[i], name);
@@ -1336,8 +1336,16 @@ BUILTIN_VARARGS("text.items",text_items)
   }
 RETURNS(R)
 
+BUILTIN0("get_work_folder",get_work_folder)
+  char cwd[1024];
+  if (getcwd(cwd, 1024)) {
+    TEXT(R, cwd);
+  } else {
+    R = Void;
+  }
+RETURNS(R)
 
-BUILTIN0("get_rt_version_",get_rt_version_)
+BUILTIN0("get_symta_version",get_symta_version)
   TEXT(R, version);
 RETURNS(R)
 
@@ -1576,7 +1584,8 @@ static struct {
   {"set_text_file_", b_set_text_file_},
   {"file_exists_", b_file_exists_},
   {"file_time_", b_file_time_},
-  {"get_rt_version_", b_get_rt_version_},
+  {"get_work_folder", b_get_work_folder},
+  {"get_symta_version", b_get_symta_version},
   {"get_rt_flag_", b_get_rt_flag_},
   {"mkpath_", b_mkpath_},
   {"load_library", b_load_library},

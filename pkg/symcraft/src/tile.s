@@ -1,4 +1,4 @@
-use util common gfx reader
+use util gfx reader
 
 Data = Void
 I2E = Void //index to edge

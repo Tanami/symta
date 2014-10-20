@@ -525,6 +525,10 @@ text.textify_ = Me
 say Text = say_ "[Text]\n"
 bad Text =
 | say_ "bad: [Text]\n"
+| say ''
+| say 'Stack Trace:'
+| ST = stack_trace
+| for X ST.tail: say "    [X]"
 | halt
 
 // hashtable

@@ -1,12 +1,6 @@
 use util gfx macros reader
 
 ResNames = [good wood oil food mana score]
-Dirs = 8{(?.float-2.0)*PI/4.0}{[?.cos ?.sin].round.int}
-
-MCs = | C = [water land plain air forest wall rock dead invuln 0 1 2 3 4 5 6 7 8 9 10]
-      | (C.i){[?1 2**?0]}.table
-
-dirN V = Dirs.locate{V.sign}
 
 type entity
 entity.type = \entity
@@ -177,10 +171,13 @@ main.load_type Path =
 
 main.init_types =
 | $unitSetters <= (utype)^methods_.keep{?0.0 >< '!'}{[?0.tail ?1]}.table
+| $load_type{"[$data]types/_construction_site/"}
+| $load_type{"[$data]types/_corpse/"}
+| $load_type{"[$data]types/_destroyed_site/"}
 | for E "[$data]types".paths: $load_type{E}
 | $pud.95 <= $pud.94 // start location
 | for [T E] $types
   | E.proto_gfx <= Void
   | E.faces <= Void
 
-export main utype Dirs dirN MCs
+export main utype

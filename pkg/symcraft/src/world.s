@@ -1,4 +1,4 @@
-use common tile gfx
+use util gfx
 
 type unit
     id type xy disp owner color team name side hits mana
