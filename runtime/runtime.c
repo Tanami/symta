@@ -439,11 +439,7 @@ static void *load_lib(struct api_t *api, char *name) {
 
   if (name[0] != '/' && name[1] != ':' && strcmp(name,"rt_")) {
     for (i = 0; i < lib_folders_used; i++) {
-#ifdef WINDOWS
-      sprintf(tmp, "%s/%s.dll", lib_folders[i], name);
-#else
       sprintf(tmp, "%s/%s", lib_folders[i], name);
-#endif
       if (file_exists(tmp)) break;
     }
     if (i == lib_folders_used) {

@@ -195,6 +195,7 @@ void *dlopen( const char *file, int mode )
     else
     {
         char lpFileName[MAX_PATH];
+        char *p = lpFileName;
         int i;
 
         /* MSDN says backslashes *must* be used instead of forward slashes. */
@@ -206,8 +207,19 @@ void *dlopen( const char *file, int mode )
                 lpFileName[i] = '\\';
             else
                 lpFileName[i] = file[i];
+
+            if (lpFileName[i] == '\\') p = lpFileName+i;
         }
         lpFileName[i] = '\0';
+
+        /* If no extension is specified, LoadLibraryEx supplies '.dll'
+         * We add '.' to suppress this abnormal behavior
+         */
+        for (; *p && *p != '.'; p++);
+        if (!*p) {
+          *p++ = '.';
+          *p = 0;
+        }
 
         /* POSIX says the search path is implementation-defined.
          * LOAD_WITH_ALTERED_SEARCH_PATH is used to make it behave more closely

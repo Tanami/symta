@@ -31,7 +31,6 @@ DLL_EXT = ''
 
 when get_rt_flag_ windows:
 | GCC <= "[GCC] -D WINDOWS"
-| DLL_EXT <= '.dll'
 
 when get_rt_flag_ unix:
 | GCC <= "[GCC] -g"
@@ -42,6 +41,7 @@ c_runtime_compiler Dst Src =
 
 c_compiler Dst Src =
 | RtFolder = "[GRootFolder]runtime"
+| when get_rt_flag_ windows: Dst <= "[Dst]." // else gcc will add ".exe"
 | unix "[GCC] -I \"[RtFolder]\" -fpic -shared -o \"[Dst]\" \"[Src]\""
 
 // check if Dependent file is up to date with Source file
@@ -58,7 +58,7 @@ copy_file A B =
 
 compile_runtime Src Dst =
 | when get_rt_flag_ windows
-  | less "[Dst].exe".exists: copy_file "[GRootFolder]run.exe" "[Dst].exe"
+  | less "[Dst].exe".exists: copy_file "[GRootFolder]symta.exe" "[Dst].exe"
   | leave Void
 | when Dst^newerThan{Src}: leave Void
 | say "compiling runtime..."
