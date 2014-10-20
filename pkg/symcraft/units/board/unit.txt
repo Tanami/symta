@@ -1,4 +1,0 @@
-range: 1
-hide: 1
-targets: (ruleBoard ? ?? ???)
-do: doBoard

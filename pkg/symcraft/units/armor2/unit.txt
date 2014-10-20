@@ -1,6 +1,0 @@
-shaded: 1
-research_cost: u gold=300 wood=300 time==200
-prodName: `Armor +2`
-upgrade: armor{2}
-deps: armor2
-negs: armor3

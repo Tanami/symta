@@ -1,5 +1,0 @@
-shaded: 1
-research_cost: gold=800 time=200
-prodName: `Melee Damage +2`
-upgrade: damage{0 2}
-deps: attack2

@@ -1,8 +1,0 @@
-pud: 62
-proto: building
-hp: 700
-cost: gold=900 wood=500 time=175
-researches: paladin healing exorcism
-role: church
-deps: castle
-

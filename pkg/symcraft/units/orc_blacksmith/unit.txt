@@ -1,2 +1,0 @@
-pud: 83
-proto: human_blacksmith

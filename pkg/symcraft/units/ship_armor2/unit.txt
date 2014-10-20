@@ -1,5 +1,0 @@
-shaded: 1
-research_cost: gold=500 wood=500 time=200
-prodName: `Ship Armor +5`
-upgrade: armor{5}
-deps: ship_armor2

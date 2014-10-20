@@ -1,4 +1,0 @@
-proto: move
-typename: `Unload`
-do: unload
-targets: any

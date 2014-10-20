@@ -1,4 +1,0 @@
-pud: 94
-layer: 0
-faces: 1
-anims: still |(0 24)

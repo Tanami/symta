@@ -1,9 +1,0 @@
-pud: 3
-proto: peasant
-corpse: orc
-builds: pig_farm          orc_barracks   great_hall
-         troll_lumber_mill orc_blacksmith 0
-         orc_watch_tower   0
-         orc_shipyard         orc_foundry  orc_refinery
-         goblin_alchemist     ogre_mound   altar_of_storms
-         temple_of_the_damned dragon_roost

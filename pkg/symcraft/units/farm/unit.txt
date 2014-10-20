@@ -1,7 +1,0 @@
-pud: 58
-proto: building
-size: 2 2
-hp: 400
-supply: 4
-role: farm
-cost: gold=500 wood=250 time=100

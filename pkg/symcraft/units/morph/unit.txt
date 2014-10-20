@@ -1,4 +1,0 @@
-range: 1
-do: morph
-forced: 1
-prio: 400

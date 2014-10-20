@@ -1,6 +1,0 @@
-shaded: 1
-research_cost: gold=1500 time=200
-prodName: `Siege Damage +15`
-upgrade: damage{0 15}
-deps: siege2
-negs: nil

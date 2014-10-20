@@ -1,3 +1,0 @@
-proto: harvest
-typename: `Haul Oil`
-harvests: oil

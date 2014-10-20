@@ -1,2 +1,0 @@
-pud: 87
-proto: human_oil_platform

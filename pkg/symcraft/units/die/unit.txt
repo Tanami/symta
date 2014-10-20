@@ -1,8 +1,0 @@
-range: 8
-show: death
-say: dead
-forced: 1
-prio: 950
-do: die
-targets: self
-

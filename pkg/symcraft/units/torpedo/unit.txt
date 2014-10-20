@@ -1,5 +1,0 @@
-proto: attack
-layer: 3
-move_class: water
-impact: explosion
-anims: move |(0 2 11) (0 2 10) (0 2 11)

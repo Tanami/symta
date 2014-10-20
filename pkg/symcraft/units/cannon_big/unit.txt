@@ -1,4 +1,0 @@
-proto: ballista_bolt
-move_class: 2 wall
-impact: cannon_impact
-anims: move |(0 1 8) (1 1 8) (2 1 8) (3 1 8)

@@ -1,5 +1,0 @@
-proto: haste
-use_cost: mana=125
-research_cost: gold=2500 time=200
-effect: invisibility{2000}
-deps: invisibility

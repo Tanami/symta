@@ -1,6 +1,0 @@
-proto: blizzard
-faces: 1
-offset: 0 0
-anims: move |(0 1 11) (0 1 10) (0 1 11)
-        death |(0 3) (1 3) (2 3) (3 3) (4 3) (5 3) (6 3) (7 3)
-deps: death_and_decay

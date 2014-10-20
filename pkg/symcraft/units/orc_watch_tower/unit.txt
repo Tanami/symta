@@ -1,3 +1,0 @@
-pud: 65
-proto: human_watch_tower
-morphs: orc_guard_tower orc_cannon_tower

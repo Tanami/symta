@@ -1,2 +1,0 @@
-pud: 31
-proto: elven_destroyer

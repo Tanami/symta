@@ -1,3 +1,0 @@
-pud: 61
-proto: human_barracks
-trains: grunt troll_axethrower berserker catapult ogre ogre_mage

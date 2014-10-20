@@ -1,5 +1,0 @@
-pud: 89
-proto: keep
-trains: peon
-morphs: fortress
-deps: orc_barracks

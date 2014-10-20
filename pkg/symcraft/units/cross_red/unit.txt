@@ -1,2 +1,0 @@
-proto: cross_green
-faces: 1

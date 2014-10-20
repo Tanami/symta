@@ -1,5 +1,0 @@
-shaded: 1
-research_cost: gold=2000 wood=250 oil=3000 time=250
-prodName: `Ship Damage +5`
-upgrade: damage{0 5}
-deps: cannon2 cannon3

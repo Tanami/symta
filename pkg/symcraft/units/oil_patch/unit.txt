@@ -1,8 +1,0 @@
-pud: 93
-proto: building
-layer: 1
-move_class: water invuln
-hp: 25500
-resource: oil
-resources: oil=15000
-foundation: human_oil_platform orc_oil_platform

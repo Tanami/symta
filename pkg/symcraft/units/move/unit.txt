@@ -1,4 +1,0 @@
-typename: `Move`
-hotkey: m
-range: 0
-targets: ruleMove

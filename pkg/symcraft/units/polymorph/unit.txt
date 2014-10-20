@@ -1,9 +1,0 @@
-proto: haste
-impact: spell
-use_cost: mana=200
-research_cost: gold=2000 time=200
-range: 10
-effect: morph{sheep}
-targets: organic
-deps: polymorph
-anims: move |(0 1 16) (0 1 16)

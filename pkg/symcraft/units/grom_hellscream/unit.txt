@@ -1,5 +1,0 @@
-pud: 25
-proto: grunt
-hp: 240
-damage: 16 6
-armor: 8

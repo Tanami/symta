@@ -1,3 +1,0 @@
-pud: 1
-proto: footman
-corpse: orc

@@ -1,3 +1,0 @@
-pud: 97
-proto: human_guard_tower
-deps: troll_lumber_mill

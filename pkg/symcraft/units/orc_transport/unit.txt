@@ -1,3 +1,0 @@
-pud: 29
-proto: human_transport
-

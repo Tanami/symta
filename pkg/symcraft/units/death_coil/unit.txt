@@ -1,9 +1,0 @@
-proto: touch_of_darkness
-hotkey: c
-typename: `Death Coil`
-use_cost: mana=100
-effect: hit{0 55}
-range: 9
-nonRMB: 1
-targets: organic
-do: no_repeat

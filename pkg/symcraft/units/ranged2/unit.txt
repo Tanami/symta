@@ -1,5 +1,0 @@
-shaded: 1
-research_cost: gold=300 wood=300 time=200
-prodName: `Ranged Damage +1`
-upgrade: damage{0 1}
-deps: ranged2

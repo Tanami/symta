@@ -1,4 +1,0 @@
-pud: 75
-proto: town_hall
-trains: peon
-morphs: stronghold

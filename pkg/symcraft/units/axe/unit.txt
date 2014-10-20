@@ -1,2 +1,0 @@
-proto: arrow
-anims: move |(0 2 11) (1 2 10) (2 2 11)

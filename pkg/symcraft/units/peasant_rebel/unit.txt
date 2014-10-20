@@ -1,4 +1,0 @@
-pud: 16
-proto: peasant
-typename: `Peasant`
-role: rebel

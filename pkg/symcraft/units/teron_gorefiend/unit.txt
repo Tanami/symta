@@ -1,7 +1,0 @@
-pud: 21
-proto: death_knight
-hp: 180
-damage: 0 16
-range: 4
-armor: 2
-

@@ -1,4 +1,0 @@
-proto: attack
-layer: 5
-move_class: 2 5 wall
-anims: move |(0 2 11) (0 2 10) (0 2 11)

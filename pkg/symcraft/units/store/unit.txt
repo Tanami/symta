@@ -1,4 +1,0 @@
-targets: self
-nonRMB: 1
-do: store
-enabled_if: carries_resources

@@ -1,8 +1,0 @@
-layer: 3
-move_class: land 2 wall forest rock
-impact: explosion
-effect: hit{0 800}
-range: 0
-splash: 1
-nonRMB: 1
-anims: move |(0 1 64)

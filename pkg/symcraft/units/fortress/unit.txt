@@ -1,4 +1,0 @@
-pud: 91
-proto: castle
-trains: peon
-deps: troll_lumber_mill orc_blacksmith ogre_mound

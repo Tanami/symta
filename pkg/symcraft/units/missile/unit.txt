@@ -1,3 +1,0 @@
-range: 100
-show: move
-do: missile

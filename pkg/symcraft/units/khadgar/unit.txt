@@ -1,6 +1,0 @@
-pud: 24
-proto: mage
-hp: 120
-damage: 0 16
-range: 6
-armor: 3

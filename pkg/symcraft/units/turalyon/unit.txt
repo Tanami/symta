@@ -1,5 +1,0 @@
-pud: 44
-proto: paladin
-hp: 180
-damage: 14 5
-armor: 10

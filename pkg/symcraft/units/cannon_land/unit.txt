@@ -1,5 +1,0 @@
-proto: cannon
-layer: 4
-move_class: 2 wall
-
-

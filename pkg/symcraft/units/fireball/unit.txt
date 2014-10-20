@@ -1,9 +1,0 @@
-proto: dragon_breath
-typename: `Fireball`
-use_cost: mana=100
-effect: hit{0 15}
-range: 8
-bounces: 9
-nonRMB: 1
-targets: any
-do: no_repeat

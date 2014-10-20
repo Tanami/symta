@@ -1,7 +1,0 @@
-pud: 20
-proto: elven_archer
-hp: 120
-damage: 10 18
-range: 7
-sight: 7
-armor: 5

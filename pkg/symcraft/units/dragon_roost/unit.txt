@@ -1,4 +1,0 @@
-pud: 71
-proto: gryphon_aviary
-trains: dragon
-deps: fortress

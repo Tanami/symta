@@ -1,4 +1,0 @@
-pud: 101
-proto: building
-size: 4 4
-hp: 5000

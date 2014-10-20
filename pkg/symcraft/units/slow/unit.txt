@@ -1,4 +1,0 @@
-proto: haste
-range: 10
-effect: slow{1000}
-deps: slow

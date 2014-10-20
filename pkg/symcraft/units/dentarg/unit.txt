@@ -1,5 +1,0 @@
-pud: 23
-proto: ogre_mage
-hp: 300
-damage: 18 6
-armor: 8

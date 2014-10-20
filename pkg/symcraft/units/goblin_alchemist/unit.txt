@@ -1,4 +1,0 @@
-pud: 69
-proto: gnomish_inventor
-trains: goblin_zeppelin goblin_sappers
-deps: (stronghold fortress)

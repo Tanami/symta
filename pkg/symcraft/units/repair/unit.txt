@@ -1,8 +1,0 @@
-layer: 5
-move_class: air
-show: attack
-range: 1
-effect: heal{3}
-use_cost_player: gold=1 wood=1
-targets: building damaged
-do: repeat
