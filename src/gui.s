@@ -27,7 +27,7 @@ widget.items = Void
 widget.render = Me
 widget.draw G P =
 widget.popup = Void
-widget.cursor = \default
+widget.cursor = 0
 widget.parent = 
 widget.`!parent` P = 
 widget.itemAt Point XY WH =
@@ -101,7 +101,7 @@ dlg.draw G P =
   | G.blit{P+[X Y] R}
 
 type gui{Root cursor/host}
-  root/Root timers/[] mice_xy/[0 0] widget_cursor/default result/Void fb/Void
+  root/Root timers/[] mice_xy/[0 0] widget_cursor result/Void fb/Void
   keys/(t) popup/Void last_widget/(widget) focus_widget/Void
   focus_xy/[0 0] focus_wh/[0 0] mice_focus mice_focus_xy/[0 0] click_time/(t)
   cursor/Cursor host_cursor/0
@@ -135,7 +135,7 @@ gui.render =
 | C = $widget_cursor
 | when got C
   | XY = GUI.mice_xy
-  | CG = if C >< default then $cursor else C
+  | CG = if C then C else $cursor
   | when got CG and host <> CG:
     | when $host_cursor: show_cursor 0
     | $host_cursor <= 0
