@@ -198,7 +198,7 @@ gui.input Es =
         | NW.input{focus 1 MP-NW_XY}
   [key Key State] | $keys.Key <= State
                   | D = if got $focus_widget then $focus_widget else NW
-                  | D.input{key Key State $mice_xy-$focus_xy}
+                  | D.input{key Key State}
   Else |
 | Void
 gui.exit @Result =
