@@ -103,7 +103,7 @@ dlg.draw G P =
 type gui{Root cursor/host}
   root/Root timers/[] mice_xy/[0 0] widget_cursor/default result/Void fb/Void
   keys/(t) popup/Void last_widget/(widget) focus_widget/Void
-  focus_xy/[0 0] focus_wh/[0 0] last_clicked/(widget) click_time/(t)
+  focus_xy/[0 0] focus_wh/[0 0] mice_focus mice_focus_xy/[0 0] click_time/(t)
   cursor/Cursor host_cursor/0
 | GUI <= Me
 | $fb <= gfx 1 1
@@ -172,7 +172,9 @@ gui.input Es =
 | for E Es: case E
   [mice_move XY]
     | $mice_xy.init{XY}
-    | NW.input{mice_move XY XY-NW_XY}
+    | if $mice_focus
+      then $mice_focus.input{mice_move XY XY-$mice_focus_xy}
+      else NW.input{mice_move XY XY-NW_XY}
     | LW = $last_widget
     | when LW^address <> NW^address:
       | when got LW: LW.input{mice over 0 XY}
@@ -180,14 +182,16 @@ gui.input Es =
       | NW.input{mice over 1 XY}
   [mice Button State]
     | MP = $mice_xy
-    | if State
-      then | $last_clicked <= NW
-           | NW.input{mice Button State MP-NW_XY}
-      else | LastClickTime = $click_time.Button
+    | if $mice_focus
+      then | LastClickTime = $click_time.Button
            | when got LastClickTime and T-LastClickTime < 0.25:
              | NW.input{mice "double_[Button]" 1 MP-NW_XY}
-           | $last_clicked.input{mice Button State MP-NW_XY}
            | $click_time.Button <= T
+           | $mice_focus.input{mice Button State MP-NW_XY}
+           | less State: $mice_focus <= 0
+      else | $mice_focus <= NW
+           | $mice_focus_xy.init{NW_XY}
+           | NW.input{mice Button State MP-NW_XY}
     | when State and NW.wants_focus:
       | $focus_xy <= NW_XY
       | $focus_wh <= NW_WH

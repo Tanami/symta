@@ -45,7 +45,7 @@ add_lexeme Dst Pattern Type =
 init_tokenizer =
 | when got GTable: leave Void
 | Digit = "0123456789"
-| HexDigit = "0123456789ABCDEF"
+| HexDigit = "0123456789ABCDEFabcdef"
 | HeadChar = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?~"
 | TailChar = "[HeadChar][Digit]"
 | Ls = \(`+` `-` `*` `/` `%` `^` `.` `->` `|` `;` `,` `:` `=` `=>` `<=`

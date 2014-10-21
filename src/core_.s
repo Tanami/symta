@@ -51,6 +51,13 @@ int.abs = if Me < 0 then -Me else Me
 
 float.abs = if Me < 0.0 then -Me else Me
 
+list.abs =
+| R = 0.0
+| map X Me: !R + (X*X).float
+| R.sqrt
+
+list.normalize = Me / $abs
+
 list.neg = dup I $size -$I
 list.`+` Ys = dup I $size $I+Ys.I
 list.`-` Ys = dup I $size $I-Ys.I
@@ -61,12 +68,6 @@ list.float = map X Me: X.float
 list.int = map X Me: X.int
 list.round = Me{?round}
 
-list.length =
-| R = 0.0
-| map X Me: !R + (X*X).float
-| R.sqrt
-
-list.normalize = Me / $length
 
 text.`<` B =
 | less B.is_text: bad "cant compare string `[Me]` with [B]"
@@ -674,6 +675,7 @@ list.sort @As =
 | h $shuffle
 
 text.int Radix =
+| T = Me.upcase
 | N = $size
 | I = 0
 | Sign = if $I >< '-'
@@ -684,7 +686,7 @@ text.int Radix =
 | Base = '0'.code
 | AlphaBase = 'A'.code - 10
 | while I < N
-  | C = $I.code
+  | C = T.I.code
   | V = if '0'.code << C and C << '9'.code then C - Base else C - AlphaBase
   | R <= R*Radix + V
   | !I + 1
@@ -732,6 +734,10 @@ int.clip A B = if Me < A then A
 float.clip A B = if Me < A then A
                  else if Me > B then B
                  else Me
+
+list.overlaps [BX BY BW BH] =
+| [AX AY AW AH] = Me
+| AX<BX+BW and AY<BY+BH and BX<AX+AW and BY<AY+AH
 
 list.init Src = times I $size: $I <= Src.I
 
