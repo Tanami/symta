@@ -362,6 +362,8 @@ list.unurl =
 | when Ext <> '': Ext <= ".[Ext]"
 | "[Folder][Name][Ext]"
 
+main_root = (main_lib).url.0
+
 list.take N = dup N: Me^pop
 hard_list.take N = dup I N $I
 
@@ -731,6 +733,6 @@ float.clip A B = if Me < A then A
                  else if Me > B then B
                  else Me
 
-main_root = (main_lib).url.0
+list.init Src = times I $size: $I <= Src.I
 
 export non say bad no got table_ new_macro new_meta main_root

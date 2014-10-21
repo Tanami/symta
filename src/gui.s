@@ -43,6 +43,7 @@ widget.w = 0
 widget.h = 0
 widget.above_all = 0
 widget.wants_focus = 0
+widget.wants_focus_rect = 0
 
 type spacer.widget{W H} w/W h/H
 spacer.as_text = "#spacer{[$w] [$h]}"
@@ -76,10 +77,7 @@ lay.draw G P =
   | RX = case D v(0) h(N)
   | RY = case D v(N) h(0)
   | G.blit{P+[RX RY] R}
-  | Rect.0 <= RX
-  | Rect.1 <= RY
-  | Rect.2 <= W
-  | Rect.3 <= H
+  | Rect.init{[RX RY W H]}
   | N <= case D v(N+H+S) h(N+W+S)
 
 type dlg.widget{Xs w/Void h/Void} w/W h/H ws items rs
@@ -99,10 +97,7 @@ dlg.draw G P =
   | Rect = W.meta_
   | !X + R.x
   | !Y + R.y
-  | Rect.0 <= X
-  | Rect.1 <= Y
-  | Rect.2 <= R.w
-  | Rect.3 <= R.h
+  | Rect.init{[X Y R.w R.h]}
   | G.blit{P+[X Y] R}
 
 type gui{Root cursor/host}
@@ -133,9 +128,10 @@ gui.render =
   | $fb <= FB
 | FB.blit{[0 0] R}
 | when got!fw $focus_widget:
-  | P = $focus_xy+[fw.x fw.y]
-  | WH = if fw.w and fw.h then [fw.w fw.h] else $focus_wh
-  | FB.rect{#FFFF00 0 P.0-1 P.1-1 WH.0+2 WH.1+2}
+  | when fw.wants_focus_rect
+    | P = $focus_xy+[fw.x fw.y]
+    | WH = if fw.w and fw.h then [fw.w fw.h] else $focus_wh
+    | FB.rect{#FFFF00 0 P.0-1 P.1-1 WH.0+2 WH.1+2}
 | C = $widget_cursor
 | when got C
   | XY = GUI.mice_xy
@@ -175,8 +171,7 @@ gui.input Es =
 | $widget_cursor <= NW.cursor
 | for E Es: case E
   [mice_move XY]
-    | $mice_xy.0 <= XY.0
-    | $mice_xy.1 <= XY.1
+    | $mice_xy.init{XY}
     | NW.input{mice_move XY XY-NW_XY}
     | LW = $last_widget
     | when LW^address <> NW^address:
@@ -202,7 +197,8 @@ gui.input Es =
         | $focus_widget <= NW
         | NW.input{focus 1 MP-NW_XY}
   [key Key State] | $keys.Key <= State
-                  | NW.input{key Key State $mice_xy-$focus_xy}
+                  | D = if got $focus_widget then $focus_widget else NW
+                  | D.input{key Key State $mice_xy-$focus_xy}
   Else |
 | Void
 gui.exit @Result =
