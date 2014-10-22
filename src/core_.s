@@ -741,19 +741,4 @@ list.overlaps [BX BY BW BH] =
 
 list.init Src = times I $size: $I <= Src.I
 
-list.cons F =
-| R = 0
-| for X Me
-  | F X R
-  | R <= X
-| R
-
-_.uncons Next =
-| Xs = []
-| X = Me
-| while X
-  | [X@!Xs]
-  | Next !X
-| Xs
-
 export non say bad no got table_ new_macro new_meta main_root

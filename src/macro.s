@@ -854,8 +854,24 @@ macroexpand Expr Macros ModuleCompiler ModuleFolders =
 list @Xs = form [$@Xs]
 mtx Xs = form [$@Xs.tail{}{[`[]` @?]}]
 
+cons F Xs = form 
+| ~R = 0
+| for ~X Xs
+  | F ~X ~R
+  | ~R <= ~X
+| ~R
+
+uncons Next Item = form
+| ~Xs = []
+| ~X = Item
+| while ~X
+  | [~X@!~Xs]
+  | Next !~X
+| ~Xs
+
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[]' 't' '\\' 'form'
        'mtx' 'list' 'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for' 'type'
        'heir' 'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
+       'cons' 'uncons'
        'ffi_begin' 'ffi' 'min' 'max' 'swap' 'supply' 'have' 'source_' 'compile_when' '"'
