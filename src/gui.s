@@ -187,7 +187,7 @@ gui.input Es =
            | when got LastClickTime and T-LastClickTime < 0.25:
              | NW.input{mice "double_[Button]" 1 MP-NW_XY}
            | $click_time.Button <= T
-           | $mice_focus.input{mice Button State MP-NW_XY}
+           | $mice_focus.input{mice Button State MP-$mice_focus_xy}
            | less State: $mice_focus <= 0
       else | $mice_focus <= NW
            | $mice_focus_xy.init{NW_XY}
