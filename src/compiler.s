@@ -212,7 +212,8 @@ ssa_progn K Xs =
 
 compiler_error Msg =
 | [Row Col Orig] = GSrc
-| bad "[Orig]:[Row],[Col]: [Msg]"
+| say "[Orig]:[Row],[Col]: [Msg]"
+| halt
 
 expr_symbols_sub Expr Syms =
   if Expr.is_text then Syms.Expr <= 1

@@ -1104,7 +1104,7 @@ RETURNS(FIXNUM((intptr_t)log((double)(intptr_t)UNFIXNUM(o))))
 BUILTIN1("int.bytes",int_bytes,C_ANY,count)
 RETURNS(alloc_bytes(api,UNFIXNUM(count)))
 
-BUILTIN1("tag",tag,C_ANY,o)
+BUILTIN1("typename",typename,C_ANY,o)
 RETURNS(tag_of(o));
 
 BUILTIN1("address",address,C_ANY,o)
@@ -1571,6 +1571,7 @@ static struct {
   {"address", b_address},
   {"inspect", b_inspect},
   {"halt", b_halt},
+  {"typename", b_typename},
   {"methods_", b_methods_},
   {"log", b_log},
   {"say_", b_say_},
@@ -2018,7 +2019,6 @@ static void init_types(api_t *api) {
   METHOD_FN("floor", 0, b_float_floor, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("ceil", 0, b_float_ceil, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("round", 0, b_float_round, 0, 0, 0, 0, 0, 0, 0);
-  METHOD_FN("tag", b_tag, b_tag, b_tag, b_tag, b_tag, b_tag, b_tag, b_tag, b_tag);
   METHOD_FN("bytes", b_int_bytes, 0, 0, 0, 0, 0, 0, 0, 0);
   METHOD_FN("utf8", 0, 0, 0, 0, b_fixtext_utf8, b_text_utf8, 0, 0, 0);
 

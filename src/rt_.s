@@ -1,6 +1,7 @@
 export address
        inspect
        halt
+       typename
        methods_
        log
        say_
