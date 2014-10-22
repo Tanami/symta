@@ -184,15 +184,16 @@ parser_error Cause Tok =
 | bad "[Orig]:[Row],[Col]: [Cause] [Tok.value or 'eof']"
 
 expect What Head =
+| less GInput.size: parser_error "missing [What] for" Head
 | Tok = GInput.0
-| less Tok^token_is{What}: parser_error "expected [What]; got" (Head or Tok)
+| less Tok^token_is{What}: parser_error "missing [What] for" Head
 | pop GInput
 
 parse_if Sym =
 | Head = parse_xs
-| expect `then` 0
+| expect `then` Sym
 | Then = parse_xs
-| expect `else` 0
+| expect `else` Sym
 | Else = parse_xs
 | [Sym Head Then Else]
 
