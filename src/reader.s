@@ -1,6 +1,6 @@
 GTable = Void
 GSpecs = Void //kludge to recognize if/then/else
-GError = Msg => bad Msg
+GError = Msg => | say Msg; halt
 GInput = Void
 GOutput = Void
 
@@ -17,7 +17,7 @@ text_stream.next =
     | !$row + 1
   | $last
 text_stream.src = [$row $col $origin]
-text_stream.error Msg = bad "at [$src]: [Msg]"
+text_stream.error Msg = | say "at [$src]: [Msg]"; halt
 
 type token{Sym Val Src P} symbol/Sym value/Val src/Src parsed/P
 token_is What O = O.is_token and O.symbol >< What
@@ -132,8 +132,6 @@ read_list R Open Close =
   | when X^token_is{end}: GError "[Orig]:[Row],[Col]: unclosed `[Open]`"
   | Xs <= [X@Xs]
 
-str_is_empty X = bad fixme
-
 spliced_string_normalize Xs =
 | Ys = Xs.skip{X => '' >< X}
 | map Y Ys: if Y.is_text then token symbol Y [0 0 none] 0
@@ -181,7 +179,8 @@ read_multi_comment R Cs =
 
 parser_error Cause Tok =
 | [Row Col Orig] = Tok.src
-| bad "[Orig]:[Row],[Col]: [Cause] [Tok.value or 'eof']"
+| say "[Orig]:[Row],[Col]: [Cause] [Tok.value or 'eof']"
+| halt
 
 expect What Head =
 | less GInput.size: parser_error "missing [What] for" Head

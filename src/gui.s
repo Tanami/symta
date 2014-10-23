@@ -26,7 +26,7 @@ widget.input @E =
 widget.items = Void
 widget.render = Me
 widget.draw G P =
-widget.popup = Void
+widget.popup = 0
 widget.cursor = 0
 widget.parent = 
 widget.`!parent` P = 
@@ -102,7 +102,7 @@ dlg.draw G P =
 
 type gui{Root cursor/host}
   root/Root timers/[] mice_xy/[0 0] widget_cursor result/Void fb/Void
-  keys/(t) popup/Void last_widget/(widget) focus_widget/Void
+  keys/(t) popup/0 last_widget/(widget) focus_widget/Void
   focus_xy/[0 0] focus_wh/[0 0] mice_focus mice_focus_xy/[0 0] click_time/(t)
   cursor/Cursor host_cursor/0
 | GUI <= Me
@@ -143,8 +143,10 @@ gui.render =
   | when host >< CG and not $host_cursor:
     | show_cursor 1
     | $host_cursor <= 1
-  | Pop = $popup
-  | when got Pop: FB.blit{XY-[0 Pop.h] Pop}
+    | Pop = 
+  | when $popup
+    | R = $popup.render
+    | FB.blit{XY-[0 R.h] R}
 | FB
 gui.add_timer Interval Handler =
 | [@!Me.timers [Interval (clock)+Interval Handler]]
