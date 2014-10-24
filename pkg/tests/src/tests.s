@@ -33,8 +33,8 @@ test_int =
 | A = 123
 | B = 456
 
-| tsay "[A].tag >< int and [B].tag >< int"
-| less A.tag >< int and B.tag >< int: failed
+| tsay "[A]^typename >< int and [B]^typename >< int"
+| less A^typename >< int and B^typename >< int: failed
 
 | tsay "A >< A"
 | less A >< A: failed
@@ -81,11 +81,11 @@ test_int =
 
 test_list =
 | say 'testing list...'
-| Ys = Void
+| Ys = No
 | Validate = (Xs => Xs.0 >< 1 and Xs.1 >< 2 and Xs.2 >< 3)
 
-| tsay '[1 2 3].tag >< list'
-| less [1 2 3].tag >< list: failed
+| tsay '[1 2 3]^typename >< list'
+| less [1 2 3]^typename >< list: failed
 
 | tsay '[456 1 2 3].tail'
 | Ys <= [456 1 2 3].tail

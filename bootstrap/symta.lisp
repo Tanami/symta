@@ -1171,7 +1171,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       (when (fn-sym? n)
         (setf name n)
         (setf as zs)))
-  ! body = `("|" ,body)
   ! (as body) = if (find-if #'pattern-arg as) (add-pattern-matcher as body) (list as body)
   ! r = `("_fn" ,as ,body)
   ! when name
@@ -1180,11 +1179,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                      ("&" ,name))))
   ! r)
 
-(to expand-block-item-fn name args body
-  ! kname = concatenate 'string "_k_" name
-  ! (args body) = if (find-if #'pattern-arg args) (add-pattern-matcher args body) (list args body)
+(to expand-block-item-fn name as body
   ! setf body `("default_leave_" ,name ,(expand-named name body))
-  ! list name `("_fn" ,args ("_progn" ("_mark" ,name) ,body)))
+  ! setf body `("_progn" ("_mark" ,name) ,body)
+  ! list name (expand-lambda as body))
 
 (to expand-destructuring value bs body
   ! i = -1
@@ -1661,7 +1659,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
            ("_fn" ,(m b bs (first b)) ,`("_progn" ,@xs))
            ,@(m b bs (second b))))
         (("if" a b c) `("_if" ,a ,b ,c))
-        (("=>" as body) (expand-lambda as body))
+        (("=>" as body) (expand-lambda as `("|" ,body)))
         (("not" . xs) `("_if" ,xs 0 1))
         (("when" . xs) `("_if" ,(butlast xs) ,@(last xs) :no))
         (("less" . xs) `("_if" ,(butlast xs) :no ,@(last xs)))

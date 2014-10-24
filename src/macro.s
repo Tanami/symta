@@ -487,22 +487,21 @@ add_pattern_matcher Args Body =
 
 pattern_arg X = not X.is_text or X.is_keyword
 
-`=>` As Body =
+expand_lambda As Body =
 | Name = 0
 | case As [[`@` N] @Zs]: when N.is_keyword
   | Name <= N
   | As <= Zs
-| Body <= [`|` Body]
 | [A B] = if no As.find{&pattern_arg} then [As Body] else add_pattern_matcher As Body
 | R = [_fn A B]
 | when Name: R <= [let_ [[Name 0]] [`|` [_set Name R] [`&` Name]]]
 | R
 
-expand_block_item_fn Name Args Body =
-| KName = "_k_[Name]"
-| [A B] = if no Args.find{&pattern_arg} then [Args Body] else add_pattern_matcher Args Body
-| B <= [default_leave_ Name (expand_named Name B)]
-| [Name [_fn A [_progn [_mark Name] B]]]
+`=>` As Body = expand_lambda As [`|` Body]
+
+expand_block_item_fn Name As Body =
+| Body <= [_progn [_mark Name] [default_leave_ Name (expand_named Name Body)]]
+| [Name (expand_lambda As Body)]
 
 expand_destructuring Value Bs Body =
 | O = @rand 'O'
