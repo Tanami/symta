@@ -26,8 +26,8 @@ case Args ['-r' UserRoot @Xs]
 | Root <= UserRoot
 | Args <= Xs
 
-SrcDir = Void
-DstDir = Void
+SrcDir = No
+DstDir = No
 
 case Args
   [Src Dst] | SrcDir <= Src; DstDir <= Dst
@@ -41,5 +41,6 @@ DstDir <= DstDir.replace{'\\' '/'}
 less Root.last >< '/': Root <= "[Root]/"
 
 less "[Root]src/rt_.s".exists: bad "Missing [Root]src/rt_.s"
+less "[Root]runtime/symta.h".exists: bad "Missing [Root]runtime/symta.h"
 
-say: build Root SrcDir dst/DstDir
+build Root SrcDir dst/DstDir

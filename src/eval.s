@@ -132,7 +132,12 @@ build_entry Entry =
 normalize_folder F = if F.last >< '/' then F else "[F]/"
 
 build RootFolder SrcFolder dst/0 =
+| SrcPref = "src/"
 | DstFolder = Dst or SrcFolder
+| when DstFolder.file: DstFolder <= DstFolder.url.0
+| when SrcFolder.file:
+  | SrcFolder <= SrcFolder.url.0
+  | SrcPref <= ""
 | normalize_folder !RootFolder
 | normalize_folder !SrcFolder
 | normalize_folder !DstFolder
@@ -140,7 +145,7 @@ build RootFolder SrcFolder dst/0 =
   | DstFolder <= "[get_work_folder]/[DstFolder]"
 | let GRootFolder RootFolder
       GDstFolder "[DstFolder]lib/"
-      GSrcFolders ["[SrcFolder]src/" "[GRootFolder]src/"]
+      GSrcFolders ["[SrcFolder][SrcPref]" "[GRootFolder]src/"]
       GHeaderTimestamp "[GRootFolder]/runtime/symta.h".time
       GShowInfo 1
       GCompiledModules (t)
