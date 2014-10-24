@@ -358,9 +358,7 @@ expand_self_ref O = case O
 have Var Default = form | when (no Var) (`<=` (Var) Default)
                         | Var
 
-supply Surrogate What =
-| form: `|` (`=` (~W) What)
-            (_if Void >< ~W Surrogate ~W)
+`~` What With Src = form: case Src What With ~Else ~Else
 
 expand_method_arg_r A FX FY =
 | when A.is_text
@@ -874,4 +872,4 @@ export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[
        'heir' 'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
        'cons' 'uncons'
-       'ffi_begin' 'ffi' 'min' 'max' 'swap' 'supply' 'have' 'source_' 'compile_when' '"'
+       'ffi_begin' 'ffi' 'min' 'max' 'swap' '~' 'have' 'source_' 'compile_when' '"'

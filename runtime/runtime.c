@@ -71,7 +71,7 @@ static void print_stack_trace(api_t *api) {
   fprintf(stderr, "Stack Trace:\n");
   if (e < 0) e = 0;
   while (s-- > e) {
-    intptr_t l = s + 1;
+    intptr_t l = s + 2;
     void *init = api->frame[l].mark;
     fprintf(stderr, "  %s\n", print_object(init));
   }
