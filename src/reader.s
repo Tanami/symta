@@ -1,10 +1,10 @@
-GTable = Void
-GSpecs = Void //kludge to recognize if/then/else
+GTable = No
+GSpecs = No //kludge to recognize if/then/else
 GError = Msg => | say Msg; halt
-GInput = Void
-GOutput = Void
+GInput = No
+GOutput = No
 
-type text_stream{T O} chars/T.list len/T.size off last/Void row col origin/O
+type text_stream{T O} chars/T.list len/T.size off last/No row col origin/O
 text_stream.`{}` K = $chars.K
 text_stream.peek = when $off < $len: $chars.($off)
 text_stream.next =
@@ -26,7 +26,7 @@ token_is What O = O.is_token and O.symbol >< What
 add_lexeme Dst Pattern Type =
 | when Pattern.end
   | Dst.'type' <= Type
-  | leave Void
+  | leave No
 | [Cs@Next] = Pattern
 | Kleene = 0
 | case Cs [`&` X] | Cs <= X
@@ -43,7 +43,7 @@ add_lexeme Dst Pattern Type =
   | add_lexeme T Next Type
 
 init_tokenizer =
-| when got GTable: leave Void
+| when got GTable: leave No
 | Digit = "0123456789"
 | HexDigit = "0123456789ABCDEFabcdef"
 | HeadChar = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?~"
@@ -66,7 +66,7 @@ init_tokenizer =
          ((&$Digit) integer)
          (($HeadChar @$TailChar) symbol)
          )
-| Ss = \((`if` `if`) (`then` `then`) (`else` `else`) (`and` `and`) (`or` `or`) (`Void` `void`))
+| Ss = \((`if` `if`) (`then` `then`) (`else` `else`) (`and` `and`) (`or` `or`) (`No` `void`))
 | GTable <= t
 | GSpecs <= t
 | for [A B] Ss: GSpecs.A <= B
@@ -79,8 +79,8 @@ read_token R LeftSpaced =
 | Src = R.src
 | Head = R.peek
 | Next = GTable
-| Cur = Void
-| C = Void
+| Cur = No
+| C = No
 | Cs = []
 | while 1
   | Cur <= Next
@@ -149,7 +149,7 @@ read_string R Incut End =
              `t` | L <= ['\t' @L]
              `\\` | L <= ['\\' @L]
              C<&Incut+&End | L <= [C@L]
-             Void | R.error{'EOF in string'}
+             No | R.error{'EOF in string'}
              Else | R.error{"Invalid escape code: [Else]"}
      &End | Ys = [L.flip.text]
           | when End >< '"': Ys <= spliced_string_normalize Ys //"
@@ -158,7 +158,7 @@ read_string R Incut End =
             | M = (read_token R 0).value
             | E = read_string R Incut End
             | leave: spliced_string_normalize [L M @E]
-     Void | R.error{'EOF in string'}
+     No | R.error{'EOF in string'}
      Else | L <= [C@L]
 
 is_comment_char C = got C and C <> '\n'
@@ -170,7 +170,7 @@ read_multi_comment R Cs =
 | O = 1
 | while O > 0
   | case [R.next R.peek]
-      [X Void] | R.error{"`/*`: missing `*/`"}
+      [X No] | R.error{"`/*`: missing `*/`"}
       [`*` `/`] | !O - 1
                 | R.next
       [`/` `*`] | !O + 1
@@ -223,7 +223,7 @@ parse_term =
          splice | [(token symbol `"` Tok.src 0) @V^parse_tokens] //"
          integer | V.int{10}
          hex | V.tail.int{16}
-         void | Void
+         void | No
          `()` | parse_tokens V
          `[]` | [(token symbol `[]` Tok.src 0) @V^parse_tokens]
          `|` | leave Tok^parse_bar
@@ -282,13 +282,13 @@ parse_logic =
 | GOutput <= if Tok^token_is{`:`}
              then [[O GOutput.tail R^parse_tokens] GOutput.head]
              else [[O GOutput R^parse_tokens]]
-| Void
+| No
 
 parse_delim =
 | O = parse_op [`:` `=` `=>` `<=`] or leave (parse_logic)
 | Pref = if GOutput.size > 0 then GOutput.flip else []
 | GOutput <= [(parse_xs) Pref O]
-| Void
+| No
 
 parse_semicolon =
 | P = GInput.locate{X => X^token_is{`|`} or X^token_is{`;`}}
@@ -298,7 +298,7 @@ parse_semicolon =
 | R = parse_tokens GInput.drop{P+1}
 | GInput <= []
 | GOutput <= if R.0^token_is{`};`} then [@R.tail.flip L M] else [R L M]
-| Void
+| No
 
 parse_xs =
 | let GOutput []

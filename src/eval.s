@@ -1,12 +1,12 @@
 use compiler reader macro
 
-GRootFolder = Void
-GSrcFolders = Void
-GDstFolder = Void
-GHeaderTimestamp = Void
-GMacros = Void
+GRootFolder = No
+GSrcFolders = No
+GDstFolder = No
+GHeaderTimestamp = No
+GMacros = No
 GShowInfo = 0
-GCompiledModules = Void
+GCompiledModules = No
 
 read_normalized Text Filename =
 | Expr = Text.parse{src Filename}
@@ -59,8 +59,8 @@ copy_file A B =
 compile_runtime Src Dst =
 | when get_rt_flag_ windows
   | less "[Dst].exe".exists: copy_file "[GRootFolder]symta.exe" "[Dst].exe"
-  | leave Void
-| when Dst^newerThan{Src}: leave Void
+  | leave No
+| when Dst^newerThan{Src}: leave No
 | say "compiling runtime..."
 | Result = c_runtime_compiler Dst Src
 | when Result <> "": bad Result
@@ -116,7 +116,7 @@ compile_module_sub Name =
     | Deps = compile_expr Name DstFile Expr
     | DepFile.set{Deps.text{' '}}
     | leave DstFile
-| Void
+| No
 
 compile_module Name =
 | DstFile = GCompiledModules.Name

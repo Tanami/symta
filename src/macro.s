@@ -1,11 +1,11 @@
-GExpansionDepth = Void
+GExpansionDepth = No
 GExpansionDepthLimit = 1000
-GMacros = Void
-GDefaultLeave = Void
-GModuleCompiler = Void
-GModuleFolders = Void
+GMacros = No
+GDefaultLeave = No
+GModuleCompiler = No
+GModuleFolders = No
 GSrc = [0 0 unknown]
-GTypes = Void
+GTypes = No
 GVarsTypes = []
 
 mex_error Message =
@@ -89,7 +89,7 @@ expand_hole_keywords Key Hit Xs =
 
 expand_hole_term Key Hole Hit Miss =
 | when Hole >< '_': leave Hit
-| when Hole >< '~': leave: form: if Key >< Void then Miss else Hit
+| when Hole >< '~': leave: form: if Key >< No then Miss else Hit
 | when Hole.is_keyword
   | when Hole.size and Hole.last >< '?':
     | leave: form: _if (@$"is_[Hole.lead]" Key) Hit Miss
@@ -106,8 +106,8 @@ expand_hole Key Hole Hit Miss =
                     (expand_list_hole Key Xs Hit Miss)
                     Miss]
   [`<` A B] | expand_hole Key B (expand_hole Key A Hit Miss) Miss
-  [`+` @Xs] | [_if (expand_match Key (map X Xs [X 1]) 0 Void) Hit Miss]
-  [`-` @Xs] | [_if (expand_match Key (map X Xs [X 1]) 0 Void) Miss Hit]
+  [`+` @Xs] | [_if (expand_match Key (map X Xs [X 1]) 0 No) Hit Miss]
+  [`-` @Xs] | [_if (expand_match Key (map X Xs [X 1]) 0 No) Miss Hit]
   [O<`+`+`-` [&O @Xs] @Ys] | expand_hole Key [O @Xs @Ys] Hit Miss
   [X<`.`+`^` [Y<`.`+`^` A B] @As]
     | G = @rand 'G'
@@ -164,7 +164,7 @@ expand_match Keyform Cases Default Key =
     [_label E]
     R]
 
-case @Xs = expand_match Xs.0 Xs.tail.group{2} 0 Void
+case @Xs = expand_match Xs.0 Xs.tail.group{2} 0 No
 
 is @As =
 | case As
@@ -187,15 +187,15 @@ swap A B = form | ~T = A
 not @Xs = [_if Xs 0 1]
 `and` A B = [_if A B 0]
 `or` A B = form: let_ ((~V A)) (_if ~V ~V B)
-when @Xs = [_if Xs.lead Xs.last Void]
-less @Xs = [_if Xs.lead Void Xs.last]
+when @Xs = [_if Xs.lead Xs.last No]
+less @Xs = [_if Xs.lead No Xs.last]
 
 expand_while Head Body =
 | L = @rand l
 | [_progn [_label L]
           [_if Head
                [_progn Body [_goto L]]
-               Void]]
+               No]]
 
 while @As = expand_while As.lead As.last
 till @As = expand_while [not As.lead] As.last
@@ -229,8 +229,8 @@ expand_dup Var Count Body =
 
 dup @As = case As
   [X Xs Body] | expand_dup X Xs Body
-  [Xs Body] | expand_dup Void Xs Body
-  [Xs] | expand_dup Void Xs 0
+  [Xs Body] | expand_dup No Xs Body
+  [Xs] | expand_dup No Xs 0
   Else | mex_error "bad dup [As]"
 
 expand_map_for Type Item Items Body =
@@ -381,10 +381,10 @@ expand_method_arg_r A FX FY =
    Else | map X A: expand_method_arg_r X FX FY
 
 expand_method_arg Expr =
-| X = Void
-| Y = Void
+| X = No
+| Y = No
 | R = expand_method_arg_r Expr (N => have X: form ~X) (N => have Y: form ~Y)
-| As = [X Y].skip{Void}
+| As = [X Y].skip{No}
 | when As.size: Expr <= form: _fn As R
 | Expr
 
@@ -397,7 +397,7 @@ expand_method_arg Expr =
 
 `!!` @As =
 | Ys = map A As A
-| V = Void
+| V = No
 | P = As.locate{$0[`!` X] =>| V<=X; 1}
 | when no P: mex_error "invalid !! - no ! in [As]"
 | Ys.P <= V
@@ -481,7 +481,7 @@ add_pattern_matcher Args Body =
     Else | form: _fatal 'couldnt match args list'
 | case Args
    [[`@` All]] | Args <= All
-   Else | Body <= expand_match G [[['[]' @Args] Body]] Default Void
+   Else | Body <= expand_match G [[['[]' @Args] Body]] Default No
         | Args <= G
 | [Args Body]
 
@@ -546,10 +546,10 @@ type Name @Fields =
        [`/` Name Value] | push Value Vs
                         | Name
        [`|` @Body] | CtorBody <= F
-                   | Void
+                   | No
        Else | push 0 Vs
             | F
-| Fs = Fs.skip{Void}
+| Fs = Fs.skip{No}
 | Vs = Vs.flip
 | GTypes.Name <= Fs
 | Ctor = if CtorBody
@@ -590,11 +590,11 @@ expand_block_item_method Type Name Args Body =
                                     (_type Type $\Me Body)
     Else | mex_error "bad arglist for _; should be: Method Args"
 | Body <= form: default_leave_ Name $(expand_named Name Body)
-| [Void [_dmet Name Type [`=>` Args [_progn [_mark "[Type].[Name]"] Body]]]]
+| [No [_dmet Name Type [`=>` Args [_progn [_mark "[Type].[Name]"] Body]]]]
 
 expand_block_item Expr =
 | Y = case Expr
-  [`=` [`!!` [`!` Place]] Value] | [Void (expand_assign Place Value)]
+  [`=` [`!!` [`!` Place]] Value] | [No (expand_assign Place Value)]
   [`=` [[`.` Type Method] @Args] Body] | expand_block_item_method Type Method Args Body
   [`=` [Name @Args] Value]
     | if Name.is_keyword then expand_block_item_fn Name Args Value
@@ -605,7 +605,7 @@ expand_block_item Expr =
     | case Z [`=` [] [`|` @Xs]]
       | Ys = map X Xs: expand_block_item X
       | leave Ys.join
-    | [Void [_nomex Z]]
+    | [No [_nomex Z]]
 | [Y]
 
 make_multimethod Xs =
@@ -621,16 +621,16 @@ make_multimethod Xs =
         | As <= Zs
       | case As [['$' D] @Zs] | Default <= D; As <= Zs
       | [['[]' @As] Expr]
-| ['=>' [@Name ['@' All]] (expand_match All Xs Default Void)]
+| ['=>' [@Name ['@' All]] (expand_match All Xs Default No)]
 
 expand_block_helper R A B =
 | if no A then [B @R]
   else if A.is_keyword then [[_set A B] @R]
-  else | R = if R.size then [_progn @R] else Void
+  else | R = if R.size then [_progn @R] else No
        | if A^is_var_sym then [[let_ [[A B]] R]]
          else if case A [`[]` @Bs] Bs.all{?^is_var_sym} then
             [(expand_destructuring B A.tail R)]
-         else [(expand_match B [[A R]] [_fatal "couldnt match [B] to [A]"] Void)]
+         else [(expand_match B [[A R]] [_fatal "couldnt match [B] to [A]"] No)]
 
 expand_block Xs =
 | when Xs.size >< 1 and not case Xs.0 [`=` @Zs] 1: leave Xs.0
@@ -647,7 +647,7 @@ expand_block Xs =
 | for [A B] Xs.flip: R <= expand_block_helper R A B
 | R <= [_progn @R]
 | Bs = Xs.keep{X => X.0.is_keyword}
-| when Bs.size: R <= [let_ (map B Bs [B.0 Void]) R]
+| when Bs.size: R <= [let_ (map B Bs [B.0 No]) R]
 | R
 
 `|` @Xs = expand_block Xs
@@ -697,7 +697,7 @@ compile_when @Conds Body =
        Else  | get_rt_flag_ C
 | if Xs.all{1} then form @(`|` Body) else 0
 
-FFI_Lib = Void
+FFI_Lib = No
 
 copy_file A B =
 | if get_rt_flag_ windows
@@ -743,7 +743,7 @@ ffi @Xs = case Xs
   Else | mex_error "ffi: bad arglist = [Xs]"
 
 
-GExports = Void
+GExports = No
 
 exports_preprocess Xs = 
 | map X Xs: case X

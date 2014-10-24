@@ -59,7 +59,7 @@
     if (tag) { \
       TEXT(ttag, tag); \
     } else { \
-      ttag = Void; \
+      ttag = No; \
     } \
     return api->handle_args(REGS_ARGS(P), E, FIXNUM(expected), FIXNUM(0), ttag, meta); \
   }
@@ -72,7 +72,7 @@
     if (tag) { \
       TEXT(ttag, tag); \
     } else { \
-      ttag = Void; \
+      ttag = No; \
     } \
     return api->handle_args(REGS_ARGS(P), E, -FIXNUM(expected), FIXNUM(0), ttag, meta); \
   }

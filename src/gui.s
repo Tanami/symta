@@ -3,12 +3,12 @@ use gfx reader gui_
 // loop body made a separate routine, so that GC will free all per-frame data
 event_loop F =
 | Events = @parse: show_get_events
-| when got Events.locate{? >< quit}: leave [Void]
+| when got Events.locate{? >< quit}: leave [No]
 | G = F Events
 | less G.is_gfx: leave [G]
 | Result = show_gfx G.handle
 | when Result <> '': bad "show: [Result]"
-| Void
+| No
 
 show F =
 | while 1
@@ -20,10 +20,10 @@ show F =
 
 //FIXME: create a default widgets
 
-GUI = Void
+GUI = No
 
 widget.input @E =
-widget.items = Void
+widget.items = No
 widget.render = Me
 widget.draw G P =
 widget.popup = 0
@@ -50,7 +50,7 @@ spacer.as_text = "#spacer{[$w] [$h]}"
 
 type tabs.~{Init Tabs} tab all/Tabs | $pick{Init}
 tabs.pick TabName =
-| when $tab: (get_gui).focus_widget <= Void
+| when $tab: (get_gui).focus_widget <= No
 | $tab <= $all.TabName
 | when no $tab: bad "tabs.pick: no [TabName]"
 tabs.as_text = "#tabs{[$tab]}"
@@ -80,7 +80,7 @@ lay.draw G P =
   | Rect.init{[RX RY W H]}
   | N <= case D v(N+H+S) h(N+W+S)
 
-type dlg.widget{Xs w/Void h/Void} w/W h/H ws items rs
+type dlg.widget{Xs w/No h/No} w/W h/H ws items rs
 | $ws <= Xs{[X Y W]=>[X Y (new_meta W [0 0 1 1])]}
 | $items <= $ws{}{?2}.flip
 dlg.render =
@@ -101,8 +101,8 @@ dlg.draw G P =
   | G.blit{P+[X Y] R}
 
 type gui{Root cursor/host}
-  root/Root timers/[] mice_xy/[0 0] widget_cursor result/Void fb/Void
-  keys/(t) popup/0 last_widget/(widget) focus_widget/Void
+  root/Root timers/[] mice_xy/[0 0] widget_cursor result/No fb/No
+  keys/(t) popup/0 last_widget/(widget) focus_widget/No
   focus_xy/[0 0] focus_wh/[0 0] mice_focus mice_focus_xy/[0 0] click_time/(t)
   cursor/Cursor host_cursor/0
 | GUI <= Me
@@ -111,14 +111,14 @@ type gui{Root cursor/host}
               | GUI.render
 | when got $fb
   | $fb.free
-  | $fb <= Void
+  | $fb <= No
 | R = $result
-| $result <= Void
-| GUI <= Void
+| $result <= No
+| GUI <= No
 | leave R
 gui.render =
 | FB = $fb
-| when no FB: leave Void
+| when no FB: leave No
 | R = $root.render
 | W = R.w
 | H = R.h
@@ -206,10 +206,10 @@ gui.input Es =
                   | D = if got $focus_widget then $focus_widget else NW
                   | D.input{key Key State}
   Else |
-| Void
+| No
 gui.exit @Result =
-| $result <= case Result [R](R) Else(Void)
-| $fb <= Void
+| $result <= case Result [R](R) Else(No)
+| $fb <= No
 
 get_gui = GUI
 

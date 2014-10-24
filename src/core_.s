@@ -1,6 +1,6 @@
 non F = X => if F X then 0 else 1
-no X = Void >< X
-got X = Void <> X
+no X = No >< X
+got X = No <> X
 
 _.`<>` B = not Me >< B
 _.`<<` B = not B < Me
@@ -349,8 +349,8 @@ text.url =
   | Ext <= Xs.take{Dot}.flip.text
   | Xs <= Xs.drop{Dot+1}
   | when got Sep: !Sep - (Dot+1)
-| Folder = Void
-| Name = Void
+| Folder = No
+| Name = No
 | if got Sep
   then | Folder <= "[Xs.drop{Sep+1}.flip.text]/"
        | Name <= Xs.take{Sep}.flip.text
@@ -461,13 +461,13 @@ list.any F =
 | 0
 
 list.max =
-| when $end: leave Void
+| when $end: leave No
 | M = $head
 | for X Me: when X > M: M <= X
 | M
 
 list.min =
-| when $end: leave Void
+| when $end: leave No
 | M = $head
 | for X Me: when X < M: M <= X
 | M
@@ -488,7 +488,7 @@ int.x =
 
 _.as_text = ['#:' Me^address.x].text
 
-void.as_text = 'Void'
+void.as_text = 'No'
 
 int.as_text =
 | less Me: leave '0'
@@ -535,14 +535,14 @@ bad Text =
 | halt
 
 // hashtable
-type table.no_copy{table_ Size} buckets/(dup Size Void)
+type table.no_copy{table_ Size} buckets/(dup Size No)
 table.`.` K =
 | Bs = $buckets
 | H = K.hash%Bs.size
 | Xs = Bs.H
-| when no Xs: leave Void
+| when no Xs: leave No
 | for X Xs: when X.0 >< K: leave X.1
-| Void
+| No
 table.`!` K V =
 | Bs = $buckets
 | H = K.hash%Bs.size
@@ -551,12 +551,12 @@ table.`!` K V =
   else | Old = Xs.find{X => X.0><K}
        | if no Old then Bs.H <= [[K V]@Xs]
          else Old.1 <= V
-| Void
+| No
 table.del K =
 | Bs = $buckets
 | H = K.hash%Bs.size
 | Xs = Bs.H
-| when no Xs: leave Void
+| when no Xs: leave No
 | L = Xs.locate{X => X.0><K}
 | when got L: Bs.H <= $Xs.L
 | Me
@@ -565,7 +565,7 @@ table._ Method Args =
   then Args.0.(Method^_method_name.tail) <= Args.1 // strip `!`
   else Me.(Method^_method_name)
 table.size = $buckets.map{X => if got X then X.size else 0}.sum
-table.list = $buckets.skip{Void}.join
+table.list = $buckets.skip{No}.join
 table.map F = $list.map{F}
 table.as_text = "#t{[$list{}{?0}]}"
 
@@ -613,12 +613,12 @@ list.digits Base =
 type macro{new_macro N E} name/N expander/E
 
 type meta.~{new_meta O M} object_/O meta_/M
-_.meta_ = Void
+_.meta_ = No
 meta._ Method Args =
 | Args.0 <= $object_
 | Args.apply_method{Method}
 
-LCG_Seed = Void
+LCG_Seed = No
 LCG_M = 2147483647
 LCG_M_F = LCG_M.float
 LCG_A = 16807
@@ -627,7 +627,7 @@ LCG_B = 0
 lcg_init Seed =
 | LCG_Seed <= Seed
 | 10.rand
-| Void
+| No
 
 int.rand =
 | LCG_Seed <= (LCG_Seed*LCG_A + LCG_B) % LCG_M
@@ -662,7 +662,7 @@ sort_asc $[] [H@Zs] =
 | [@Xs^sort_asc H @Ys^sort_asc]
 
 list.sort @As =
-| F = Void
+| F = No
 | case As
   [A] | F <= A
   [] | leave: sort_asc $shuffle

@@ -25,6 +25,6 @@ ffi ffi_alloc_.ptr Size.int
 ffi ffi_free_.void Ptr.ptr
 
 
-dummy = Void
+dummy = No
 
 export 'dummy'

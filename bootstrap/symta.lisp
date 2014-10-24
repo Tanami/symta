@@ -98,7 +98,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
            (("#" ,hex-digit +) :hex)
            ((,digit +) :integer)
            ((,head-char ,tail-char *) :symbol))
-  ! ss = '(("if" :if) ("then" :then) ("else" :else) ("and" :and) ("or" :or) ("Void" :kw))
+  ! ss = '(("if" :if) ("then" :then) ("else" :else) ("and" :and) ("or" :or) ("No" :kw))
   ! g_table := (make-hash-table)
   ! g_specs := make-hash-table :test 'equal
   ! e (a b) ss (! gethash a g_specs := b)
@@ -600,7 +600,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
       ! unless xs (setf d k)
       ! ssa-expr d x
       ! when (and (headed "_label" x) (not xs))
-          (ssa 'move d "Void")))
+          (ssa 'move d "No")))
 
 (to expr-symbols-sub expr syms
   ! cond ((stringp expr) (setf (gethash expr syms) t))
@@ -839,7 +839,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (! ssa 'ffi_set (second type) (ev ptr) (ev off) (ev val)
       ! ssa 'move k 0))
     ((f . as) (ssa-apply k f as))
-    (() (ssa-atom k :void))
+    (() (ssa-atom k :no))
     (else (error "invalid CPS form: ~a" xs)))
 
 (to ssa-atom k x
@@ -850,7 +850,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (ssa 'load_fixnum k x))
     ((stringp x) (ssa-symbol k x nil))
     ((floatp x) (ssa 'load_float k x))
-    ((eql x :void) (ssa 'move k "Void"))
+    ((eql x :no) (ssa 'move k "No"))
     ((eql x :empty) (ssa 'move k "Empty"))
     (t (error "unexpected ~a" x)))
 
@@ -1031,7 +1031,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to expand-hole-term key hole hit miss
   ! cond
      ((equal hole "_") hit)
-     ((equal hole "~") `("if" ("><" ,key :void) ,miss ,hit))
+     ((equal hole "~") `("if" ("><" ,key :no) ,miss ,hit))
      ((var-sym? hole) `("let_" ((,hole ,key)) ,hit))
      (t (when (fn-sym? hole)
           (let ((l (length hole)))
@@ -1320,7 +1320,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! cond
      ((not a) `(,b ,@r))
      ((fn-sym? a) `(("_set" ,a ,b) ,@r))
-     (t (! r = if r `("_progn" ,@r) :void
+     (t (! r = if r `("_progn" ,@r) :no
          ! cond
            ((var-sym? a) `(("let_" ((,a ,b)) ,r)))
            ((match a (("[]" . bs) (every #'var-sym? bs))) `(,(expand-destructuring b (cdr a) r)))
@@ -1344,7 +1344,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! e (a b) (reverse xs) (setf r (expand-block-helper r a b))
   ! setf r `("_progn" ,@r)
   ! bs = remove-if-not (fn x ! fn-sym? (car X)) xs
-  ! when bs (setf r `("let_" ,(m b bs `(,(first b) :void)) ,r))
+  ! when bs (setf r `("let_" ,(m b bs `(,(first b) :no)) ,r))
   ! r)
 
 (to expand-export xs
@@ -1663,8 +1663,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("if" a b c) `("_if" ,a ,b ,c))
         (("=>" as body) (expand-lambda as body))
         (("not" . xs) `("_if" ,xs 0 1))
-        (("when" . xs) `("_if" ,(butlast xs) ,@(last xs) :void))
-        (("less" . xs) `("_if" ,(butlast xs) :void ,@(last xs)))
+        (("when" . xs) `("_if" ,(butlast xs) ,@(last xs) :no))
+        (("less" . xs) `("_if" ,(butlast xs) :no ,@(last xs)))
         (("while" . xs) (expand-while (butlast xs) (car (last xs))))
         (("till" . xs) (expand-while `("not" ,(butlast xs)) (car (last xs))))
         (("for" x xs body) (expand-for x xs body))

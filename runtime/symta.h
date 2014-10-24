@@ -159,7 +159,7 @@ typedef struct api_t {
 
 typedef void *(*pfun)(REGS);
 
-#define Void api->void_
+#define No api->void_
 #define Empty api->empty_
 #define Frame api->frame[Level]
 #define Lifts Frame.lifts
@@ -388,11 +388,11 @@ typedef struct {
 
 #define CHECK_NARGS(expected,size,meta) \
   if (NARGS(E) != FIXNUM(expected)) { \
-    return api->handle_args(REGS_ARGS(P), E, FIXNUM(expected), FIXNUM(size), Void, meta); \
+    return api->handle_args(REGS_ARGS(P), E, FIXNUM(expected), FIXNUM(size), No, meta); \
   }
 #define CHECK_VARARGS(size,meta) \
   if (NARGS(E) < FIXNUM(0)) { \
-    return api->handle_args(REGS_ARGS(P), E, FIXNUM(-1), FIXNUM(size), Void, meta); \
+    return api->handle_args(REGS_ARGS(P), E, FIXNUM(-1), FIXNUM(size), No, meta); \
   }
 
 // kludge for FFI identifiers

@@ -4,6 +4,6 @@ ffi show_close.void
 ffi show_get_events.text
 ffi show_cursor.void State.int
 
-dummy = Void
+dummy = No
 
 export 'dummy'

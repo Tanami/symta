@@ -1,19 +1,19 @@
-GEnv = Void
-GOut = Void // where resulting assembly code is stored
-GNs = Void // unique name of current function
-GRawInits = Void
-GFns = Void
-GClosure = Void // other lambdas, this lambda references
-GBases = Void
-GUniquifyStack = Void
-GHoistedTexts = Void
-GResolvedMethods = Void
-GImportLibs = Void
+GEnv = No
+GOut = No // where resulting assembly code is stored
+GNs = No // unique name of current function
+GRawInits = No
+GFns = No
+GClosure = No // other lambdas, this lambda references
+GBases = No
+GUniquifyStack = No
+GHoistedTexts = No
+GResolvedMethods = No
+GImportLibs = No
 GSrc = [0 0 unknown]
 GAll = @rand all
 
 ssa @As = | push As GOut
-          | Void
+          | No
 
 get_parent_index Parent =
 | P = GClosure.0.locate{E => Parent >< E}
@@ -23,16 +23,16 @@ get_parent_index Parent =
 | Parents.size
 
 path_to_sym X Es =
-| when Es.end: leave Void
+| when Es.end: leave No
 | [Head@Tail] = Es
 | when case Head [U@Us] U >< GAll // reference to the whole arglist?
   | Head <= Head.1
   | less Head.0 >< X: leave (path_to_sym X Tail)
-  | when Es^address >< GEnv^address: leave [GAll Void] // argument of the current function
+  | when Es^address >< GEnv^address: leave [GAll No] // argument of the current function
   | leave [GAll (get_parent_index Head.1)]
 | P = Head.locate{V => X >< V.0}
 | when no P: leave (path_to_sym X Tail)
-| when Es^address >< GEnv^address: leave [P Void] // argument of the current function
+| when Es^address >< GEnv^address: leave [P No] // argument of the current function
 | [P (get_parent_index Head.P.1)]
 
 ssa_symbol K X Value =
@@ -45,7 +45,7 @@ ssa_symbol K X Value =
        | when Pos >< GAll
          | when got Value: bad "cant set [X]"
          | ssa tagged K Base \T_LIST
-         | leave Void
+         | leave No
        | when no Value: leave (ssa arg_load K Base Pos)
        | if Base >< \E and GBases.size >< 1
          then ssa arg_store Base Pos Value
@@ -96,7 +96,7 @@ ssa_fn_body K F Args Body O Prologue Epilogue =
 // for now we just capture required parent's closure
 ssa_fn Name K Args Expr O =
 | F = @rand f
-| [Body Cs] = ssa_fn_body Void F Args Expr O 1 1
+| [Body Cs] = ssa_fn_body No F Args Expr O 1 1
 | push Body GFns
 | NParents = Cs.size
 | ssa alloc_closure K F NParents
@@ -137,7 +137,7 @@ ssa_let K Args Vals Xs =
          | Vals <= [@Vals @Hs.map{H => 0}]
 | when Args.size >< 0
   | ssa_expr K Body
-  | leave Void
+  | leave No
 | F = @rand f
 | [SsaBody Cs] = ssa_fn_body K F Args Body [] 0 0
 | NParents = Cs.size
@@ -196,7 +196,7 @@ ssa_apply_method K Name O As =
 
 ssa_set K Place Value =
 | R = ev Value
-| ssa_symbol Void Place R
+| ssa_symbol No Place R
 | ssa move K R
 
 // FIXME: _label should be allowed only inside of _progn
@@ -208,7 +208,7 @@ ssa_progn K Xs =
   | X = pop Xs
   | when Xs.end: D <= K
   | ssa_expr D X
-  | when Xs.end and case X [_label@Zs] 1: ssa move D 'Void'
+  | when Xs.end and case X [_label@Zs] 1: ssa move D 'No'
 
 compiler_error Msg =
 | [Row Col Orig] = GSrc
@@ -425,15 +425,15 @@ ssa_form K Xs = case Xs
   [_ffi_set Type Ptr Off Val] | ssa ffi_set Type.1 Ptr^ev Off^ev Val^ev
                               | ssa move K 0
   [F @As] | ssa_apply K F As
-  [] | ssa_atom K Void
+  [] | ssa_atom K No
   Else | bad "special form: [Xs]"
 
 ssa_atom K X =
 | if X.is_int then
     | when X > #7FFFFFFF or X < -#7FFFFFFF: X <= "[X]LL" //FIXME: kludge
     | ssa load_fixnum K X
-  else if X.is_text then ssa_symbol K X Void
-  else if X >< Void then ssa move K 'Void'
+  else if X.is_text then ssa_symbol K X No
+  else if X >< No then ssa move K 'No'
   else if X.is_float then ssa load_float K X
   else bad "bad atom: [X]"
 
@@ -466,7 +466,7 @@ produce_ssa Entry Expr =
   //| Rs <= peephole_optimize Rs
   | Rs
 
-GCompiled = Void
+GCompiled = No
 
 c Statement = push Statement GCompiled
 cnorm [X@Xs] = c "  [X.upcase]([(map X Xs X.as_text).text{','}]);"

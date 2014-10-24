@@ -699,7 +699,7 @@ BUILTIN3("view.`!`",view_set,C_ANY,o,C_INT,index,C_ANY,value)
   p = &VIEW_REF(o, 0, 0);
   LIFT(p,start,value);
   R = 0;
-RETURNS(Void)
+RETURNS(No)
 BUILTIN1("view.end",view_end,C_ANY,o)
 RETURNS(FIXNUM(0))
 BUILTIN1("view.head",view_head,C_ANY,o)
@@ -1148,7 +1148,7 @@ BUILTIN1("say_",say_,C_TEXT,o)
   } else {
     fwrite(BIGTEXT_DATA(o), 1, (size_t)BIGTEXT_SIZE(o), stderr);
   }
-RETURNS(Void)
+RETURNS(No)
 
 BUILTIN0("rtstat",rtstat)
   show_runtime_info(api);
@@ -1188,19 +1188,19 @@ BUILTIN1("register_library_folder",register_library_folder,C_TEXT,path_text)
   char path[1024];
   decode_text(path, path_text);
   add_lib_folder(path);
-RETURNS(Void)
+RETURNS(No)
 
 BUILTIN1("set_error_handler",set_error_handler,C_ANY,h)
   fatal("FIXME: implement set_error_handler\n");
-RETURNS(Void)
+RETURNS(No)
 
 BUILTIN1("load_file",load_file,C_ANY,path)
   fatal("FIXME: implement load_file\n");
-RETURNS(Void)
+RETURNS(No)
 
 BUILTIN1("utf8",utf8,C_ANY,bytes)
   fatal("FIXME: implement utf8\n");
-RETURNS(Void)
+RETURNS(No)
 
 
 BUILTIN1("get_file_",get_file_,C_ANY,filename_text)
@@ -1212,7 +1212,7 @@ BUILTIN1("get_file_",get_file_,C_ANY,filename_text)
     memcpy(BYTES_DATA(R), contents, file_size);
     free(contents);
   } else {
-    R = Void;
+    R = No;
   }
 RETURNS(R)
 
@@ -1229,7 +1229,7 @@ BUILTIN1("get_text_file_",get_text_file_,C_TEXT,filename_text)
     TEXT(R, contents);
     free(contents);
   } else {
-    R = Void;
+    R = No;
   }
 RETURNS(R)
 
@@ -1339,7 +1339,7 @@ BUILTIN0("get_work_folder",get_work_folder)
     for (p = cwd; *p; p++) if (*p == '\\') *p = '/';
     TEXT(R, cwd);
   } else {
-    R = Void;
+    R = No;
   }
 RETURNS(R)
 
@@ -1439,7 +1439,7 @@ BUILTIN1("unix",unix,C_TEXT,command_text)
     TEXT(R, contents);
     free(contents);
   } else {
-    R = Void;
+    R = No;
   }
 RETURNS(R)
 
@@ -1617,8 +1617,8 @@ static char *print_object_r(api_t *api, char *out, void *o) {
     abort();
   }
 print_tail:
-  if (o == Void) {
-    out += sprintf(out, "Void");
+  if (o == No) {
+    out += sprintf(out, "No");
   } else if (type == T_CLOSURE) {
     //FIXME: check metainfo to see if this object has associated print routine
     pfun handler = O_CODE(o);
@@ -2168,7 +2168,7 @@ static api_t *init_api() {
   BUILTIN_CLOSURE(undefined, b_undefined);
   BUILTIN_CLOSURE(sink, b_sink);
 
-  ALLOC_DATA(Void, T_VOID, 0);
+  ALLOC_DATA(No, T_VOID, 0);
   LIST_ALLOC(Empty, 0);
 
   return api;
