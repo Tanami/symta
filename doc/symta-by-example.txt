@@ -39,16 +39,20 @@ Installing Symta
 Symta can be installed by downloading and unpacking the latest release zip file:
 https://github.com/saniv/symta/tree/master/releases
 
+On Unix extract the zip archive, move to the extracted directory and type "bash build.sh". This should bootstrat the compiler, producing ./symta executable.
+
 NOTE: currently Symta relies on GCC to produce native executables. Make sure your PATH variable includes path to gcc's bin folder. On Windows it is adviced to install GCC through mingw64. Currently there are no plans supporting 32-bit architectures, unless someone provides help.
 
 
 Printing Text on Screen
 ------------------------------
-To start with Symta, create a file greet.s with the following content:
+To start with Symta, create a file main.s with the following content:
 say "Hello, World!" //put text on screen
 
 Now invoke Symta compiler by typing at command line:
-symta greet.s
+symta main.s
+
+Note: this initial file should be called exactly "main.s".
 
 That creates ./lib folder and, more importanly, `./run` executable. Running it produces the following output:
 Hello, World!
@@ -61,7 +65,7 @@ say hello
 
 Functions
 ------------------------------
-Good code is flexible and adaptable. We can improve greet.s to this:
+Good code is flexible and adaptable. The previous program can be improved to this:
 greet Name = "Hello, [Name]!"
 greet "World"
 

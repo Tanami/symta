@@ -129,9 +129,12 @@ build_entry Entry =
   | when no DstFile: bad "cant compile [Entry]"
   | DstFile
 
-normalize_folder F = if F.last >< '/' then F else "[F]/"
+normalize_folder F =
+| when F >< '': leave './'
+| if F.last >< '/' then F else "[F]/"
 
 build RootFolder SrcFolder dst/0 =
+| Entry = "main"
 | SrcPref = "src/"
 | DstFolder = Dst or SrcFolder
 | when DstFolder.file: DstFolder <= DstFolder.url.0
@@ -149,12 +152,14 @@ build RootFolder SrcFolder dst/0 =
       GHeaderTimestamp "[GRootFolder]/runtime/symta.h".time
       GShowInfo 1
       GCompiledModules (t)
+  | less "[GSrcFolders.0][Entry].s".exists:
+    | bad "Missing [GSrcFolders.0][Entry].s"
   | "[GDstFolder]/ffi".mkpath
   | register_library_folder GDstFolder
   | RuntimeSrc = "[GRootFolder]runtime/runtime.c"
   | RuntimePath = "[DstFolder]run"
   | compile_runtime RuntimeSrc RuntimePath
-  | build_entry main
+  | build_entry Entry
   | RuntimePath //unix RuntimePath //"[RuntimePath] ':[GDstFolder]'"
 
 eval RootFolder Expr Env =

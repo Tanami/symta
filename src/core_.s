@@ -512,6 +512,7 @@ plain_char C =
   else 0
 
 text.as_text =
+| less $size: leave '``'
 | Cs = []
 | Q = 0
 | for C Me
