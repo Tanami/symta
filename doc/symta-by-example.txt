@@ -56,7 +56,7 @@ Note: this initial file should be called exactly "main.s".
 That creates ./lib folder and, more importanly, `./run` executable. Running it produces the following output:
 Hello, World!
 
-That is because `say` is a function, that prints on screen it's argument, in our case "Hello, World!". The `//` denotes a comment.
+That is because `say` is a function, that prints on screen its argument, in our case "Hello, World!". The `//` denotes a comment.
 
 If text is just a single lowercase word, there is no need escaping it. I.e. you can write just
 say hello
