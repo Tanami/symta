@@ -124,7 +124,7 @@ PI = 3.14159265
 say 2.0*PI
 
 Note that `2*PI` would produce error, because Symta is strongly typed language and avoids implicit conversion. You must convert you integers to floats, before using them in expressions involving floats. That can be done by invoking method `float` on integer, like that:
-say PI*ItegerNumber.float
+say PI*IntegerNumber.float
 
 See "Object Oriented Programming" to learn more about Symta's implementation of methods and objects.
 
