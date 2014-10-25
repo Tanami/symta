@@ -1,1 +1,3 @@
-Readme had obsolete information, which was replaced with this message.
+Symta is a novel dialect of Lisp programming language. Symta features succinct syntax, geared towards list-processing, and innovative approach to memory management, without requiring pause-inducing garbage collection or manual deallocation.
+
+See doc/symta-by-example.txt for a quick introduction to the language.
