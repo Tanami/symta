@@ -12,13 +12,14 @@ Table of Contents
 - Conditional Evalutation
 - Looping
 - Object Oriented Programming
-- Pattern-Matching
+- Pattern Matching
 - Syntatic Sugar
+- Module System
 - Macros
 - Memory Management
 - Non-local Return
 - Command-Line Arguments
-- Standard Library
+- Core Library
 - Comparison to Other Languages
 
 
@@ -78,12 +79,17 @@ greet name/"World" = "Hello, [Name]!"
 greet
 greet name/"Symta"
 
-Here name became an optional argument, by default bound to "World".
+Here `Name` became an optional argument, by default bound to "World".
 
 There is an alternative {}-based syntax for function calls:
 say{"Hello, World!"}
 
 Symta uses {} instead of (), because otherwise `say(hello)` would be indistinguishable from `say  (hello)` - function say taking the result of calling function hello. The {}-syntax also provides additional sugar for lambdas.
+
+In many cases it makes sense to specify function in Forth-style - after the arguments. Symta provides operator `^` to do that:
+"Hello, World!"^say
+
+The `^` is useful, when a lot of calls get chained together left-to-right, so you wont have to think in advance or read right-to-left.
 
 
 Variables and Arithmetics
@@ -96,7 +102,7 @@ say "multiplication: [A*B]"
 say "division: [B/A]"
 say "remainder: [B%A]"
 say "exponentiation: [A**3]"
-say "average: [(A+B)/2]" // change operator precedence by using ( and )
+say "average: [(A+B)/2]" // change operator precedence by using `(` and `)`
 A <= 789 // assign a new value to A
 say "Now A contains [A]"
 !B * 3 // multiply B by 3
@@ -127,6 +133,7 @@ Note that `2*PI` would produce error, because Symta is strongly typed language a
 say PI*IntegerNumber.float
 
 See "Object Oriented Programming" to learn more about Symta's implementation of methods and objects.
+
 
 Lists
 ------------------------------
@@ -166,9 +173,10 @@ Conditional Evalutation
 ------------------------------
 Other basic construct is if/then/else:
 
-say if 1 then 123 else 456
-say if 0 then 123 else 456
-say if 123 then 123 else 456
+say if 1 then 123 else 456        // prints 123
+say if 0 then 123 else 456        // prints 456
+say if 666 then 123 else 456      // prints 123
+say if 'hello' then 123 else 456  // prints 123
 
 Any non-zero value is true and triggers `then` clause, while zero would trigger the evaluation of value after `else`.
 
@@ -272,7 +280,7 @@ point._ Method Args = send_to ServerIP ServerPort Method Args
 Now all undeclared methods get redirected to send_to. This tehnique is called 'sinking'. Although doing that would be a little overkill for a humble `point` type.
 
 
-Pattern-Matching
+Pattern Matching
 ------------------------------
 Lists pose a problem of transforming them and accesing their elements in a succinct and robust way. Symta was designed specially to process lists efficiently. An example shows how Symta handles accessing list elements:
 Xs = [1 2 3]
@@ -284,7 +292,7 @@ say "X, Y, Z = [X], [Y], [Z]"
 say "A=[A], As=[As]"
 say "B=[B], Bs=[Bs]"
 
-Expressions like `[A@As]=Xs`, with just [...] and no toher literal values, are the simple case of pattern matching, called 'destructuring' - an advanced version of variable declaration. Yet pattern matching can match literal values and include more than one `@`:
+Expressions like `[A@As]=Xs`, with just [...] and no other literal values, are the simple case of pattern matching, called 'destructuring' - an advanced version of variable declaration. Yet pattern matching can match literal values and include more than one `@`:
 Xs = [we have a needle in the middle]
 [@Ys needle @Zs] = Xs
 say "Ys = [Ys]"
