@@ -80,6 +80,11 @@ greet name/"Symta"
 
 Here name became an optional argument, by default bound to "World".
 
+There is an alternative {}-based syntax for function calls:
+say{"Hello, World!"}
+
+Symta uses {} instead of (), because otherwise `say(hello)` would be indistinguishable from `say  (hello)` - function say taking the result of calling function hello. The {}-syntax also provides additional sugar for lambdas.
+
 
 Variables and Arithmetics
 ------------------------------
@@ -222,6 +227,14 @@ say "created a point: [P]"
 
 The expression "type point x y" does several things: register's new type `point` with Symta's runtime and provides constructor function `point`, which creates instance of `point` type, with fields `x` and `y` - both initialized to 0. The `point` type already has method `is_point` defined on it, and all other objects too gain this method. The `point.as_text` declares a method, invoked by functions like `say` to get textual representation of objects. The $x and $y are shorthands for Me.x and Me.y, where Me is a way to reference object inside of a method, similar to `this` pointer in C++ and `self` in Smalltalk.
 
+If method takes arguments, they can be specified using {}. For example:
+point.set_x_and_y A B = | $x <= A
+                        | $y <= B
+P.set_x_and_y{666 777}
+
+
+Note: when type declaration is available, Symta compiles the Me.field_name call to an array look-up, which is somewhat faster than function call.
+
 Initializing fields with `<=` is too verbose, so symta provides a shorthand for that, which allows to rewrite previous example more succinctly:
 type point{X Y} x/X y/Y
 point.as_text = "[$x], [$y]"
@@ -293,14 +306,14 @@ If no `Else` handler is present, then 0 will be returned. This allows for combin
 when case Xs [A B C] 1: say "Xs is a list of three elements"
 
 
-A more advanced example of pattern matching would be parsing a binary file with typical FourCC tagged chunk:
+A more advanced example of pattern matching would be parsing a binary file with typical FourCC tagged chunks:
 Chunks = File.get^| @r$[] [4/T.utf8 4/L.u4 L/D @Xs] => [[T D] @Xs^r]
 
 That expression may look cryptic at first, because it packs a lot of stuff into single line. Here is what it does:
 `File.get` - retrives the content of File as a list of bytes
 A^B - syntatic sugar for applying a function B to value A (same as `B A` or B{A})
 `| @r$[] Args => Body` is a lambda expression
-`@r` - allows to self referencing the lambda inside of the Body by name `r`
+`@r` - allows to self reference the lambda inside of the Body by name `r`
 `$[]` - makes [] a default value, returned if input doesn't match the pattern [4/T.utf8 4/L.u4 L/D @Xs]
 
 The most compliex part is `[4/T.utf8 4/L.u4 L/D @Xs]`, which binds `T` to the value of the first 4 bytes decoded as utf8 text, then binds `L` to the next four bytes conveted to 32-bit unsigned integer, afterwards D gets binded to a list of `L` bytes, that follows the 8 already parsed bytes. The Xs is bound to the rest of bytes.
