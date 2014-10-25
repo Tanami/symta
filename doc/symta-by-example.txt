@@ -37,7 +37,7 @@ Despite a lot of consing, calling the qsort function doesn't generate garbage.
 Installing Symta
 ------------------------------
 Symta can be installed by downloading and unpacking the latest release zip file:
-https://github.com/saniv/symta/tree/master/releases
+https://github.com/saniv/symta-releases
 
 On Unix extract the zip archive, move to the extracted directory and type "bash build.sh". This should bootstrat the compiler, producing ./symta executable.
 
