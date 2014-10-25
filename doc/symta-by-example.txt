@@ -117,7 +117,7 @@ A>>B // 1 if A is above or equal B
 
 The operator `not` gives 1 for 0 and 0 for anything else
 
-And empty expression, (), would produce value No, which denotes absence of value, similar to null entries in database or NIL value in other Lisps.
+The empty expression, (), would produce value No, which denotes absence of value, similar to null entries in database or NIL value in other Lisps.
 
 Additionally, there are floating point numbers:
 PI = 3.14159265
@@ -149,7 +149,7 @@ say Xs.3 // prints `d`, because indices start from 0
 Xs.3 <= 123 // replaces `d` with 123
 say "changes Xs is [Xs]"
 
-Lists vector arithmetics:
+Lists support vector arithmetics:
 say ([1 2 3]+[4 5 6])*2
 
 Using lists as vectors is relatively efficient, because internally lists are implemented as arrays.
@@ -189,7 +189,7 @@ Repeating expression or running it through a list of elements is a common task. 
 times I 20: say I // iterate ove numbers below 20 and print them
 Xs = dup I 10 I // sequence of all numbers below 10
 for X Xs: say X*X // print squares of Xs elements
-Ys = map X Xs: X*X // collect same squares for future use
+Ys = map X Xs: X*X // collect the same squares for future use
 say "Ys = [Ys]"
 
 
