@@ -305,7 +305,7 @@ vector_length [X Y] = @sqrt X*X + Y*Y
 
 But what if a value doesn't match the pattern or we want to match against several patterns? To solve that, Symta has macros `case`:
 case Xs
-  [Y<a+b+c @Ys] | "Xs head is [Y], which is one of a, b or c"
+  [Y<a+b+c @Ys] | "Xs's head is [Y], which is one of a, b or c"
   Else | "some other value: [Else]"
 
 The operator `<` in the pattern expression is used to to match several patterns to a single value.

@@ -258,9 +258,13 @@ binary_loop Ops Down E =
 | leave: binary_loop Ops Down F
 
 parse_binary Down Ops = binary_loop Ops Down: &Down or leave 0
-parse_suffix = parse_binary &parse_term [`.` `^` `->` `{}`]
+parse_dollar =
+| O = parse_op [`$` negate `\\` `@` `&` `!`] or leave (parse_term)
+| when O^token_is{negate}: leave O^parse_negate
+| [O (parse_dollar or parser_error "no operand for" O)]
+parse_suffix = parse_binary &parse_dollar [`.` `^` `->` `{}`]
 parse_prefix =
-| O = parse_op [negate `\\` `$` `@` `&` `!`] or leave (parse_suffix)
+| O = parse_op [negate `\\` `@` `&` `!`] or leave (parse_suffix)
 | when O^token_is{negate}: leave O^parse_negate
 | [O (parse_prefix or parser_error "no operand for" O)]
 parse_pow = parse_binary &parse_prefix [`**`]

@@ -74,7 +74,7 @@ expand_list_hole Key Hole Hit Miss = case Hole
 
 expand_hole_keywords Key Hit Xs =
 | [I As Size] = form: ~I ~As ~Size
-| form: `|` $@Xs{[`=` [?.1.title] 0]}
+| form: `|` $@(Xs{[`=` [?.1.title] 0]})
             (As = Key)
             (Size = As.size)
             $@(map [O K V] Xs
@@ -82,9 +82,9 @@ expand_hole_keywords Key Hit Xs =
                | form: named L
                  | times I Size: less I%2
                    | when K >< As.I
-                     | $K.title <= As.(I+1)
+                     | $(K.title) <= As.(I+1)
                      | leave L 0
-                 | (`<=` ($K.title) V))
+                 | (`<=` ($(K.title)) V))
             Hit
 
 expand_hole_term Key Hole Hit Miss =
@@ -349,11 +349,7 @@ expand_colon_r E Found =
   [[X@Xs] @Ys] | [X Xs @Ys]
   Else | mex_error "invalid arglist to `,`"
 
-expand_self_ref O = case O
-  [H<`.`+`{}`+`^` X @Xs] | [H (expand_self_ref X) @Xs]
-  Else | [`.` 'Me' O]
-
-`$` Expr = expand_self_ref Expr
+`$` Expr = [`.` 'Me' Expr]
 
 have Var Default = form | when (no Var) (`<=` (Var) Default)
                         | Var
@@ -392,6 +388,7 @@ expand_method_arg Expr =
 | As = map X As: expand_method_arg X
 | case H
   [`.` A B] | [_mcall A B @As]
+  [`$` B] | [_mcall \Me B @As]
   [`^` A B] | [B @As A]
   Else | if H.is_keyword then [H @As] else [_mcall H '{}' @As]
 
@@ -517,8 +514,7 @@ expand_assign Place Value =
                      | when got P: leave [_dset A P Value]
                    | [_mcall A "![B]" Value]
               else [_mcall A "!" B Value]
-  [`$` [`.` A B]] | expand_assign [`.` [`$` A] B] Value
-  [`$` X] | expand_assign [`.` 'Me' X] Value
+  [`$` Field] | expand_assign [`.` \Me Field] Value
   Else | [_set Place Value]
 
 `<=` Place Value = expand_assign Place.0 Value
@@ -560,7 +556,7 @@ type Name @Fields =
 | V = @rand 'V'
 | Copy = if ProvideCopy
          then [[`=` [[`.` Name "copy"]] [_data Name @(map F Fs [`$` F])]]
-               [`=` [[`.` Name "deep_copy"]] [_data Name @(map F Fs [`$` [`.` F deep_copy]])]]]
+               [`=` [[`.` Name "deep_copy"]] [_data Name @(map F Fs [`.` [`$` F] deep_copy])]]]
          else []
 | ['@' ['|' Ctor
             @Copy
@@ -793,7 +789,7 @@ mex_normal X Xs =
 | when no Macro
   | case X [`@` Z]: leave: mex [_mcall Xs.last Z @Xs.lead]
   | when got Xs.locate{$0[`@` X]=>1}
-    | when X >< _mcall: leave: mex: form: _mcall [$Xs.0 $@Xs.drop{2}] apply_method (_method $Xs.1)
+    | when X >< _mcall: leave: mex: form: _mcall [$(Xs.0) $@(Xs.drop{2})] apply_method (_method $(Xs.1))
     | when X.is_keyword: X <= form &X
     | leave: mex: form [$@Xs].apply{X}
   | Ks = []
@@ -849,7 +845,7 @@ macroexpand Expr Macros ModuleCompiler ModuleFolders =
   | R
 
 list @Xs = form [$@Xs]
-mtx Xs = form [$@Xs.tail{}{[`[]` @?]}]
+mtx Xs = form [$@(Xs.tail{}{[`[]` @?]})]
 
 cons F Xs = form 
 | ~R = 0

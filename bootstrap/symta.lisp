@@ -288,8 +288,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ret (/binary-loop ops down f))
 
 (to /binary down ops ! a = try (funcall down) :fail ! /binary-loop ops down a)
-(to /suffix ! /binary #'/term '(:. :^ :-> :|{}|))
-(to /prefix ! o = try (/op '(:negate :\\ :$ :@ :& :!)) (/suffix)
+(to /dollar ! o = try (/op '(:$ :negate :\\ :@ :& :!)) (/term)
+            ! when (token-is :negate o) (ret (/negate o))
+            ! a = try (/dollar) (parser-error "no operand for" o)
+            ! list o a)
+(to /suffix ! /binary #'/dollar '(:. :^ :-> :|{}|))
+(to /prefix ! o = try (/op '(:negate :\\ :@ :& :!)) (/suffix)
             ! when (token-is :negate o) (ret (/negate o))
             ! a = try (/prefix) (parser-error "no operand for" o)
             ! list o a)
@@ -1196,8 +1200,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (if (fn-sym? field)
          `("_mcall" ,object ,"!{field}" ,value)
          `("_mcall" ,object "!" ,field ,value)))
-    (("$" ("." a b)) (expand-assign `("." ("$" ,a) ,b) value))
-    (("$" x) (expand-assign `("." "Me" ,x) value))
+    (("$" field) (expand-assign `("." "Me" ,field) value))
     (else `("_set" ,place ,value)))
 
 (to expand-assign-result as
@@ -1252,7 +1255,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! k = -1
   ! copy = if provide-copy 
               `(("=" (("." ,name ,"copy")) ("_data" ,name ,@(m f fs `("$" ,f))))
-                ("=" (("." ,name ,"deep_copy")) ("_data" ,name ,@(m f fs `("$" ("." ,f "deep_copy"))))))
+                ("=" (("." ,name ,"deep_copy")) ("_data" ,name ,@(m f fs `("." ("$" ,f) "deep_copy")))))
               nil
   ! `("@" ("|" ,ctor
                ,@copy
@@ -1569,6 +1572,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! as = m a as (expand-method-arg a)
   ! match h
      (("." a b) `("_mcall" ,a ,b ,@as))
+     (("$" b) `("_mcall" "Me" ,b ,@as))
      (("^" a b) `(,b ,@as ,a))
      (else (if (fn-sym? h) `(,h ,@as) `("_mcall" ,h ,'"{}" ,@as))))
 
@@ -1585,13 +1589,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! y = match o ((x) (if (fn-sym? x) o (normalize-matryoshka x)))
                 (x x)
   ! if (stringp y) (handle-package y) y)
-
-(to expand-self-ref o
-  ! match o
-     (("." x . xs) `("." ,(expand-self-ref x) ,@xs))
-     (('"{}" x . xs) `(,'"{}" ,(expand-self-ref x) ,@xs))
-     (("^" x . xs) `("^" ,(expand-self-ref x) ,@xs))
-     (else `("." "Me" ,o)))
 
 (to rmap f xs ! if (atom xs) (funcall f xs) (m x xs (rmap f x)))
 
@@ -1727,7 +1724,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("as" name value expr) (expand-as name value expr))
         (("," (x . xs) . ys) `(,x ,xs ,@ys))
         (("," . xs) (error "bad `,`"))
-        (("$" x) (expand-self-ref x))
+        (("$" x) `("." "Me" ,x))
         (("have" var default)
          `("|" ("when" ("no" ,var) ("<=" (,var) ,default))
                ,var))
