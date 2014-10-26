@@ -22,7 +22,7 @@ show F =
 
 GUI = No
 
-widget.input @E =
+widget.input In =
 widget.items = No
 widget.render = Me
 widget.draw G P =
@@ -175,36 +175,36 @@ gui.input Es =
   [mice_move XY]
     | $mice_xy.init{XY}
     | if $mice_focus
-      then $mice_focus.input{mice_move XY XY-$mice_focus_xy}
-      else NW.input{mice_move XY XY-NW_XY}
+      then $mice_focus.input{[mice_move XY XY-$mice_focus_xy]}
+      else NW.input{[mice_move XY XY-NW_XY]}
     | LW = $last_widget
     | when LW^address <> NW^address:
-      | when got LW: LW.input{mice over 0 XY}
+      | when got LW: LW.input{[mice over 0 XY]}
       | $last_widget <= NW
-      | NW.input{mice over 1 XY}
+      | NW.input{[mice over 1 XY]}
   [mice Button State]
     | MP = $mice_xy
     | if $mice_focus
       then | LastClickTime = $click_time.Button
            | when got LastClickTime and T-LastClickTime < 0.25:
-             | NW.input{mice "double_[Button]" 1 MP-NW_XY}
+             | NW.input{[mice "double_[Button]" 1 MP-NW_XY]}
            | $click_time.Button <= T
-           | $mice_focus.input{mice Button State MP-$mice_focus_xy}
+           | $mice_focus.input{[mice Button State MP-$mice_focus_xy]}
            | less State: $mice_focus <= 0
       else | $mice_focus <= NW
            | $mice_focus_xy.init{NW_XY}
-           | NW.input{mice Button State MP-NW_XY}
+           | NW.input{[mice Button State MP-NW_XY]}
     | when State and NW.wants_focus:
       | $focus_xy <= NW_XY
       | $focus_wh <= NW_WH
       | FW = $focus_widget
       | when FW^address <> NW^address:
-        | when got FW: FW.input{focus 0 MP-$focus_xy}
+        | when got FW: FW.input{[focus 0 MP-$focus_xy]}
         | $focus_widget <= NW
-        | NW.input{focus 1 MP-NW_XY}
+        | NW.input{[focus 1 MP-NW_XY]}
   [key Key State] | $keys.Key <= State
                   | D = if got $focus_widget then $focus_widget else NW
-                  | D.input{key Key State}
+                  | D.input{[key Key State]}
   Else |
 | No
 gui.exit @Result =
