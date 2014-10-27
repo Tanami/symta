@@ -6,8 +6,8 @@ Table of Contents
 - What is Symta?
 - Installing Symta
 - Printing Text on Screen
-- Functions
 - Variables and Arithmetics
+- Functions
 - Lists
 - Conditional Evalutation
 - Looping
@@ -63,38 +63,9 @@ If text is just a single lowercase word, there is no need escaping it. I.e. you 
 say hello
 
 
-Functions
-------------------------------
-Good code is flexible and adaptable. The previous program can be improved to this:
-greet Name = "Hello, [Name]!"
-greet "World"
-
-Compiling and running it would produce the same output:
-Hello, World!
-
-Yet the code is different: `greet Name =` declares function `greet`, which takes one argument `Name`; the body of this function, "Hello, [Name]!", is a string construction expression, where `[Name]` denotes that we want to put there the value of Name. The second line, `greet "World"`, invokes the declared function `greet`.
-
-Symta's functions support keywords:
-greet name/"World" = "Hello, [Name]!"
-greet
-greet name/"Symta"
-
-Here `Name` became an optional argument, by default bound to "World".
-
-There is an alternative {}-based syntax for function calls:
-say{"Hello, World!"}
-
-Symta uses {} instead of (), because otherwise `say(hello)` would be indistinguishable from `say  (hello)` - function say taking the result of calling function hello. The {}-syntax also provides additional sugar for lambdas.
-
-In many cases it makes sense to specify function in Forth-style - after the arguments. Symta provides operator `^` to do that:
-"Hello, World!"^say
-
-The `^` is useful, when a lot of calls get chained together left-to-right, so you wont have to think in advance or read right-to-left.
-
-
 Variables and Arithmetics
 ------------------------------
-Symta supports variables and all the basic arithmetics. The example would be arith.s file:
+Symta supports variables and all the basic arithmetics. The example would be main.s file:
 A = 123 // declare first variable
 B = 456 // declare second variable
 say "addition: [A+B]"
@@ -107,7 +78,6 @@ A <= 789 // assign a new value to A
 say "Now A contains [A]"
 !B * 3 // multiply B by 3
 say "Now B contains [B]"
-
 
 The variables A and B behave just like function arguments - they are memory cells, not constants, like mathematical or Haskell's variables. Declaring A second time would hide its previous version for the code, following declaration. The `<=` is used when variable is really have to be reassigned. The operator `!` stores expression result back to variable it prefixes, so `!B*3` is the same as `B <= B*3`.
 
@@ -133,6 +103,38 @@ Note that `2*PI` would produce error, because Symta is strongly typed language a
 say PI*IntegerNumber.float
 
 See "Object Oriented Programming" to learn more about Symta's implementation of methods and objects.
+
+
+Functions
+------------------------------
+Good code is flexible and adaptable. The previous 'hello'-program can be improved to this:
+greet Name = "Hello, [Name]!"
+greet "World"
+
+Compiling and running it would produce the same output:
+Hello, World!
+
+Yet the code is different: `greet Name =` declares function `greet`, which takes one argument `Name`; the body of this function, "Hello, [Name]!", is a string construction expression, where `[Name]` denotes that we want to put there the value of Name. The second line, `greet "World"`, invokes the declared function `greet`.
+
+There is an alternative {}-based syntax for function calls:
+say{"Hello, World!"}
+
+Factorial would be an example of recursive function (a function calling itself):
+factorial N = if N >< 0 then 1 else N*factorial{N-1}
+
+Symta's functions support keywords:
+greet name/"World" = "Hello, [Name]!"
+greet
+greet name/"Symta"
+
+Here `Name` became an optional argument, by default bound to "World".
+
+Symta uses {} instead of (), because otherwise `say(hello)` would be indistinguishable from `say  (hello)` - function say taking the result of calling function hello. The {}-syntax also provides additional sugar for lambdas.
+
+In many cases it makes sense to specify function in Forth-style - after the arguments. Symta provides operator `^` to do that:
+"Hello, World!"^say
+
+The `^` is useful, when a lot of calls get chained together left-to-right, so you wont have to think in advance or read right-to-left.
 
 
 Lists
@@ -308,11 +310,21 @@ case Xs
   [Y<a+b+c @Ys] | "Xs's head is [Y], which is one of a, b or c"
   Else | "some other value: [Else]"
 
-The operator `<` in the pattern expression is used to to match several patterns to a single value.
+The operator `<` in the pattern expression is used to to match several patterns to a single value. The `+` in case of pattern means `or`, so A+B means that value matches either A or B.
 
 If no `Else` handler is present, then 0 will be returned. This allows for combining `case` with `when`:
-when case Xs [A B C] 1: say "Xs is a list of three elements"
+when case Xs [A B C] 1: say "Xs is a list of three elements".
 
+Another example declares a function, that checks if input is a palindrome - sequence invariant under reversing (like `noon` or `racecar`):
+palindrome Xs = case Xs.list
+  [S @Xs &S] | palindrome Xs
+  []+[X] | 1
+
+`Xs.list` converts input into a list, if it is text. The example introduce yet another pattern-matching operator - `&`, which is used to compare with previously bound variables or just an arbitrary expression. The []+[X] matches against empty list or a list of single element.
+
+Symta's pattern matching can also be applied to strings, solving the same problems regular expressions solve
+Filename = "song.mp3"
+say: case Filename "[N].mp3": N // matches a file with .mp3 extension and strips it.
 
 A more advanced example of pattern matching would be parsing a binary file with typical FourCC tagged chunks:
 Chunks = File.get^| @r$[] [4/T.utf8 4/L.u4 L/D @Xs] => [[T D] @Xs^r]
