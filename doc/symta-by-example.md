@@ -354,7 +354,7 @@ When you want to make a method available to all type, declare it with `_` in pla
 _.get_my_typename = Me^typename
 ```
 
-The type `_` denotes the default parent of all objects. But there is a way to declare object without any parent. Use `~` instead of inheritance name.
+The type `_` denotes the default parent of all type. But there is a way to declare a type without any parent. Use `~` instead of inheritance name.
 ```
 type point.~{X Y} x/X y/Y
 ```
