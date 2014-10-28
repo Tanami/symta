@@ -1,4 +1,4 @@
-Learn Symta by Example
+## Learn Symta by Example
 
 
 Table of Contents
