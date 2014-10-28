@@ -47,25 +47,33 @@ NOTE: currently Symta relies on GCC to produce native executables. Make sure you
 Printing Text on Screen
 ------------------------------
 To start with Symta, create a file main.s with the following content:
+```
 say "Hello, World!" //put text on screen
+```
 
 Now invoke Symta compiler by typing at command line:
+```
 symta main.s
+```
 
-Note: this initial file should be called exactly "main.s".
+Note: this initial file should be called exactly `main.s`.
 
-That creates ./lib folder and, more importanly, `./run` executable. Running it produces the following output:
+That creates `./lib` folder and, more importanly, `./run` executable. Running it produces the following output:
+```
 Hello, World!
+```
 
-That is because `say` is a function, that prints on screen its argument, in our case "Hello, World!". The `//` denotes a comment.
+That is because `say` is a function, that prints on screen its argument, in our case `"Hello, World!"`. The `//` denotes a comment.
 
 If text is just a single lowercase word, there is no need escaping it. I.e. you can write just
+```
 say hello
-
+```
 
 Variables and Arithmetics
 ------------------------------
 Symta supports variables and all the basic arithmetics. The example would be main.s file:
+```
 A = 123 // declare first variable
 B = 456 // declare second variable
 say "addition: [A+B]"
@@ -78,29 +86,36 @@ A <= 789 // assign a new value to A
 say "Now A contains [A]"
 !B * 3 // multiply B by 3
 say "Now B contains [B]"
+```
 
 The variables A and B behave just like function arguments - they are memory cells, not constants, like mathematical or Haskell's variables. Declaring A second time would hide its previous version for the code, following declaration. The `<=` is used when variable is really have to be reassigned. The operator `!` stores expression result back to variable it prefixes, so `!B*3` is the same as `B <= B*3`.
 
 Note that all variable names must start from an uppercase letter, while function names start with anything non-uppercase. Such notation makes code more readable and simplifies syntax.
 
 Of course Symta has comparison operators. These return 1 on true and 0 on false. Here they are
+```
 A><B // 1 if A equals B, else 0
 A<>B // 1 if A doesn't equal B, else 0
 A<B // 1 if A is below B, else 0
 A>B // 1 if A is above B
 A<<B // 1 if A is below or equal B
 A>>B // 1 if A is above or equal B
+```
 
 The operator `not` gives 1 for 0 and 0 for anything else
 
-The empty expression, (), would produce value No, which denotes absence of value, similar to null entries in database or NIL value in other Lisps.
+The empty expression, `()`, would produce value No, which denotes absence of value, similar to null entries in database or NIL value in other Lisps.
 
 Additionally, there are floating point numbers:
+```
 PI = 3.14159265
 say 2.0*PI
+```
 
 Note that `2*PI` would produce error, because Symta is strongly typed language and avoids implicit conversion. You must convert you integers to floats, before using them in expressions involving floats. That can be done by invoking method `float` on integer, like that:
+```
 say PI*IntegerNumber.float
+```
 
 See "Object Oriented Programming" to learn more about Symta's implementation of methods and objects.
 
