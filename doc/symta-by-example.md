@@ -38,9 +38,9 @@ Installing Symta
 Symta can be installed by downloading and unpacking the latest release zip file:
 https://github.com/saniv/symta-releases
 
-On Unix extract the zip archive, move to the extracted directory and type "bash build.sh". This should bootstrat the compiler, producing ./symta executable.
+On Unix extract the zip archive, move to the extracted directory and type "bash build.sh". This should bootstrap the compiler, producing ./symta executable.
 
-NOTE: currently Symta relies on GCC to produce native executables. Make sure your PATH variable includes path to gcc's bin folder. On Windows it is adviced to install GCC through mingw64. Currently there are no plans supporting 32-bit architectures, unless someone provides help.
+NOTE: currently Symta relies on GCC to produce native executables. Make sure your PATH variable includes path to gcc's bin folder. On Windows it is advised to install GCC through mingw64. Currently there are no plans supporting 32-bit architectures, unless someone provides help.
 
 
 Printing Text on Screen
@@ -111,7 +111,7 @@ PI = 3.14159265
 say 2.0*PI
 ```
 
-Note that `2*PI` would produce error, because Symta is strongly typed language and avoids implicit conversion. You must convert you integers to floats, before using them in expressions involving floats. That can be done by invoking method `float` on integer, like that:
+Note that `2*PI` would produce error, because Symta is strongly typed language and avoids implicit conversion. You must convert your integers to floats, before using them in expressions involving floats. That can be done by invoking method `float` on integer, like that:
 ```
 say PI*IntegerNumber.float
 ```
@@ -166,7 +166,7 @@ The `^` is useful, when a lot of calls get chained together left-to-right, so yo
 
 Lists
 ------------------------------
-After all, Symta is a list processing language, so it provides succinct syntax to express lists and operations on them.
+After all, Symta is a list processing language, so it provides a concise way to express lists and operations on them.
 ```
 Xs = [hello world 123] // create a simple list with three values
 Ys = [an other list]
@@ -287,12 +287,12 @@ P.y <= 456
 say "created a point: [P]"
 ```
 
-The expression "type point x y" does several things: register's new type `point` with Symta's runtime and provides constructor function `point`, which creates instance of `point` type, with fields `x` and `y` - both initialized to 0. The `point` type already has method `is_point` defined on it, and all other objects too gain this method. The `point.as_text` declares a method, invoked by functions like `say` to get textual representation of objects. The $x and $y are shorthands for Me.x and Me.y, where Me is a way to reference object inside of a method, similar to `this` pointer in C++ and `self` in Smalltalk.
+The expression "type point x y" does several things: registers new type `point` with Symta's runtime and provides constructor function `point`, which creates instance of `point` type, with fields `x` and `y` - both initialized to 0. The `point` type already has method `is_point` defined on it, and all other objects too gain this method. The `point.as_text` declares a method, invoked by functions like `say` to get textual representation of objects. The $x and $y are shorthands for Me.x and Me.y, where Me is a way to reference object inside of a method, similar to `this` pointer in C++ and `self` in Smalltalk.
 
 Note: when type declaration is available, Symta compiles the Me.field_name call to an array look-up, which is somewhat faster than function call.
 
 
-If method takes arguments, they can be specified using `{}`. For example:
+If a method takes arguments, they can be specified using `{}`. For example:
 ```
 point.set_x_and_y A B = | $x <= A
                         | $y <= B
@@ -304,7 +304,7 @@ If you dislike `{` and `}`, there is a function-style syntax to invoke a method:
 @set_x_and_y 666 777 P
 ```
 
-Initializing fields with `<=` is too verbose, so symta provides a shorthand for that, which allows to rewrite previous example more succinctly:
+Initializing fields with `<=` is too verbose, therefore symta provides a shorthand for that, which allows writing a tighter version of previous example:
 ```
 type point{X Y} x/X y/Y
 point.as_text = "[$x], [$y]"
@@ -321,7 +321,7 @@ P = point 123 456
 
 Now, after initializing the fields, constructor evaluates its body - the `| say "created a point: [Me]"`.
 
-Sometimes we can reuse pre-existing functionality. To do that Symta provides inheritance. Here is how we can declare a `circle` type, which extends point with a radius around it:
+Sometimes we can reuse pre-existing functionality. To do that, Symta provides inheritance. Here is how we can declare a `circle` type, which extends point with a radius around it:
 ```
 type circle{X Y R} base/point{X Y} radius/R
 circle.as_text = "point [$base] with radius [$radius]"
@@ -347,7 +347,7 @@ Functionality presented above should be enough for most uses, but sometimes we n
 point._ Method Args = send_to ServerIP ServerPort Method Args
 ```
 
-Now all undeclared methods get redirected to send_to. This tehnique is called 'sinking'. Although doing that would be a little overkill for a humble `point` type.
+Now all undeclared methods get redirected to send_to. This technique is called 'sinking'. Although doing that would be a little overkill for a humble `point` type.
 
 When you want to make a method available to all type, declare it with `_` in place of type name:
 ```
@@ -364,7 +364,7 @@ Now type `point` doesn't inherit any methods from `_`. This is especially useful
 
 Pattern Matching
 ------------------------------
-Lists pose a problem of transforming them and accesing their elements in a succinct and robust way. Symta was designed specially to process lists efficiently. An example shows how Symta handles accessing list elements:
+Lists pose a problem of transforming them and accessing their elements in quick and robust way. Symta was designed specially to process lists efficiently. An example shows how Symta handles accessing list elements:
 ```
 Xs = [1 2 3]
 [X Y Z] = Xs // X=1, Y=2, Z=3
@@ -457,7 +457,7 @@ The `text.parse` method comes from the `reader` module and won't be available, u
 
 Note, that `use` keyword should come as the first line in the file.
 
-Of course you can write your own custom modules. All that required is to write an `.s` file and add `export` keyword at the end, to specify what you want to export. For example, the `greet` code from the first example can be packed into a semarate `module.s` file
+Of course you can write your own custom modules. All that required is to write an `.s` file and add `export` keyword at the end, to specify what you want to export. For example, the `greet` code from the first example can be packed into a separate `module.s` file
 ```
 greet Name = "Hello, [Name]!"
 export greet
@@ -469,7 +469,7 @@ use module
 greet "World"
 ```
 
-By default, Symta's comiler searches for modules in the compiler's `./src` directory and the direcotry of the file, that tries to use the module. During compilation, Symta traces dependencies and recompiles all changed modules. Don't call your modules `main.s`, because `main` is reserved for the entry module, which gets called on startup by runtime.
+By default, Symta's comiler searches for modules in the compiler's `./src` directory and the directory of the file, that tries to use the module. During compilation, Symta traces dependencies and recompiles all changed modules. Don't call your modules `main.s`, because `main` is reserved for the entry module, which gets called on startup by runtime.
 
 
 
@@ -482,7 +482,7 @@ export 'pi'
 ```
 
 note how we export `pi` like any other function, but inside `''` quotes
-now calling the `pi 2.0` would procude `6.28318530` at compile time, without wasting any runtime resources.
+now calling the `pi 2.0` would produce `6.28318530` at compile time, without wasting any runtime resources.
 
 Macros get their arguments unevaluated, as is, so `pi [1.0 2.0]` would produce a compile-time error.
 
