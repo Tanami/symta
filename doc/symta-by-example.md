@@ -13,7 +13,6 @@ Table of Contents
 - Looping
 - Object Oriented Programming
 - Pattern Matching
-- Syntatic Sugar
 - Module System
 - Macros
 - Memory Management
@@ -290,6 +289,9 @@ say "created a point: [P]"
 
 The expression "type point x y" does several things: register's new type `point` with Symta's runtime and provides constructor function `point`, which creates instance of `point` type, with fields `x` and `y` - both initialized to 0. The `point` type already has method `is_point` defined on it, and all other objects too gain this method. The `point.as_text` declares a method, invoked by functions like `say` to get textual representation of objects. The $x and $y are shorthands for Me.x and Me.y, where Me is a way to reference object inside of a method, similar to `this` pointer in C++ and `self` in Smalltalk.
 
+Note: when type declaration is available, Symta compiles the Me.field_name call to an array look-up, which is somewhat faster than function call.
+
+
 If method takes arguments, they can be specified using `{}`. For example:
 ```
 point.set_x_and_y A B = | $x <= A
@@ -297,8 +299,10 @@ point.set_x_and_y A B = | $x <= A
 P.set_x_and_y{666 777}
 ```
 
-
-Note: when type declaration is available, Symta compiles the Me.field_name call to an array look-up, which is somewhat faster than function call.
+If you dislike `{` and `}`, there is a function-style syntax to invoke a method:
+```
+@set_x_and_y 666 777 P
+```
 
 Initializing fields with `<=` is too verbose, so symta provides a shorthand for that, which allows to rewrite previous example more succinctly:
 ```
@@ -437,3 +441,75 @@ Finally, the body of lambda produces `[[T D] @Xs^r]`, where `[T D]` is the tag o
 
 It should be noted, that `utf8` and `u4` are simply methods defined on list type, so you can declare you own methods to work with pattern matching and even pattern-match non-list objects.
 
+
+Module System
+------------------------------
+With Symta each `.s` file is a module in itself. By default `.s` files import sytem modules `rt_`, `core_` and `macro_`, which provide all the basic functions, methods and macros. But there are additional modules to put graphics on screen and evaluate Symta's code during runtime.
+
+Available modules can be imported using the `use` keyword. For example, here is how the module `reader` could be exposed to the current code:
+```
+use reader
+
+say: @parse '(A+B)/C+1' //parse expression into syntax tree
+```
+
+The `text.parse` method comes from the `reader` module and won't be available, unless you `use reader`. That is because initializing reader structures, when you don't need it, wastes time and memory.
+
+Note, that `use` keyword should come as the first line in the file.
+
+Of course you can write your own custom modules. All that required is to write an `.s` file and add `export` keyword at the end, to specify what you want to export. For example, the `greet` code from the first example can be packed into a semarate `module.s` file
+```
+greet Name = "Hello, [Name]!"
+export greet
+```
+
+now `main.s` in the same directory uses `module.s` like that:
+```
+use module
+greet "World"
+```
+
+By default, Symta's comiler searches for modules in the compiler's `./src` directory and the direcotry of the file, that tries to use the module. During compilation, Symta traces dependencies and recompiles all changed modules. Don't call your modules `main.s`, because `main` is reserved for the entry module, which gets called on startup by runtime.
+
+
+
+Macros
+------------------------------
+Macros provide a way to do computation at compile time, generate code algorithmically and declare your own statements, like `mtx`, `when` or `while`. Before use, macros have to be declared in a separate module. Here is how you can define a module with the `pi` macro, which provides a well know math constant multiplied by some value:
+```
+pi Multiplier = Multiplier*3.14159265
+export 'pi'
+```
+
+note how we export `pi` like any other function, but inside `''` quotes
+now calling the `pi 2.0` would procude `6.28318530` at compile time, without wasting any runtime resources.
+
+Macros get their arguments unevaluated, as is, so `pi [1.0 2.0]` would produce a compile-time error.
+
+Here is how a custom version of `when` macro can be defined:
+```
+when @Cond Body = ['if' Cond Body No]
+```
+
+Above macro returns a list, which is the actual representation of Symta's code for `(if Cond then Body else No)`, after it gets parsed inside of memory.
+
+To simplify writing macros macros, there is the `form` macros, used to to generate code without messy escape codes, explicit lists, quotes and manually creating unique variables names:
+```
+when @Cond Body = form: if Cond then Body else No
+```
+
+
+Memory Management
+------------------------------
+
+Non-local Return
+------------------------------
+
+Command-Line Arguments
+------------------------------
+
+Core Library
+------------------------------
+
+Comparison to Other Languages
+------------------------------
