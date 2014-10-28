@@ -320,11 +320,12 @@ palindrome Xs = case Xs.list
   [S @Xs &S] | palindrome Xs
   []+[X] | 1
 
-`Xs.list` converts input into a list, if it is text. The example introduce yet another pattern-matching operator - `&`, which is used to compare with previously bound variables or just an arbitrary expression. The []+[X] matches against empty list or a list of single element.
+`Xs.list` converts input into a list, if it is text. The example introduces yet another pattern-matching operator - `&`, which is used to compare with previously bound variables or just an arbitrary expression. The []+[X] matches against empty list or a list of single element.
 
 Symta's pattern matching can also be applied to strings, solving the same problems regular expressions solve
 Filename = "song.mp3"
-say: case Filename "[N].mp3": N // matches a file with .mp3 extension and strips it.
+Name = case Filename "[N].mp3": N // matches a file with .mp3 extension and strips it.
+say Name // print "song"
 
 A more advanced example of pattern matching would be parsing a binary file with typical FourCC tagged chunks:
 Chunks = File.get^| @r$[] [4/T.utf8 4/L.u4 L/D @Xs] => [[T D] @Xs^r]

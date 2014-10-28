@@ -366,7 +366,7 @@ expand_method_arg_r A FX FY =
     | when M.0 >< '?'
       | V <= '??'
       | M <= M.tail
-    | when M.is_digit: M <= M.int{10}
+    | when M.is_digit: M <= M.int
     | leave: expand_method_arg_r ['.' V M] FX FY
 | less A.is_list: leave A
 | case A

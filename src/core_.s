@@ -675,7 +675,11 @@ list.sort @As =
   | [@Xs^h H @Ys^h]
 | h $shuffle
 
-text.int Radix =
+
+//= parse text as integer; an optional argument provides Radix
+text.int @Radix =
+| Rdx = 10
+| when Radix.size: Rdx <= Radix.0
 | T = Me.upcase
 | N = $size
 | I = 0
@@ -689,7 +693,7 @@ text.int Radix =
 | while I < N
   | C = T.I.code
   | V = if '0'.code << C and C << '9'.code then C - Base else C - AlphaBase
-  | R <= R*Radix + V
+  | R <= R*Rdx + V
   | !I + 1
 | R*Sign
 

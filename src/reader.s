@@ -221,7 +221,7 @@ parse_term =
 | P = case Tok.symbol
          escape+symbol+text | leave Tok
          splice | [(token symbol `"` Tok.src 0) @V^parse_tokens] //"
-         integer | V.int{10}
+         integer | V.int
          hex | V.tail.int{16}
          void | No
          `()` | parse_tokens V
