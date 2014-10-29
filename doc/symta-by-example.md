@@ -549,66 +549,100 @@ This section provides a quick reference of the content of cors_.s and rt_.s file
 
 ``t Key0(Value1) Key1(Value1) ... KeyN(ValueN)`` - new hashtable
 
-
 `meta{Object MetaInfo}` - attach MetaInfo to Object
+
 `_.meta_` - get object's metainfo
 
 `main_args` - arguments passed from command line
+
 `main_root` - directory where the program executable resides
 
 `list.flip` - reverse elements of a list
+
 `list.take N` - take N elements from the beginning of a list
+
 `list.drop N` - drop N elements from the beginning of a list
+
 `list.head` - first element of a list
+
 `list.tail` - all but first elements of a list
+
 `list.last` - last element of list
+
 `list.lead` - all but last elements of a list
+
 `list.size` - number of elements in a list
+
 `list.replace A B` - seacches for `A` and replaces it with `B`.
+
 `list.group N` - break list's element into lists of N elements
+
 `list.all F` - true if all of list's elements are F
+
 `list.any F` - true if any of list's elements are F
+
 `list.max` - element with largest value
+
 `list.min` - element with smalles value
+
 `list.i` - produces a list of elements of source list paired with their position indices
+
 `list.del Index` - created a new list without the element at index `Index`
+
 `list.sort` - elements of a list in sorted order
+
 `list.shuffle` - elements of a list in random order
+
 `list.locate F` - position index of `F` in list or `No`
+
 `list.find F` - returns the first element matching `F` or `No`
+
 `list.infix Item` - put `Item` between elements of a list
+
 `list.sum` - sum of elements in a list
+
 `list.transpose` - matrix transpose
+
 `list.bytes` - coerce list of integers to an efficient internal representation, using only 8 bites for each value
 
 `_..as_text` - convert object to textual represenation
+
 `int.x` - heXadecimal textual representation of an integer
 
 `text.title` - capitalizes text
+
 `text.trim` - removes spaces at left or right of a text
+
 `text.int @Radix` - parse text as integer; Radix is optional, defaulting to 10 
 
 `unix ShellCommand` - call external command
 
 `text.exists` = checks if file/directory exist
+
 `text.time` = file/directory modification time
+
 `text.mkpath` - makes a direcotry
 
-
 `list.utf8` - decode list of utf8 bytes as text
+
 `text.utf8` - encode text as list of utf8 bytes
 
 `text.url` - break pathname into components
+
 `list.unril` - does the opposite
 
 `int.rand` - random number between 0 and integer inclusive
+
 `float.rand` - random number between 0 and float inclusive
+
 `list.rand` - random element from a list
 
 `int.sign` - sign of a value
+
 `int.abs` - absolute value of an integer
 
 `int.clip A B` - integer clipped between `A` and `B` inclusive
+
 `float.clip A B` - float clipped between `A` and `B` inclusive
 
 
