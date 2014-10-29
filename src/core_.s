@@ -31,7 +31,7 @@ list.copy = map X Me X
 _.deep_copy = Me
 list.deep_copy = map X Me X.deep_copy
 
-_.methods_ = Me^methods_.table
+methods Object = Object^methods_.table
 
 _.`{}` F = $map{F}
 fn.`{}` @As = As.apply{Me}
@@ -613,7 +613,7 @@ list.digits Base =
 
 type macro{new_macro N E} name/N expander/E
 
-type meta.~{new_meta O M} object_/O meta_/M
+type meta.~{meta O M} object_/O meta_/M
 _.meta_ = No
 meta._ Method Args =
 | Args.0 <= $object_
@@ -746,4 +746,4 @@ list.overlaps [BX BY BW BH] =
 
 list.init Src = times I $size: $I <= Src.I
 
-export non say bad no got table_ new_macro new_meta main_root
+export non say bad no got table_ new_macro meta main_root methods

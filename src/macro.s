@@ -831,7 +831,7 @@ mex Expr =
   [X@Xs] | Src = when Expr.is_meta: Expr.meta_ 
          | let GSrc (if got Src then Src else GSrc)
            | Result = mex_normal X Xs
-           | when got Src and Result.is_list: Result <= new_meta Result Src
+           | when got Src and Result.is_list: Result <= meta Result Src
            | Result
 
 macroexpand Expr Macros ModuleCompiler ModuleFolders =

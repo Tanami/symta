@@ -332,7 +332,7 @@ parse_strip X =
        | for V X
          | when case V [U@Us] U^token_is{`!`} and not case X [Z@Zs] Z^token_is{`!`}:
            | leave [`!!` @Ys]
-       | when got Meta and Meta.2 <> '<none>': Ys <= new_meta Ys Meta
+       | when got Meta and Meta.2 <> '<none>': Ys <= meta Ys Meta
        | Ys
   else X
 

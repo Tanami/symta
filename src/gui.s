@@ -61,7 +61,7 @@ tabs._ Method Args =
 type canvas.widget{W H P} w/W h/H paint/P
 canvas.draw G P = case Me (F<~).paint: F G P $w $h 
 
-type lay.widget{D S Xs} w/1 h/1 dir/D spacing/S items/Xs{(new_meta ? [0 0 1 1])}
+type lay.widget{D S Xs} w/1 h/1 dir/D spacing/S items/Xs{(meta ? [0 0 1 1])}
 lay.draw G P =
 | D = $dir
 | S = $spacing
@@ -81,7 +81,7 @@ lay.draw G P =
   | N <= case D v(N+H+S) h(N+W+S)
 
 type dlg.widget{Xs w/No h/No} w/W h/H ws items rs
-| $ws <= Xs{[X Y W]=>[X Y (new_meta W [0 0 1 1])]}
+| $ws <= Xs{[X Y W]=>[X Y (meta W [0 0 1 1])]}
 | $items <= $ws{}{?2}.flip
 dlg.render =
 | when got!it $items.locate{?above_all}:
