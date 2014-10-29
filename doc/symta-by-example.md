@@ -536,4 +536,4 @@ Comparison to Other Languages
 
 Thanks
 ------------------------------
-Thanks to the /prog/riders of http://bbs.progrider.org/prog/ for helping me with tutorial and criticizing the early language design.
+Thanks to the /prog/riders of http://bbs.progrider.org/prog/ for helping me with this tutorial and criticizing the early language design.
