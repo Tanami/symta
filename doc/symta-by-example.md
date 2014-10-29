@@ -250,7 +250,7 @@ Looping
 ------------------------------
 Repeating expression or running it through a list of elements is a common task. Symta provides several constructs to handle that:
 ```
-times I 20: say I // iterate ove numbers below 20 and print them
+times I 20: say I // iterate over numbers below 20 and print them
 Xs = [1 2 3 4 5 6 7 8 9]
 for X Xs: say X*X // print squares of Xs elements
 Ys = map X Xs: X*X // collect the same squares for future use
