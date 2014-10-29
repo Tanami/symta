@@ -17,6 +17,7 @@ Table of Contents
 - Macros
 - Memory Management
 - Non-local Return
+- Foreign Function Interface
 - Comparison to Other Languages
 - Core Library
 - Thanks
@@ -539,6 +540,8 @@ Memory Management
 Non-local Return
 ------------------------------
 
+Foreign Function Interface
+------------------------------
 
 Comparison to Other Languages
 ------------------------------
