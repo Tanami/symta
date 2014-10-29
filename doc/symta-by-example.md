@@ -265,7 +265,7 @@ say: dup N // equivalent to: dup I N 0
 say: dup N: X // equivalent to: dup I N X
 ```
 
-Symta also provides simpler and more verbose loop constructs, like gotoes, while and till:
+Symta also provides simpler and more verbose loop constructs - gotoes (see Macros section), `while` and `till`:
 ```
 I = 0
 while I < 10
@@ -299,9 +299,9 @@ P.y <= 456
 say "created a point: [P]"
 ```
 
-The expression "type point x y" does several things: registers new type `point` with Symta's runtime and provides constructor function `point`, which creates instance of `point` type, with fields `x` and `y` - both initialized to 0. The `point` type already has method `is_point` defined on it, and all other objects too gain this method. The `point.as_text` declares a method, invoked by functions like `say` to get textual representation of objects. The $x and $y are shorthands for Me.x and Me.y, where Me is a way to reference object inside of a method, similar to `this` pointer in C++ and `self` in Smalltalk.
+The expression "type point x y" does several things: registers new type `point` with Symta's runtime and provides constructor function `point`, which creates instance of `point` type, with fields `x` and `y` - both initialized to 0. The `point` type already has method `is_point` defined on it, and all other objects too gain this method. The `point.as_text` declares a method, invoked by functions like `say` to get textual representation of objects. The `$x` and `$y` are shorthands for `Me.x` and `Me.y`, where `Me` is a way to reference object inside of a method, similar to `this` pointer in C++ and `self` in Smalltalk.
 
-Note: when type declaration is available, Symta compiles the Me.field_name call to an array look-up, which is somewhat faster than function call.
+Note: when type declaration is available, the `Me.field_name` call compiles to an array look-up, which is somewhat faster than a function call.
 
 
 If a method takes arguments, they can be specified using `{}`. For example:
@@ -324,7 +324,7 @@ P = point 123 456
 say "created a point: [P]"
 ```
 
-Now constructor `point` takes two arguments X and Y and assigns them to the respective fields. Expressing ideas with a few keystrokes is useful, but there are cases when you need to add more stuff into constructor, like for examply notifying the user when each point is created for debug purposes. To do that Symta allow adding this `|` body to constructor:
+Now constructor `point` takes two arguments `X` and `Y` and assigns them to the respective fields. Expressing ideas with a few keystrokes is useful, but there are cases when you need to add more stuff into constructor, like for examply notifying the user when each point is created for debug purposes. To do that Symta allow adding this `|` body to constructor:
 ```
 type point{X Y} x/X y/Y | say "created a point: [Me]"
 point.as_text = "[$x], [$y]"
