@@ -511,10 +511,21 @@ my_when @Cond Body = ['if' Cond Body No]
 
 Above macro returns a list, which is the actual representation of Symta's code for `(if Cond then Body else No)`, after it gets parsed inside of memory.
 
-To simplify writing macros, there is the `form` macros, used to to generate code without messy escape codes, explicit lists, quotes and manually creating unique variables names:
+To simplify writing macros, there is the `form` macro, used to generate code without messy escaping with `''` quotes, explicit lists and manually creating unique variables names:
 ```
-when @Cond Body = form: if Cond then Body else No
+my_when @Cond Body = form: if Cond then Body else No
 ```
+
+Neither Symta's core, nor your computer's central processing unit know about `map` or `while` loops. The only looping capability CPU has is the goto instruction (sometimes called "jump" or "branch"). The next common macro example is the definition of the while loop through the goto instruction:
+```
+my_while @Head Body = form: _progn (_label ~L)
+                                   (if Head
+                                    then _progn Body (_goto ~L)
+                                    else No)
+```
+
+The example uses the three lowest level Symta's constuct, rarely used normally; they are: `_progn`, `_label` and `_goto`. The `_progn` is a low-level version of `|`, which doesn't allow variable declarations, lambdas, local functions and other fance stuff. The only special thing `_progn` allows inside is the `(_label LabelName)` construct, which declares a label, that can be referenced by a local `_goto` around it. In case of `my_while`, the `LabelName` is `~L`, where the `~` prefix specifies that label name must be unique to avoid conflicts with other variable names; such functionality is called "auto-gensym" in other Lisps.
+
 
 Memory Management
 ------------------------------
