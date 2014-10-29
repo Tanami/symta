@@ -396,7 +396,7 @@ say "Ys = [Ys]"
 say "Zs = [Zs]"
 ```
 
-Here `[@Ys needle @Zs]` splits Xs on the `needle`, giving two lists: `Ys` and `Zs`
+Here `[@Ys needle @Zs]` splits `Xs` on the `needle`, giving two lists: `Ys` and `Zs`
 
 Function arguments can be destructured the same way:
 ```
@@ -465,7 +465,7 @@ Again `@r` - makes a shorthand synonym `r` for `qsort`, `$[]` provides a default
 
 Module System
 ------------------------------
-With Symta each `.s` file is a module in itself. By default `.s` files import sytem modules `rt_`, `core_` and `macro_`, which provide all the basic functions, methods and macros. But there are additional modules to put graphics on screen and evaluate Symta's code during runtime.
+With Symta each `.s` file is a module in itself. By default `.s` files import system modules `rt_`, `core_` and `macro_`, which provide all the basic functions, methods and macros. But there are additional modules to put graphics on screen and evaluate Symta's code during runtime.
 
 Available modules can be imported using the `use` keyword. For example, here is how the module `reader` could be exposed to the current code:
 ```
