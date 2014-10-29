@@ -258,7 +258,7 @@ Ys = map X Xs: X*X // collect the same squares for future use
 say "Ys = [Ys]"
 ```
 
-Using macro `dup` is the way to quickly crate new list out of nothing. Its first argument is a loop variable, the second is the size of list, the third is an expression used to generate an element of list based on its position. It supports two shorthands:
+Using macro `dup` is the way to quickly create a new list out of nothing. Its first argument is a loop variable, the second is the size of list, the third is an expression used to generate an element of list based on its position. It supports two shorthands:
 ```
 say: dup I 10 I // sequence of all numbers below 10
 say: dup N // equivalent to: dup I N 0
@@ -396,7 +396,7 @@ say "Ys = [Ys]"
 say "Zs = [Zs]"
 ```
 
-Here `[@Ys needle @Zs]` splits Xs on the needle, giving two lists: Ys and Zs
+Here `[@Ys needle @Zs]` splits Xs on the `needle`, giving two lists: `Ys` and `Zs`
 
 Function arguments can be destructured the same way:
 ```
