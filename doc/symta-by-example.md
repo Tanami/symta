@@ -20,14 +20,14 @@ Table of Contents
 - Command-Line Arguments
 - Core Library
 - Comparison to Other Languages
-
+- Thanks
 
 
 What is Symta?
 ------------------------------
 Symta is a novel dialect of Lisp programming language. Symta features succinct syntax, geared towards list-processing, and innovative approach to memory management, without requiring pause-inducing garbage collection or manual deallocation.
 
-An example of Symta's expressiveness could be the implementation of quick sort algorithm, which takes just single line of Symta code
+An example of Symta's expressiveness could be the implementation of quick sort algorithm, which takes just single line of Symta code:
 ```
 qsort@r$[] [H@T] = [@T.keep{?<H}^r H @T.skip{?<H}^r]
 ```
@@ -454,6 +454,15 @@ Finally, the body of lambda produces `[[T D] @Xs^r]`, where `[T D]` is the tag o
 It should be noted, that `utf8` and `u4` are simply methods defined on list type, so you can declare you own methods to work with pattern matching and even pattern-match non-list objects.
 
 
+Now we can understand the earlier quick-sort example:
+```
+qsort@r$[] [H@T] = [@T.keep{?<H}^r H @T.skip{?<H}^r]
+```
+
+Again `@r` - makes a shorthand synonym `r` for `qsort`, `$[]` provides a default value, when input doesn't match `[H@T]` - i.e. a non-list or an empty list. The `[H@T]` binds the first element of the input list to `H`, while the list's tail gets bound to `T`. In the body we have A=`T.keep{?<H}^r` (keep all elements less than `H` and apply `qsort` recursively), B=`T.skip{?<H}^r` - same but with skipped elements, finally we concatenate A and B result, with `H` in the middle `[@A H @B]`. That example isn't the fastest quick-sort implementation, but it is fast enough for most uses, yet requires little effort to write in Symta.
+
+
+
 Module System
 ------------------------------
 With Symta each `.s` file is a module in itself. By default `.s` files import sytem modules `rt_`, `core_` and `macro_`, which provide all the basic functions, methods and macros. But there are additional modules to put graphics on screen and evaluate Symta's code during runtime.
@@ -510,7 +519,6 @@ To simplify writing macros macros, there is the `form` macros, used to to genera
 when @Cond Body = form: if Cond then Body else No
 ```
 
-
 Memory Management
 ------------------------------
 
@@ -525,3 +533,7 @@ Core Library
 
 Comparison to Other Languages
 ------------------------------
+
+Thanks
+------------------------------
+Thanks to the /prog/riders of http://bbs.progrider.org/prog/ for helping me with tutorial and criticizing the early language design.
