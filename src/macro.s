@@ -845,7 +845,10 @@ macroexpand Expr Macros ModuleCompiler ModuleFolders =
   | R
 
 list @Xs = form [$@Xs]
-mtx Xs = form [$@(Xs.tail{}{[`[]` @?]})]
+
+mtx @Xs =
+| Ys = map X Xs: case X [`|` @Zs](Zs{[`[]` @?]}) X[X]
+| form [$@(Ys.join)]
 
 cons F Xs = form 
 | ~R = 0
