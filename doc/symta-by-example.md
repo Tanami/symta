@@ -354,7 +354,7 @@ point.end = 0
 Now point has all methods `list` has, like `map` and `sum`. The methods `head`, `tail` and `end` are required for all types implementing list functionality.
 
 
-Functionality presented above should be enough for most uses, but sometimes we need even more flexibility, like when you want to delegate all undefined method calls to an object running on the remote server through an RPC interface. Symta allows that:
+Functionality presented above should be enough for most uses, but sometimes we need even more flexibility, like when you want to delegate all undefined method calls to an object running on some remote server through an RPC interface. Symta allows that:
 ```
 point._ Method Args = send_to ServerIP ServerPort Method Args
 ```
