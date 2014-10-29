@@ -511,7 +511,7 @@ my_when @Cond Body = ['if' Cond Body No]
 
 Above macro returns a list, which is the actual representation of Symta's code for `(if Cond then Body else No)`, after it gets parsed inside of memory.
 
-To simplify writing macros macros, there is the `form` macros, used to to generate code without messy escape codes, explicit lists, quotes and manually creating unique variables names:
+To simplify writing macros, there is the `form` macros, used to to generate code without messy escape codes, explicit lists, quotes and manually creating unique variables names:
 ```
 when @Cond Body = form: if Cond then Body else No
 ```
