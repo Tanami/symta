@@ -125,7 +125,7 @@ Functions
 ------------------------------
 Good code is flexible and adaptable. The previous 'hello'-program can be improved to this:
 ```
-greet Name = "Hello, [Name]!"
+greet Name = say "Hello, [Name]!"
 greet "World"
 ```
 
@@ -150,7 +150,7 @@ factorial N = if N >< 0 then 1 else N*factorial{N-1}
 
 Symta's functions support keywords:
 ```
-greet name/"World" = "Hello, [Name]!"
+greet name/"World" = say "Hello, [Name]!"
 greet
 greet name/"Symta"
 ```
@@ -480,7 +480,7 @@ Note, that `use` keyword should come as the first line in the file.
 
 Of course you can write your own custom modules. All that required is to write an `.s` file and add `export` keyword at the end, to specify what you want to export. For example, the `greet` code from the first example can be packed into a separate `module.s` file
 ```
-greet Name = "Hello, [Name]!"
+greet Name = say "Hello, [Name]!"
 export greet
 ```
 
