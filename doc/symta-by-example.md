@@ -440,10 +440,10 @@ Chunks = File.get^| @r$[] [4/T.utf8 4/L.u4 L/D @Xs] => [[T D] @Xs^r]
 
 That expression may look cryptic at first, because it packs a lot of stuff into single line. Here is what it does:
 - `File.get` - retrives the content of File as a list of bytes
-- A^B - syntatic sugar for applying a function B to value A (same as `B A` or B{A})
+- `A^B` - syntatic sugar for applying a function `B` to the value of `A` (same as `B A` or `B{A}`)
 - `| @r$[] Args => Body` is a lambda expression
 - `@r` - allows to self reference the lambda inside of the Body by name `r`
-- `$[]` - makes [] a default value, returned if input doesn't match the pattern [4/T.utf8 4/L.u4 L/D @Xs]
+- `$[]` - makes `[]` a default value, returned if input doesn't match the pattern `[4/T.utf8 4/L.u4 L/D @Xs]`
 
 
 The most complex part is `[4/T.utf8 4/L.u4 L/D @Xs]`, which binds `T` to the value of the first 4 bytes decoded as utf8 text, then binds `L` to the next four bytes conveted to 32-bit unsigned integer, afterwards D gets binded to a list of `L` bytes, that follows the 8 already parsed bytes. The `Xs` is bound to the rest of bytes.
