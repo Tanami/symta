@@ -272,7 +272,7 @@ while I < 10
 | !I + 1
 ```
 
-Here the `|` acts like off-side rule or semicolon with curly braces in other languages. The `|`s at the same indentation level are take as single sequence of statements.
+Here the `|` acts like off-side rule or semicolon with curly braces in other languages. The `|`s at the same indentation level are taken as a single sequence of statements.
 
 The `map` functionality also exists as a method `{}`:
 ```
