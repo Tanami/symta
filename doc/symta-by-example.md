@@ -233,6 +233,16 @@ when A or B: say "Either A or B is true"
 
 Here the operator `:` is mandatory and specifies the evaluation order, because (when A and B say hello) would be evaluated as `when A and (B say hello)`
 
+Another secret, the `:` operator hides, is the subexpression binding:
+```
+Words = No
+get_words = Words
+
+when got !it get_words: say it
+Words <= [a list of words]
+when got !it get_words: say it
+```
+The `got` checks if value doesn't equal `No`, while `!it` binds the result of get_words to `it` (before passing it to got), and exposes this variable for the right hand side of `:`. Note that variable name before `!` should start from a lowercase letter, liket `it`.
 
 
 Looping
@@ -359,7 +369,7 @@ The type `_` denotes the default parent of all type. But there is a way to decla
 type point.~{X Y} x/X y/Y
 ```
 
-Now type `point` doesn't inherit any methods from `_`. This is especially useful, when you wan't to catch all methods as undefined.
+Now type `point` doesn't inherit any methods from `_`. This is especially useful, when you wan't to catch all methods as undefined or supply your own master type.
 
 
 Pattern Matching
