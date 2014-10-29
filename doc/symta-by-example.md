@@ -502,12 +502,9 @@ pi Multiplier = Multiplier*3.14159265
 export 'pi'
 ```
 
-note how we export `pi` like any other function, but inside `''` quotes
-now calling the `pi 2.0` would produce `6.28318530` at compile time, without wasting any runtime resources.
+Note how we export `pi` like any other function, but inside thr `''` quotes. Now calling the `pi 2.0` would produce `6.28318530` at compile time, without wasting any runtime resources.
 
-Macros get their arguments unevaluated, as is, so `pi [1.0 2.0]` would produce a compile-time error.
-
-Here is how a custom version of `when` macro can be defined:
+Macros get their arguments unevaluated, as is, so `pi [1.0 2.0]` would produce a compile-time error. Yet such behaviour is benefical, because it allows us to transform unevaluated arguments on the syntax level, using arbitrary rules. Here is how a custom version of `when` macro can be defined:
 ```
 my_when @Cond Body = ['if' Cond Body No]
 ```
