@@ -219,7 +219,7 @@ say if 'hello' then 123 else 456  // prints 123
 Any non-zero value is true and triggers `then` clause, while zero would trigger the evaluation of value after `else`.
 
 
-When else clause is empty, Symta's standard library provides two shorthand macros:
+When either then or else clause is empty, Symta's standard library provides two shorthand macros:
 ```
 when C: say 'C <> 0'  // same as if C then say 'C <> 0' else
 less C: say 'C >< 0'  // same as if C then  else say 'C >< 0'
@@ -509,7 +509,7 @@ Macros get their arguments unevaluated, as is, so `pi [1.0 2.0]` would produce a
 
 Here is how a custom version of `when` macro can be defined:
 ```
-when @Cond Body = ['if' Cond Body No]
+my_when @Cond Body = ['if' Cond Body No]
 ```
 
 Above macro returns a list, which is the actual representation of Symta's code for `(if Cond then Body else No)`, after it gets parsed inside of memory.
