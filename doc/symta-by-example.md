@@ -28,7 +28,9 @@ What is Symta?
 Symta is a novel dialect of Lisp programming language. Symta features succinct syntax, geared towards list-processing, and innovative approach to memory management, without requiring pause-inducing garbage collection or manual deallocation.
 
 An example of Symta's expressiveness could be the implementation of quick sort algorithm, which takes just single line of Symta code
+```
 qsort@r$[] [H@T] = [@T.keep{?<H}^r H @T.skip{?<H}^r]
+```
 
 Despite a lot of consing, calling the qsort function doesn't generate garbage.
 
@@ -285,7 +287,7 @@ The `=>` is the lambda operator, which expresses anonymous function. In our case
 
 Object Oriented Programming
 ------------------------------
-Symta has unique approach to type system. The most striking difference is that Symta mixes class-based and prototype based OOP approaches. Compared to other dynamic languages, Symta's method calls are a lot more efficient, due to use of vtables, instead of hash-tables; yet Symta allows putting methods and values into a hash-table and using it like Lua, Python or JavaScript do.
+Symta has unique approach to type system. The most striking difference is that Symta mixes class-based and prototype-based OOP approaches. Compared to other dynamic languages, Symta's method calls are a lot more efficient, due to use of vtables, instead of hash-tables; yet Symta allows putting methods and values into a hash-table and using it like Lua, Python or JavaScript do.
 
 Typical OOP example would be geometric point type:
 ```
