@@ -466,7 +466,7 @@ Now we can understand the earlier quick-sort example:
 qsort@r$[] [H@T] = [@T.keep{?<H}^r H @T.skip{?<H}^r]
 ```
 
-Again `@r` - makes a shorthand synonym `r` for `qsort`, `$[]` provides a default value, when input doesn't match `[H@T]` - i.e. a non-list or an empty list. The `[H@T]` binds the first element of the input list to `H`, while the list's tail gets bound to `T`. In the body we have A=`T.keep{?<H}^r` (keep all elements less than `H` and apply `qsort` recursively), B=`T.skip{?<H}^r` - same but with skipped elements, finally we concatenate A and B result, with `H` in the middle `[@A H @B]`. That example isn't the fastest quick-sort implementation, but it is fast enough for most uses, yet requires little effort to write in Symta.
+Again `@r` - makes a shorthand synonym `r` for `qsort`, `$[]` provides a default value (`[]`), when input doesn't match `[H@T]` - i.e. a non-list or an empty list. The `[H@T]` binds the first element of the input list to `H`, while the list's tail gets bound to `T`. In the body we have A=`T.keep{?<H}^r` (keep all elements less than `H` and apply `qsort` recursively), B=`T.skip{?<H}^r` - same but with skipped elements, finally we concatenate A and B result, with `H` in the middle `[@A H @B]`. That example isn't the fastest quick-sort implementation, but it is fast enough for most uses, yet requires little effort to write in Symta.
 
 
 
