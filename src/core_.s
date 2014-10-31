@@ -178,15 +178,13 @@ list.tail = $list.tail
 list.`><` B =
 | less B.is_list: leave 0
 | till $end or B.end: less Me^pop >< B^pop: leave 0
-| 1
+| $end and B.end
 
 hard_list.`><` B =
 | less B.is_list: leave 0 //FIXME: cons_list B will be O(n^2) slow
 | N = $size
 | less N >< B.size: leave 0
-| times I N
-  | less $I >< B.I: leave 0
-  | !I + 1
+| times I N: less $I >< B.I: leave 0
 | 1
 
 list.`<` Xs =

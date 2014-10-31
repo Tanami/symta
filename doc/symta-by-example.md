@@ -552,6 +552,10 @@ This section provides a quick reference of the content of cors_.s and rt_.s file
 
 ``t Key0(Value1) Key1(Value1) ... KeyN(ValueN)`` - new hashtable
 
+`leave Value` - leaves current function, returning Value
+
+`leave block_name Value` - leaves block_name, returning Value
+
 `meta{Object MetaInfo}` - attach MetaInfo to Object
 
 `_.meta_` - get object's metainfo
@@ -647,6 +651,10 @@ This section provides a quick reference of the content of cors_.s and rt_.s file
 `int.clip A B` - integer clipped between `A` and `B` inclusive
 
 `float.clip A B` - float clipped between `A` and `B` inclusive
+
+`cons F Xs` - Xs into a C-style list, where next field is embedded in object
+
+`uncons Next Item` - uncons C-style list into Symta list
 
 
 Thanks
