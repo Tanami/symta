@@ -15,7 +15,7 @@ Table of Contents
 - Pattern Matching
 - Module System
 - Macros
-- Memory Management
+- Symta's Approach to Memory Management
 - Non-local Return
 - Foreign Function Interface
 - Comparison to Other Languages
@@ -534,8 +534,12 @@ my_while @Head Body = form: _progn (_label ~L)
 The example uses the three lowest level Symta's constuct, rarely used normally; they are: `_progn`, `_label` and `_goto`. The `_progn` is a low-level version of `|`, which doesn't allow variable declarations, lambdas, local functions and other fance stuff. The only special thing `_progn` allows inside is the `(_label LabelName)` construct, which declares a label, that can be referenced by a local `_goto` around it. In case of `my_while`, the `LabelName` is `~L`, where the `~` prefix specifies that label name must be unique to avoid conflicts with other variable names; such functionality is called "auto-gensym" in other Lisps.
 
 
-Memory Management
+Symta's Approach to Memory Management
 ------------------------------
+The major problem of functional programming languages is the construction of many temporary data structures, which makes manual memory management impractical. Thus arises requirement for automatic memory management, usually implemented through heap and garbage collection process (GC), which determines obsolete data and frees its memory. Heap-based GC processes are complex, requiring suspending execution and copying large chunks of memory to avoid fragmentation, which impedes allocation of large continuous data structures. To avoid pauses, modern GCs uses generations, but generations are still unreliable, uncontrollable by user and poorly map to memory usage.
+
+Symta's motto for memory management is "no heap - no garbage". By using just stack we can compact incrementally and use stack frames naturally as garbage collector generations: when a function leaves a stack frame, all frame's data is freed or compacted to parent frame. A good example would be a video game engine `render_frame`, allocating a lot of per frame data, which won't be needed for the next frame. Stack provides explicit, intuitive and predictable way to manage memory.
+
 
 Non-local Return
 ------------------------------

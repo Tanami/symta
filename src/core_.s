@@ -484,7 +484,7 @@ int.x =
   | !Me / 16
 | [S@Cs].text
 
-_.as_text = ['#:' Me^address.x].text
+_.as_text = "#([Me^typename] [Me^address.x])"
 
 void.as_text = 'No'
 
@@ -722,10 +722,6 @@ int.s2 =
 int.s2b =
 | when Me < 0: #10000+!Me
 | [Me/#100%256 Me%256]
-
-list.xy =
-| [X Y W H] = Me
-| dup I W*H [X+I%W Y+I/W]
 
 int.in Start End = Start << Me and Me < End
 list.in [RX RY RW RH] = $0.in{RX RX+RW} and $1.in{RY RY+RH}
