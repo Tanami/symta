@@ -546,6 +546,28 @@ Non-local Return
 
 Foreign Function Interface
 ------------------------------
+Symta provides two approaches to FFI. The first uses `ffi_load PathToLibrary SymbolName` to get raw pointer to a library symbol, which then can be called through the  builtin operation `_ffi_call (ResultType @ArgsTypes) Pointer @Args`. That builtin can be used to invoke any C/C++ function using integer pointer, not just loaded through `ffi_load`.
+
+The second approach uses `ffi_begin` and `ffi` macros, which provide simplified interface to `ffi_load` and `_ffi_call`. The `ffi_begin LibraryName` call requires shared library to be present under as `./ffi/LibraryName/lib/main`, which would be automatically copied to the program's `lib/` folder during compilation.
+
+The following example imports symbol `new_gfx` from the `gfx` dynamic library as `creat_new_gfx` macro (which would be expaned to `_ffi_call` during compilation):
+```
+ffi_begin gfx
+ffi creat_new_gfx: new_gfx.ptr Width.u4 Height.u4
+```
+
+The `new_gfx.ptr` points compiler, that call to `new_gfx` returns `ptr` FFI type, while `Width.u4` and `Height.u4` declares arguments to `new_gfx` as 32-bit (4-byte) uinsigned integers
+
+Here is the list of currently supported arguments
+- `ptr` - pointer (all pointers must be aligned to 3 bytes)
+- `void` - no return (calling it would produce `No`)
+- `int` - int type
+- `s4` - 32-bit signed integer
+- `u4` - 32-bit unsigned integer
+- `float` - 32-bit floating point number
+- `double` - 64-bit floating point number
+- `text` - char* string (will be converted to Symta's text type)
+
 
 Comparison to Other Languages
 ------------------------------
