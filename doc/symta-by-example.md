@@ -538,7 +538,7 @@ Symta's Approach to Memory Management
 ------------------------------
 The major problem of functional programming languages is the construction of many temporary data structures, which makes manual memory management impractical. Thus arises requirement for automatic memory management, usually implemented through heap and garbage collection process (GC), which determines obsolete data and frees its memory. Heap-based GC processes are complex, requiring suspending execution and copying large chunks of memory to avoid fragmentation, which impedes allocation of large continuous data structures. To avoid pauses, modern GCs uses generations, but generations are still unreliable, uncontrollable by user and poorly map to memory usage.
 
-Symta's motto for memory management is "no heap - no garbage". By using just stack we can compact incrementally and use stack frames naturally as garbage collector generations: when a function leaves a stack frame, all frame's data is freed or compacted to parent frame. A good example would be a video game engine `render_frame`, allocating a lot of per frame data, which won't be needed for the next frame. Stack provides explicit, intuitive and predictable way to manage memory.
+Symta's motto for memory management is "no heap - no garbage". By using just stack we can compact incrementally and use stack frames naturally as garbage collector generations: when a function leaves a stack frame, all frame's data is freed or compacted to parent frame. A good example would be a video game engine `render_frame` function, allocating a lot of per frame data, which won't be needed for the next frame and therefore can be safely thrown away. Stack provides explicit, intuitive and predictable way to manage memory.
 
 
 Non-local Return
