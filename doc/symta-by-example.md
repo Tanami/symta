@@ -34,6 +34,17 @@ qsort@r$[] [H@T] = [@T.keep{?<H}^r H @T.skip{?<H}^r]
 
 Despite a lot of consing, calling the qsort function doesn't generate garbage.
 
+Symta allows very tight code. The above ``qsort`` example beats in brevity even the kings of conciseness - APL and J:
+```
+qsort=: (($:@(<#[), (=#[), $:@(>#[)) ({~ ?@#)) ^: (1<#)
+```
+
+Yet, compared to J, Symta's ``qsort`` is arguably more readable than Haskell's version:
+```
+qsort [] = []
+qsort (x:xs) = qsort [y | y <- xs, y < x] ++ [x] ++ qsort [y | y <- xs, y >= x]
+```
+
 
 Installing Symta
 ------------------------------
@@ -571,6 +582,41 @@ Here is the list of currently supported arguments
 
 Comparison to Other Languages
 ------------------------------
+Compared to other languages, Symta is usually more succinct, sometimes even more succinct than APL, yet readable.
+
+Here is a Ruby's OOP example from Wikipedia rewritten into Symta:
+```
+type person{Name Age} name/Name age/Age
+person.`<` X = $age < X.age
+person.as_text = "[$name] ([$age])"
+
+Group = [person{'Bob' 33}, person{'Chris' 16}, person{'Ash' 23}]
+say Group.sort.flip
+```
+
+Compare it to the original Ruby code:
+```
+class Person
+  attr_reader :name, :age
+  def initialize(name, age)
+    @name, @age = name, age
+  end
+  def <=>(person) # the comparison operator for sorting
+    age <=> person.age
+  end
+  def to_s
+    "#{name} (#{age})"
+  end
+end
+ 
+group = [
+  Person.new("Bob", 33),
+  Person.new("Chris", 16),
+  Person.new("Ash", 23)
+]
+ 
+puts group.sort.reverse
+```
 
 Core Library
 ------------------------------
