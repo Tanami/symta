@@ -454,7 +454,7 @@ say Name // print "song"
 
 A more advanced example of pattern matching would be parsing a binary file with typical FourCC tagged chunks:
 ```
-Chunks = File.get^| @r$[] [4/T.utf8 4/L.u4 L/D @Xs] => [[T D] @Xs^r]
+Chunks = File.get^| @r$[] [4/T.utf8 4/L.u4 L/D @Xs] => [T,D @Xs^r]
 ```
 
 That expression may look cryptic at first, because it packs a lot of stuff into single line. Here is what it does:
@@ -464,10 +464,9 @@ That expression may look cryptic at first, because it packs a lot of stuff into 
 - `@r` - allows to self reference the lambda inside of the Body by name `r`
 - `$[]` - makes `[]` a default value, returned if input doesn't match the pattern `[4/T.utf8 4/L.u4 L/D @Xs]`
 
-
 The most complex part is `[4/T.utf8 4/L.u4 L/D @Xs]`, which binds `T` to the value of the first 4 bytes decoded as utf8 text, then binds `L` to the next four bytes conveted to 32-bit unsigned integer, afterwards D gets binded to a list of `L` bytes, that follows the 8 already parsed bytes. The `Xs` is bound to the rest of bytes.
 
-Finally, the body of lambda produces `[[T D] @Xs^r]`, where `[T D]` is the tag of parsed chunk together with its contents, and `@Xs^r` calls the lambda recursively on the unparsed bytes and prefixes `[T D]` to result.
+Finally, the body of lambda produces `[T,D @Xs^r]`, where `@Xs^r` calls the lambda recursively on the unparsed bytes, after which `T,D` gets prefixed to the result of `@Xs^r`. The `T,D` (a shorthand for [T D]) is the tag of parsed chunk together with chunk's content (a list of bytes).
 
 It should be noted, that `utf8` and `u4` are simply methods defined on list type, so you can declare you own methods to work with pattern matching and even pattern-match non-list objects.
 
