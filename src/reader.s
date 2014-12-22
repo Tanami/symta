@@ -229,13 +229,12 @@ parse_term =
          `|` | leave Tok^parse_bar
          `if` | leave Tok^parse_if
          `-` | leave Tok^parse_negate
-         `,` | token symbol `,` Tok.src 0
          Else | push Tok GInput
               | leave 0
 | Tok.parsed <= [P]
 | Tok
 
-is_delim X = X.is_token and case X.symbol `:`+`=`+`=>`+`<=`+`,`+`if`+`then`+`else` 1
+is_delim X = X.is_token and case X.symbol `:`+`=`+`=>`+`<=`+`if`+`then`+`else` 1
 
 parse_op Ops =
 | when GInput.end: leave 0
@@ -272,9 +271,10 @@ parse_mul = parse_binary &parse_pow [`*` `/` `%`]
 parse_add = parse_binary &parse_mul [`+` `-`]
 parse_dots = parse_binary &parse_add [`..`]
 parse_bool = parse_binary &parse_dots [`><` `<>` `<` `>` `<<` `>>`]
+parse_comma = parse_binary &parse_bool [`,`]
 
 parse_logic =
-| O = parse_op [`and` `or`] or leave (parse_bool)
+| O = parse_op [`and` `or`] or leave (parse_comma)
 | GOutput <= GOutput.flip
 | P = GInput.locate{&is_delim} //hack LL(1) to speed-up parsing
 | Tok = got P and GInput.P
@@ -327,7 +327,6 @@ parse_strip X =
   then | less X.size: leave X
        | Head = X.head
        | Meta = when Head.is_token: Head.src
-       | when got X.locate{?^token_is{`,`}}: X <= [',' @X.split{?^token_is{`,`}}]
        | Ys = map V X: parse_strip V
        | for V X
          | when case V [U@Us] U^token_is{`!`} and not case X [Z@Zs] Z^token_is{`!`}:

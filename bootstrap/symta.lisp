@@ -263,11 +263,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      (:|\|| (ret (/bar tok)))
      (:if (ret (/if tok)))
      (:- (ret (/negate tok)))
-     (:|,| `(:token :symbol :value "," :src (getf tok :src)))
      (otherwise (push tok g_input) (ret :fail))
   ! `(,@tok :parsed ,p))
 
-(to delim? x ! match x ((:token (or :|:| :|=| :|=>| :|<=| :|,| :if :then :else) . _) t))
+(to delim? x ! match x ((:token (or :|:| :|=| :|=>| :|<=| :if :then :else) . _) t))
 
 (to /op ops
   ! v = second (car g_input)
@@ -302,9 +301,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to /add ! /binary #'/mul '(:+ :-))
 (to /dots ! /binary #'/add '(:..))
 (to /bool ! /binary #'/dots '(:>< :<> :< :> :<< :>>))
+(to /comma ! /binary #'/bool '(:|,|))
 
 (to /logic
-  ! o = try (/op '(:and :or)) (/bool)
+  ! o = try (/op '(:and :or)) (/comma)
   ! g_output := nreverse g_output
   ! p = position-if #'delim? g_input ;hack LL(1) to speed-up parsing
   ! tok = and p (elt g_input p)
@@ -354,8 +354,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      ! ret r)
   ! e v x (when (and (token-is :! (car v)) (not (token-is :! (car x))))
             (ret `("!!" ,@(mapcar #'/strip x))))
-  ! when (find-if (fn v ! token-is :|,| v) x)
-      (setf x `("," ,@(split-if (fn v ! token-is :|,| v) x)))
   ! mapcar #'/strip x)
 
 (to tokenize input ! /tokenize (new-input input))
@@ -1057,6 +1055,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
      `("if" ("_mcall" ,key ("_quote" "is_list"))
             ,(expand-list-hole key xs hit miss)
             ,miss))
+    (("," ("," . ys) . xs) (expand-hole key `("," ,@ys ,@xs) hit miss))
+    (("," x . xs) (expand-hole key `("[]" ,x ,@xs) hit miss))
     (("<" a b) (expand-hole key b (expand-hole key a hit miss) miss))
     (("+" . xs) `("if" ,(expand-match key (m x xs `(,x 1)) 0) ,hit ,miss))
     (("-" . xs) `("if" ,(expand-match key (m x xs `(,x 1)) 0) ,miss ,hit))
@@ -1722,8 +1722,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
            (else (error "bad ~a" xs))))
         (("as" value expr) (expand-as (ssa-name "N") value expr))
         (("as" name value expr) (expand-as name value expr))
-        (("," (x . xs) . ys) `(,x ,xs ,@ys))
-        (("," . xs) (error "bad `,`"))
+        (("," x . xs) (if (headed "," x) `(,@x ,@xs) `("[]" ,x ,@xs)))
         (("$" x) `("." "Me" ,x))
         (("have" var default)
          `("|" ("when" ("no" ,var) ("<=" (,var) ,default))

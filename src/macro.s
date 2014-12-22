@@ -105,6 +105,8 @@ expand_hole Key Hole Hit Miss =
              | [_if [_mcall Key is_list]
                     (expand_list_hole Key Xs Hit Miss)
                     Miss]
+  [`,` [`,` @Ys] @Xs] | expand_hole Key [`,` @Ys @Xs] Hit Miss
+  [`,` X @Xs] | expand_hole Key [`[]` X @Xs] Hit Miss
   [`<` A B] | expand_hole Key B (expand_hole Key A Hit Miss) Miss
   [`+` @Xs] | [_if (expand_match Key (map X Xs [X 1]) 0 No) Hit Miss]
   [`-` @Xs] | [_if (expand_match Key (map X Xs [X 1]) 0 No) Miss Hit]
@@ -345,9 +347,7 @@ expand_colon_r E Found =
 | B = B.rmap{if Name >< ? then G else ?} //FIXME: preserve metainfo
 | [let_ [[G 0]] [@E B]]
 
-`,` @As = case As
-  [[X@Xs] @Ys] | [X Xs @Ys]
-  Else | mex_error "invalid arglist to `,`"
+`,` X @Xs = case X [`,`@_] [@X @Xs] [`[]` X @Xs]
 
 `$` Expr = [`.` 'Me' Expr]
 

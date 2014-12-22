@@ -27,9 +27,9 @@ What is Symta?
 ------------------------------
 Symta is a novel dialect of Lisp programming language. Symta features succinct syntax, geared towards list-processing, and innovative approach to memory management, without requiring pause-inducing garbage collection or manual deallocation.
 
-An example of Symta's expressiveness could be the implementation of quick sort algorithm, which takes just single line of Symta code:
+An example of Symta's expressiveness could be the implementation of quick sort algorithm, which takes just a single line of Symta code:
 ```
-qsort@r$[] [H@T] = [@T.keep{?<H}^r H @T.skip{?<H}^r]
+qsort@r$[] H,@T = @T.keep{?<H}^r,H,@T.skip{?<H}^r
 ```
 
 Despite a lot of consing, calling the qsort function doesn't generate garbage.
@@ -263,7 +263,7 @@ Looping
 Repeating expression or running it through a list of elements is a common task. Symta provides several constructs to handle that:
 ```
 times I 20: say I // iterate over numbers below 20 and print them
-Xs = [1 2 3 4 5 6 7 8 9]
+Xs = 1,2,3,4,5,6,7,8,9 // another way to specify list
 for X Xs: say X*X // print squares of Xs elements
 Ys = map X Xs: X*X // collect the same squares for future use
 say "Ys = [Ys]"
@@ -474,10 +474,10 @@ It should be noted, that `utf8` and `u4` are simply methods defined on list type
 
 Now we can understand the earlier quick-sort example:
 ```
-qsort@r$[] [H@T] = [@T.keep{?<H}^r H @T.skip{?<H}^r]
+qsort@r$[] H,@T = @T.keep{?<H}^r,H,@T.skip{?<H}^r
 ```
 
-Again `@r` - makes a shorthand synonym `r` for `qsort`, `$[]` provides a default value (`[]`), when input doesn't match `[H@T]` - i.e. a non-list or an empty list. The `[H@T]` binds the first element of the input list to `H`, while the list's tail gets bound to `T`. In the body we have A=`T.keep{?<H}^r` (keep all elements less than `H` and apply `qsort` recursively), B=`T.skip{?<H}^r` - same but with skipped elements, finally we concatenate A and B result, with `H` in the middle `[@A H @B]`. That example isn't the fastest quick-sort implementation, but it is fast enough for most uses, yet requires little effort to write in Symta.
+Again `@r` - makes a shorthand synonym `r` for `qsort`, `$[]` provides a default value (`[]`), when input doesn't match `H,@T` - i.e. a non-list or an empty list. The `H,@T` binds the first element of the input list to `H`, while the list's tail gets bound to `T`. In the body we have A=`T.keep{?<H}^r` (keep all elements less than `H` and apply `qsort` recursively), B=`T.skip{?<H}^r` - same but with skipped elements, finally we concatenate A and B, with `H` in the middle `@A,H,@B`, resulting into elements smaler than `H` being below it and larger or equal to `H` being above it. That example isn't the fastest quick-sort implementation, but it is fast enough for most uses, yet requires little effort to write in Symta.
 
 
 
@@ -582,15 +582,16 @@ Here is the list of currently supported arguments
 
 Comparison to Other Languages
 ------------------------------
-Compared to other languages, Symta is usually more succinct, sometimes even more succinct than APL, yet readable.
+Compared to other languages, Symta provides macro-system to extend the language and do meta-programming. Some thoughts were put into avoiding verbosity and bloated constructs; for example, Symta has some syntatic sugar and shorthands missing from other Lisps, while predefined identifier names were picked based on length in characters. That is how Symta got "flip" instead of "reverse" and "say" instead of "print".
 
-Here is a Ruby's OOP example from Wikipedia rewritten into Symta:
+Here is an OOP example from Wikipedia's Ruby article rewritten into Symta:
 ```
 type person{Name Age} name/Name age/Age
 person.`<` X = $age < X.age
 person.as_text = "[$name] ([$age])"
 
-Group = [person{'Bob' 33}, person{'Chris' 16}, person{'Ash' 23}]
+Group = ['Bob',33 'Chris',16 'Ash',23].map{(person @?)}
+
 say Group.sort.flip
 ```
 
@@ -618,6 +619,9 @@ group = [
 puts group.sort.reverse
 ```
 
+As you probably noticed, Ruby's code has a lot of annoying boilerplate, like ``attr_reader :name, :age``, ``def initialize`` and "end".
+
+
 Core Library
 ------------------------------
 This section provides a quick reference of the content of cors_.s and rt_.s files.
@@ -628,7 +632,7 @@ This section provides a quick reference of the content of cors_.s and rt_.s file
 
 `leave block_name Value` - leaves block_name, returning Value
 
-`meta{Object MetaInfo}` - attach MetaInfo to Object
+`meta Object MetaInfo` - attach MetaInfo to Object
 
 `_.meta_` - get object's metainfo
 
