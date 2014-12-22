@@ -569,7 +569,7 @@ ffi creat_new_gfx: new_gfx.ptr Width.u4 Height.u4
 
 The `new_gfx.ptr` points compiler, that call to `new_gfx` returns `ptr` FFI type, while `Width.u4` and `Height.u4` declare arguments to `new_gfx` as 32-bit (4-byte) uinsigned integers
 
-Here is the list of currently supported arguments
+Here is the list of currently supported native types
 - `ptr` - pointer (all pointers must be aligned to 3 bytes)
 - `void` - no return (calling it would produce `No`)
 - `int` - int type
