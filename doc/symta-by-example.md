@@ -639,6 +639,8 @@ This section provides a quick reference of the content of cors_.s and rt_.s file
 
 `main_root` - directory where the program executable resides
 
+`as Name Value Expr` - binds `Value` to `Name`, during evaluation of `Expr`; returns `Name`
+
 `list.flip` - reverse elements of a list
 
 `list.take N` - take N elements from the beginning of a list
@@ -654,6 +656,10 @@ This section provides a quick reference of the content of cors_.s and rt_.s file
 `list.lead` - all but last elements of a list
 
 `list.size` - number of elements in a list
+
+`pop Xs` - shorthand for `Xs <= Xs.tail`
+
+`push Item Xs` - shorthand for `Xs <= Item,@Xs`
 
 `list.replace A B` - seacches for `A` and replaces it with `B`.
 
@@ -687,7 +693,7 @@ This section provides a quick reference of the content of cors_.s and rt_.s file
 
 `list.bytes` - coerce list of integers to an efficient internal representation, using only 8 bites for each value
 
-`_..as_text` - convert object to textual represenation
+`_.as_text` - convert object to textual represenation
 
 `int.x` - heXadecimal textual representation of an integer
 

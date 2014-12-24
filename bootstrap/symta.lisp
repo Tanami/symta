@@ -1068,9 +1068,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (expand-hole key `(,y ("<" ,g ,a) ,b) hit miss)))
     (("." a b . as)
      (let ((g (ssa-name "G")))
-       `("let_" ((,g ,(if (fn-sym? b)
-                          `("_mcall" ,key ,b ,@as)
-                          `("_mcall" ,key "." ,b ,@as))))
+       `("let_" ((,g ,(if as
+                          `("{}" ("." ,key ,b) ,@as)
+                          `("." ,key ,b))))
           ,(expand-hole g a hit miss))))
     (("^" a b . as)
      (let ((g (ssa-name "G")))

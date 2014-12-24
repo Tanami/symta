@@ -117,9 +117,9 @@ expand_hole Key Hole Hit Miss =
     | expand_hole Key [Y [`<` G A] B] Hit Miss
   [X<`.`+`^` [`{}` [Y A B] @As] @Bs] | expand_hole Key [X [Y A B @As] @Bs] Hit Miss
   [`.` A B @As] | G = @rand 'G'
-                | [let_ [[G (if B.is_keyword
-                             then [_mcall Key B @As]
-                             else [_mcall Key "." B @As])]]
+                | [let_ [[G (if As.size
+                             then [`{}` [`.` Key B] @As]
+                             else [`.` Key B])]]
                     (expand_hole G A Hit Miss)]
   [`^` A B @As] | G = @rand 'G'
                 | [let_ [[G [B @As]]]
