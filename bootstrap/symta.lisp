@@ -1150,20 +1150,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                ("_goto" ,end)))
 
 (to add-pattern-matcher args body
-  ! g = ssa-name "As"
-  ! default = match args
-               ((("$" "_") . tail)
-                (setf args tail)
-                `("." ,g 0))
-               ((("$" default) . tail)
-                (setf args tail)
-                default)
-               (else `("_fatal" ("_quote" "couldnt match args list")))
+  ! all = ssa-name "As"
+  ! default = `("_fatal" ("_quote" "couldnt match args list"))
   ! match args
-    ((("@" all)) (setf args all))
+    ((("$" "_") . zs)
+     (setf default `("." ,all 0))
+     (setf args zs))
+    ((("$" d) . zs)
+     (setf default d)
+     (setf args zs))
+  ! match args
+    ((("@" args-name)) (setf args args-name))
     (else
-      (! setf body (expand-match g `((("[]" ,@args) ,body)) default)
-       ! setf args g))
+      (! setf body (expand-match all `((("[]" ,@args) ,body)) default)
+       ! setf args all))
   ! list args body)
 
 (to pattern-arg x ! or (not (stringp x)) (fn-sym? x))
@@ -1299,22 +1299,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to make-multimethod xs
   ! when (match xs ((("=>" as expr)) (or (not as) (var-sym? (first as)))))
      (return-from make-multimethod (first xs))
-  ! all = ssa-name "A"
+  ! all = ssa-name "As"
   ! default = `("_fatal" "couldn't match lambda")
   ! name = nil
   ! xs = m x xs
         (match x
-          (("=>" as expr)
-           (match as
+          (("=>" args expr)
+           (match args
              ((("@" n) . zs)
               (when (fn-sym? n)
                 (setf name `(("@" ,n)))
-                (setf as zs))))
-           (match as
+                (setf args zs))))
+           (match args
+             ((("$" "_") . zs)
+              (setf default `("." ,all 0))
+              (setf args zs))
              ((("$" d) . zs)
               (setf default d)
-              (setf as zs)))
-           `(("[]" ,@as) ,expr)))
+              (setf args zs)))
+           `(("[]" ,@args) ,expr)))
   ! `("=>" (,@name ("@" ,all)) ,(expand-match all xs default)))
 
 (to expand-block-helper r a b
@@ -1714,6 +1717,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("callcc" f) (expand-callcc f))
         (("fin" . xs) (expand-fin (butlast xs) (car (last xs))))
         (("ffi" lib symbol result . args) (expand-ffi lib symbol result args))
+        (("same" a b) `("><" ("address" ,a) ("address" ,b)))
         (("@" x) `("=" () ("_nomex" ,x)))
         (("t" . as)
          (match as

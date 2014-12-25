@@ -29,4 +29,10 @@ heap.pop =
 | $root <= rmh_merge R.left R.right
 | R
 
+heap.list =
+| Xs = $deep_copy
+| Ys = []
+| while!it Ys.pop: push it Ys
+| Ys.flip
+
 export heap

@@ -595,17 +595,20 @@ list.pad Count Item =
 | Pad = dup N Item
 | if Count < 0 then [@Pad @Me] else [@Me @Pad]
 
-int.digits Base =
+
+int.digits @Base =
+| B = if Base.end then 10 else Base.head
 | Ys = []
 | while Me > 0
-  | [Me%Base@!Ys]
-  | !Me / Base
+  | [Me%B@!Ys]
+  | !Me / B
 | Ys
 
-list.digits Base =
+list.digits @Base =
+| B = if Base.end then 10 else Base.head
 | R = 0
 | for X Me
-  | !R * Base
+  | !R * B
   | !R + X
 | R
 

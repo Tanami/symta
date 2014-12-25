@@ -166,7 +166,7 @@ expand_match Keyform Cases Default Key =
     [_label E]
     R]
 
-case @Xs = expand_match Xs.0 Xs.tail.group{2} 0 No
+case KeyForm @Cases = expand_match KeyForm Cases.group{2} 0 No
 
 is @As =
 | case As
@@ -347,7 +347,8 @@ expand_colon_r E Found =
 | B = B.rmap{if Name >< ? then G else ?} //FIXME: preserve metainfo
 | [let_ [[G 0]] [@E B]]
 
-`,` X @Xs = case X [`,`@_] [@X @Xs] [`[]` X @Xs]
+`,` X @Xs = case X [`,`@_] [@X @Xs]
+                   Else [`[]` X @Xs]
 
 `$` Expr = [`.` 'Me' Expr]
 
@@ -467,19 +468,15 @@ expand_leave Name Value =
 | [_progn [_set R Value] [_goto End]]
 
 add_pattern_matcher Args Body =
-| G = @rand 'As'
-| Default = case Args
-    [[`$` '_'] @Tail]
-      | Args <= Tail
-      | form G.0
-    [[`$` D] @Tail]
-      | Args <= Tail
-      | D
-    Else | form: _fatal 'couldnt match args list'
+| All = @rand 'As'
+| Default = form: _fatal 'couldnt match args list'
+| case Args
+    [[`$` '_'] @Zs] | Default <= form All.0; Args <= Zs
+    [[`$` D] @Zs] | Default <= D; Args <= Zs
 | case Args
    [[`@` All]] | Args <= All
-   Else | Body <= expand_match G [[['[]' @Args] Body]] Default No
-        | Args <= G
+   Else | Body <= expand_match All [[['[]' @Args] Body]] Default No
+        | Args <= All
 | [Args Body]
 
 pattern_arg X = not X.is_text or X.is_keyword
@@ -606,16 +603,18 @@ expand_block_item Expr =
 make_multimethod Xs =
 | when case Xs [[`=>` As Expr]] (As.size >< 0 or As.0^is_var_sym)
   | leave Xs.0
-| All = @rand 'A'
+| All = @rand 'As'
 | Default = [_fatal "couldn't match lambda"]
 | Name = []
 | Xs = map X Xs: case X
-    [`=>` As Expr]
-      | case As [[`@` N] @Zs]: when N.is_keywrod:
+    [`=>` Args Expr]
+      | case Args [[`@` N] @Zs]: when N.is_keyword:
         | Name <= [[`@` N]]
-        | As <= Zs
-      | case As [['$' D] @Zs] | Default <= D; As <= Zs
-      | [['[]' @As] Expr]
+        | Args <= Zs
+      | case Args
+          [['$' '_'] @Zs] | Default <= form All.0; Args <= Zs
+          [['$' D] @Zs] | Default <= D; Args <= Zs
+      | [['[]' @Args] Expr]
 | ['=>' [@Name ['@' All]] (expand_match All Xs Default No)]
 
 expand_block_helper R A B =
@@ -865,9 +864,13 @@ uncons Next Item = form
   | Next !~X
 | ~Xs
 
+same A B = form A^address >< B^address
+
+on @Xs X = [X @Xs]
+
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[]' 't' '\\' 'form'
        'mtx' 'list' 'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for' 'type'
        'heir' 'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
-       'cons' 'uncons'
+       'cons' 'uncons' 'same' 'on'
        'ffi_begin' 'ffi' 'min' 'max' 'swap' '~' 'have' 'source_' 'compile_when' '"'

@@ -661,7 +661,7 @@ This section provides a quick reference of the content of cors_.s and rt_.s file
 
 `push Item Xs` - shorthand for `Xs <= Item,@Xs`
 
-`list.replace A B` - seacches for `A` and replaces it with `B`.
+`list.replace A B` - searches for `A` and replaces it with `B`.
 
 `list.group N` - break list's element into lists of N elements
 
@@ -732,6 +732,8 @@ This section provides a quick reference of the content of cors_.s and rt_.s file
 `int.clip A B` - integer clipped between `A` and `B` inclusive
 
 `float.clip A B` - float clipped between `A` and `B` inclusive
+
+`int.digits Base` - list of digits composing int
 
 `cons F Xs` - Xs into a C-style list, where next field is embedded in object
 
