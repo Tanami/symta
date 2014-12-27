@@ -721,13 +721,23 @@ This section provides a quick reference of the content of cors_.s and rt_.s file
 
 `text.url` - break pathname into components
 
-`list.unril` - does the opposite
+`list.unurl` - does the opposite
 
 `int.rand` - random number between 0 and integer inclusive
 
 `float.rand` - random number between 0 and float inclusive
 
 `list.rand` - random element from a list
+
+`int.mask Value` - bitwise and
+
+`int.ior Value` - bitwise inclusive or
+
+`int.xor Value` - bitwise eXclusive or
+
+`int.shl Count` - bitwise shift left
+
+`int.shr Count` - bitwise shift right
 
 `int.sign` - sign of a value
 
