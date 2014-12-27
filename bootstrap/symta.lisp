@@ -1074,11 +1074,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
           ,(expand-hole g a hit miss))))
     (("^" a b . as)
      (let ((g (ssa-name "G")))
-       `("let_" ((,g `(,b ,@as)))
+       `("let_" ((,g ("{}" ,b ,@as ,key)))
           ,(expand-hole g a hit miss))))
     (("{}" (op a b) . as) (expand-hole key `(,op ,a ,b ,@as) hit miss))
     (("=>" a b) `("let_" ((,(first a) ,key))
-                   ("if" ("|" ,@b) ,hit ,miss)))
+                   ("if" ,b ,hit ,miss)))
     (("&" x) `("if" ("><" ,x ,key) ,hit ,miss))
     (("//" . xs) (expand-hole-keywords key hit xs))
     (("\\" x) `("if" ("><" ,hole ,key) ,hit ,miss))
@@ -1469,8 +1469,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
             ! o-gs)
            `("_quote" ,o)))
   ! match o
-     (("$" x) x)
-     (else `("[]" ,@(m x o (expand-form-r x agt)))))
+    (("$" (x ! not (or (fn-sym? x) (match o (("$" ("$" y)) 1))))) (ret x))
+    (else `("[]" ,@(m x o (expand-form-r x agt)))))
 
 (to expand-form o
   ! agt = make-hash-table :test 'equal

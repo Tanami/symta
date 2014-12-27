@@ -675,7 +675,11 @@ This section provides a quick reference of the content of cors_.s and rt_.s file
 
 `list.i` - produces a list of elements of source list paired with their position indices
 
-`list.del Index` - created a new list without the element at index `Index`
+`list.del Index` - a new list without the element at `Index`
+
+`list.insert Index Item` - a new list with `Item` inserted at `Index`
+
+`list.change Index Item` - a new list with element at `Index` changed to `Item`
 
 `list.sort` - elements of a list in sorted order
 

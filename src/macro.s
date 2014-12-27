@@ -122,11 +122,10 @@ expand_hole Key Hole Hit Miss =
                              else [`.` Key B])]]
                     (expand_hole G A Hit Miss)]
   [`^` A B @As] | G = @rand 'G'
-                | [let_ [[G [B @As]]]
+                | [let_ [[G [`{}` B @As Key]]]
                     (expand_hole G A Hit Miss)]
   [`{}` [Op A B] @As] | expand_hole Key [Op A B @As] Hit Miss
-  [`=>` A B] | [let_ [[A.0 Key]]
-                 [_if ['|' @B] Hit Miss]]
+  [`=>` A B] | [let_ [[A.0 Key]] [_if B Hit Miss]]
   [`&` X] | form: _if X >< Key Hit Miss
   [`//` @Xs] | expand_hole_keywords Key Hit Xs
   [`\\` X] | form: _if Hole >< Key Hit Miss
@@ -270,7 +269,7 @@ expand_form O AGT =
     | AG
   else [_quote O]
 | case O
-  [`$` X] | X
+  [`$` X<0.is_keyword<-[`$` _]] | X
   Else | ['[]' @(map X O: expand_form X AGT)]
 
 form O =

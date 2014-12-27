@@ -143,6 +143,8 @@ list.`.` K =
 | $head
 
 list.del K = [@$take{K} @$drop{K+1}]
+list.insert K V = [@$take{K} V @$drop{K}]
+list.change K V = [@$take{K} V @$drop{K+1}]
 
 list.x = $0
 list.y = $1
@@ -736,10 +738,6 @@ int.clip A B = if Me < A then A
 float.clip A B = if Me < A then A
                  else if Me > B then B
                  else Me
-
-list.overlaps [BX BY BW BH] =
-| [AX AY AW AH] = Me
-| AX<BX+BW and AY<BY+BH and BX<AX+AW and BY<AY+AH
 
 list.init Src = times I $size: $I <= Src.I
 
