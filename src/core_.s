@@ -702,17 +702,17 @@ text.int @Radix =
 
 list.u4 = $3*#1000000 + $2*#10000 + $1*#100 + $0
 list.u4b = $0*#1000000 + $1*#10000 + $2*#100 + $3
-list.s4 = as R $u4: when R.mask{#80000000}: !R-#100000000
-list.s4b = as R $u4b: when R.mask{#80000000}: !R-#100000000
+list.s4 = as R $u4: when R++#80000000: !R-#100000000
+list.s4b = as R $u4b: when R++#80000000: !R-#100000000
 
 list.u2 = $1*#100 + $0
 list.u2b = $0*#100 + $1
-list.s2 = as R $u2: when R.mask{#8000}: !R-#10000
-list.s2b = as R $u2b: when R.mask{#8000}: !R-#10000
+list.s2 = as R $u2: when R++#8000: !R-#10000
+list.s2b = as R $u2b: when R++#8000: !R-#10000
 
 int.u4 = [Me%256 Me/#100%256 Me/#10000%256 Me/#1000000%256]
 int.u4b = [Me/#1000000%256 Me/#10000%256 Me/#100%256 Me%256]
-int.s4 = 
+int.s4 =
 | when Me < 0: #100000000+!Me
 | [Me%256 Me/#100%256 Me/#10000%256 Me/#1000000%256]
 int.s4b =

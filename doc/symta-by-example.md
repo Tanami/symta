@@ -729,15 +729,15 @@ This section provides a quick reference of the content of cors_.s and rt_.s file
 
 `list.rand` - random element from a list
 
-`int.mask Value` - bitwise and
+`A ++ B` - bitwise and
 
-`int.ior Value` - bitwise inclusive or
+`A ^^ B` - bitwise eXclusive or
 
-`int.xor Value` - bitwise eXclusive or
+`A -- B` - bitwise inclusive or
 
-`int.shl Count` - bitwise shift left
+`Integer </ Count` - bitwise shift left
 
-`int.shr Count` - bitwise shift right
+`Integer /> Count` - bitwise shift right
 
 `int.sign` - sign of a value
 

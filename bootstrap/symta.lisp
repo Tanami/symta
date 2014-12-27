@@ -83,7 +83,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! head-char = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?~"
   ! tail-char = "{head-char}{digit}"
   ! ls = `("+" "-" "*" "/" "%" "^" "." "->" "|" ";" "," ":" "=" "=>" "<="
-           "++" "--" "**" ".."
+           "++" "--" "^^" "</" "/>" "**" ".."
            "><" "<>" "<" ">" "<<" ">>"
            "\\" "$" "@" "&" "!" (() :end)
            ")" ("(" ,(fn r o ! `(:|()| ,(/list r o :|)|))))
@@ -300,7 +300,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to /mul ! /binary #'/pow '(:* :/ :%))
 (to /add ! /binary #'/mul '(:+ :-))
 (to /dots ! /binary #'/add '(:..))
-(to /bool ! /binary #'/dots '(:>< :<> :< :> :<< :>>))
+(to /bitwise-shift ! /binary #'/dots '(:</ :/>))
+(to /bitwise-and ! /binary #'/bitwise-shift '(:++))
+(to /bitwise-xor ! /binary #'/bitwise-and '(:^^))
+(to /bitwise-or ! /binary #'/bitwise-xor '(:--))
+(to /bool ! /binary #'/bitwise-or '(:>< :<> :< :> :<< :>>))
 (to /comma ! /binary #'/bool '(:|,|))
 
 (to /logic
@@ -1701,6 +1705,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         ((">>" a b) `("_mcall" ,a  ">>" ,b))
         (("><" a b) `("_mcall" ,a "><" ,b))
         (("<>" a b) `("_mcall" ,a  "<>" ,b))
+        (("++" a b) `("_mcall" ,a  "++" ,b))
+        (("^^" a b) `("_mcall" ,a  "^^" ,b))
+        (("--" a b) `("_mcall" ,a  "--" ,b))
+        (("</" a b) `("_mcall" ,a  "</" ,b))
+        (("/>" a b) `("_mcall" ,a  "/>" ,b))
         (("and" a b) `("if" ,a ,b 0))
         (("or" a b) (let ((n (ssa-name "T")))
                       `("let_" ((,n ,a)) ("if" ,n ,n ,b))))
