@@ -657,6 +657,10 @@ This section provides a quick reference of the content of cors_.s and rt_.s file
 
 `list.size` - number of elements in a list
 
+`list.xs @Xs` - pick list elements indexed by Xs
+
+`table.xs @Xs` - pick list elements indexed by Xs
+
 `pop Xs` - shorthand for `Xs <= Xs.tail`
 
 `push Item Xs` - shorthand for `Xs <= Item,@Xs`

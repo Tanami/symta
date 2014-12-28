@@ -741,4 +741,20 @@ float.clip A B = if Me < A then A
 
 list.init Src = times I $size: $I <= Src.I
 
+list.div F =
+| R = t
+| for X Me
+  | K = F{X}
+  | Xs = R.K
+  | R.K <= if got Xs then [X@Xs] else [X]
+| R
+
+list.xs Is = Is{$?}
+table.xs Is = Is{$?}
+
+list.hash =
+| H = 0
+| for X Me: H <= H</1 -- X.hash
+| H
+
 export non say bad no got table_ new_macro meta main_root methods
