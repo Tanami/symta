@@ -49,7 +49,7 @@ init_tokenizer =
 | HeadChar = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?~"
 | TailChar = "[HeadChar][Digit]"
 | Ls = \(`+` `-` `*` `/` `%` `^` `.` `->` `|` `;` `,` `:` `=` `=>` `<=`
-         `++` `--` `**` `..`
+         `++` `--` `^^` `**` `..`
          `><` `<>` `<` `>` `<<` `>>`
          `\\` `$` `@` `&` `!`
          (() end)
@@ -271,9 +271,9 @@ parse_mul = parse_binary &parse_pow [`*` `/` `%`]
 parse_add = parse_binary &parse_mul [`+` `-`]
 parse_dots = parse_binary &parse_add [`..`]
 parse_b_shift = parse_binary &parse_dots [`</` `/>`]
-parse_b_and = parse_binary &parse_b_shift [`++`]
-parse_b_xor = parse_binary &parse_b_and [`^^`]
-parse_b_or = parse_binary &parse_b_xor [`--`]
+parse_b_and = parse_binary &parse_b_shift [`^^`]
+parse_b_xor = parse_binary &parse_b_and [`--`]
+parse_b_or = parse_binary &parse_b_xor [`++`]
 parse_bool = parse_binary &parse_b_or [`><` `<>` `<` `>` `<<` `>>`]
 parse_comma = parse_binary &parse_bool [`,`]
 

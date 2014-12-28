@@ -75,8 +75,8 @@ test_int =
 | tsay "'x'.code.char >< 'x'"
 | less 'x'.code.char >< x: failed
 
-| tsay "B++A >< 72"
-| less B++A >< 72: failed
+| tsay "B^^A >< 72"
+| less B^^A >< 72: failed
 | 1
 
 test_list =

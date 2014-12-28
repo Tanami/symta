@@ -729,11 +729,11 @@ This section provides a quick reference of the content of cors_.s and rt_.s file
 
 `list.rand` - random element from a list
 
-`A ++ B` - bitwise and
+`A ^^ B` - bitwise and
 
-`A ^^ B` - bitwise eXclusive or
+`A -- B` - bitwise eXclusive or
 
-`A -- B` - bitwise inclusive or
+`A ++ B` - bitwise inclusive or
 
 `Integer </ Count` - bitwise shift left
 

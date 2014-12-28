@@ -328,9 +328,9 @@ let @As =
                     | ['{}' ['.' A B]]
           else [_mcall A '.' B]
 
-`++` A B = [_mcall A '++' B]
 `^^` A B = [_mcall A '^^' B]
 `--` A B = [_mcall A '--' B]
+`++` A B = [_mcall A '++' B]
 `</` A B = [_mcall A '</' B]
 `/>` A B = [_mcall A '/>' B]
 
@@ -878,5 +878,5 @@ export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[
        'mtx' 'list' 'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for' 'type'
        'heir' 'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
-       '++' '^^' '--' '</' '/>' 'cons' 'uncons' 'same' 'on'
+       '^^' '--' '++' '</' '/>' 'cons' 'uncons' 'same' 'on'
        'ffi_begin' 'ffi' 'min' 'max' 'swap' '~' 'have' 'source_' 'compile_when' '"'
