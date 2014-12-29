@@ -49,7 +49,7 @@ init_tokenizer =
 | HeadChar = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?~"
 | TailChar = "[HeadChar][Digit]"
 | Ls = \(`+` `-` `*` `/` `%` `^` `.` `->` `|` `;` `,` `:` `=` `=>` `<=`
-         `++` `--` `^^` `**` `..`
+         `++` `--` `^^` `</` `/>` `**` `..`
          `><` `<>` `<` `>` `<<` `>>`
          `\\` `$` `@` `&` `!`
          (() end)

@@ -327,6 +327,14 @@ let @As =
                       | when got P: leave [_dget A P]
                     | ['{}' ['.' A B]]
           else [_mcall A '.' B]
+`->` A B = form
+| `=` (~A) A
+| `=` (~B) B
+| ~G = ~A.~B
+| when No >< ~G
+  | ~G <= t
+  | ~A.~B <= ~G
+| ~G
 
 `^^` A B = [_mcall A '^^' B]
 `--` A B = [_mcall A '--' B]
@@ -880,6 +888,6 @@ on @Xs X = [X @Xs]
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[]' 't' '\\' 'form'
        'mtx' 'list' 'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for' 'type'
        'heir' 'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$'
-       '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' ':' '{}' '<=' '=>' '!!'
+       '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' '->' ':' '{}' '<=' '=>' '!!'
        '^^' '--' '++' '</' '/>' 'cons' 'uncons' 'same' 'on'
        'ffi_begin' 'ffi' 'min' 'max' 'swap' '~' 'have' 'source_' 'compile_when' '"'

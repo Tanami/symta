@@ -2,6 +2,7 @@ non F = X => if F X then 0 else 1
 no X = No >< X
 got X = No <> X
 
+_.`><` B = same Me B
 _.`<>` B = not Me >< B
 _.`<<` B = not B < Me
 _.`>` B = B < Me
@@ -747,7 +748,7 @@ list.div F =
   | K = F{X}
   | Xs = R.K
   | R.K <= if got Xs then [X@Xs] else [X]
-| R
+| R{[?0 ?1.flip]}.table
 
 list.xs Is = Is{$?}
 table.xs Is = Is{$?}

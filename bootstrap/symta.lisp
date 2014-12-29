@@ -1630,6 +1630,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
        `("@" ("|" ,body))
        0)
 
+(to expand-arrow a b
+  ! aa = ssa-name "A"
+  ! bb = ssa-name "B"
+  ! g = ssa-name "G"
+  ! `("|" ("=" (,aa) ,a)
+          ("=" (,bb) ,b)
+          ("=" (,g) ("." ,aa ,bb))
+          ("when" ("><" :no ,g)
+            ("|" ("<=" (,g) ("t"))
+                 ("<=" (("." ,aa ,bb)) ,g)))
+          ,g))
 
 (defun builtin-expander (xs &optional (head nil))
   ;; FIXME: don't notmalize macros, because the may expand for fn syms
@@ -1689,6 +1700,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
                      ((fn-sym? a) `(,a ,b))
                      ((fn-sym? b) `("{}" ,xs))
                      (t `("_mcall" ,a "." ,b))))
+        (("->" a b) (expand-arrow a b))
         (("{}" h . as) (expand-curly h as))
         (("\\" o) (expand-quasiquote o))
         (("form" o) (expand-form o))

@@ -214,4 +214,4 @@ gui.exit @Result =
 get_gui = GUI
 
 export gui get_gui tabs lay dlg spacer
-       ffi_alloc ffi_free new_cmap gfx rgb rgba
+       ffi_alloc ffi_free new_cmap gfx //'rgb' 'rgba'
