@@ -361,7 +361,10 @@ expand_colon_r E Found =
 have Var Default = form | when (no Var) (`<=` (Var) Default)
                         | Var
 
-`~` What With Src = form: case Src What With ~Else ~Else
+`~` @As = case As
+  [What With Src] | form: case Src What With ~Else ~Else
+  [With Src] | form: case Src No With ~Else ~Else
+  Else | mex_error "`~`: wrong number of arguments in [As]"
 
 expand_method_arg_r A FX FY =
 | when A.is_text
