@@ -17,7 +17,7 @@ type widget
 
 type gfx.widget.no_copy{@As} handle
 | $handle <= case As
-  [W H] | new_gfx_ W H
+  [W<1.is_int H<1.is_int] | new_gfx_ W H
   [Filename<1.is_text] | gfx_load_png Filename
   Else | bad "cant create gfx from [As]"
 gfx.free = free_gfx $handle
