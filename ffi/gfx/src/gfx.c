@@ -383,6 +383,8 @@ void gfx_triangle(gfx_t *gfx, uint32_t color, int ax, int ay, int bx, int by, in
 #define SC s[ps]
 #define DC d[pd]
 
+static int show_error = 1;
+
 void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int h,
               int flip_x, int flip_y, uint32_t *map) {
   int i, r, g, b, a;
@@ -464,7 +466,7 @@ void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int 
 
   if (dst->cmap) {
     if (!src->cmap) {
-      fprintf(stderr, "can't blit truecolor into indexed\n");
+      fprintf(stderr, "gfx.c: can't blit truecolor into indexed\n");
       abort();
     }
     begin_blit()
@@ -475,7 +477,10 @@ void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int 
       int sr, sg, sb, sa;
       uint32_t c;
       if (SC >= GFX_CMAP_SIZE) {
-        fprintf(stderr, "color map index is too big = 0x%X\n", SC);
+        if (show_error) {
+          fprintf(stderr, "gfx.c: color map index is too big = 0x%X\n", SC);
+          show_error = 0;
+        }
         SC = 0;
         //abort();
       }

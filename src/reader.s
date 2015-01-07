@@ -274,11 +274,11 @@ parse_b_shift = parse_binary &parse_dots [`</` `/>`]
 parse_b_and = parse_binary &parse_b_shift [`^^`]
 parse_b_xor = parse_binary &parse_b_and [`--`]
 parse_b_or = parse_binary &parse_b_xor [`++`]
-parse_bool = parse_binary &parse_b_or [`><` `<>` `<` `>` `<<` `>>`]
-parse_comma = parse_binary &parse_bool [`,`]
+parse_comma = parse_binary  &parse_b_or [`,`]
+parse_bool = parse_binary &parse_comma [`><` `<>` `<` `>` `<<` `>>`]
 
 parse_logic =
-| O = parse_op [`and` `or`] or leave (parse_comma)
+| O = parse_op [`and` `or`] or leave (parse_bool)
 | GOutput <= GOutput.flip
 | P = GInput.locate{&is_delim} //hack LL(1) to speed-up parsing
 | Tok = got P and GInput.P

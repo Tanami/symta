@@ -304,11 +304,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 (to /bitwise-and ! /binary #'/bitwise-shift '(:^^))
 (to /bitwise-xor ! /binary #'/bitwise-and '(:--))
 (to /bitwise-or ! /binary #'/bitwise-xor '(:++))
-(to /bool ! /binary #'/bitwise-or '(:>< :<> :< :> :<< :>>))
-(to /comma ! /binary #'/bool '(:|,|))
+(to /comma ! /binary  #'/bitwise-or '(:|,|))
+(to /bool ! /binary #'/comma '(:>< :<> :< :> :<< :>>))
 
 (to /logic
-  ! o = try (/op '(:and :or)) (/comma)
+  ! o = try (/op '(:and :or)) (/bool)
   ! g_output := nreverse g_output
   ! p = position-if #'delim? g_input ;hack LL(1) to speed-up parsing
   ! tok = and p (elt g_input p)
