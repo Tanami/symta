@@ -61,24 +61,41 @@ tabs._ Method Args =
 type canvas.widget{W H P} w/W h/H paint/P
 canvas.draw G P = case Me (F<~).paint: F G P $w $h 
 
-type lay.widget{D S Xs} w/1 h/1 dir/D spacing/S items/Xs{(meta ? [0 0 1 1])}
-lay.draw G P =
-| D = $dir
+type layV.widget{Xs s/S} w/1 h/1 spacing/S items/Xs{(meta ? [0 0 1 1])}
+layV.draw G P =
 | S = $spacing
 | Is = $items
 | Rs = Is{?render}
-| case $dir v | $w <= Rs{?w}.max; $h <= Rs{?h}.infix{S}.sum
-            h | $h <= Rs{?h}.max; $w <= Rs{?w}.infix{S}.sum
+| $w <= Rs{?w}.max
+| $h <= Rs{?h}.infix{S}.sum
 | N = 0
 | for R Rs
   | W = R.w
   | H = R.h
   | Rect = Is^pop.meta_
-  | RX = case D v(0) h(N)
-  | RY = case D v(N) h(0)
+  | RX = 0
+  | RY = N
   | G.blit{P+[RX RY] R}
   | Rect.init{[RX RY W H]}
-  | N <= case D v(N+H+S) h(N+W+S)
+  | N <= N+H+S
+
+type layH.widget{Xs s/S} w/1 h/1 spacing/S items/Xs{(meta ? [0 0 1 1])}
+layH.draw G P =
+| S = $spacing
+| Is = $items
+| Rs = Is{?render}
+| $h <= Rs{?h}.max
+| $w <= Rs{?w}.infix{S}.sum
+| N = 0
+| for R Rs
+  | W = R.w
+  | H = R.h
+  | Rect = Is^pop.meta_
+  | RX = N
+  | RY = 0
+  | G.blit{P+[RX RY] R}
+  | Rect.init{[RX RY W H]}
+  | N <= N+W+S
 
 type dlg.widget{Xs w/No h/No} w/W h/H ws items rs
 | $ws <= Xs{[X Y W]=>[X Y (meta W [0 0 1 1])]}
@@ -213,5 +230,5 @@ gui.exit @Result =
 
 get_gui = GUI
 
-export gui get_gui tabs lay dlg spacer
+export gui get_gui tabs wayV layH dlg spacer
        ffi_alloc ffi_free new_cmap gfx //'rgb' 'rgba'
