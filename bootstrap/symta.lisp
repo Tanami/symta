@@ -1730,6 +1730,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
         (("leave" value) (expand-leave *default-leave* value))
         (("<=" (place) value) (expand-assign place value))
         (("!!" . as) (expand-assign-result as))
+        (("case" keyform case) (expand-match keyform `((,case 1)) 0))
         (("case" keyform . cases) (expand-match keyform (group-by 2 cases) 0))
         (("is" a b) `("case" ,b ,a 1))
         (("is" a) `("=>" (("&" 0) ,a) 1))

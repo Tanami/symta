@@ -340,6 +340,10 @@ text.paths @As =
 | Xs = if As.size then $items{all} else $items
 | map X Xs "[Path][X]"
 
+text.urls = Me.paths{}{?url}
+
+text.folders = Me.items{}{?url}.keep{is.[_ '' '']}{?0.lead}
+
 text.url =
 | Name = ""
 | Ext = ""

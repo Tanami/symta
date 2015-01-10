@@ -342,8 +342,6 @@ parse_strip X =
 text.parse src/'<none>' =
 | init_tokenizer
 | R = parse_strip: parse_tokens: tokenize: text_stream Me Src
-| less R.end: R <= R.0
-| case R [X S] S
-         R R
+| if R.end then [`|` []] else R.0
 
 export

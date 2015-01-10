@@ -165,7 +165,10 @@ expand_match Keyform Cases Default Key =
     [_label E]
     R]
 
-case KeyForm @Cases = expand_match KeyForm Cases.group{2} 0 No
+case KeyForm @Cases =
+| case Cases
+  [Case] | expand_match KeyForm [[Case 1]] 0 No
+  Else | expand_match KeyForm Cases.group{2} 0 No
 
 is @As =
 | case As

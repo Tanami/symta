@@ -8,10 +8,7 @@ GMacros = No
 GShowInfo = 0
 GCompiledModules = No
 
-read_normalized Text Filename =
-| Expr = Text.parse{src Filename}
-| case Expr [`|` @As] Expr
-            X [`|` X]
+read_normalized Text Filename = Text.parse{src Filename}
 
 load_macros Library = Library^load_library.keep{X => X.1.is_macro}
 
