@@ -541,7 +541,7 @@ bad Text =
 | halt
 
 // hashtable
-type table.no_copy{table_ Size} buckets/(dup Size No)
+type table.no_copy{@table_ Size} buckets/(dup Size No)
 table.`.` K =
 | Bs = $buckets
 | H = K.hash%Bs.size
@@ -619,9 +619,9 @@ list.digits @Base =
   | !R + X
 | R
 
-type macro{new_macro N E} name/N expander/E
+type macro{@new_macro N E} name/N expander/E
 
-type meta.~{meta O M} object_/O meta_/M
+type meta.~{O M} object_/O meta_/M
 _.meta_ = No
 meta._ Method Args =
 | Args.0 <= $object_

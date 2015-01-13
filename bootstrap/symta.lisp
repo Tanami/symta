@@ -1219,21 +1219,26 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
   ! ctor-name = nil
   ! ctor-args = nil
   ! ctor-body = nil
+  ! parent = nil
   ! super = '("_")
   ! provide-copy = t
   ! while (consp name)
     (match name
       (('"{}" n . as)
-       (when (fn-sym? (car as)) (setf ctor-name (pop as)))
+       (when (match as ((("@" a) . _) (fn-sym? a)))
+         (setf ctor-name (second (pop as))))
        (setf ctor-args as)
        (setf name n))
-      (("." a b)
+     (("." a b)
        (setf name a)
        (cond
          ((equal b "~") (setf super (remove-if (fn x ! equal x "_") super)))
          ((equal b "no_copy") (setf provide-copy nil))
-         (t (push b super))))
-      (else (error "bad data declarator: ~a" name)))
+         ((fn-sym? b) (push b super))
+         (t (setf a `("." ,a "~"))
+            (setf parent b)
+            (error "FIXME: expand-type: prototype-implementation doesn't support inheritance"))))
+      (else (error "type: bad declarator: ~a" name)))
   ! unless ctor-name (setf ctor-name name)
   ! vs = nil
   ! fs = m f fields

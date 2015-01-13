@@ -537,6 +537,7 @@ expand_assign Place Value =
 `<=` Place Value = expand_assign Place.0 Value
 
 type Name @Fields =
+| Parent = 0
 | CtorName = 0
 | CtorArgs = []
 | CtorBody = 0
@@ -544,14 +545,23 @@ type Name @Fields =
 | ProvideCopy = 1
 | while Name.is_list: case Name
   ['{}' N @As]
-    | when case As [A@_] A.is_keyword: CtorName <= pop As
+    | when case As [['@' A]@_] A.is_keyword: CtorName <= As^pop.1
+    | Gs = []
+    | while case As [A@_] A.is_keyword
+      | A = As^pop
+      | G = form ~A
+      | push ["/" A G] Fields
+      | push G Gs
+    | As <= [@Gs.flip @As]
     | CtorArgs <= As
     | Name <= N
   ['.' A B] | Name <= A
             | if B >< ~ then Super <= Super.skip{_}
               else if B >< no_copy then ProvideCopy <= 0
-              else push B Super
-  Else | mex_error "data: bad declarator [Name]"
+              else if B.is_keyword then push B Super
+              else | Super <= Super.skip{_} // get parent's redeclarations of _'s methods
+                   | Parent <= B
+  Else | mex_error "type: bad declarator [Name]"
 | less CtorName: CtorName <= Name
 | Vs = []
 | Fs = map F Fields: case F
@@ -575,6 +585,11 @@ type Name @Fields =
          then [[`=` [[`.` Name "copy"]] [_data Name @(map F Fs [`$` F])]]
                [`=` [[`.` Name "deep_copy"]] [_data Name @(map F Fs [`.` [`$` F] deep_copy])]]]
          else []
+| Heir = if Parent
+         then form ((Name._ ~Method ~Args =
+                     | ~Args.0 <= Parent
+                     | ~Args.apply_method{~Method}))
+         else []
 | ['@' ['|' Ctor
             @Copy
             @(map S Super [_subtype S Name])
@@ -583,12 +598,8 @@ type Name @Fields =
             [`=` [[`.` '_' "is_[Name]"]] 0]
             @(map [I F] Fs.i [`=` [[`.` Name F]]  [_dget 'Me' I]])
             @(map [I F] Fs.i [`=` [[`.` Name "![F]"] V]  [_dset 'Me' I V]])
+            @Heir
             ]]
-
-heir Child Parent =
-| form @| Child._ ~Method ~Args =
-          | ~Args.0 <= Parent
-          | ~Args.apply_method{~Method}
 
 expand_block_item_method Type Name Args Body =
 | less Name >< _
@@ -890,7 +901,7 @@ on @Xs X = [X @Xs]
 
 export macroexpand 'let_' 'let' 'default_leave_' 'leave' 'case' 'is' 'if' '@' '[]' 't' '\\' 'form'
        'mtx' 'list' 'not' 'and' 'or' 'when' 'less' 'while' 'till' 'dup' 'times' 'map' 'for' 'type'
-       'heir' 'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$'
+       'named' 'export_hidden' 'export' 'pop' 'push' 'as' 'callcc' 'fin' '|' ';' ',' '$'
        '+' '-' '*' '/' '%' '**' '<' '>' '<<' '>>' '><' '<>' '^' '.' '->' ':' '{}' '<=' '=>' '!!'
        '^^' '--' '++' '</' '/>' 'cons' 'uncons' 'same' 'on'
        'ffi_begin' 'ffi' 'min' 'max' 'swap' '~' 'have' 'source_' 'compile_when' '"'
