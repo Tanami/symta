@@ -344,14 +344,22 @@ P = point 123 456
 
 Now, after initializing the fields, constructor evaluates its body - the `| say "created a point: [Me]"`.
 
-Sometimes we can reuse pre-existing functionality. To do that, Symta provides inheritance. Here is how we can declare a `circle` type, which extends point with a radius around it:
+
+For simple structure Symta provides initialization shorthand
 ```
-type circle{X Y R} base/point{X Y} radius/R
-circle.as_text = "point [$base] with radius [$radius]"
-heir circle $base
+type point{x y}
 ```
 
-The `heir` keyword makes newly declared type `circle` to inherit all the methods $base provides (which holds point value), so now both methods is_point and is_rect return true on it. Note that we inherit from prototype object as opposed to class. Instead of $base, we can pass any value to `heir` and it will still work.
+which is a complete equivalent to more verbose `type point{X Y} x/X y/Y`
+
+
+Sometimes we can reuse pre-existing functionality. To do that, Symta provides inheritance. Here is how we can declare a `circle` type, which extends point with a radius around it:
+```
+type circle.$base{X Y R} base/point{X Y} radius/R
+circle.as_text = "point [$base] with radius [$radius]"
+```
+
+The `$base` makes newly declared type `circle` to inherit all the methods the $base field provides (which holds point value), so now both methods is_point and is_rect return true on it. Note that we inherit from prototype object as opposed to class. Instead of $base, we can specify any value and it will still work.
 
 
 The other way to inherit methods is to use interfaces. Say you want to provide point with methods previously defined on type `list`:
