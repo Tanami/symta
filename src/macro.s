@@ -880,19 +880,19 @@ mtx @Xs =
 | Ys = map X Xs: case X [`|` @Zs](Zs{[`[]` @?]}) X[X]
 | form [$@(Ys.join)]
 
-cons F Xs = form 
+cons Field Xs = form
 | ~R = 0
 | for ~X Xs
-  | F ~X ~R
+  | ~X.Field <= ~R
   | ~R <= ~X
 | ~R
 
-uncons Next Item = form
+uncons Field Item = form
 | ~Xs = []
 | ~X = Item
 | while ~X
   | [~X@!~Xs]
-  | Next !~X
+  | ~X <= ~X.Field
 | ~Xs
 
 same A B = form A^address >< B^address

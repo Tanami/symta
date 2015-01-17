@@ -683,6 +683,7 @@ list.sort @As =
   | [@Xs^h H @Ys^h]
 | h $shuffle
 
+list.sortBy F = $sort{?^F < ??^F}
 
 //= parse text as integer; an optional argument provides Radix
 text.int @Radix =
