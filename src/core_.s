@@ -312,6 +312,8 @@ list.text @As =
 | R = $list
 | if As.size then R.text{As.0} else R.text
 
+text.text = Me
+
 list.split S =
 | F = if S.is_fn then S else X => S >< X
 | Ys = []
