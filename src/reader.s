@@ -46,6 +46,7 @@ init_tokenizer =
 | when got GTable: leave No
 | Digit = "0123456789"
 | HexDigit = "0123456789ABCDEFabcdef"
+| BinDigit = "01"
 | HeadChar = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_?~"
 | TailChar = "[HeadChar][Digit]"
 | Ls = \(`+` `-` `*` `/` `%` `^` `.` `->` `|` `;` `,` `:` `=` `=>` `<=`
@@ -63,6 +64,7 @@ init_tokenizer =
          ((`/` `*`) $&read_multi_comment)
          ((&(` ` `\n`)) $(R Cs => read_token R 1))
          ((`#` &$HexDigit) hex)
+         ((`#` `#@` &$BinDigit) bin)
          ((&$Digit) integer)
          (($HeadChar @$TailChar) symbol)
          )
@@ -223,6 +225,7 @@ parse_term =
          splice | [(token symbol `"` Tok.src 0) @V^parse_tokens] //"
          integer | V.int
          hex | V.tail.int{16}
+         bin | V.drop{2}.int{2}
          void | No
          `()` | parse_tokens V
          `[]` | [(token symbol `[]` Tok.src 0) @V^parse_tokens]
