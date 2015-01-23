@@ -549,7 +549,7 @@ type Name @Fields =
     | Gs = []
     | while case As [A@_] A.is_keyword
       | A = As^pop
-      | G = form ~A
+      | G = "[A.head.upcase][A.tail]"
       | push ["/" A G] Fields
       | push G Gs
     | As <= [@Gs.flip @As]
