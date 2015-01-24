@@ -471,3 +471,7 @@ void show_cursor(int state) {
 void show_sleep(uint32_t ms) {
   SDL_Delay(ms);
 }
+
+uint32_t show_get_ticks() {
+  return SDL_GetTicks();
+}

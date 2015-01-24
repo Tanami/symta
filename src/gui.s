@@ -228,7 +228,12 @@ gui.exit @Result =
 | $result <= case Result [R](R) Else(No)
 | $fb <= No
 
-gui.sleep Milliseconds = show_sleep: @int Milliseconds*1000.0
+// sleep for a number of seconds
+gui.sleep Seconds = show_sleep: @int Seconds*1000.0
+
+// get the number of seconds since the gui initialization.
+gui.ticks = show_get_ticks{}.float/1000.0
+
 
 get_gui = GUI
 
