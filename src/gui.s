@@ -156,7 +156,7 @@ gui.render =
   | when got CG and host <> CG:
     | when $host_cursor: show_cursor 0
     | $host_cursor <= 0
-    | FB.blit{XY-CG.hotspot CG}
+    | FB.blit{XY CG}
   | when host >< CG and not $host_cursor:
     | show_cursor 1
     | $host_cursor <= 1

@@ -11,8 +11,8 @@
 typedef struct {
   uint32_t w; // width
   uint32_t h; // height
-  uint32_t hotspot_x; // hot spot x
-  uint32_t hotspot_y; // hot spot y
+  uint32_t x; // x offset for blitting
+  uint32_t y; // y offset for blitting
   uint32_t *data; // pixels
   uint32_t *cmap; // color map
 } gfx_t;

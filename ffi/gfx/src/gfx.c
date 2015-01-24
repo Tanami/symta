@@ -19,8 +19,8 @@ gfx_t *new_gfx(uint32_t w, uint32_t h) {
   gfx->w = w;
   gfx->h = h;
   gfx->cmap = 0;
-  gfx->hotspot_x = 0;
-  gfx->hotspot_y = 0;
+  gfx->x = 0;
+  gfx->y = 0;
   return gfx;
 }
 
@@ -64,17 +64,17 @@ void gfx_set_cmap(gfx_t *gfx, uint32_t *cmap) {
   memcpy(gfx->cmap, cmap, sizeof(uint32_t)*GFX_CMAP_SIZE);
 }
 
-int gfx_hotspot_x(gfx_t *gfx) {
-  return gfx->hotspot_x;
+int gfx_x(gfx_t *gfx) {
+  return gfx->x;
 }
 
-int gfx_hotspot_y(gfx_t *gfx) {
-  return gfx->hotspot_y;
+int gfx_y(gfx_t *gfx) {
+  return gfx->y;
 }
 
-void gfx_set_hotspot(gfx_t *gfx, int x, int y) {
-  gfx->hotspot_x = x;
-  gfx->hotspot_y = y;
+void gfx_set_xy(gfx_t *gfx, int x, int y) {
+  gfx->x = x;
+  gfx->y = y;
 }
 
 uint32_t gfx_get(gfx_t *gfx, int x, int y) {
@@ -408,6 +408,9 @@ void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int 
   int pd = 0; // destination pointer
   int ps = 0; // sorce pointer
 
+  x += flip_x ? -src->x : src->x;
+  y += flip_y ? -src->y : src->y;
+
   if (sx < 0) {
     w += sx;
     sx = 0;
@@ -497,7 +500,9 @@ void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int 
         int sr, sg, sb, sa;
         fromR8G8B8A8(sr,sg,sb,sa,SC);
         if (sa) {
-          int dr, dg, db, da;
+          c = DC;
+          // alpha blending was disabled because it slows down blitting by a factor of 2
+          /*int dr, dg, db, da;
           fromR8G8B8A8(dr,dg,db,da,DC);
           //NOTE: X>>8 is a division by 256, while max alpha is 0xFF
           //      this leads to some loss of precision
@@ -505,7 +510,7 @@ void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int 
           r = (sr*sm + dr*sa)>>8;
           g = (sg*sm + dg*sa)>>8;
           b = (sb*sm + db*sa)>>8;
-          c = R8G8B8(r,g,b);
+          c = R8G8B8(r,g,b);*/
         } else {
           c = SC;
         }

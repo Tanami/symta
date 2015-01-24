@@ -5,9 +5,9 @@ ffi gfx_load_png.ptr Filename.text
 ffi gfx_save_png.void Filename.text Gfx.ptr
 ffi gfx_w.u4 Gfx.ptr
 ffi gfx_h.u4 Gfx.ptr
-ffi gfx_hotspot_x.int Gfx.ptr
-ffi gfx_hotspot_y.int Gfx.ptr
-ffi gfx_set_hotspot.void Gfx.ptr X.int Y.int
+ffi gfx_x.int Gfx.ptr
+ffi gfx_y.int Gfx.ptr
+ffi gfx_set_xy.void Gfx.ptr X.int Y.int
 ffi gfx_get.u4 Gfx.ptr X.int Y.int
 ffi gfx_set.void Gfx.ptr X.int Y.int Color.u4
 ffi gfx_clear.void Gfx.ptr Color.u4

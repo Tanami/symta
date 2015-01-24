@@ -23,8 +23,8 @@ type gfx.widget.no_copy{@As} handle w h
 | $w <= gfx_w $handle
 | $h <= gfx_h $handle
 gfx.free = free_gfx $handle
-gfx.hotspot = [(gfx_hotspot_x $handle) (gfx_hotspot_y $handle)]
-gfx.`!hotspot` [X Y] = gfx_set_hotspot $handle X Y
+gfx.xy = [(gfx_x $handle) (gfx_y $handle)]
+gfx.`!xy` [X Y] = gfx_set_xy $handle X Y
 gfx.get X Y = gfx_get $handle X Y
 gfx.set X Y Color = gfx_set $handle X Y Color
 gfx.clear Color = gfx_clear $handle Color
