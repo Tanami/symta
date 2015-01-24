@@ -228,6 +228,8 @@ gui.exit @Result =
 | $result <= case Result [R](R) Else(No)
 | $fb <= No
 
+gui.sleep Milliseconds = show_sleep: @int Milliseconds*1000.0
+
 get_gui = GUI
 
 export gui get_gui tabs layV layH dlg spacer

@@ -467,3 +467,7 @@ char *show_get_events() {
 void show_cursor(int state) {
   SDL_ShowCursor(state ? 1 : 0);
 }
+
+void show_sleep(uint32_t ms) {
+  SDL_Delay(ms);
+}
