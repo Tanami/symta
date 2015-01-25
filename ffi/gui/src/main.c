@@ -78,11 +78,11 @@ static void init_keynames() {
   NAME_KEY(SDLK_QUESTION, "?");
   NAME_KEY(SDLK_AT, "@");
   NAME_KEY(SDLK_LEFTBRACKET, "[");
-  NAME_KEY(SDLK_BACKSLASH, "\\\\");
+  NAME_KEY(SDLK_BACKSLASH, "\\");
   NAME_KEY(SDLK_RIGHTBRACKET, "]");
   NAME_KEY(SDLK_CARET, "^");
   NAME_KEY(SDLK_UNDERSCORE, "_");
-  NAME_KEY(SDLK_BACKQUOTE, "\\`");
+  NAME_KEY(SDLK_BACKQUOTE, "`");
   NAME_KEY(SDLK_a, "a");
   NAME_KEY(SDLK_b, "b");
   NAME_KEY(SDLK_c, "c");
@@ -381,6 +381,7 @@ void show_close() {
 
 char *show_get_events() {
   int i;
+  static int shift = 0;
   SDL_Event e;
   char tmp[1024];
   char tmp2[128];
@@ -404,12 +405,37 @@ char *show_get_events() {
       sprintf(tmp, "quit");
     } else if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
       char *name = find_keyname(e.key.keysym.sym);
-      char *state = e.type == SDL_KEYDOWN ? "1" : "0";
+      // FIXME: find a better way to handle SHIFT input
+      if (shift && name && !name[1]) {
+        int c = name[0];
+        tmp2[1] = 0;
+        if ('a' <= c && c <= 'z') {
+          tmp2[0] = c-'a'+'A';
+          name = tmp2;
+        } else if ('0' <= c && c <= '9') {
+          tmp2[0] = ")!@#$%^&*("[c-'0'];
+          name = tmp2;
+        } else {
+          char *p = "`~-_=+[{]}\\|;:'\",<.>/?";
+          for (; *p; p += 2) if (*p == c) {
+            tmp2[0] = p[1];
+            name = tmp2;
+            break;
+          }
+        }
+      }
       if (!name) {
         sprintf(tmp2, "unknown_%d", e.key.keysym.sym);
         name = tmp2;
+      } else if (!strcmp(name,"lshift") || !strcmp(name,"rshift")) {
+        shift = (e.type == SDL_KEYDOWN) ? 1 : 0;
       }
-      sprintf(tmp, "(key `%s` %s)", name, state);
+      char *state = e.type == SDL_KEYDOWN ? "1" : "0";
+      if (name[0] == '\\' || name[0] == '`') {
+        sprintf(tmp, "(key `\\%s` %s)", name, state);
+      } else {
+        sprintf(tmp, "(key `%s` %s)", name, state);
+      }
     } else if (e.type == SDL_MOUSEMOTION) {
       sprintf(tmp, "(mice_move (%d %d))", e.motion.x, e.motion.y);
     } else if (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP) {
