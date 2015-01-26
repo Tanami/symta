@@ -2,7 +2,7 @@ use gfx reader gui_
 
 // loop body made a separate routine, so that GC will free all per-frame data
 event_loop F =
-| Events = show_get_events{}.parse.1
+| Events = show_get_events{}.parse.0
 | when got Events.locate{? >< quit}: leave [No]
 | G = F Events
 | less G.is_gfx: leave [G]

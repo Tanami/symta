@@ -105,12 +105,12 @@ compile_module_sub Name =
     | GCompiledModules.Name <= DstFile
     | DepFile = "[DstFile].dep"
     | when DepFile.exists and DepFile^newerThan{SrcFile}:
-      | Deps = DepFile^load_symta_file.1
+      | Deps = DepFile^load_symta_file.0 // first line
       | CompiledDeps = map D Deps: compile_module D
       | when DstFile^newerThan{SrcFile} and CompiledDeps.all{X => got X and DstFile^newerThan{X}}:
         | leave DstFile
     | Expr = load_symta_file SrcFile
-    | Deps = compile_expr Name DstFile Expr
+    | Deps = compile_expr Name DstFile [`|` @Expr]
     | DepFile.set{Deps.text{' '}}
     | leave DstFile
 | No
