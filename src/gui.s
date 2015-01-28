@@ -58,6 +58,12 @@ tabs._ Method Args =
 | Args.0 <= Args.0.tab
 | Args.apply_method{Method}
 
+type hidden.~{widget show/0} show/Show spacer/spacer{0 0}
+hidden.as_text = "#hidden{show/[$show] [$widget]}"
+hidden._ Method Args =
+| Args.0 <= if $show then Args.0.widget else Args.0.spacer
+| Args.apply_method{Method}
+
 type canvas.widget{W H P} w/W h/H paint/P
 canvas.draw G P = case Me (F<~).paint: F G P $w $h 
 
@@ -237,5 +243,5 @@ gui.ticks = show_get_ticks{}.float/1000.0
 
 get_gui = GUI
 
-export gui get_gui tabs layV layH dlg spacer
+export gui get_gui tabs hidden layV layH dlg spacer
        ffi_alloc ffi_free new_cmap gfx //'rgb' 'rgba'
