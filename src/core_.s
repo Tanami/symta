@@ -74,12 +74,17 @@ text.`<` B =
 | less B.is_text: bad "cant compare string `[Me]` with [B]"
 | AS = $size
 | BS = B.size
-| when AS <> BS: leave AS < BS
-| times I AS
-  | AC = $I.code
-  | BC = B.I.code
-  | when AC <> BC: leave AC < BC
-| 0
+| if AS < BS
+  then | times I AS
+         | AC = $I.code
+         | BC = B.I.code
+         | when AC <> BC: leave AC < BC
+       | 1
+  else | times I BS
+         | AC = $I.code
+         | BC = B.I.code
+         | when AC <> BC: leave AC < BC
+       | 0
 
 text.is_upcase =
 | times I $size
