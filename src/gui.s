@@ -50,7 +50,7 @@ spacer.as_text = "#spacer{[$w] [$h]}"
 
 type tabs.~{Init Tabs} tab all/Tabs | $pick{Init}
 tabs.pick TabName =
-| when $tab: (get_gui).focus_widget <= No
+| when $tab: when got!it get_gui: it.focus_widget <= No
 | $tab <= $all.TabName
 | when no $tab: bad "tabs.pick: no [TabName]"
 tabs.as_text = "#tabs{[$tab]}"
