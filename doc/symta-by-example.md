@@ -168,7 +168,7 @@ greet name/"Symta"
 
 Here `Name` became an optional argument, by default bound to "World".
 
-Symta uses {} instead of (), because otherwise `say(hello)` would be indistinguishable from `say  (hello)` - function say taking the result of calling function hello. The {}-syntax also provides additional sugar for lambdas.
+Symta uses {} instead of (), because otherwise `say(hello)` would be indistinguishable from `say  (hello)` - function `say` taking the result of calling function `hello`. The {}-syntax also provides additional sugar for lambdas.
 
 In many cases it makes sense to specify function in Forth-style - after the arguments. Symta provides operator `^` to do that:
 ```
