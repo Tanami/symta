@@ -593,7 +593,7 @@ Compared to other languages, Symta provides macro-system to extend the language 
 
 Here is an OOP example from Wikipedia's Ruby article rewritten into Symta:
 ```
-type person{Name Age} name/Name age/Age
+type person{name age}
 person.`<` X = $age < X.age
 person.as_text = "[$name] ([$age])"
 
