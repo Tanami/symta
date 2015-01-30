@@ -404,6 +404,9 @@ list.lead = $take{$size-1}
 list.cut P S = $drop{P}.take{S}
 text.cut P S = $drop{P}.take{S}
 
+text.keep Item = $list.keep{Item}.text
+text.skip Item = $list.skip{Item}.text
+
 _.rmap F = F Me
 list.rmap F = map X Me X.rmap{F}
 
