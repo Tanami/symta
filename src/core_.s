@@ -674,24 +674,57 @@ list.shuffle =
   | Xs.N <= X
 | Xs
 
-sort_asc $[] [H@Zs] =
-| Xs = []
-| Ys = []
-| for Z Zs: if Z < H then push Z Xs else push Z Ys
-| [@Xs^sort_asc H @Ys^sort_asc]
 
-list.sort @As =
+IValue = 0
+IParent = 1
+ILeft = 2
+IRight = 3
+
+merge H1 H2 =
+| less H1: leave H2
+| less H2: leave H1
+| when H2.IValue < H1.IValue: leave: merge H2 H1
+| if 1.rand
+  then | H1.ILeft <= merge H1.ILeft H2
+       | when H1.ILeft: H1.ILeft.IParent <= H1
+  else | H1.IRight <= merge H1.IRight H2
+       | when H1.IRight: H1.IRight.IParent <= H1
+| H1
+
+sort_asc Xs =
+| Root = 0
+| for X Xs
+  | Root <= merge [X 0 0 0] Root
+  | Root.IParent <= 0
+| dup Xs.size
+  | V = Root.IValue
+  | Root <= merge Root.ILeft Root.IRight
+  | V
+
+list.sort @As = 
 | F = No
 | case As
   [A] | F <= A
-  [] | leave: sort_asc $shuffle
+  [] | leave: sort_asc Me
   Else | bad "list.sort: invalid number of arguments"
-| h $[] [H@Zs] =
-  | Xs = []
-  | Ys = []
-  | for Z Zs: if F Z H then push Z Xs else push Z Ys
-  | [@Xs^h H @Ys^h]
-| h $shuffle
+| merge H1 H2 =
+  | less H1: leave H2
+  | less H2: leave H1
+  | when F H2.IValue H1.IValue: leave: merge H2 H1
+  | if 1.rand
+    then | H1.ILeft <= merge H1.ILeft H2
+         | when H1.ILeft: H1.ILeft.IParent <= H1
+    else | H1.IRight <= merge H1.IRight H2
+         | when H1.IRight: H1.IRight.IParent <= H1
+  | H1
+| Root = 0
+| for X Me
+  | Root <= merge [X 0 0 0] Root
+  | Root.IParent <= 0
+| dup $size
+  | V = Root.IValue
+  | Root <= merge Root.ILeft Root.IRight
+  | V
 
 list.sortBy F = $sort{?^F < ??^F}
 

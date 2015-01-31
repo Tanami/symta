@@ -32,7 +32,7 @@ heap.pop =
 heap.list =
 | Xs = $deep_copy
 | Ys = []
-| while!it Ys.pop: push it Ys
+| while!it Xs.pop: push it Ys
 | Ys.flip
 
 export heap
