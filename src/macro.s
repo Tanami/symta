@@ -688,6 +688,8 @@ leave @As = case As
   [Name Value] | expand_leave Name Value
   [Value] | when no GDefaultLeave: mex_error "missing default leave"
           | expand_leave GDefaultLeave Value
+  [] | when no GDefaultLeave: mex_error "missing default leave"
+       | expand_leave GDefaultLeave No
   Else | mex_error "errorneous leave syntax"
 
 as @As = case As
