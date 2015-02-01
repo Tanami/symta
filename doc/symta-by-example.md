@@ -637,9 +637,11 @@ This section provides a quick reference of the content of cors_.s and rt_.s file
 
 `Table->field` - when `Table.field` is `No`, initializes Table.field to `t{}`, else returns the existing value of `Table.field`. Similar to Perl's autovivification.
 
+`leave` - leaves current function, returning `No`
+
 `leave Value` - leaves current function, returning Value
 
-`leave block_name Value` - leaves block_name, returning Value
+`leave block_name Value` - leaves `block_name`, returning Value
 
 `meta Object MetaInfo` - attach MetaInfo to Object
 
