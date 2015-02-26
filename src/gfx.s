@@ -60,7 +60,7 @@ gfx.margins =
    (_ffi_get uint32_t P 2) (_ffi_get uint32_t P 3)]
 gfx.cut X Y W H =
 | G = gfx W H
-| G.clear{0}
+| G.clear{#FF000000} // transparent
 | CMap = $cmap
 | when CMap: G.cmap <= CMap
 | G.blit{[0 0] Me rect [X Y W H]}
