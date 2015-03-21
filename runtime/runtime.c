@@ -25,7 +25,7 @@
 static char *main_lib;
 static void *main_args;
 
-static char *version = "0.0.2";
+static char *version = "0.0.3";
 
 typedef struct {
   int items[MAX_TYPES];
