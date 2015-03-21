@@ -13,7 +13,7 @@ AS = $(CC)
 ASFLAGS = $(LOC) -Wall
 
 LD = $(CC)
-LDFLAGS = $(LOC) -L./deps/sdl/lib -lSDL2
+LDFLAGS = $(LOC) -L./deps/sdl/lib -lSDL2 -lSDL2_mixer
 
 AR = $(PREFIX)ar
 ARFLAGS = rcs

@@ -243,5 +243,11 @@ gui.ticks = show_get_ticks{}.float/1000.0
 
 get_gui = GUI
 
+sound_load Filename music/0 = show_sound_load Filename Music
+sound_free Id = show_sound_free Id
+sound_play Id channel/-1 loop/0 = show_sound_play Id Channel Loop
+sound_playing Channel = show_sound_playing Channel
+
 export gui get_gui tabs hidden layV layH dlg spacer
        ffi_alloc ffi_free new_cmap gfx //'rgb' 'rgba'
+       sound_load sound_free sound_play sound_playing

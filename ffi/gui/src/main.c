@@ -1,4 +1,5 @@
 #include <SDL.h>
+#include <SDL_mixer.h>
 #include <stdio.h>
 #include <ctype.h>
 
@@ -288,9 +289,14 @@ static char *find_keyname(SDL_Keycode key) {
 static char *show_init() {
   if (done_init) return 0;
   init_keynames();
-  if (SDL_Init(SDL_INIT_VIDEO) < 0) return (char*)SDL_GetError();
+  if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO) < 0) return (char*)SDL_GetError();
   window_x = SDL_WINDOWPOS_UNDEFINED;
   window_y = SDL_WINDOWPOS_UNDEFINED;
+
+  if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096) == -1) {
+    return (char*)Mix_GetError();
+  }
+    
   done_init = 1;
   return 0;
 }
@@ -373,6 +379,7 @@ void show_close() {
     free(show_events);
     show_events = 0;
   }
+  Mix_CloseAudio();
   SDL_Quit();
   window = NULL;
   surface = NULL;
@@ -501,3 +508,58 @@ void show_sleep(uint32_t ms) {
 uint32_t show_get_ticks() {
   return SDL_GetTicks();
 }
+
+
+#define MAX_SOUNDS (1<<15)
+#define SND_MUSIC 1
+
+typedef struct {
+  char *origin;
+  int flags;
+  void *sound;
+} sound;
+
+static sound sounds[MAX_SOUNDS];
+static int next_sound = 1;
+
+int show_sound_load(char *filename, int music) {
+  int i;
+  show_init();
+  for (i = next_sound; sounds[i].sound; i++);
+  if (music) {
+    sounds[i].sound = Mix_LoadMUS(filename);
+  } else {
+    sounds[i].sound = Mix_LoadWAV(filename);
+  }
+  if (!sounds[next_sound].sound) return 0;
+  sounds[next_sound].origin = strdup(filename);
+  sounds[next_sound].flags = music;
+  next_sound = i + 1;
+  return i;
+}
+
+void show_sound_free(int id) {
+  free(sounds[id].origin);
+  if (sounds[id].flags&SND_MUSIC) Mix_FreeMusic((Mix_Music*)sounds[id].sound);
+  else Mix_FreeChunk((Mix_Chunk*)sounds[id].sound);
+  sounds[id].sound = 0;
+  if (next_sound > id) next_sound = id;
+}
+
+#define MUSIC_CHANNEL 0xFFFFFFF
+
+int show_sound_play(int id, int channel, int loop) {
+  if (sounds[id].flags&SND_MUSIC) {
+    Mix_PlayMusic((Mix_Music*)sounds[id].sound, loop+1);
+    return MUSIC_CHANNEL;
+  }
+  return Mix_PlayChannel(channel, (Mix_Chunk*)sounds[id].sound, loop+0);
+}
+
+int show_sound_playing(int channel) {
+  if (channel == MUSIC_CHANNEL) {
+    return Mix_PlayingMusic() != 0;
+  }
+  return Mix_Playing(channel);
+}
+
