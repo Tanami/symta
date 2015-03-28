@@ -499,13 +499,14 @@ void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int 
         uint32_t c; // result color
         int sr, sg, sb, sa;
         fromR8G8B8A8(sr,sg,sb,sa,SC);
-        if (sa) {
-          if (sa == 0xFF) {
-            c = DC;
-          } else {
-            // alpha blending was disabled because it slows down blitting by a factor of 2
-            int dr, dg, db, da;
-            fromR8G8B8A8(dr,dg,db,da,DC);
+        if (sa == 0) {
+          c = SC;
+        } else if (sa == 0xFF) {
+          c = DC;
+        } else {
+          int dr, dg, db, da;
+          fromR8G8B8A8(dr,dg,db,da,DC);
+          if (da == 0) {
             //NOTE: X>>8 is a division by 256, while max alpha is 0xFF
             //      this leads to some loss of precision
             sm = 0xFF - sa;
@@ -513,9 +514,10 @@ void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int 
             g = (sg*sm + dg*sa)>>8;
             b = (sb*sm + db*sa)>>8;
             c = R8G8B8(r,g,b);
+          } else {
+            // incorrect, but should be okay for now
+            c = SC;
           }
-        } else {
-          c = SC;
         }
         end_blit(c);
     }
