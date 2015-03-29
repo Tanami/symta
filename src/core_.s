@@ -331,6 +331,9 @@ list.split S =
 
 text.split F = $list.split{F}.map{X=>X.text}
 
+text.all F = Me.list.all{F}
+text.any F = Me.list.any{F}
+
 text.lines = $split{'\n'}
 
 text.get = get_file_ Me
