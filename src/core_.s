@@ -809,4 +809,6 @@ list.hash =
 | for X Me: H <= H</1 -- X.hash
 | H
 
+list.clear Value = times I $size: Me.I <= Value
+
 export non say bad no got table_ new_macro meta main_root methods
