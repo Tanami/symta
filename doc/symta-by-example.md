@@ -380,12 +380,12 @@ point._ Method Args = send_to ServerIP ServerPort Method Args
 
 Now all undeclared methods get redirected to send_to. This technique is called 'sinking'. Although doing that would be a little overkill for a humble `point` type.
 
-When you want to make a method available to all type, declare it with `_` in place of type name:
+When you want to make a method available to all types, declare it with `_` in place of type name:
 ```
 _.get_my_typename = Me^typename
 ```
 
-The type `_` denotes the default parent of all type. But there is a way to declare a type without any parent. Use `~` instead of inheritance name.
+The type `_` denotes the default parent of all types. But there is a way to declare a type without any parent by using `~` instead of inheritance name:
 ```
 type point.~{X Y} x/X y/Y
 ```
