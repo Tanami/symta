@@ -605,6 +605,14 @@ BUILTIN3("bytes.`!`",bytes_set,C_ANY,o,C_INT,index,C_INT,value)
   BYTES_DATA(o)[i] = (uint8_t)UNFIXNUM(value);
   R = 0;
 RETURNS(R)
+BUILTIN2("bytes.clear",bytes_clear,C_ANY,o,C_INT,value)
+  intptr_t i;
+  intptr_t size = BYTES_SIZE(o);
+  uint8_t v = (uint8_t)UNFIXNUM(value);
+  uint8_t *p = BYTES_DATA(o);
+  for (i = 0; i < size; i++) p[i] = v;
+  R = 0;
+RETURNS(R)
 BUILTIN1("bytes.utf8",bytes_utf8,C_ANY,o)
 RETURNS(bytes_to_text(api, BYTES_DATA(o), BYTES_SIZE(o)))
 
@@ -771,6 +779,15 @@ BUILTIN3("list.`!`",list_set,C_ANY,o,C_INT,index,C_ANY,value)
   }
   p = (void*)O_PTR(o);
   LIFT(p,UNFIXNUM(index),value);
+  R = 0;
+RETURNS(R)
+BUILTIN2("list.clear",list_clear,C_ANY,o,C_ANY,value)
+  intptr_t i;
+  intptr_t size = LIST_SIZE(o);
+  void **p = (void*)O_PTR(o);
+  for (i = 0; i < size; i++) {
+    LIFT(p,UNFIXNUM(i),value);
+  }
   R = 0;
 RETURNS(R)
 BUILTIN1("list.end",list_end,C_ANY,o)
@@ -1998,6 +2015,7 @@ static void init_types(api_t *api) {
   METHOD_FN("size", 0, 0, 0, b_list_size, b_fixtext_size, b_text_size, b_view_size, 0, 0);
   METHOD_FN(".", 0, 0, 0, b_list_get, b_fixtext_get, b_text_get, b_view_get, 0, 0);
   METHOD_FN("!", 0, 0, 0, b_list_set, 0, 0, b_view_set, 0, 0);
+  METHOD_FN("clear", 0, 0, 0, b_list_clear, 0, 0, 0, 0, 0);
   METHOD_FN("hash", b_int_hash, 0, 0, 0, b_fixtext_hash, b_text_hash, 0, 0, b_void_hash);
   METHOD_FN("code", 0, 0, 0, 0, b_fixtext_code, 0, 0, 0, 0);
   METHOD_FN("char", b_int_char, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -2030,6 +2048,7 @@ static void init_types(api_t *api) {
   METHOD_FN1("size", T_BYTES, b_bytes_size);
   METHOD_FN1(".", T_BYTES, b_bytes_get);
   METHOD_FN1("!", T_BYTES, b_bytes_set);
+  METHOD_FN1("clear", T_BYTES, b_bytes_clear);
   METHOD_FN1("utf8", T_BYTES, b_bytes_utf8);
 
   add_subtype(api, T_GENERIC_TEXT, T_FIXTEXT);
