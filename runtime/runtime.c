@@ -1,11 +1,30 @@
 #include <dlfcn.h>
 #include <stdarg.h>
 #include <sys/stat.h>
+
 #include <unistd.h>
 #include <time.h>
 #include <float.h>
 #include <math.h>
 #include <dirent.h>
+
+#ifdef __MACH__
+// OS X does not have clock_gettime, define it through clock_get_time
+#include <mach/clock.h>
+#include <mach/mach.h>
+#define CLOCK_REALTIME 0
+int clock_gettime(int clk_id, struct timespec *ts) {
+  clock_serv_t cclock;
+  mach_timespec_t mts;
+  host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+  clock_get_time(cclock, &mts);
+  mach_port_deallocate(mach_task_self(), cclock);
+  ts->tv_sec = mts.tv_sec;
+  ts->tv_nsec = mts.tv_nsec;
+}
+#else
+#include <sys/time.h>
+#endif
 
 #include "runtime.h"
 
@@ -1463,8 +1482,15 @@ RETURNS(R)
 BUILTIN0("time",time)
 RETURNS(FIXNUM((intptr_t)time(0)))
 
+//BUILTIN0("clock",clock)
+//  LOAD_FLOAT(R, (double)clock()/(double)CLOCKS_PER_SEC);
+//RETURNS(R)
 BUILTIN0("clock",clock)
-  LOAD_FLOAT(R, (double)clock()/(double)CLOCKS_PER_SEC);
+  struct timespec time;
+  clock_gettime(CLOCK_REALTIME,&time);
+  double dSeconds = time.tv_sec;
+  double dNanoSeconds = (double)time.tv_nsec/1000000000L;
+  LOAD_FLOAT(R, dSeconds+dNanoSeconds);
 RETURNS(R)
 
 BUILTIN0("main_args", main_args)
