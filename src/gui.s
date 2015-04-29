@@ -27,7 +27,7 @@ widget.items = No
 widget.render = Me
 widget.draw G P =
 widget.popup = 0
-widget.cursor = 0
+widget.pointer = 0
 widget.parent = 
 widget.`!parent` P = 
 widget.itemAt Point XY WH =
@@ -193,7 +193,7 @@ gui.input Es =
 | $update_timers{T}
 | [NW NW_XY NW_WH] = $root.itemAt{$mice_xy [0 0] [0 0]} //new widget
 | $popup <= NW.popup
-| $widget_cursor <= NW.cursor
+| $widget_cursor <= NW.pointer
 | for E Es: case E
   [mice_move XY]
     | $mice_xy.init{XY}
