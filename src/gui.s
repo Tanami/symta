@@ -44,13 +44,14 @@ widget.h = 0
 widget.above_all = 0
 widget.wants_focus = 0
 widget.wants_focus_rect = 0
+widget.base_ = Me
 
 type spacer.widget{W H} w/W h/H
 spacer.as_text = "#spacer{[$w] [$h]}"
 
 type tabs.~{Init Tabs} tab all/Tabs | $pick{Init}
 tabs.pick TabName =
-| when $tab: when got!it get_gui: it.focus_widget <= No
+| when $tab: when got!it get_gui: it.focus_widget.init{[No 0]}
 | $tab <= $all.TabName
 | when no $tab: bad "tabs.pick: no [TabName]"
 tabs.as_text = "#tabs{[$tab]}"
@@ -125,7 +126,7 @@ dlg.draw G P =
 
 type gui{Root cursor/host}
   root/Root timers/[] mice_xy/[0 0] widget_cursor result/No fb/No
-  keys/(t) popup/0 last_widget/(widget) focus_widget/No
+  keys/(t) popup/0 last_widget/[(widget) 0] focus_widget/[No 0]
   focus_xy/[0 0] focus_wh/[0 0] mice_focus mice_focus_xy/[0 0] click_time/(t)
   cursor/Cursor host_cursor/0
 | GUI <= Me
@@ -150,7 +151,7 @@ gui.render =
   | FB <= gfx W H
   | $fb <= FB
 | FB.blit{[0 0] R}
-| when got!fw $focus_widget:
+| when got!fw $focus_widget.0:
   | when fw.wants_focus_rect
     | P = $focus_xy+[fw.x fw.y]
     | WH = if fw.w and fw.h then [fw.w fw.h] else $focus_wh
@@ -200,10 +201,10 @@ gui.input Es =
     | if $mice_focus
       then $mice_focus.input{[mice_move XY XY-$mice_focus_xy]}
       else NW.input{[mice_move XY XY-NW_XY]}
-    | LW = $last_widget
-    | when LW^address <> NW^address:
+    | [LW LWAddress] = $last_widget
+    | when LWAddress <> NW.base_^address:
       | when got LW: LW.input{[mice over 0 XY]}
-      | $last_widget <= NW
+      | $last_widget.init{[NW NW.base_^address]} 
       | NW.input{[mice over 1 XY]}
   [mice Button State]
     | MP = $mice_xy
@@ -220,13 +221,13 @@ gui.input Es =
     | when State and NW.wants_focus:
       | $focus_xy <= NW_XY
       | $focus_wh <= NW_WH
-      | FW = $focus_widget
-      | when FW^address <> NW^address:
+      | [FW FWAddress] = $focus_widget
+      | when FWAddress <> NW.base_^address:
         | when got FW: FW.input{[focus 0 MP-$focus_xy]}
-        | $focus_widget <= NW
+        | $focus_widget.init{[NW NW.base_^address]}
         | NW.input{[focus 1 MP-NW_XY]}
   [key Key State] | $keys.Key <= State
-                  | D = if got $focus_widget then $focus_widget else NW
+                  | D = if got $focus_widget.0 then $focus_widget.0 else NW
                   | D.input{[key Key State]}
   Else |
 | No
