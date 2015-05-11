@@ -44,14 +44,13 @@ widget.h = 0
 widget.above_all = 0
 widget.wants_focus = 0
 widget.wants_focus_rect = 0
-widget.base_ = Me
 
 type spacer.widget{W H} w/W h/H
 spacer.as_text = "#spacer{[$w] [$h]}"
 
 type tabs.~{Init Tabs} tab all/Tabs | $pick{Init}
 tabs.pick TabName =
-| when $tab: when got!it get_gui: it.focus_widget.init{[No 0]}
+| when $tab: when got!it get_gui: it.focus_widget <= No
 | $tab <= $all.TabName
 | when no $tab: bad "tabs.pick: no [TabName]"
 tabs.as_text = "#tabs{[$tab]}"
@@ -124,9 +123,20 @@ dlg.draw G P =
   | Rect.init{[X Y R.w R.h]}
   | G.blit{P+[X Y] R}
 
+type input_split_item.$base_{parent base_}
+input_split_item.input In = $parent.handler_{}{$base_ In}
+
+type input_split.$base{base handler_} kids/(t)
+input_split.itemAt Point XY WH =
+| [Item WXY WWH] = $base.itemAt{Point XY WH}
+| Addr = Item^address
+| Wrap = have $kids.Addr: input_split_item Me Item
+| [Wrap WXY WWH]
+
+
 type gui{Root cursor/host}
   root/Root timers/[] mice_xy/[0 0] widget_cursor result/No fb/No
-  keys/(t) popup/0 last_widget/[(widget) 0] focus_widget/[No 0]
+  keys/(t) popup/0 last_widget/(widget) focus_widget/No
   focus_xy/[0 0] focus_wh/[0 0] mice_focus mice_focus_xy/[0 0] click_time/(t)
   cursor/Cursor host_cursor/0
 | GUI <= Me
@@ -151,7 +161,7 @@ gui.render =
   | FB <= gfx W H
   | $fb <= FB
 | FB.blit{[0 0] R}
-| when got!fw $focus_widget.0:
+| when got!fw $focus_widget:
   | when fw.wants_focus_rect
     | P = $focus_xy+[fw.x fw.y]
     | WH = if fw.w and fw.h then [fw.w fw.h] else $focus_wh
@@ -201,10 +211,10 @@ gui.input Es =
     | if $mice_focus
       then $mice_focus.input{[mice_move XY XY-$mice_focus_xy]}
       else NW.input{[mice_move XY XY-NW_XY]}
-    | [LW LWAddress] = $last_widget
-    | when LWAddress <> NW.base_^address:
+    | LW = $last_widget
+    | when LW^address <> NW^address:
       | when got LW: LW.input{[mice over 0 XY]}
-      | $last_widget.init{[NW NW.base_^address]} 
+      | $last_widget <= NW
       | NW.input{[mice over 1 XY]}
   [mice Button State]
     | MP = $mice_xy
@@ -221,13 +231,13 @@ gui.input Es =
     | when State and NW.wants_focus:
       | $focus_xy <= NW_XY
       | $focus_wh <= NW_WH
-      | [FW FWAddress] = $focus_widget
-      | when FWAddress <> NW.base_^address:
+      | FW = $focus_widget
+      | when FW^address <> NW^address:
         | when got FW: FW.input{[focus 0 MP-$focus_xy]}
-        | $focus_widget.init{[NW NW.base_^address]}
+        | $focus_widget <= NW
         | NW.input{[focus 1 MP-NW_XY]}
   [key Key State] | $keys.Key <= State
-                  | D = if got $focus_widget.0 then $focus_widget.0 else NW
+                  | D = if got $focus_widget then $focus_widget else NW
                   | D.input{[key Key State]}
   Else |
 | No
@@ -249,6 +259,6 @@ sound_free Id = show_sound_free Id
 sound_play Id channel/-1 loop/0 = show_sound_play Id Channel Loop
 sound_playing Channel = show_sound_playing Channel
 
-export gui get_gui tabs hidden layV layH dlg spacer
+export gui get_gui tabs hidden layV layH dlg spacer input_split
        ffi_alloc ffi_free new_cmap gfx //'rgb' 'rgba'
        sound_load sound_free sound_play sound_playing
