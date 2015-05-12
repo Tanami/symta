@@ -176,12 +176,17 @@ is @As =
    [A B] | [case B A 1]
    Else | mex_error "invalid number of args to `is`: [As]"
 
-min A B = form | ~A = A
-               | ~B = B
-               | if ~A < ~B then ~A else ~B
-max A B = form | ~A = A
-               | ~B = B
-               | if ~A > ~B then ~A else ~B
+min A B @Xs =
+| R = form | ~A = A
+           | ~B = B
+           | if ~A < ~B then ~A else ~B
+| if Xs.end then R else max R @Xs
+
+max A B @Xs =
+| R = form | ~A = A
+           | ~B = B
+           | if ~A > ~B then ~A else ~B
+| if Xs.end then R else max R @Xs
 
 swap A B = form | ~T = A
                 | A <= B
