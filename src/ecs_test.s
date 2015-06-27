@@ -4,7 +4,7 @@ component &&xyz/[0 0 0]
 component &&direction/[0 0 0]
 component &scale/1
 component wheel{xyz direction}
-component wheels/wheel.4
+component wheels/4.wheel
 component chassis
 component engine/'gasoline'
 component car{xyz direction chassis engine wheels}

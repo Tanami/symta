@@ -118,7 +118,7 @@ component Name @Fields =
 | case Name [`{}` N @Ds]
   | Name <= N
   | Deps <= Ds
-| case DefaultValue [`.` VT Size]
+| case DefaultValue [`.` Size VT]
   | Vector <= 1
   | VectorType <= VT
   | DefaultValue <= form [$@(dup Size 0)]
