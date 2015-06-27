@@ -1,4 +1,4 @@
-use ecs bits
+use ecs
 
 component &&xyz/[0 0 0]
 component &&direction/[0 0 0]

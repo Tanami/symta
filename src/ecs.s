@@ -1,10 +1,5 @@
 use stack bits
 
-// NOTE: number of used components combinations are pretty limited
-//       this fact allows entity-id embedding information about used companents
-//       as a number of their combination
-//       even treating usual objects as component based
-
 ECS =
 Systems =
 Registered = []
