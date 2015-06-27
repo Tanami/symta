@@ -20,8 +20,17 @@ stack.size = $xs.size
 
 stack.clear = $used <= 0
 
+stack.remove Item =
+| Xs = []
+| while $used
+  | X = $pop
+  | less X >< Item: push X Xs
+| till Xs.end: $push{Xs^pop}
+
 stack.`.` Index = $xs.($used - Index)
 
 stack.list = dup I $used: $xs.I
+
+stack.map F = $list.map{F}
 
 export stack
