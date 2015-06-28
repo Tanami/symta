@@ -478,10 +478,12 @@ static void *load_lib(struct api_t *api, char *name) {
     return REF(lib_exports,i);
   }
 
-  //fprintf(stderr, "load_lib: %s\n", name);
+  //fprintf(stderr, "load_lib begin: %s\n", name);
 
   name = strdup(name);
   exports = exec_module(api, name);
+
+  //fprintf(stderr, "load_lib end: %s\n", name);
 
   if (libs_used == MAX_LIBS) {
     fprintf(stderr, "module table overflow\n");
@@ -496,7 +498,10 @@ static void *load_lib(struct api_t *api, char *name) {
 }
 
 static void add_lib_folder(char *folder) {
-  lib_folders[lib_folders_used++] = strdup(folder);
+  char *d = strdup(folder);
+  int l = strlen(folder)-1;
+  while (l >= 0 && (d[l] == '/' || d[l] == '\\')) d[l--] = 0;
+  lib_folders[lib_folders_used++] = d;
 }
 
 static void *find_export(struct api_t *api, void *name, void *exports) {

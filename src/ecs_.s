@@ -66,7 +66,8 @@ ecs.new @Components =
     | System.array.BlockIdx <= $new_block
   | !System.usage.BlockIdx + 1
   | System.new{Id}
-  | less UseDefault: System.Id <= Value
+  | less UseDefault:
+    | System.Id <= Value
 | Id
 
 ecs.free Id = $freed.push{Id}
@@ -132,7 +133,7 @@ component Name @Fields =
   | Name <= N
 | case Name [`{}` N @Ds]
   | Name <= N
-  | Deps <= [@Deps @Ds]
+  | Deps <= Ds
 | case Name [`.` N Size]
   | VectorSize <= Size
   | Vector <= VectorSize{"n[?]_"}
@@ -188,4 +189,4 @@ component Name @Fields =
   | int.$"![Name]" V = Component_.Me <= V
 | form @$[@Xs @Accessors]
 
-export ecs ecs_register ecs_array_get ecs_array_set component_ 'component' component
+export ecs ecs_register ecs_array_get ecs_array_set component_ component 'component'
