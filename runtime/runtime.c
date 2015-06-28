@@ -187,7 +187,9 @@ static void set_method_r(api_t *api, void *method, void *type, void *handler, in
     typing_t *psub = subtypings+id;
 
     if (!depth && !inherited && m != undefined && m != sink) {
-       fprintf(stderr, "set_method: redefinition of %ld.%s\n", id, (char*)*((void**)method+T_NAME));
+       char *tname = typenames[id];
+       fprintf(stderr, "set_method: redefinition of %s.%s\n",
+               tname, (char*)*((void**)method+T_NAME));
        return; // avoid redefining
     }
 
