@@ -17,5 +17,7 @@ say Car.wheels.1.xyz
 say Car.engine
 say Car.xyz
 
+say "Wheel entities: [ECS.systems.wheel.entities]"
+
 // dump whole ECS as text
 say ECS.text

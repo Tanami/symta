@@ -26,9 +26,8 @@ type ecs{max_entities}
 | for Constructor Registered.flip:
   | Array = dup $root_size 0
   | ArrayUsage = dup $root_size 0
-  | Entities = stack Size
   | EntitiesFlags = bits Size
-  | System = Constructor{Me I Array ArrayUsage Entities EntitiesFlags}
+  | System = Constructor{Me I Array ArrayUsage EntitiesFlags}
   | Name = System.type
   | $systems.Name <= System
   | $arrays.Name <= Array
@@ -59,7 +58,6 @@ ecs.new @Components =
     else | UseDefault <= 1
   | System <= $systems.Name
   | less got System: bad "ECS: unknown system - [Name]"
-  | System.entities.push{Id}
   | System.entities_flags.Id <= 1
   | BlockIdx = Id/BlockSize
   | less System.usage.BlockIdx: 
@@ -82,12 +80,12 @@ ecs.clear_freed =
   | for System Systems:
     | EF = System.entities_flags
     | for Id Freed: when EF.Id:
-      | System.entities.remove{Id}
       | EF.Id <= 0
       | BlockIdx = Id/BlockSize
       | !System.usage.BlockIdx - 1
       | less System.usage.BlockIdx
         | $free_block{System.array.BlockIdx}
+        | System.array.BlockIdx <= 0
   | for Id Freed
     | $entities_flags.Id <= 0
     | $entities.push{Id}
@@ -122,6 +120,11 @@ component_.free Id =
 component_.update =
 component_.`.` Id = ecs_array_get $array Id
 component_.`!` Id Value = ecs_array_set $array Id Value
+component_.entities =
+| EF = $entities_flags
+| @join: map I,B $array.i.keep{?1}:
+  | K = I*BlockSize
+  | (dup J BlockSize K+J).keep{EF.?}
 
 component Name @Fields =
 | VectorSize = 0
@@ -152,7 +155,7 @@ component Name @Fields =
   | Component_ =
   | Elements_ =
   | BlockSize_ =
-  | type Name.component_{ecs id array usage entities entities_flags}
+  | type Name.component_{ecs id array usage entities_flags}
          type/Name $@Fields
     | Component_ <= Me
     | Array_ <= Me.array
