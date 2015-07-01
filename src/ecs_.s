@@ -11,23 +11,23 @@ BlockSize =
 ecs_register @Systems = for System Systems: push System Registered
 
 type ecs{max_entities}
-     entities entities_flags freed systems/(t) arrays/(t) cycle
-     free_blocks/[] root_size/RootSize block_size elements
+     entities alive freed systems/(t) arrays/(t) cycle
+     free_blocks/[] root_size/RootSize block_size elements none
 | ECS <= Me
 | Systems <= $systems
+| $none <= =>
 | $block_size <= ($max_entities+$root_size-1)/$root_size
 | BlockSize <= $block_size
 | $entities <= stack: @flip: dup Id $max_entities Id
 | Size = $entities.size
-| $entities_flags <= bits Size
+| $alive <= bits Size
 | $freed <= stack $entities.size
 | I = 0
 | $elements <= Elements
 | for Constructor Registered.flip:
   | Array = dup $root_size 0
   | ArrayUsage = dup $root_size 0
-  | EntitiesFlags = bits Size
-  | System = Constructor{Me I Array ArrayUsage EntitiesFlags}
+  | System = Constructor{Me I Array ArrayUsage}
   | Name = System.type
   | $systems.Name <= System
   | $arrays.Name <= Array
@@ -37,14 +37,15 @@ type ecs{max_entities}
 
 ecs.new_block =
 | less $free_blocks.end: leave: pop $free_blocks
-| dup BlockSize 0
+| None = $none
+| dup BlockSize None
 
 ecs.free_block Block = push Block $free_blocks
 
 ecs.new @Components =
 | Cs = Components
 | Id = $entities.pop
-| $entities_flags.Id <= 1
+| $alive.Id <= 1
 | System = 0
 | UseDefault = 0
 | Value = 0
@@ -58,7 +59,6 @@ ecs.new @Components =
     else | UseDefault <= 1
   | System <= $systems.Name
   | less got System: bad "ECS: unknown system - [Name]"
-  | System.entities_flags.Id <= 1
   | BlockIdx = Id/BlockSize
   | less System.usage.BlockIdx: 
     | System.array.BlockIdx <= $new_block
@@ -78,16 +78,20 @@ ecs.clear_freed =
 | when Freed.size
   | Systems = $systems.list{}{?1}
   | for System Systems:
-    | EF = System.entities_flags
-    | for Id Freed: when EF.Id:
-      | EF.Id <= 0
+    | Array = System.array
+    | for Id Freed:
       | BlockIdx = Id/BlockSize
-      | !System.usage.BlockIdx - 1
-      | less System.usage.BlockIdx
-        | $free_block{System.array.BlockIdx}
-        | System.array.BlockIdx <= 0
+      | Block = Array.BlockIdx
+      | when Block
+        | ItemIdx = Id%BlockSize
+        | when Block.ItemIdx <> $none
+          | Block.ItemIdx <= $none
+          | !System.usage.BlockIdx - 1
+          | less System.usage.BlockIdx
+            | $free_block{Array.BlockIdx}
+            | Array.BlockIdx <= 0
   | for Id Freed
-    | $entities_flags.Id <= 0
+    | $alive.Id <= 0
     | $entities.push{Id}
 
 
@@ -98,7 +102,7 @@ ecs.update =
 | !$cycle+1
 
 ecs.clear =
-| for Id $entities_flags.active: $free{Id}
+| for Id $alive.active: $free{Id}
 | $clear_freed
 | $cycle <= 0
 
@@ -121,10 +125,10 @@ component_.update =
 component_.`.` Id = ecs_array_get $array Id
 component_.`!` Id Value = ecs_array_set $array Id Value
 component_.entities =
-| EF = $entities_flags
+| None = $ecs.none
 | @join: map I,B $array.i.keep{?1}:
   | K = I*BlockSize
-  | (dup J BlockSize K+J).keep{EF.?}
+  | (dup J BlockSize J).keep{B.?<>None}{?+K}
 
 component Name @Fields =
 | VectorSize = 0
@@ -155,7 +159,7 @@ component Name @Fields =
   | Component_ =
   | Elements_ =
   | BlockSize_ =
-  | type Name.component_{ecs id array usage entities_flags}
+  | type Name.component_{ecs id array usage}
          type/Name $@Fields
     | Component_ <= Me
     | Array_ <= Me.array

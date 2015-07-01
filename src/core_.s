@@ -142,6 +142,9 @@ int.list = dup I Me: I //iota operator
 
 int.map F = dup I Me: F I
 
+int.keep F = Me.list.keep{F}
+int.skip F = Me.list.skip{F}
+
 list.i = dup I $size: [I Me^pop]
 
 list.`.` K =
