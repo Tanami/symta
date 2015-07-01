@@ -4,6 +4,7 @@ ECS =
 Systems =
 Registered = []
 Elements = dup 8 0
+None =
 
 RootSize = 128 //size of root index for each component
 BlockSize =
@@ -16,6 +17,7 @@ type ecs{max_entities}
 | ECS <= Me
 | Systems <= $systems
 | $none <= =>
+| None <= $none
 | $block_size <= ($max_entities+$root_size-1)/$root_size
 | BlockSize <= $block_size
 | $entities <= stack: @flip: dup Id $max_entities Id
@@ -85,6 +87,7 @@ ecs.clear_freed =
       | when Block
         | ItemIdx = Id%BlockSize
         | when Block.ItemIdx <> $none
+          | System.free{Id}
           | Block.ItemIdx <= $none
           | !System.usage.BlockIdx - 1
           | less System.usage.BlockIdx
@@ -117,6 +120,43 @@ ecs_array_set A Id Value = A.(Id/BlockSize).(Id%BlockSize) <= Value
 int.`.` System = Systems.System.Me
 int.`!` System Value = Systems.System.Me <= Value
 
+int.enable Component =
+| System = Systems.Component
+| BlockIdx = Me/BlockSize
+| less System.usage.BlockIdx: 
+  | System.array.BlockIdx <= ECS.new_block
+| !System.usage.BlockIdx + 1
+| System.new{Me}
+
+int.disable Component =
+| System = Systems.Component
+| Array = System.array
+| BlockIdx = Me/BlockSize
+| Block = Array.BlockIdx
+| less Block: leave 0
+| ItemIdx = Me%BlockSize
+| less Block.ItemIdx <> None: leave 0
+| System.free{Me}
+| Block.ItemIdx <= None
+| !System.usage.BlockIdx - 1
+| less System.usage.BlockIdx
+  | ECS.free_block{Array.BlockIdx}
+  | Array.BlockIdx <= 0
+| 1
+
+int.got Component =
+| System = Systems.Component
+| Array = System.array
+| BlockIdx = Me/BlockSize
+| Block = Array.BlockIdx
+| less Block: leave 0
+| ItemIdx = Me%BlockSize
+| when Block.ItemIdx <> None: leave 1
+| 0
+
+int.components = Systems.list{}{?0}.keep{S => Me.got{S}}
+
+
 type component_
 component_.init =
 component_.new Id = Me.Id <= 0
@@ -130,13 +170,17 @@ component_.entities =
   | K = I*BlockSize
   | (dup J BlockSize J).keep{B.?<>None}{?+K}
 
+ComponentDeps = t
+
 component Name @Fields =
 | VectorSize = 0
 | Vector = 0
 | InitValue = 0
+| GotInitValue = 0
 | Deps = 0
 | case Name [`/` N IV]
   | InitValue <= IV
+  | GotInitValue <= 1
   | Name <= N
 | case Name [`{}` N @Ds]
   | Name <= N
@@ -153,7 +197,10 @@ component Name @Fields =
 | V = form ~V
 | Id = form ~Id
 | Id2 = form ~Id2
-| when Deps: InitValue <= form Me.ecs.new{$@Deps}
+| when Deps:
+  | Deps <= Deps{| [`@` X]=>ComponentDeps.X; D=>[D]}.join
+  | InitValue <= form Me.ecs.new{$@Deps}
+| ComponentDeps.Name <= Deps
 | Xs = form
   | Array_ =
   | Component_ =
@@ -171,9 +218,10 @@ component Name @Fields =
     | Name.new Id = Me.Id <= InitValue
   | Xs <= [@Xs @Fs]
 | when Vector
+  | less GotInitValue: InitValue <= form [$@(dup VectorSize InitValue)]
   | Fs = @tail: form
     | Name.new Id = | ecs_array_set Array_ Id Me.ecs.new{$@Vector}
-                    | Me.Id <= [$@(dup VectorSize InitValue)]
+                    | Me.Id <= InitValue
     | Name.`.` Id = | Id2 = ecs_array_get Array_ Id
                     | [$@(map I VectorSize: form: ecs_array_get Elements_.I Id2)]
     | Name.`!` Id V = | Id2 = ecs_array_get Array_ Id
