@@ -7,9 +7,15 @@ component wheels.4{@wheel}
 component chassis
 component engine/'gasoline'
 
+// serial gets incremented for each entitiy
+component serial [custom] count
+serial.new Id =
+| ecs_array_set $array Id $count
+| !$count+1
+
 ECS = ecs 1024
 
-Car = ECS.new{xyz,[4 5 6] direction chassis engine wheels}
+Car = ECS.new{xyz,[4 5 6] serial direction chassis engine wheels}
 
 Car.wheels.1.xyz <= [1 2 3]
 
