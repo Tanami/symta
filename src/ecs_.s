@@ -178,6 +178,7 @@ component Name @Fields =
 | InitValue = 0
 | GotInitValue = 0
 | Deps = 0
+| Args = t
 | case Name [`/` N IV]
   | InitValue <= IV
   | GotInitValue <= 1
@@ -189,6 +190,9 @@ component Name @Fields =
   | VectorSize <= Size
   | Vector <= VectorSize{"n[?]_"}
   | Name <= N
+| case Fields [[`[]` @As]@_]:
+  | pop Fields
+  | for A As: Args.A <= 1
 | Component_ = "Component_[Name]_"
 | Array_ = "Array_[Name]_"
 | BlockSize_ = "BlockSize_[Name]_"
@@ -213,26 +217,30 @@ component Name @Fields =
     | BlockSize_ <= Me.ecs.block_size
     | Elements_ <= Me.ecs.elements
   | ecs_register &Name
-| when not Vector
+| Custom = got Args.custom
+| when not Vector and not Custom:
   | Fs = @tail: form
     | Name.new Id = Me.Id <= InitValue
   | Xs <= [@Xs @Fs]
-| when Vector
+| when Vector and not Custom:
   | less GotInitValue: InitValue <= form [$@(dup VectorSize InitValue)]
   | Fs = @tail: form
     | Name.new Id = | ecs_array_set Array_ Id Me.ecs.new{$@Vector}
                     | Me.Id <= InitValue
+  | Xs <= [@Xs @Fs]
+| when Vector
+  | Fs = @tail: form
     | Name.`.` Id = | Id2 = ecs_array_get Array_ Id
                     | [$@(map I VectorSize: form: ecs_array_get Elements_.I Id2)]
     | Name.`!` Id V = | Id2 = ecs_array_get Array_ Id
                       | `|` $@| map I VectorSize:
                                 | form: ecs_array_set Elements_.I Id2 V.I
   | Xs <= [@Xs @Fs]
-| when Deps and not Vector:
+| when Deps and not Vector and not Custom:
   | Fs = @tail: form
     | Name.free Id = Me.ecs.free{(ecs_array_get Me.array Id)}
   | Xs <= [@Xs @Fs]
-| when Deps and Vector:
+| when Deps and Vector and not Custom:
   | Fs = @tail: form
     | Name.free Id = | Id2 = ecs_array_get Array_ Id
                      | for ~I VectorSize
