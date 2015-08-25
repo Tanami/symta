@@ -21,6 +21,8 @@ gfx_t *new_gfx(uint32_t w, uint32_t h) {
   gfx->cmap = 0;
   gfx->x = 0;
   gfx->y = 0;
+  gfx->bflags = 0;
+  gfx->recolor_map = 0;
   return gfx;
 }
 
@@ -385,8 +387,35 @@ void gfx_triangle(gfx_t *gfx, uint32_t color, int ax, int ay, int bx, int by, in
 
 static int show_error = 1;
 
-void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int h,
-              int flip_x, int flip_y, uint32_t *map) {
+void gfx_set_bflags_clear(gfx_t *gfx) {
+  gfx->bflags = 0;
+}
+
+void gfx_set_bflags_checkers(gfx_t *gfx) {
+  gfx->bflags |= GFX_BFLAGS_CHECKERS;
+}
+
+void gfx_set_bflags_flip_x(gfx_t *gfx) {
+  gfx->bflags |= GFX_BFLAGS_FLIP_X;
+}
+
+void gfx_set_bflags_flip_y(gfx_t *gfx) {
+  gfx->bflags |= GFX_BFLAGS_FLIP_Y;
+}
+
+void gfx_set_blit_rect(gfx_t *gfx, int x, int y, int w, int h) {
+  gfx->bx = x;
+  gfx->by = y;
+  gfx->bw = w;
+  gfx->bh = h;
+  gfx->bflags|=GFX_BFLAGS_RECT;
+}
+
+void gfx_set_recolor_map(gfx_t *gfx, uint32_t *map) {
+  gfx->recolor_map = map;
+}
+
+void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
   int i, r, g, b, a;
   gfx_t *dst = gfx;
   int cx = 0;
@@ -404,9 +433,28 @@ void gfx_blit(gfx_t *gfx, int x, int y,  gfx_t *src, int sx, int sy, int w, int 
   uint32_t *s = src->data;
   int sw = src->w;
   int sh = src->h;
-  uint32_t *m = map ? map : src->cmap;
+  uint32_t *m = src->recolor_map ? src->recolor_map : src->cmap;
   int pd = 0; // destination pointer
   int ps = 0; // sorce pointer
+  int flip_x = src->bflags&GFX_BFLAGS_FLIP_X;
+  int flip_y = src->bflags&GFX_BFLAGS_FLIP_Y;
+  int checkers = src->bflags&GFX_BFLAGS_CHECKERS;
+  int sx, sy, w, h; //source rect
+
+  if (src->bflags & GFX_BFLAGS_RECT) {
+    sx = src->bx;
+    sy = src->by;
+    w = src->bw;
+    h = src->bh;
+  } else {
+    sx = 0;
+    sy = 0;
+    w = src->w;
+    h = src->h;
+  }
+
+  src->bflags = 0;
+  src->recolor_map = 0;
 
   x += flip_x ? -src->x : src->x;
   y += flip_y ? -src->y : src->y;

@@ -18,8 +18,12 @@ ffi gfx_triangle.void Gfx.ptr Color.u4 AX.int AY.int BX.int BY.int CX.int CY.int
 ffi gfx_cmap.ptr Gfx.ptr
 ffi gfx_enable_cmap.ptr Gfx.ptr
 ffi gfx_resize.void Gfx.ptr W.int H.int
-ffi gfx_blit.void Gfx.ptr X.int Y.int Src.ptr SX.int SY.int W.int H.int
-                  FlipX.int FlipY.int Map.ptr
+ffi gfx_set_bflags_flip_x.void Gfx.ptr
+ffi gfx_set_bflags_flip_y.void Gfx.ptr
+ffi gfx_set_bflags_checkers.void Gfx.ptr
+ffi gfx_set_blit_rect.void Gfx.ptr BX.int BY.int BW.int BH.int
+ffi gfx_set_recolor_map.void Gfx.ptr CMap.ptr
+ffi gfx_blit.void Gfx.ptr X.int Y.int Src.ptr
 ffi gfx_margins.ptr Gfx.ptr
 ffi ffi_alloc_.ptr Size.int
 ffi ffi_free_.void Ptr.ptr

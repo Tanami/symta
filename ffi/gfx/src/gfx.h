@@ -8,6 +8,12 @@
 #define GFX_MAP     2
 #define GFX_CMAP_SIZE 256
 
+#define GFX_BFLAGS_FLIP_X      0x01
+#define GFX_BFLAGS_FLIP_Y      0x02
+#define GFX_BFLAGS_CHECKERS    0x04
+#define GFX_BFLAGS_PERSISTENT  0x08
+#define GFX_BFLAGS_RECT        0x10
+
 typedef struct {
   uint32_t w; // width
   uint32_t h; // height
@@ -15,6 +21,9 @@ typedef struct {
   uint32_t y; // y offset for blitting
   uint32_t *data; // pixels
   uint32_t *cmap; // color map
+  uint32_t bflags; // blit flags
+  uint32_t *recolor_map; // recoloring palette used during blitting
+  int bx; int by; int bw; int bh; //source blitting rect
 } gfx_t;
 
 gfx_t *new_gfx(uint32_t w, uint32_t h);

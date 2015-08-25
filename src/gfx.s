@@ -49,11 +49,15 @@ gfx.blit P Src rect/0 flipX/0 flipY/0 map/0 =
 | less Src.is_gfx:
   | Src.draw{Me P}
   | leave 0
-| _type gfx Src: if Rect
-  then gfx_blit $handle P.0 P.1 Src.handle Rect.0 Rect.1 Rect.2 Rect.3 FlipX FlipY Map
-  else gfx_blit $handle P.0 P.1 Src.handle 0 0 Src.w Src.h FlipX FlipY Map
+| _type gfx Src:
+  | SH = Src.handle
+  | when Rect: gfx_set_blit_rect SH Rect.0 Rect.1 Rect.2 Rect.3
+  | when FlipX: gfx_set_bflags_flip_x SH
+  | when FlipY: gfx_set_bflags_flip_y SH
+  | when Map: gfx_set_recolor_map SH Map
+  | gfx_blit $handle P.0 P.1 SH
 gfx.blitRaw X Y Src = _type gfx Src
-| gfx_blit $handle X Y Src.handle 0 0 Src.w Src.h 0 0 0
+| gfx_blit $handle X Y Src.handle
 gfx.margins =
 | P = gfx_margins $handle
 | [(_ffi_get uint32_t P 0) (_ffi_get uint32_t P 1)
