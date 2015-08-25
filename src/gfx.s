@@ -29,7 +29,7 @@ gfx.get X Y = gfx_get $handle X Y
 gfx.set X Y Color = gfx_set $handle X Y Color
 gfx.clear Color = gfx_clear $handle Color
 gfx.line Color A B = gfx_line $handle Color A.0 A.1 B.0 B.1
-gfx.rect Color Fill X Y W H = gfx_rect $handle Color Fill X Y W H
+gfx.rectangle Color Fill X Y W H = gfx_rect $handle Color Fill X Y W H
 gfx.circle Color Fill C R = gfx_circle $handle Color Fill C.0 C.1 R
 gfx.triangle Color A B C = gfx_triangle $handle Color A.0 A.1 B.0 B.1 C.0 C.1
 gfx.resize W H =
@@ -45,17 +45,23 @@ gfx.`!cmap` NewCM =
 | when NewCM.size > 256: bad "cant set color map with more than 256 colors"
 | P = gfx_enable_cmap $handle
 | for [I E] NewCM.i: _ffi_set uint32_t P I E
-gfx.blit P Src rect/0 flipX/0 flipY/0 map/0 =
+gfx.rect X Y W H =
+| gfx_set_blit_rect $handle X Y W H
+| Me
+gfx.flop = 
+| gfx_set_bflags_flip_x $handle
+| Me
+gfx.flip =
+| gfx_set_bflags_flip_y $handle
+| Me
+gfx.recolor Map =
+| gfx_set_recolor_map $handle Map
+| Me
+gfx.blit X Y Src =
 | less Src.is_gfx:
-  | Src.draw{Me P}
+  | Src.draw{Me X,Y}
   | leave 0
-| _type gfx Src:
-  | SH = Src.handle
-  | when Rect: gfx_set_blit_rect SH Rect.0 Rect.1 Rect.2 Rect.3
-  | when FlipX: gfx_set_bflags_flip_x SH
-  | when FlipY: gfx_set_bflags_flip_y SH
-  | when Map: gfx_set_recolor_map SH Map
-  | gfx_blit $handle P.0 P.1 SH
+| _type gfx Src: gfx_blit $handle X Y Src.handle
 gfx.blitRaw X Y Src = _type gfx Src
 | gfx_blit $handle X Y Src.handle
 gfx.margins =
@@ -67,7 +73,7 @@ gfx.cut X Y W H =
 | G.clear{#FF000000} // transparent
 | CMap = $cmap
 | when CMap: G.cmap <= CMap
-| G.blit{[0 0] Me rect [X Y W H]}
+| G.blit{0 0 Me.rect{X Y W H}}
 | G
 gfx.copy = $cut{0 0 $w $h}
 gfx.deep_copy = $cut{0 0 $w $h}

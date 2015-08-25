@@ -81,7 +81,7 @@ layV.draw G P =
   | Rect = Is^pop.meta_
   | RX = 0
   | RY = N
-  | G.blit{P+[RX RY] R}
+  | G.blit{P.0+RX P.1+RY R}
   | Rect.init{[RX RY W H]}
   | N <= N+H+S
 
@@ -99,7 +99,7 @@ layH.draw G P =
   | Rect = Is^pop.meta_
   | RX = N
   | RY = 0
-  | G.blit{P+[RX RY] R}
+  | G.blit{P.0+RX P.1+RY R}
   | Rect.init{[RX RY W H]}
   | N <= N+W+S
 
@@ -121,7 +121,7 @@ dlg.draw G P =
   | !X + R.x
   | !Y + R.y
   | Rect.init{[X Y R.w R.h]}
-  | G.blit{P+[X Y] R}
+  | G.blit{P.0+X P.1+Y R}
 
 type input_split_item.$base_{parent base_}
 input_split_item.input In = $parent.handler_{}{$base_ In}
@@ -160,12 +160,12 @@ gui.render =
   | FB.free
   | FB <= gfx W H
   | $fb <= FB
-| FB.blit{[0 0] R}
+| FB.blit{0 0 R}
 | when got!fw $focus_widget:
   | when fw.wants_focus_rect
     | P = $focus_xy+[fw.x fw.y]
     | WH = if fw.w and fw.h then [fw.w fw.h] else $focus_wh
-    | FB.rect{#FFFF00 0 P.0-1 P.1-1 WH.0+2 WH.1+2}
+    | FB.rectangle{#FFFF00 0 P.0-1 P.1-1 WH.0+2 WH.1+2}
 | C = $widget_cursor
 | when got C
   | XY = GUI.mice_xy
@@ -173,14 +173,14 @@ gui.render =
   | when got CG and host <> CG:
     | when $host_cursor: show_cursor 0
     | $host_cursor <= 0
-    | FB.blit{XY CG}
+    | FB.blit{XY.0 XY.1 CG}
   | when host >< CG and not $host_cursor:
     | show_cursor 1
     | $host_cursor <= 1
     | Pop = 
   | when $popup
     | R = $popup.render
-    | FB.blit{XY-[0 R.h] R}
+    | FB.blit{XY.0 XY.1-R.h R}
 | FB
 gui.add_timer Interval Handler =
 | [@!Me.timers [Interval (clock)+Interval Handler]]
