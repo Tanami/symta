@@ -59,7 +59,7 @@ gfx.recolor Map =
 | Me
 gfx.blit X Y Src =
 | less Src.is_gfx:
-  | Src.draw{Me X,Y}
+  | Src.draw{Me X Y}
   | leave 0
 | _type gfx Src: gfx_blit $handle X Y Src.handle
 gfx.blitRaw X Y Src = _type gfx Src

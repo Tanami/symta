@@ -25,7 +25,7 @@ GUI = No
 widget.input In =
 widget.items = No
 widget.render = Me
-widget.draw G P =
+widget.draw G PX PY =
 widget.popup = 0
 widget.pointer = 0
 widget.parent = 
@@ -65,10 +65,10 @@ hidden._ Method Args =
 | Args.apply_method{Method}
 
 type canvas.widget{W H P} w/W h/H paint/P
-canvas.draw G P = case Me (F<~).paint: F G P $w $h 
+canvas.draw G PX PY = case Me (F<~).paint: F G PX PY $w $h 
 
 type layV.widget{Xs s/S} w/1 h/1 spacing/S items/Xs{(meta ? [0 0 1 1])}
-layV.draw G P =
+layV.draw G X Y =
 | S = $spacing
 | Is = $items
 | Rs = Is{?render}
@@ -81,12 +81,12 @@ layV.draw G P =
   | Rect = Is^pop.meta_
   | RX = 0
   | RY = N
-  | G.blit{P.0+RX P.1+RY R}
+  | G.blit{X+RX Y+RY R}
   | Rect.init{[RX RY W H]}
   | N <= N+H+S
 
 type layH.widget{Xs s/S} w/1 h/1 spacing/S items/Xs{(meta ? [0 0 1 1])}
-layH.draw G P =
+layH.draw G X Y =
 | S = $spacing
 | Is = $items
 | Rs = Is{?render}
@@ -99,7 +99,7 @@ layH.draw G P =
   | Rect = Is^pop.meta_
   | RX = N
   | RY = 0
-  | G.blit{P.0+RX P.1+RY R}
+  | G.blit{X+RX Y+RY R}
   | Rect.init{[RX RY W H]}
   | N <= N+W+S
 
@@ -114,14 +114,14 @@ dlg.render =
 | have $w: $ws{}{?0 + ?2.render.w}.max
 | have $h: $ws{}{?1 + ?2.render.h}.max
 | Me
-dlg.draw G P =
+dlg.draw G PX PY =
 | for [X Y W] $ws
   | R = W.render
   | Rect = W.meta_
   | !X + R.x
   | !Y + R.y
   | Rect.init{[X Y R.w R.h]}
-  | G.blit{P.0+X P.1+Y R}
+  | G.blit{PX+X PY+Y R}
 
 type input_split_item.$base_{parent base_}
 input_split_item.input In = $parent.handler_{}{$base_ In}
