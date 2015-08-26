@@ -391,16 +391,16 @@ void gfx_set_bflags_clear(gfx_t *gfx) {
   gfx->bflags = 0;
 }
 
-void gfx_set_bflags_checkers(gfx_t *gfx) {
-  gfx->bflags |= GFX_BFLAGS_CHECKERS;
-}
-
 void gfx_set_bflags_flip_x(gfx_t *gfx) {
   gfx->bflags |= GFX_BFLAGS_FLIP_X;
 }
 
 void gfx_set_bflags_flip_y(gfx_t *gfx) {
   gfx->bflags |= GFX_BFLAGS_FLIP_Y;
+}
+
+void gfx_set_blit_dither(gfx_t *gfx, int amount) {
+  gfx->bflags |= GFX_BFLAGS_DITHER;
 }
 
 void gfx_set_blit_rect(gfx_t *gfx, int x, int y, int w, int h) {
@@ -438,7 +438,7 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
   int ps = 0; // sorce pointer
   int flip_x = src->bflags&GFX_BFLAGS_FLIP_X;
   int flip_y = src->bflags&GFX_BFLAGS_FLIP_Y;
-  int checkers = src->bflags&GFX_BFLAGS_CHECKERS;
+  int dither = src->bflags&GFX_BFLAGS_DITHER;
   int sx, sy, w, h; //source rect
 
   if (src->bflags & GFX_BFLAGS_RECT) {
@@ -521,6 +521,9 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
       abort();
     }
     begin_blit()
+    if (dither && y&1 && pd&1) {
+      SC = DC;
+    }
     end_blit(SC)
   } else {
     if (src->cmap) {
@@ -540,6 +543,9 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
       if (sa) {
         c = DC;
       }
+      if (dither && y&1 && pd&1) {
+        c = DC;
+      }
       end_blit(c)
     } else {
         begin_blit()
@@ -547,13 +553,18 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
         uint32_t c; // result color
         int sr, sg, sb, sa;
         fromR8G8B8A8(sr,sg,sb,sa,SC);
+
         if (sa == 0) {
+
           c = SC;
+
         } else if (sa == 0xFF) {
           c = DC;
         } else {
           int dr, dg, db, da;
+
           fromR8G8B8A8(dr,dg,db,da,DC);
+
           if (da == 0) {
             //NOTE: X>>8 is a division by 256, while max alpha is 0xFF
             //      this leads to some loss of precision
@@ -562,10 +573,17 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
             g = (sg*sm + dg*sa)>>8;
             b = (sb*sm + db*sa)>>8;
             c = R8G8B8(r,g,b);
+
           } else {
+
             // incorrect, but should be okay for now
+
             c = SC;
+
           }
+        }
+        if (dither && y&1 && pd&1) {
+          c = DC;
         }
         end_blit(c);
     }

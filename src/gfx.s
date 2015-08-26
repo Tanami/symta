@@ -57,13 +57,14 @@ gfx.flip =
 gfx.recolor Map =
 | gfx_set_recolor_map $handle Map
 | Me
+gfx.dither Amount =
+| gfx_set_blit_dither $handle Amount
+| Me
 gfx.blit X Y Src =
-| less Src.is_gfx:
-  | Src.draw{Me X Y}
-  | leave 0
-| _type gfx Src: gfx_blit $handle X Y Src.handle
-gfx.blitRaw X Y Src = _type gfx Src
-| gfx_blit $handle X Y Src.handle
+| if Src.is_gfx
+  then _type gfx Src: gfx_blit $handle X Y Src.handle
+  else Src.draw{Me X Y}
+| Me
 gfx.margins =
 | P = gfx_margins $handle
 | [(_ffi_get uint32_t P 0) (_ffi_get uint32_t P 1)

@@ -10,7 +10,7 @@
 
 #define GFX_BFLAGS_FLIP_X      0x01
 #define GFX_BFLAGS_FLIP_Y      0x02
-#define GFX_BFLAGS_CHECKERS    0x04
+#define GFX_BFLAGS_DITHER      0x04
 #define GFX_BFLAGS_PERSISTENT  0x08
 #define GFX_BFLAGS_RECT        0x10
 
