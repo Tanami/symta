@@ -415,6 +415,7 @@ void gfx_set_recolor_map(gfx_t *gfx, uint32_t *map) {
   gfx->recolor_map = map;
 }
 
+#define DITHER dither && ((y&1) ^ (pd&1))
 void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
   int i, r, g, b, a;
   gfx_t *dst = gfx;
@@ -521,7 +522,7 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
       abort();
     }
     begin_blit()
-    if (dither && y&1 && pd&1) {
+    if (DITHER) {
       SC = DC;
     }
     end_blit(SC)
@@ -543,49 +544,50 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
       if (sa) {
         c = DC;
       }
-      if (dither && y&1 && pd&1) {
+      if (DITHER) {
         c = DC;
       }
       end_blit(c)
     } else {
-        begin_blit()
-        int sm; // source multiplier
-        uint32_t c; // result color
-        int sr, sg, sb, sa;
-        fromR8G8B8A8(sr,sg,sb,sa,SC);
 
-        if (sa == 0) {
+      begin_blit()
+      int sm; // source multiplier
+      uint32_t c; // result color
+      int sr, sg, sb, sa;
+      fromR8G8B8A8(sr,sg,sb,sa,SC);
+
+      if (sa == 0) {
+
+        c = SC;
+
+      } else if (sa == 0xFF) {
+        c = DC;
+      } else {
+        int dr, dg, db, da;
+
+        fromR8G8B8A8(dr,dg,db,da,DC);
+
+        if (da == 0) {
+          //NOTE: X>>8 is a division by 256, while max alpha is 0xFF
+          //      this leads to some loss of precision
+          sm = 0xFF - sa;
+          r = (sr*sm + dr*sa)>>8;
+          g = (sg*sm + dg*sa)>>8;
+          b = (sb*sm + db*sa)>>8;
+          c = R8G8B8(r,g,b);
+
+        } else {
+
+          // incorrect, but should be okay for now
 
           c = SC;
 
-        } else if (sa == 0xFF) {
-          c = DC;
-        } else {
-          int dr, dg, db, da;
-
-          fromR8G8B8A8(dr,dg,db,da,DC);
-
-          if (da == 0) {
-            //NOTE: X>>8 is a division by 256, while max alpha is 0xFF
-            //      this leads to some loss of precision
-            sm = 0xFF - sa;
-            r = (sr*sm + dr*sa)>>8;
-            g = (sg*sm + dg*sa)>>8;
-            b = (sb*sm + db*sa)>>8;
-            c = R8G8B8(r,g,b);
-
-          } else {
-
-            // incorrect, but should be okay for now
-
-            c = SC;
-
-          }
         }
-        if (dither && y&1 && pd&1) {
-          c = DC;
-        }
-        end_blit(c);
+      }
+      if (DITHER) {
+        c = DC;
+      }
+      end_blit(c);
     }
   }
 }
