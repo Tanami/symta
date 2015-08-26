@@ -23,6 +23,7 @@ gfx_t *new_gfx(uint32_t w, uint32_t h) {
   gfx->y = 0;
   gfx->bflags = 0;
   gfx->recolor_map = 0;
+  gfx->blit_bright = 0;
   return gfx;
 }
 
@@ -365,6 +366,60 @@ void gfx_triangle(gfx_t *gfx, uint32_t color, int ax, int ay, int bx, int by, in
   }
 }
 
+static int show_error = 1;
+
+void gfx_set_bflags_clear(gfx_t *gfx) {
+  gfx->bflags = 0;
+}
+
+void gfx_set_bflags_flip_x(gfx_t *gfx) {
+  gfx->bflags |= GFX_BFLAGS_FLIP_X;
+}
+
+void gfx_set_bflags_flip_y(gfx_t *gfx) {
+  gfx->bflags |= GFX_BFLAGS_FLIP_Y;
+}
+
+void gfx_set_blit_dither(gfx_t *gfx, int amount) {
+  gfx->bflags |= GFX_BFLAGS_DITHER;
+}
+
+void gfx_set_blit_bright(gfx_t *gfx, int amount) {
+  gfx->bflags |= GFX_BFLAGS_BRIGHTEN;
+  gfx->blit_bright = amount;
+}
+
+void gfx_set_blit_rect(gfx_t *gfx, int x, int y, int w, int h) {
+  gfx->bx = x;
+  gfx->by = y;
+  gfx->bw = w;
+  gfx->bh = h;
+  gfx->bflags|=GFX_BFLAGS_RECT;
+}
+
+void gfx_set_recolor_map(gfx_t *gfx, uint32_t *map) {
+  gfx->recolor_map = map;
+}
+
+#define DITHER dither && ((y&1) ^ (pd&1))
+
+#define BRIGHTEN(R,G,B) \
+  do { \
+    R += bright; \
+    G += bright; \
+    B += bright; \
+    if (bright > 0) { \
+      if (R > 255) R = 255; \
+      if (G > 255) G = 255; \
+      if (B > 255) B = 255; \
+    } else { \
+      if (R < 0) R = 0; \
+      if (G < 0) G = 0; \
+      if (B < 0) B = 0; \
+    } \
+  } while(0)
+
+
 #define begin_blit() \
   while (y < ey) { \
     pd = y*dw + x; \
@@ -385,37 +440,7 @@ void gfx_triangle(gfx_t *gfx, uint32_t color, int ax, int ay, int bx, int by, in
 #define SC s[ps]
 #define DC d[pd]
 
-static int show_error = 1;
 
-void gfx_set_bflags_clear(gfx_t *gfx) {
-  gfx->bflags = 0;
-}
-
-void gfx_set_bflags_flip_x(gfx_t *gfx) {
-  gfx->bflags |= GFX_BFLAGS_FLIP_X;
-}
-
-void gfx_set_bflags_flip_y(gfx_t *gfx) {
-  gfx->bflags |= GFX_BFLAGS_FLIP_Y;
-}
-
-void gfx_set_blit_dither(gfx_t *gfx, int amount) {
-  gfx->bflags |= GFX_BFLAGS_DITHER;
-}
-
-void gfx_set_blit_rect(gfx_t *gfx, int x, int y, int w, int h) {
-  gfx->bx = x;
-  gfx->by = y;
-  gfx->bw = w;
-  gfx->bh = h;
-  gfx->bflags|=GFX_BFLAGS_RECT;
-}
-
-void gfx_set_recolor_map(gfx_t *gfx, uint32_t *map) {
-  gfx->recolor_map = map;
-}
-
-#define DITHER dither && ((y&1) ^ (pd&1))
 void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
   int i, r, g, b, a;
   gfx_t *dst = gfx;
@@ -440,6 +465,7 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
   int flip_x = src->bflags&GFX_BFLAGS_FLIP_X;
   int flip_y = src->bflags&GFX_BFLAGS_FLIP_Y;
   int dither = src->bflags&GFX_BFLAGS_DITHER;
+  int bright = 0;
   int sx, sy, w, h; //source rect
 
   if (src->bflags & GFX_BFLAGS_RECT) {
@@ -452,6 +478,10 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
     sy = 0;
     w = src->w;
     h = src->h;
+  }
+
+  if (src->bflags & GFX_BFLAGS_BRIGHTEN) {
+    bright = src->blit_bright;
   }
 
   src->bflags = 0;
@@ -522,10 +552,8 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
       abort();
     }
     begin_blit()
-    if (DITHER) {
-      SC = DC;
-    }
-    end_blit(SC)
+    uint32_t c = (DITHER) ? DC : SC;
+    end_blit(c)
   } else {
     if (src->cmap) {
       begin_blit()
@@ -541,11 +569,14 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
       }
       c = m[SC];
       fromR8G8B8A8(sr,sg,sb,sa,c);
+
       if (sa) {
         c = DC;
-      }
-      if (DITHER) {
+      } else if (DITHER) {
         c = DC;
+      } else if (bright) {
+        BRIGHTEN(sr,sg,sb);
+        c = R8G8B8(sr,sg,sb);
       }
       end_blit(c)
     } else {
@@ -558,8 +589,13 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
 
       if (sa == 0) {
 
-        c = SC;
+        if (bright) {
+          BRIGHTEN(sr,sg,sb);
+          c = R8G8B8(sr,sg,sb);
+        } else {
+          c = SC;
 
+        }
       } else if (sa == 0xFF) {
         c = DC;
       } else {
@@ -570,6 +606,9 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
         if (da == 0) {
           //NOTE: X>>8 is a division by 256, while max alpha is 0xFF
           //      this leads to some loss of precision
+          if (bright) {
+            BRIGHTEN(sr,sg,sb);
+          }
           sm = 0xFF - sa;
           r = (sr*sm + dr*sa)>>8;
           g = (sg*sm + dg*sa)>>8;
@@ -580,8 +619,13 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
 
           // incorrect, but should be okay for now
 
-          c = SC;
+          if (bright) {
+            BRIGHTEN(sr,sg,sb);
+            c = R8G8B8(sr,sg,sb);
+          } else {
+            c = SC;
 
+          }
         }
       }
       if (DITHER) {

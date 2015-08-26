@@ -13,6 +13,7 @@
 #define GFX_BFLAGS_DITHER      0x04
 #define GFX_BFLAGS_PERSISTENT  0x08
 #define GFX_BFLAGS_RECT        0x10
+#define GFX_BFLAGS_BRIGHTEN    0x20
 
 typedef struct {
   uint32_t w; // width
@@ -24,6 +25,7 @@ typedef struct {
   uint32_t bflags; // blit flags
   uint32_t *recolor_map; // recoloring palette used during blitting
   int bx; int by; int bw; int bh; //source blitting rect
+  int blit_bright; //determines if we should brighten the source during blit
 } gfx_t;
 
 gfx_t *new_gfx(uint32_t w, uint32_t h);

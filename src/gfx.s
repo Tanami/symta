@@ -57,6 +57,9 @@ gfx.flip =
 gfx.recolor Map =
 | gfx_set_recolor_map $handle Map
 | Me
+gfx.brighten Amount =
+| gfx_set_blit_bright $handle Amount
+| Me
 gfx.dither Amount =
 | gfx_set_blit_dither $handle Amount
 | Me
