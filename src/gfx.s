@@ -6,6 +6,7 @@ GFX_MAP  = 2
 
 ffi_alloc Size = ffi_alloc_ Size
 ffi_free Ptr = ffi_free_ Ptr
+ffi_memset Ptr Value Size = ffi_memset_ Ptr Value Size
 
 new_cmap Xs =
 | when Xs.size > 256: bad "cant set color map larger than 256"
@@ -45,6 +46,7 @@ gfx.`!cmap` NewCM =
 | when NewCM.size > 256: bad "cant set color map with more than 256 colors"
 | P = gfx_enable_cmap $handle
 | for [I E] NewCM.i: _ffi_set uint32_t P I E
+gfx.`!zbuffer` ZData = gfx_set_zdata $handle ZData
 gfx.rect X Y W H =
 | gfx_set_blit_rect $handle X Y W H
 | Me
@@ -90,4 +92,5 @@ gfx.as_text = "#gfx{[$w] [$h]}"
 rgb R G B = form R*#10000 + G*#100 + B
 rgba R G B A = form A*#1000000 + R*#10000 + G*#100 + B
 
-export widget gfx new_cmap ffi_alloc ffi_free rgb rgba 'rgb' 'rgba' 'GFX_RGB' 'GFX_RGBA' 'GFX_MAP'
+export widget gfx new_cmap ffi_alloc ffi_free ffi_memset rgb rgba
+       'rgb' 'rgba' 'GFX_RGB' 'GFX_RGBA' 'GFX_MAP'

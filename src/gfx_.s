@@ -24,11 +24,12 @@ ffi gfx_set_blit_bright.void Gfx.ptr Amount.int
 ffi gfx_set_blit_dither.void Gfx.ptr Amount.int
 ffi gfx_set_blit_rect.void Gfx.ptr BX.int BY.int BW.int BH.int
 ffi gfx_set_recolor_map.void Gfx.ptr CMap.ptr
+ffi gfx_set_zdata.void Gfx.ptr ZData.ptr
 ffi gfx_blit.void Gfx.ptr X.int Y.int Src.ptr
 ffi gfx_margins.ptr Gfx.ptr
 ffi ffi_alloc_.ptr Size.int
 ffi ffi_free_.void Ptr.ptr
-
+ffi ffi_memset_.void Ptr.ptr Value.int Count.u4
 
 dummy = No
 

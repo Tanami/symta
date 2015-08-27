@@ -8,6 +8,10 @@ void ffi_free_(void *ptr) {
   free(ptr);
 }
 
+void ffi_memset_(void *ptr, int value, uint32_t size) {
+  memset(ptr, value, size);
+}
+
 gfx_t *new_gfx(uint32_t w, uint32_t h) {
   gfx_t *gfx = (gfx_t*)malloc(sizeof(gfx_t));
   if (!gfx) return 0;
