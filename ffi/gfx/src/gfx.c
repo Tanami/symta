@@ -24,6 +24,7 @@ gfx_t *new_gfx(uint32_t w, uint32_t h) {
   gfx->bflags = 0;
   gfx->recolor_map = 0;
   gfx->blit_bright = 0;
+  gfx->zdata = 0;
   return gfx;
 }
 
@@ -33,12 +34,12 @@ void free_gfx(gfx_t *gfx) {
   free(gfx);
 }
 
-
 void gfx_resize(gfx_t *gfx, uint32_t w, uint32_t h) {
   free(gfx->data);
   gfx->data = (uint32_t*)malloc(w*h*sizeof(uint32_t));
   gfx->w = w;
   gfx->h = h;
+  if (gfx->zdata) gfx->zdata = 0;
 }
 
 uint32_t gfx_w(gfx_t *gfx) {
@@ -400,6 +401,11 @@ void gfx_set_blit_rect(gfx_t *gfx, int x, int y, int w, int h) {
 void gfx_set_recolor_map(gfx_t *gfx, uint32_t *map) {
   gfx->recolor_map = map;
 }
+
+void gfx_set_zdata(gfx_t *gfx, uint32_t *zdata) {
+  gfx->zdata = zdata;
+}
+
 
 #define DITHER dither && ((y&1) ^ (pd&1))
 

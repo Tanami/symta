@@ -260,5 +260,4 @@ sound_play Id channel/-1 loop/0 = show_sound_play Id Channel Loop
 sound_playing Channel = show_sound_playing Channel
 
 export gui get_gui tabs hidden layV layH dlg spacer input_split
-       ffi_alloc ffi_free new_cmap gfx //'rgb' 'rgba'
        sound_load sound_free sound_play sound_playing
