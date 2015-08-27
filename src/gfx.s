@@ -65,6 +65,9 @@ gfx.brighten Amount =
 gfx.dither Amount =
 | gfx_set_blit_dither $handle Amount
 | Me
+gfx.z Z = 
+| gfx_set_blit_z $handle Z
+| Me
 gfx.blit X Y Src =
 | if Src.is_gfx
   then _type gfx Src: gfx_blit $handle X Y Src.handle

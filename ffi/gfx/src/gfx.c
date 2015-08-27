@@ -394,6 +394,11 @@ void gfx_set_blit_bright(gfx_t *gfx, int amount) {
   gfx->blit_bright = amount;
 }
 
+void gfx_set_blit_z(gfx_t *gfx, uint32_t z) {
+  gfx->bflags |= GFX_BFLAGS_Z;
+  gfx->blit_z = z;
+}
+
 void gfx_set_blit_rect(gfx_t *gfx, int x, int y, int w, int h) {
   gfx->bx = x;
   gfx->by = y;
