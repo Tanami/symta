@@ -14,7 +14,6 @@
 #define GFX_BFLAGS_PERSISTENT  0x08
 #define GFX_BFLAGS_RECT        0x10
 #define GFX_BFLAGS_BRIGHTEN    0x20
-#define GFX_BFLAGS_Z           0x40
 
 typedef struct {
   uint32_t w; // width

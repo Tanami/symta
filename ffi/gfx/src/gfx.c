@@ -395,7 +395,6 @@ void gfx_set_blit_bright(gfx_t *gfx, int amount) {
 }
 
 void gfx_set_blit_z(gfx_t *gfx, uint32_t z) {
-  gfx->bflags |= GFX_BFLAGS_Z;
   gfx->blit_z = z;
 }
 
@@ -440,10 +439,15 @@ void gfx_set_zdata(gfx_t *gfx, uint32_t *zdata) {
     pd = y*dw + x; \
     ex = pd + w; \
     ps = sy*sw + sx; \
-    while (pd < ex) {
+    while (pd < ex) { \
+      do { \
+        if (zdata) { \
+          if(zdata[pd]>=z) break; \
+        }
 
 #define end_blit(output) \
-      DC = (output); \
+        DC = (output); \
+      } while (0); \
       pd += 1; \
       ps += xi; \
     } \
@@ -482,6 +486,8 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
   int dither = src->bflags&GFX_BFLAGS_DITHER;
   int bright = 0;
   int sx, sy, w, h; //source rect
+  uint32_t *zdata = dst->zdata;
+  uint32_t z = src->blit_z+1;
 
   if (src->bflags & GFX_BFLAGS_RECT) {
     sx = src->bx;
