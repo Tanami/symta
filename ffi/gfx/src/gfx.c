@@ -573,7 +573,13 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
       abort();
     }
     begin_blit()
-    uint32_t c = (DITHER) ? DC : SC;
+    uint32_t c;
+    if (DITHER) {
+      c = DC;
+    } else {
+      c = SC;
+      if (zdata) zdata[pd] = z;
+    }
     end_blit(c)
   } else {
     if (src->cmap) {
@@ -590,14 +596,16 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
       }
       c = m[SC];
       fromR8G8B8A8(sr,sg,sb,sa,c);
-
       if (sa) {
         c = DC;
       } else if (DITHER) {
         c = DC;
-      } else if (bright) {
-        BRIGHTEN(sr,sg,sb);
-        c = R8G8B8(sr,sg,sb);
+      } else {
+        if (bright) {
+          BRIGHTEN(sr,sg,sb);
+          c = R8G8B8(sr,sg,sb);
+        }
+        if (zdata) zdata[pd] = z;
       }
       end_blit(c)
     } else {
@@ -617,6 +625,7 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
           c = SC;
 
         }
+        if (zdata) zdata[pd] = z;
       } else if (sa == 0xFF) {
         c = DC;
       } else {
@@ -648,6 +657,7 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
 
           }
         }
+        if (zdata) zdata[pd] = z;
       }
       if (DITHER) {
         c = DC;
