@@ -442,7 +442,7 @@ void gfx_set_zdata(gfx_t *gfx, uint32_t *zdata) {
     while (pd < ex) { \
       do { \
         if (zdata) { \
-          if(zdata[pd]>=z) break; \
+          if(zdata[pd]>z) break; \
         }
 
 #define end_blit(output) \
