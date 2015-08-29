@@ -656,8 +656,8 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
             c = SC;
 
           }
+          if (zdata) zdata[pd] = z;
         }
-        if (zdata) zdata[pd] = z;
       }
       if (DITHER) {
         c = DC;
