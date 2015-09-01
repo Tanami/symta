@@ -25,6 +25,7 @@ ffi gfx_set_blit_dither.void Gfx.ptr Amount.int
 ffi gfx_set_blit_rect.void Gfx.ptr BX.int BY.int BW.int BH.int
 ffi gfx_set_blit_z.void Gfx.ptr Z.u4
 ffi gfx_set_recolor_map.void Gfx.ptr CMap.ptr
+ffi gfx_get_zdata.ptr Gfx.ptr
 ffi gfx_set_zdata.void Gfx.ptr ZData.ptr
 ffi gfx_blit.void Gfx.ptr X.int Y.int Src.ptr
 ffi gfx_margins.ptr Gfx.ptr

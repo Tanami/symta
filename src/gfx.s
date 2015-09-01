@@ -46,6 +46,7 @@ gfx.`!cmap` NewCM =
 | when NewCM.size > 256: bad "cant set color map with more than 256 colors"
 | P = gfx_enable_cmap $handle
 | for [I E] NewCM.i: _ffi_set uint32_t P I E
+gfx.`zbuffer` = gfx_get_zdata $handle
 gfx.`!zbuffer` ZData = gfx_set_zdata $handle ZData
 gfx.rect X Y W H =
 | gfx_set_blit_rect $handle X Y W H

@@ -410,6 +410,11 @@ void gfx_set_recolor_map(gfx_t *gfx, uint32_t *map) {
   gfx->recolor_map = map;
 }
 
+void *gfx_get_zdata(gfx_t *gfx) {
+  return gfx->zdata;
+}
+
+
 void gfx_set_zdata(gfx_t *gfx, uint32_t *zdata) {
   gfx->zdata = zdata;
 }
