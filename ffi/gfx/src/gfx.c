@@ -389,6 +389,11 @@ void gfx_set_blit_dither(gfx_t *gfx, int amount) {
   gfx->bflags |= GFX_BFLAGS_DITHER;
 }
 
+void gfx_set_blit_alpha(gfx_t *gfx, int amount) {
+  gfx->bflags |= GFX_BFLAGS_ALPHA;
+  gfx->alpha = amount;
+}
+
 void gfx_set_blit_bright(gfx_t *gfx, int amount) {
   gfx->bflags |= GFX_BFLAGS_BRIGHTEN;
   gfx->blit_bright = amount;
@@ -490,6 +495,7 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
   int flip_y = src->bflags&GFX_BFLAGS_FLIP_Y;
   int dither = src->bflags&GFX_BFLAGS_DITHER;
   int bright = 0;
+  uint32_t alpha = 0;
   int sx, sy, w, h; //source rect
   uint32_t *zdata = dst->zdata;
   uint32_t z = src->blit_z+1;
@@ -508,6 +514,10 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
 
   if (src->bflags & GFX_BFLAGS_BRIGHTEN) {
     bright = src->blit_bright;
+  }
+
+  if (src->bflags & GFX_BFLAGS_ALPHA) {
+    alpha = src->alpha;
   }
 
   src->bflags = 0;
@@ -586,42 +596,143 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
       if (zdata) zdata[pd] = z;
     }
     end_blit(c)
-  } else {
-    if (src->cmap) {
-      begin_blit()
-      int sr, sg, sb, sa;
-      uint32_t c;
-      if (SC >= GFX_CMAP_SIZE) {
-        if (show_error) {
-          fprintf(stderr, "gfx.c: color map index is too big = 0x%X\n", SC);
-          show_error = 0;
-        }
-        SC = 0;
-        //abort();
+  } else if (src->cmap && !alpha) {
+    begin_blit()
+    int sm; // source multiplier
+    uint32_t c; // result color
+    int sr, sg, sb, sa;
+    if (SC >= GFX_CMAP_SIZE) {
+      if (show_error) {
+        fprintf(stderr, "gfx.c: color map index is too big = 0x%X\n", SC);
+        show_error = 0;
       }
-      c = m[SC];
-      fromR8G8B8A8(sr,sg,sb,sa,c);
-      if (sa) {
-        c = DC;
-      } else if (DITHER) {
-        c = DC;
+      SC = 0;
+      //abort();
+    }
+    c = m[SC];
+    fromR8G8B8A8(sr,sg,sb,sa,c);
+    if (sa) {
+      c = DC;
+    } else if (DITHER) {
+      c = DC;
+    } else {
+      if (bright) {
+        BRIGHTEN(sr,sg,sb);
+        c = R8G8B8(sr,sg,sb);
+      }
+      if (zdata) zdata[pd] = z;
+    }
+    end_blit(c)
+  } else if (src->cmap) {
+    begin_blit()
+    int sm; // source multiplier
+    uint32_t c; // result color
+    int sr, sg, sb, sa;
+    if (SC >= GFX_CMAP_SIZE) {
+      if (show_error) {
+        fprintf(stderr, "gfx.c: color map index is too big = 0x%X\n", SC);
+        show_error = 0;
+      }
+      SC = 0;
+      //abort();
+    }
+    c = m[SC];
+    fromR8G8B8A8(sr,sg,sb,sa,c);
+    if (alpha) {
+      sa += alpha;
+      if (sa > 0xff) sa = 0xff;
+    }
+    if (sa == 0) {
+
+      if (bright) {
+        BRIGHTEN(sr,sg,sb);
+        c = R8G8B8(sr,sg,sb);
       } else {
+        c = m[SC];
+
+      }
+      if (zdata) zdata[pd] = z;
+    } else if (sa == 0xFF) {
+      c = DC;
+    } else {
+      int dr, dg, db, da;
+
+      fromR8G8B8A8(dr,dg,db,da,DC);
+
+      if (da == 0) {
+        //NOTE: X>>8 is a division by 256, while max alpha is 0xFF
+        //      this leads to some loss of precision
+        if (bright) {
+          BRIGHTEN(sr,sg,sb);
+        }
+        sm = 0xFF - sa;
+        r = (sr*sm + dr*sa)>>8;
+        g = (sg*sm + dg*sa)>>8;
+        b = (sb*sm + db*sa)>>8;
+        c = R8G8B8(r,g,b);
+
+      } else {
+
+        // incorrect, but should be okay for now
+
         if (bright) {
           BRIGHTEN(sr,sg,sb);
           c = R8G8B8(sr,sg,sb);
+        } else {
+          c = m[SC];
+
         }
         if (zdata) zdata[pd] = z;
       }
-      end_blit(c)
+    }
+    if (DITHER) {
+      c = DC;
+    }
+    end_blit(c);
+  } else {
+
+    begin_blit()
+    int sm; // source multiplier
+    uint32_t c; // result color
+    int sr, sg, sb, sa;
+    fromR8G8B8A8(sr,sg,sb,sa,SC);
+
+    if (alpha) {
+      sa += alpha;
+      if (sa > 0xff) sa = 0xff;
+    }
+    if (sa == 0) {
+
+      if (bright) {
+        BRIGHTEN(sr,sg,sb);
+        c = R8G8B8(sr,sg,sb);
+      } else {
+        c = SC;
+
+      }
+      if (zdata) zdata[pd] = z;
+    } else if (sa == 0xFF) {
+      c = DC;
     } else {
+      int dr, dg, db, da;
 
-      begin_blit()
-      int sm; // source multiplier
-      uint32_t c; // result color
-      int sr, sg, sb, sa;
-      fromR8G8B8A8(sr,sg,sb,sa,SC);
+      fromR8G8B8A8(dr,dg,db,da,DC);
 
-      if (sa == 0) {
+      if (da == 0) {
+        //NOTE: X>>8 is a division by 256, while max alpha is 0xFF
+        //      this leads to some loss of precision
+        if (bright) {
+          BRIGHTEN(sr,sg,sb);
+        }
+        sm = 0xFF - sa;
+        r = (sr*sm + dr*sa)>>8;
+        g = (sg*sm + dg*sa)>>8;
+        b = (sb*sm + db*sa)>>8;
+        c = R8G8B8(r,g,b);
+
+      } else {
+
+        // incorrect, but should be okay for now
 
         if (bright) {
           BRIGHTEN(sr,sg,sb);
@@ -631,44 +742,12 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
 
         }
         if (zdata) zdata[pd] = z;
-      } else if (sa == 0xFF) {
-        c = DC;
-      } else {
-        int dr, dg, db, da;
-
-        fromR8G8B8A8(dr,dg,db,da,DC);
-
-        if (da == 0) {
-          //NOTE: X>>8 is a division by 256, while max alpha is 0xFF
-          //      this leads to some loss of precision
-          if (bright) {
-            BRIGHTEN(sr,sg,sb);
-          }
-          sm = 0xFF - sa;
-          r = (sr*sm + dr*sa)>>8;
-          g = (sg*sm + dg*sa)>>8;
-          b = (sb*sm + db*sa)>>8;
-          c = R8G8B8(r,g,b);
-
-        } else {
-
-          // incorrect, but should be okay for now
-
-          if (bright) {
-            BRIGHTEN(sr,sg,sb);
-            c = R8G8B8(sr,sg,sb);
-          } else {
-            c = SC;
-
-          }
-          if (zdata) zdata[pd] = z;
-        }
       }
-      if (DITHER) {
-        c = DC;
-      }
-      end_blit(c);
     }
+    if (DITHER) {
+      c = DC;
+    }
+    end_blit(c);
   }
 }
 

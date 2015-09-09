@@ -14,6 +14,7 @@
 #define GFX_BFLAGS_PERSISTENT  0x08
 #define GFX_BFLAGS_RECT        0x10
 #define GFX_BFLAGS_BRIGHTEN    0x20
+#define GFX_BFLAGS_ALPHA       0x40
 
 typedef struct {
   uint32_t w; // width
@@ -28,6 +29,7 @@ typedef struct {
   int blit_bright; //determines if we should brighten the source during blit
   uint32_t *zdata;
   uint32_t blit_z;
+  uint32_t alpha;
 } gfx_t;
 
 gfx_t *new_gfx(uint32_t w, uint32_t h);

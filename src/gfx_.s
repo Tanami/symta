@@ -21,6 +21,7 @@ ffi gfx_resize.void Gfx.ptr W.int H.int
 ffi gfx_set_bflags_flip_x.void Gfx.ptr
 ffi gfx_set_bflags_flip_y.void Gfx.ptr
 ffi gfx_set_blit_bright.void Gfx.ptr Amount.int
+ffi gfx_set_blit_alpha.void Gfx.ptr Amount.int
 ffi gfx_set_blit_dither.void Gfx.ptr Amount.int
 ffi gfx_set_blit_rect.void Gfx.ptr BX.int BY.int BW.int BH.int
 ffi gfx_set_blit_z.void Gfx.ptr Z.u4
