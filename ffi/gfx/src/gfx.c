@@ -150,8 +150,8 @@ void gfx_line(gfx_t *gfx, uint32_t color, int sx, int sy, int dx, int dy) {
     return;
   }
   if (sy == dy) {
-    if (sx < dx) gfx_vline(gfx, color, sx, sy, dx - sx + 1);
-    else gfx_vline(gfx, color, dx, dy, sx - dx + 1);
+    if (sx < dx) gfx_hline(gfx, color, sx, sy, dx - sx + 1);
+    else gfx_hline(gfx, color, dx, dy, sx - dx + 1);
     return;
   }
   if (sy > dy) {
