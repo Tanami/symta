@@ -689,7 +689,10 @@ IRight = 3
 merge H1 H2 =
 | less H1: leave H2
 | less H2: leave H1
-| when H2.IValue < H1.IValue: leave: merge H2 H1
+| when H2.IValue < H1.IValue:
+  | T = H1
+  | H1 <= H2
+  | H2 <= T
 | if 1.rand
   then | H1.ILeft <= merge H1.ILeft H2
        | when H1.ILeft: H1.ILeft.IParent <= H1
@@ -716,7 +719,10 @@ list.sort @As =
 | merge H1 H2 =
   | less H1: leave H2
   | less H2: leave H1
-  | when F H2.IValue H1.IValue: leave: merge H2 H1
+  | when F H2.IValue H1.IValue:
+    | T = H1
+    | H1 <= H2
+    | H2 <= T
   | if 1.rand
     then | H1.ILeft <= merge H1.ILeft H2
          | when H1.ILeft: H1.ILeft.IParent <= H1
