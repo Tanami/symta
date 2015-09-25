@@ -63,6 +63,9 @@ gfx.recolor Map =
 gfx.brighten Amount =
 | gfx_set_blit_bright $handle Amount
 | Me
+gfx.light X Y =
+| gfx_set_light $handle X Y
+| Me
 gfx.alpha Amount =
 | gfx_set_blit_alpha $handle Amount
 | Me

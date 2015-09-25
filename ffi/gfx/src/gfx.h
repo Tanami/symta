@@ -15,6 +15,7 @@
 #define GFX_BFLAGS_RECT        0x10
 #define GFX_BFLAGS_BRIGHTEN    0x20
 #define GFX_BFLAGS_ALPHA       0x40
+#define GFX_BFLAGS_LIGHT       0x80
 
 typedef struct {
   uint32_t w; // width
@@ -30,6 +31,7 @@ typedef struct {
   uint32_t *zdata;
   uint32_t blit_z;
   uint32_t alpha;
+  int lx, ly; //light vector
 } gfx_t;
 
 gfx_t *new_gfx(uint32_t w, uint32_t h);

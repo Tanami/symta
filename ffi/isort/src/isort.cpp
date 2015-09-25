@@ -487,6 +487,7 @@ void ItemSorter::OrderSortItem(SortItem	*si)
 #define FLAG_SOLID           0x04
 #define FLAG_OCCLUDER        0x08
 #define FLAG_DRAW_FIRST      0x10
+#define FLAG_DITHER          0x40
 
 void ItemSorter::AddItem(int id, int flags,
                          int x, int y, int z,

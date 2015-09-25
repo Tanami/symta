@@ -1,3 +1,4 @@
+#include <math.h>
 #include "gfx.h"
 
 void *ffi_alloc_(int size) {
@@ -424,6 +425,35 @@ void gfx_set_zdata(gfx_t *gfx, uint32_t *zdata) {
   gfx->zdata = zdata;
 }
 
+void gfx_set_light(gfx_t *gfx, int lx, int ly) {
+  gfx->lx = lx;
+  gfx->ly = ly;
+  gfx->bflags|=GFX_BFLAGS_LIGHT;
+}
+
+#define LM_SIZE 256
+
+static uint8_t lightmap[LM_SIZE*LM_SIZE];
+static int lightmap_ready;
+
+#define CLIP(low,high,v) do {\
+  if (v<low) v = low; \
+  if (v>high) v = high; \
+  } while(0)
+
+void init_lightmap() {
+  int x, y;
+  for (y = 0; y < LM_SIZE; y++) {
+    for (x = 0; x < LM_SIZE; x++) {
+      double dx = (double)x-128.0;
+      double dy = (double)y-128.0;
+      int v = 255-(int)(sqrt(dx*dx + dy*dy)*255.0/128.0);
+      CLIP(0,255,v);
+      lightmap[y*LM_SIZE+x] = (uint8_t)v;
+    }
+  }
+  lightmap_ready = 1;
+}
 
 #define DITHER dither && ((y&1) ^ (pd&1))
 
@@ -446,6 +476,7 @@ void gfx_set_zdata(gfx_t *gfx, uint32_t *zdata) {
 
 #define begin_blit() \
   while (y < ey) { \
+    bmvx = 0; \
     pd = y*dw + x; \
     ex = pd + w; \
     ps = sy*sw + sx; \
@@ -499,6 +530,11 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
   int sx, sy, w, h; //source rect
   uint32_t *zdata = dst->zdata;
   uint32_t z = src->blit_z+1;
+  int light = 0;
+  int lx,ly;
+  int bmvx;
+  int prev_bmv; //previous bumpmap value
+  uint8_t prev_bmv_line[2048];
 
   if (src->bflags & GFX_BFLAGS_RECT) {
     sx = src->bx;
@@ -518,6 +554,14 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
 
   if (src->bflags & GFX_BFLAGS_ALPHA) {
     alpha = src->alpha;
+  }
+
+  if (src->bflags & GFX_BFLAGS_LIGHT) {
+    if (!lightmap_ready) init_lightmap();
+    light = 1;
+    lx = src->lx;
+    ly = src->ly;
+    bmvx = 0;
   }
 
   src->bflags = 0;
@@ -701,13 +745,43 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
       sa += alpha;
       if (sa > 0xff) sa = 0xff;
     }
+    if (light) {
+      int dx, dy, bmv, BMV, intensity;
+      bmv = (sr+sg+sb)/3; //bumpmap value
+      BMV = bmv + 128;
+      dx = BMV - (bmvx ? prev_bmv : bmv);
+      dy = BMV - (y ? prev_bmv_line[bmvx] : bmv);
+      //follow two lines are useful for dungeon lighting
+      //dx = dx + (bmvx%256)-lx;
+      //dy = dy + (y%256)-ly;
+      dx = dx + bmvx-lx;
+      dy = dy + y-ly;
+      //dx = bmvx%256;
+      //dy = y%256;
+      if (0 <= dx && dx < LM_SIZE && 0 <= dy && dy < LM_SIZE) {
+        intensity = lightmap[LM_SIZE*dy+dx];
+      } else {
+        intensity = 0;
+      }
+      sr = sr*intensity/127;
+      sg = sg*intensity/127;
+      sb = sb*intensity/127;
+      CLIP(0,255,sr);
+      CLIP(0,255,sg);
+      CLIP(0,255,sb);
+      c = R8G8B8(sr,sg,sb);
+      prev_bmv_line[bmvx] = bmv;
+      prev_bmv = bmv;
+      ++bmvx;
+    }
     if (sa == 0) {
 
       if (bright) {
         BRIGHTEN(sr,sg,sb);
         c = R8G8B8(sr,sg,sb);
       } else {
-        c = SC;
+        if (light) c = R8G8B8(sr,sg,sb);
+        else c = SC;
 
       }
       if (zdata) zdata[pd] = z;
@@ -738,7 +812,8 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
           BRIGHTEN(sr,sg,sb);
           c = R8G8B8(sr,sg,sb);
         } else {
-          c = SC;
+          if (light) c = R8G8B8(sr,sg,sb);
+          else c = SC;
 
         }
         if (zdata) zdata[pd] = z;
