@@ -29,18 +29,29 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 struct SortItem;
 
+struct Node {
+  Node    *next;
+  Node    *prev;
+  SortItem  *val;
+  Node() : next(0), prev(0), val(0) { }
+};
+
+#define MAX_NODES (1<<17)
+static Node nodes[MAX_NODES];
+static Node *unused_nodes;
+
+static void init_nodes() {
+  int i;
+  for (i=0; i<MAX_NODES; i++) {
+    Node *n = &nodes[i];
+    n->next = unused_nodes;
+    unused_nodes = n;
+  }
+}
+
 struct DependsList
 {
-  struct Node {
-    Node    *next;
-    Node    *prev;
-    SortItem  *val;
-    Node() : next(0), prev(0), val(0) { }
-  };
-
-  Node *list;
-  Node *tail;
-  Node *unused; 
+  Node *list, *tail;
 
   struct iterator {
     Node *n;
@@ -55,40 +66,20 @@ struct DependsList
 
   void clear() {
     if (tail) {
-      tail->next = unused; 
-      unused = list;
+      tail->next = unused_nodes; 
+      unused_nodes = list;
       tail = 0;
       list = 0;
     }
   }
 
-  void push_back(SortItem *other)
-  {
-    if (!unused) unused = new Node();
-    Node *nn = unused;
-    unused = unused->next;
-    nn->val = other;
-
-    // Put it at the end
-    if (tail) tail->next = nn;
-    if (!list) list = nn;
-    nn->next = 0;
-    nn->prev = tail;
-    tail = nn;
-  }
+  void push_back(SortItem *other);
 
   void insert_sorted(SortItem *other);
 
-  DependsList() : list(0), tail(0), unused(0) { }
+  DependsList() : list(0), tail(0) { }
 
-  ~DependsList() { 
-    clear();
-    while (unused)  {
-      Node *n = unused->next;
-      delete unused;
-      unused = n;
-    }
-  }
+  ~DependsList() { clear(); }
 };
 
 struct SortItem
@@ -149,13 +140,26 @@ struct SortItem
 };
 
 
-int calln;
+static int calln;
 
-void DependsList::insert_sorted(SortItem *other)
+inline void DependsList::push_back(SortItem *other)
 {
-  if (!unused) unused = new Node();
-  Node *nn = unused;
-  unused = unused->next;
+  Node *nn = unused_nodes;
+  unused_nodes = unused_nodes->next;
+  nn->val = other;
+
+  // Put it at the end
+  if (tail) tail->next = nn;
+  if (!list) list = nn;
+  nn->next = 0;
+  nn->prev = tail;
+  tail = nn;
+}
+
+inline void DependsList::insert_sorted(SortItem *other)
+{
+  Node *nn = unused_nodes;
+  unused_nodes = unused_nodes->next;
   nn->val = other;
 
   for (Node *n = list; n != 0; n = n->next)
@@ -590,6 +594,10 @@ static int draw_list_size;
 
 void isort_begin()
 {
+  if (!unused_nodes) {
+    init_nodes();
+  }
+
   calln = 0;
   isorter = new ItemSorter;
   isorter->BeginDisplayList();
