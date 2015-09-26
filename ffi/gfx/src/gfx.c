@@ -30,16 +30,22 @@ gfx_t *new_gfx(uint32_t w, uint32_t h) {
   gfx->recolor_map = 0;
   gfx->blit_bright = 0;
   gfx->zdata = 0;
+  gfx->bumpmap = 0;
   return gfx;
 }
 
 void free_gfx(gfx_t *gfx) {
   if (gfx->cmap) free(gfx->cmap);
+  if (gfx->bumpmap) free(gfx->bumpmap);
   free(gfx->data);
   free(gfx);
 }
 
 void gfx_resize(gfx_t *gfx, uint32_t w, uint32_t h) {
+  if (gfx->bumpmap) {
+    free(gfx->bumpmap);
+    gfx->bumpmap = 0;
+  }
   free(gfx->data);
   gfx->data = (uint32_t*)malloc(w*h*sizeof(uint32_t));
   gfx->w = w;
@@ -448,6 +454,7 @@ void init_lightmap() {
       double dx = (double)x-128.0;
       double dy = (double)y-128.0;
       int v = 255-(int)(sqrt(dx*dx + dy*dy)*255.0/128.0);
+      v=v*2/3;
       CLIP(0,255,v);
       lightmap[y*LM_SIZE+x] = (uint8_t)v;
     }
@@ -500,6 +507,63 @@ void init_lightmap() {
 #define SC s[ps]
 #define DC d[pd]
 
+#include "blur.h"
+
+
+static int near_alpha(gfx_t *gfx, int x, int y) {
+  int i;
+  uint32_t c;
+  int xs[] = {-1, 1, 1, -1, 0, 0,-1,  1};
+  int ys[] = {-1, 1, 0,  0, 1,-1, 1, -1};
+  for (i=0; i<8; i++) {
+    int dx = xs[i];
+    int dy = ys[i];
+    c = gfx_get(gfx,x+dx,y+dy);
+    if (c&0xFF000000) return 1;
+  }
+  return 0;
+}
+
+static void gfx_gen_bumpmap(gfx_t *gfx) {
+  int x,y,i,r,g,b,a,bmv;
+  int w = gfx->w;
+  int h = gfx->h;
+  int n = w*h;
+  uint32_t *s = gfx->data;
+  uint32_t c;
+  int *src = (int*)malloc(n*sizeof(int));
+  int *dst = (int*)malloc(n*sizeof(int));
+
+  for (y = 0; y < h; y++) {
+    for (x = 0; x < w; x++) {
+      i = y*w+x;
+      c = s[i];
+      fromR8G8B8(r,g,b,c);
+
+      bmv = (r+g+b+127)/4;
+      src[i] = bmv;
+    }
+  }
+
+  gaussian_blur(dst, src, gfx->w, gfx->h, 1);
+  gfx->bumpmap = (uint8_t*)malloc(n);
+  for (i=0; i<n; i++) gfx->bumpmap[i] = dst[i];
+
+  for (y = 1; y < h-1; y++) {
+    for (x = 1; x < w-1; x++) {
+      if (near_alpha(gfx,x,y)) {
+        i = y*w+x;
+        c = s[i];
+        fromR8G8B8A8(r,g,b,a,c);
+
+        bmv = (r+g+b+127)/4;
+        gfx->bumpmap[i] = bmv;
+      }
+    }
+  }
+  free(src);
+  free(dst);
+}
 
 void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
   int i, r, g, b, a;
@@ -535,6 +599,7 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
   int bmvx;
   int prev_bmv; //previous bumpmap value
   int prev_bmv_line[2048];
+  uint8_t *bm = src->bumpmap;
 
   if (src->bflags & GFX_BFLAGS_RECT) {
     sx = src->bx;
@@ -558,7 +623,9 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
 
   if (src->bflags & GFX_BFLAGS_LIGHT) {
     if (!lightmap_ready) init_lightmap();
+    if (!src->bumpmap) gfx_gen_bumpmap(src);
     light = 1;
+    bm = src->bumpmap;
     lx = src->lx;
     ly = src->ly;
     prev_bmv = -1;
@@ -748,7 +815,7 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
     }
     if (light) {
       int dx, dy, bmv, BMV, px, py, intensity;
-      bmv = (sr+sg+sb)/3; //bumpmap value
+      bmv = bm[ps]; //bumpmap value
       BMV = bmv + 128;
       px = prev_bmv;
       py = prev_bmv_line[bmvx];
@@ -774,7 +841,7 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
       CLIP(0,255,sr);
       CLIP(0,255,sg);
       CLIP(0,255,sb);
-      c = R8G8B8(sr,sg,sb);
+      //sr = bmv; sg = bmv; sb = bmv;
       if (sa != 0xFF) {
         prev_bmv_line[bmvx] = bmv;
         prev_bmv = bmv;

@@ -26,6 +26,7 @@ typedef struct {
   uint32_t *cmap; // color map
   uint32_t bflags; // blit flags
   uint32_t *recolor_map; // recoloring palette used during blitting
+  uint8_t *bumpmap;
   int bx; int by; int bw; int bh; //source blitting rect
   int blit_bright; //determines if we should brighten the source during blit
   uint32_t *zdata;
