@@ -53,6 +53,10 @@ struct DependsList
 {
   Node *list, *tail;
 
+  DependsList() : list(0), tail(0) { }
+
+  ~DependsList() { clear(); }
+
   struct iterator {
     Node *n;
     SortItem *&operator *() { return n->val; }
@@ -74,12 +78,7 @@ struct DependsList
   }
 
   void push_back(SortItem *other);
-
   void insert_sorted(SortItem *other);
-
-  DependsList() : list(0), tail(0) { }
-
-  ~DependsList() { clear(); }
 };
 
 struct SortItem
@@ -121,20 +120,16 @@ struct SortItem
 
   bool  f32x32 : 1;     // Needs 1 bit  0
   bool  flat   : 1;     // Needs 1 bit  1
-  bool  occl   : 1;     // Needs 1 bit  2
   bool  solid  : 1;     // Needs 1 bit  3
   bool  draw   : 1;     // Needs 1 bit  4
   bool  anim   : 1;     // Needs 1 bit  7
   bool  trans  : 1;     // Needs 1 bit  8
-
-  bool  occluded : 1;   // Set true if occluded
 
   int  order;    // Rendering order. -1 is not yet drawn
 
   DependsList depends;
 
   inline bool overlap(const SortItem &si2) const; //we overlap si2
-  inline bool occludes(const SortItem &si2) const; //we occlude si2?
   inline bool operator<(const SortItem& si2) const;
   inline bool ListLessThan(const SortItem* other) const;
 };
@@ -226,43 +221,6 @@ inline bool SortItem::overlap(const SortItem &si2) const
   return 1;
 }
 
-// Check to see if we occlude si2
-inline bool SortItem::occludes(const SortItem &si2) const
-{
-  int point_top_diff[2] = { sxtop - si2.sxtop, sytop - si2.sytop };
-  int point_bot_diff[2] = { sxbot - si2.sxbot, sybot - si2.sybot };
-
-  // This function is a bit of a hack. It uses dot products between
-  // points and the lines. Nothing is normalized since that isn't 
-  // important
-
-  // 'normal' of top left line ( 2, -1) of the bounding box
-  int dot_top_left = point_top_diff[0] + point_top_diff[1] * 2;
-
-  // 'normal' of top right line ( 2, 1) of the bounding box
-  int dot_top_right = -point_top_diff[0] + point_top_diff[1] * 2;
-
-  // 'normal' of bot  left line (-2,-1) of the bounding box
-  int dot_bot_left =  point_bot_diff[0] - point_bot_diff[1] * 2;
-
-  // 'normal' of bot right line (-2, 1) of the bounding box
-  int dot_bot_right = -point_bot_diff[0] - point_bot_diff[1] * 2;
-
-
-  bool right_res = sxright >= si2.sxright;
-  bool left_res = sxleft <= si2.sxleft;
-  bool top_left_res = dot_top_left <= 0;
-  bool top_right_res = dot_top_right <= 0;
-  bool bot_left_res = dot_bot_left <= 0;
-  bool bot_right_res = dot_bot_right <= 0;
-
-  bool occluded = right_res & left_res & 
-    bot_right_res & bot_left_res &
-    top_right_res & top_left_res;
-
-  return occluded;
-}
-
 inline bool SortItem::operator<(const SortItem& si2) const {
   const SortItem& si1 = *this;
 
@@ -284,9 +242,6 @@ inline bool SortItem::operator<(const SortItem& si2) const {
 
     // Solid always gets drawn first
     if (si1.solid != si2.solid) return si1.solid > si2.solid;
-
-    // Occludes always get drawn first
-    if (si1.occl != si2.occl) return si1.occl > si2.occl;
 
     // 32x32 flats get drawn first
     if (si1.f32x32 != si2.f32x32) return si1.f32x32 > si2.f32x32;
@@ -454,9 +409,6 @@ int *ItemSorter::OrderDisplayList()
 
 void ItemSorter::OrderSortItem(SortItem *si)
 {
-  // Don't paint this, or dependencies if occluded
-  if (si->occluded) return;
-
   // Resursion, detection
   si->order = -2;
   
@@ -481,7 +433,6 @@ void ItemSorter::OrderSortItem(SortItem *si)
 #define FLAG_TRANSLUCENT     0x01
 #define FLAG_ANIMATED        0x02
 #define FLAG_SOLID           0x04
-#define FLAG_OCCLUDER        0x08
 #define FLAG_DRAW_FIRST      0x10
 #define FLAG_DITHER          0x40
 
@@ -522,10 +473,8 @@ void ItemSorter::AddItem(int id, int flags,
 
   si->draw = (flags&FLAG_DRAW_FIRST) ? 1 : 0;
   si->solid = (flags&FLAG_SOLID) ? 1 : 0;
-  si->occl = (flags&FLAG_OCCLUDER) ? 1 : 0;
   si->anim = (flags&FLAG_ANIMATED) ? 1 : 0;
   si->trans = (flags&FLAG_TRANSLUCENT) ? 1 : 0;
-  si->occluded = 0;
   si->order = -1;
 
   SortItem *addpoint = 0;
@@ -534,29 +483,17 @@ void ItemSorter::AddItem(int id, int flags,
     // we insert before the first item that has higher z than us
     if (!addpoint && si->ListLessThan(si2)) addpoint = si2;
 
-    // Doesn't overlap
-    if (si2->occluded || !si->overlap(*si2)) continue;
+    if (!si->overlap(*si2)) continue;
 
     // Attempt to find which is infront
     if (*si < *si2)
     {
-      // si2 occludes si (us)
-      if (si2->occl && si2->occludes(*si))
-      {
-        // No need to do any more checks, this isn't visible
-        si->occluded = true;
-        break;
-      }
-
       // si1 is behind si2, so add it to si2's dependency list
       si2->depends.insert_sorted(si);
     }
     else
     {
-      // ss occludes si2. Sadly, we can't remove it from the list.
-      if (si->occl && si->occludes(*si2)) si2->occluded = true;
-      // si2 is behind si1, so add it to si1's dependency list
-      else si->depends.push_back(si2);
+      si->depends.push_back(si2);
     }
   }
 
