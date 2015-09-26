@@ -534,7 +534,7 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
   int lx,ly;
   int bmvx;
   int prev_bmv; //previous bumpmap value
-  uint8_t prev_bmv_line[2048];
+  int prev_bmv_line[2048];
 
   if (src->bflags & GFX_BFLAGS_RECT) {
     sx = src->bx;
@@ -561,7 +561,8 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
     light = 1;
     lx = src->lx;
     ly = src->ly;
-    bmvx = 0;
+    prev_bmv = -1;
+    for (i=0; i < 2048; i++) prev_bmv_line[i] - 1;
   }
 
   src->bflags = 0;
@@ -746,16 +747,20 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
       if (sa > 0xff) sa = 0xff;
     }
     if (light) {
-      int dx, dy, bmv, BMV, intensity;
+      int dx, dy, bmv, BMV, px, py, intensity;
       bmv = (sr+sg+sb)/3; //bumpmap value
       BMV = bmv + 128;
-      dx = BMV - (bmvx ? prev_bmv : bmv);
-      dy = BMV - (y ? prev_bmv_line[bmvx] : bmv);
+      px = prev_bmv;
+      py = prev_bmv_line[bmvx];
+      if (px < 0) px = bmv;
+      if (py < 0) py = bmv;
+      dx = BMV - px;
+      dy = BMV - py;
       //follow two lines are useful for dungeon lighting
       //dx = dx + (bmvx%256)-lx;
       //dy = dy + (y%256)-ly;
-      dx = dx + bmvx-lx;
-      dy = dy + y-ly;
+      dx = dx - lx;
+      dy = dy - ly;
       //dx = bmvx%256;
       //dy = y%256;
       if (0 <= dx && dx < LM_SIZE && 0 <= dy && dy < LM_SIZE) {
@@ -763,15 +768,20 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
       } else {
         intensity = 0;
       }
-      sr = sr*intensity/127;
-      sg = sg*intensity/127;
-      sb = sb*intensity/127;
+      sr = sr*intensity/128;
+      sg = sg*intensity/128;
+      sb = sb*intensity/128;
       CLIP(0,255,sr);
       CLIP(0,255,sg);
       CLIP(0,255,sb);
       c = R8G8B8(sr,sg,sb);
-      prev_bmv_line[bmvx] = bmv;
-      prev_bmv = bmv;
+      if (sa != 0xFF) {
+        prev_bmv_line[bmvx] = bmv;
+        prev_bmv = bmv;
+      } else {
+        prev_bmv_line[bmvx] = -1;
+        prev_bmv = -1;
+      }
       ++bmvx;
     }
     if (sa == 0) {
