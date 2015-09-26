@@ -192,14 +192,47 @@ inline bool SortItem::ListLessThan(const SortItem* other) const
 // Check to see if we overlap si2
 inline bool SortItem::overlap(const SortItem &si2) const
 {
-  int point_top_diff[2] = { sxtop - si2.sxbot, sytop - si2.sybot };
-  int point_bot_diff[2] = { sxbot - si2.sxtop, sybot - si2.sytop };
+  int dt0,dt1,db0,db1;
+
+  if(sxright <= si2.sxleft) return 0; //right_clear
+  if(sxleft >= si2.sxright) return 0; //left_clear
 
   // This function is a bit of a hack. It uses dot products between
   // points and the lines. Nothing is normalized since that isn't 
   // important
 
+  dt0 = sxtop - si2.sxbot;
+  dt1 = sytop - si2.sybot;
+
   // 'normal' of top  left line ( 2,-1) of the bounding box
+  if(dt0 + dt1*2 >= 0) return 0;
+
+  // 'normal' of top right line ( 2, 1) of the bounding box
+  if(-dt0 + dt1*2 >= 0) return 0;
+
+  db0 = sxbot - si2.sxtop;
+  db1 = sybot - si2.sytop;
+
+  // 'normal' of bot  left line (-2,-1) of the bounding box
+  if(db0 - db1*2 >= 0) return 0;
+
+  // 'normal' of bot right line (-2, 1) of the bounding box
+  if(-db0 - db1*2 >= 0) return 0;
+
+  return 1;
+}
+
+// Check to see if we occlude si2
+inline bool SortItem::occludes(const SortItem &si2) const
+{
+  int point_top_diff[2] = { sxtop - si2.sxtop, sytop - si2.sytop };
+  int point_bot_diff[2] = { sxbot - si2.sxbot, sybot - si2.sybot };
+
+  // This function is a bit of a hack. It uses dot products between
+  // points and the lines. Nothing is normalized since that isn't 
+  // important
+
+  // 'normal' of top left line ( 2, -1) of the bounding box
   int dot_top_left = point_top_diff[0] + point_top_diff[1] * 2;
 
   // 'normal' of top right line ( 2, 1) of the bounding box
@@ -211,51 +244,15 @@ inline bool SortItem::overlap(const SortItem &si2) const
   // 'normal' of bot right line (-2, 1) of the bounding box
   int dot_bot_right = -point_bot_diff[0] - point_bot_diff[1] * 2;
 
-  bool right_clear = sxright <= si2.sxleft;
-  bool left_clear = sxleft >= si2.sxright;
-  bool top_left_clear = dot_top_left >= 0;
-  bool top_right_clear = dot_top_right >= 0;
-  bool bot_left_clear = dot_bot_left >= 0;
-  bool bot_right_clear = dot_bot_right >= 0;
 
-  bool clear = right_clear | left_clear | 
-    bot_right_clear | bot_left_clear |
-    top_right_clear | top_left_clear;
+  bool right_res = sxright >= si2.sxright;
+  bool left_res = sxleft <= si2.sxleft;
+  bool top_left_res = dot_top_left <= 0;
+  bool top_right_res = dot_top_right <= 0;
+  bool bot_left_res = dot_bot_left <= 0;
+  bool bot_right_res = dot_bot_right <= 0;
 
-  return !clear;
-}
-
-// Check to see if we occlude si2
-inline bool SortItem::occludes(const SortItem &si2) const
-{
-  const int point_top_diff[2] = { sxtop - si2.sxtop, sytop - si2.sytop };
-  const int point_bot_diff[2] = { sxbot - si2.sxbot, sybot - si2.sybot };
-
-  // This function is a bit of a hack. It uses dot products between
-  // points and the lines. Nothing is normalized since that isn't 
-  // important
-
-  // 'normal' of top left line ( 2, -1) of the bounding box
-  const int dot_top_left = point_top_diff[0] + point_top_diff[1] * 2;
-
-  // 'normal' of top right line ( 2, 1) of the bounding box
-  const int dot_top_right = -point_top_diff[0] + point_top_diff[1] * 2;
-
-  // 'normal' of bot  left line (-2,-1) of the bounding box
-  const int dot_bot_left =  point_bot_diff[0] - point_bot_diff[1] * 2;
-
-  // 'normal' of bot right line (-2, 1) of the bounding box
-  const int dot_bot_right = -point_bot_diff[0] - point_bot_diff[1] * 2;
-
-
-  const bool right_res = sxright >= si2.sxright;
-  const bool left_res = sxleft <= si2.sxleft;
-  const bool top_left_res = dot_top_left <= 0;
-  const bool top_right_res = dot_top_right <= 0;
-  const bool bot_left_res = dot_bot_left <= 0;
-  const bool bot_right_res = dot_bot_right <= 0;
-
-  const bool occluded = right_res & left_res & 
+  bool occluded = right_res & left_res & 
     bot_right_res & bot_left_res &
     top_right_res & top_left_res;
 
@@ -264,7 +261,7 @@ inline bool SortItem::occludes(const SortItem &si2) const
 
 inline bool SortItem::operator<(const SortItem& si2) const {
   const SortItem& si1 = *this;
-  
+
   // Specialist z flat handling
   if (si1.flat && si2.flat) {
     // Differing z is easy for flats
@@ -292,16 +289,16 @@ inline bool SortItem::operator<(const SortItem& si2) const {
   } else { // Mixed, or non flat
     // Clearly in z
     if (si1.ztop <= si2.z) return true;
-    else if (si1.z >= si2.ztop) return false;
+    if (si1.z >= si2.ztop) return false;
   }
 
   // Clearly in x?
   if (si1.x <= si2.xleft) return true;
-  else if (si1.xleft >= si2.x) return false;
+  if (si1.xleft >= si2.x) return false;
 
   // Clearly in y?
   if (si1.y <= si2.yfar) return true;
-  else if (si1.yfar >= si2.y) return false;
+  if (si1.yfar >= si2.y) return false;
 
   // Are overlapping in all 3 dimentions if we come here
 
@@ -310,19 +307,19 @@ inline bool SortItem::operator<(const SortItem& si2) const {
   // This check must be on the z-bottom and not the z-top because two objects with the
   // same z-position may have different heights (think of a mouse sorting vs the Avatar).
   if (si1.z < si2.z) return true;
-  else if (si1.z > si2.z) return false;
+  if (si1.z > si2.z) return false;
 
   // Biased Clearly in z
   if ((si1.ztop+si1.z)/2 <= si2.z) return true;
-  else if (si1.z >= (si2.ztop+si2.z)/2) return false;
+  if (si1.z >= (si2.ztop+si2.z)/2) return false;
 
   // Biased Clearly X
   if ((si1.x+si1.xleft)/2 <= si2.xleft) return true;
-  else if (si1.xleft >= (si2.x+si2.xleft)/2) return false;
+  if (si1.xleft >= (si2.x+si2.xleft)/2) return false;
 
   // Biased Clearly Y
   if ((si1.y+si1.yfar)/2 <= si2.yfar) return true;
-  else if (si1.yfar >= (si2.y+si2.yfar)/2) return false;
+  if (si1.yfar >= (si2.y+si2.yfar)/2) return false;
 
   // Partial in X + Y front
   if (si1.x + si1.y != si2.x + si2.y) return (si1.x + si1.y < si2.x + si2.y);
