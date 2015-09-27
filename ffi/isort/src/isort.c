@@ -32,6 +32,7 @@ static int calln2;
 #define F_DRAW_FIRST      0x10
 #define F_FLAT            0x20
 #define F_DITHER          0x40
+#define F_PROCESSED       0x80000
 
 
 #define f_draw(x) ((x)->flags&F_DRAW_FIRST)
@@ -67,9 +68,6 @@ static void dep_nodes_clear() {
 
 
 struct SortItem {
-  int item_num; // Owner item number
-  int shape_num;
-
    /* Bounding Box layout
          1    
        /   \      
@@ -97,11 +95,11 @@ struct SortItem {
   int sxbot;    // Screenspace bounding box bottom x coord (RNB x coord) ss origin
   int sybot;    // Screenspace bounding box bottom extent  (RNB y coord) ss origin
 
-  int flags;
-
-  int order;    // Rendering order. -1 is not yet drawn
-
   DepNode *deps_list; // dependencies of this item
+
+  int flags;
+  int item_num; // Owner item number
+  int shape_num;
 };
 
 static int item_compareA(SortItem *a, SortItem *b) {
@@ -196,7 +194,7 @@ static int overlap(SortItem *a, SortItem *b) {
   dt0 = a->sxtop - b->sxbot;
   dt1 = a->sytop - b->sybot;
 
-  // 'normal' of top  left line ( 2,-1) of the bounding box
+  // 'normal' of top left line ( 2,-1) of the bounding box
   if(dt0 + dt1*2 >= 0) return 0;
 
   // 'normal' of top right line ( 2, 1) of the bounding box
@@ -205,7 +203,7 @@ static int overlap(SortItem *a, SortItem *b) {
   db0 = a->sxbot - b->sxtop;
   db1 = a->sybot - b->sytop;
 
-  // 'normal' of bot  left line (-2,-1) of the bounding box
+  // 'normal' of bot left line (-2,-1) of the bounding box
   if(db0 - db1*2 >= 0) return 0;
 
   // 'normal' of bot right line (-2, 1) of the bounding box
@@ -218,37 +216,25 @@ static void dep_push_back(SortItem *a, SortItem *b) {
   DepNode *n;
   DepNode *nn = alloc_dep_node();
   nn->val = b;
-  nn->next = 0;
-
-  if (!a->deps_list) {
-    a->deps_list = nn;
-    return;
-  }
-
-  for (n = a->deps_list; n->next; n = n->next);
-  n->next = nn;
+  nn->next = a->deps_list;
+  a->deps_list = nn;
 }
 
 static void dep_insert_sorted(SortItem *a, SortItem *b) {
-  DepNode *n, *prev;
+  DepNode *n;
   DepNode *nn = alloc_dep_node();
   nn->val = b;
 
-  prev = 0;
-
-  for (n = a->deps_list; n; prev=n, n = n->next) {
-    if (item_compareA(b, n->val)) {
-      nn->next = n;
-      if (prev) prev->next = nn;
-      else a->deps_list = nn;
+  for (n = a->deps_list; n; n = n->next) {
+    if (item_compareA(n->val,b)) {
+      nn->next = n->next;
+      n->next = nn;
       return;
     }
   }
 
-  nn->next = 0;
-
-  if (prev) prev->next = nn;
-  else a->deps_list = nn;
+  nn->next = a->deps_list;
+  a->deps_list = nn;
 }
 
 
@@ -271,25 +257,24 @@ static SortItem *alloc_sort_item() {
 
 static avl_node *display_list = 0;
 static int *display_list_result;
-static int display_list_result_size;
 static int order_counter;
 
 static void order_item(void *aa) {
-  DepNode *n;
+  DepNode *n, *prev, *next;
   SortItem *si = (SortItem*)aa;
-  if (si->order != -1) return;
-  si->order = -2; // Resursion, detection
+  if (si->flags&F_PROCESSED) return;
+  si->flags |= F_PROCESSED; // avoid infinite recursion
 
-  for (n = si->deps_list; n; n = n->next) order_item(n->val);
+  prev = 0;
+  for (n = si->deps_list; n; n = next) {
+    next = n->next;
+    n->next = prev;
+    prev = n;
+  }
 
-  si->order = order_counter; // Set our painting order
-  order_counter++;
-}
+  for (n = prev; n; n = n->next) order_item(n->val);
 
-static void generate_result(void *aa) {
-  SortItem *it = (SortItem*)aa;
-  //if (it->order<0) return;
-  display_list_result[it->order] = it->item_num;
+  display_list_result[order_counter++] = si->item_num;
 }
 
 static int ready;
@@ -304,6 +289,7 @@ void isort_begin()
     avl_init(MAX_AVL_NODES);
     dep_nodes_init(MAX_DEP_NODES);
     sort_items_init(MAX_SORT_ITEMS);
+    display_list_result = (int*)malloc(MAX_SORT_ITEMS*sizeof(int));
     ready = 1;
   }
 
@@ -316,7 +302,6 @@ void isort_begin()
 void isort_add(int id, int flags, int x, int y, int z, int x2, int y2, int z2) {
   SortItem *si = alloc_sort_item();
 
-  si->order = -1;
   si->deps_list = 0;
 
   si->item_num = id;
@@ -347,11 +332,11 @@ void isort_add(int id, int flags, int x, int y, int z, int x2, int y2, int z2) {
   si->flags = flags;
   if (!(z2-z)) si->flags |= F_FLAT;
 
-  si->order = -1;
-
   display_list = avl_insert(display_list, si, si_item_compareA);
 }
 
+// following can be optimized using the fact that most
+// items remain static and don't move
 static void add_deps() {
   int i, j;
   SortItem *a, *b;
@@ -373,9 +358,6 @@ static void add_deps() {
 void produce_display_list_result() {
   order_counter = 0;  // Reset the order_counter
   avl_apply(display_list, order_item);
-  display_list_result = (int*)malloc(order_counter*sizeof(int));
-  avl_apply(display_list, generate_result);
-  display_list_result_size = order_counter;
 }
 
 int isort_end() {
@@ -388,7 +370,7 @@ int isort_end() {
 
   printf("%d, %d\n", calln, calln2);
 
-  return display_list_result_size;
+  return order_counter;
 }
 
 int *isort_result() {
@@ -396,7 +378,7 @@ int *isort_result() {
 }
 
 void isort_free_result() {
-  free(display_list_result);
+  //free(display_list_result);
 }
 
 #if 0
