@@ -26,12 +26,19 @@ static int calln2;
 #include "avl.cpp"
 
 
-#define FLAG_TRANSLUCENT     0x01
-#define FLAG_ANIMATED        0x02
-#define FLAG_SOLID           0x04
-#define FLAG_DRAW_FIRST      0x10
-#define FLAG_DITHER          0x40
+#define F_TRANSLUCENT     0x01
+#define F_ANIMATED        0x02
+#define F_SOLID           0x04
+#define F_DRAW_FIRST      0x10
+#define F_FLAT            0x20
+#define F_DITHER          0x40
 
+
+#define f_draw(x) ((x).flags&F_DRAW_FIRST)
+#define f_anim(x) ((x).flags&F_ANIMATED)
+#define f_solid(x) ((x).flags&F_SOLID)
+#define f_flat(x) ((x).flags&F_FLAT)
+#define f_trans(x) ((x).flags&F_TRANSLUCENT)
 
 struct SortItem;
 
@@ -61,11 +68,6 @@ static void dep_nodes_clear() {
   dep_nodes_used = 0;
 }
 
-struct DependsList {
-  DepNode *list, *tail;
-  void push_back(SortItem *other);
-  void insert_sorted(SortItem *other);
-};
 
 struct SortItem {
   int item_num; // Owner item number
@@ -98,22 +100,21 @@ struct SortItem {
   int sxbot;    // Screenspace bounding box bottom x coord (RNB x coord) ss origin
   int sybot;    // Screenspace bounding box bottom extent  (RNB y coord) ss origin
 
-  bool flat   : 1;     // Needs 1 bit  1
-  bool solid  : 1;     // Needs 1 bit  3
-  bool draw   : 1;     // Needs 1 bit  4
-  bool anim   : 1;     // Needs 1 bit  7
-  bool trans  : 1;     // Needs 1 bit  8
+  int flags;
 
   int order;    // Rendering order. -1 is not yet drawn
 
-  DependsList depends;
+  // dependencies of this item
+  DepNode *list, *tail;
+  void push_back(SortItem *other);
+  void insert_sorted(SortItem *other);
 
   inline bool overlap(const SortItem &si2) const; //we overlap si2
   inline bool operator<(const SortItem& si2) const;
   inline bool ListLessThan(const SortItem* other) const;
 };
 
-inline void DependsList::push_back(SortItem *other)
+inline void SortItem::push_back(SortItem *other)
 {
   DepNode *nn = alloc_dep_node();
   nn->val = other;
@@ -126,7 +127,7 @@ inline void DependsList::push_back(SortItem *other)
   tail = nn;
 }
 
-inline void DependsList::insert_sorted(SortItem *other) {
+inline void SortItem::insert_sorted(SortItem *other) {
   DepNode *nn = alloc_dep_node();
   nn->val = other;
 
@@ -194,23 +195,23 @@ inline bool SortItem::operator<(const SortItem& si2) const {
   const SortItem& si1 = *this;
 
   // Specialist z flat handling
-  if (si1.flat && si2.flat) {
+  if (f_flat(si1) && f_flat(si2)) {
     // Differing z is easy for flats
     if (si1.ztop != si2.ztop) return si1.ztop < si2.ztop;
 
     // Equal z
 
     // Animated always gets drawn after
-    if (si1.anim != si2.anim) return si1.anim < si2.anim;
+    if (f_anim(si1) != f_anim(si2)) return f_anim(si1) < f_anim(si2);
 
     // Trans always gets drawn after
-    if (si1.trans != si2.trans) return si1.trans < si2.trans;
+    if (f_trans(si1) != f_trans(si2)) return f_trans(si1) < f_trans(si2);
 
     // Draw always gets drawn first
-    if (si1.draw != si2.draw) return si1.draw > si2.draw;
+    if (f_draw(si1) != f_draw(si2)) return f_draw(si1) > f_draw(si2);
 
     // Solid always gets drawn first
-    if (si1.solid != si2.solid) return si1.solid > si2.solid;
+    if (f_solid(si1) != f_solid(si2)) return f_solid(si1) > f_solid(si2);
   } else { // Mixed, or non flat
     // Clearly in z
     if (si1.ztop <= si2.z) return true;
@@ -302,9 +303,9 @@ static void add_deps(avl_node *t, SortItem *a) {
 
   if (a->overlap(*b)) {
     if (*a < *b) { // which is infront?
-      b->depends.insert_sorted(a); // a is behind b
+      b->insert_sorted(a); // a is behind b
     } else {
-      a->depends.push_back(b);
+      a->push_back(b);
     }
   }
   add_deps(t->right,a);
@@ -316,7 +317,7 @@ static void order_item(void *aa) {
   if (si->order != -1) return;
   si->order = -2; // Resursion, detection
 
-  for (n = si->depends.list; n; n = n->next) order_item(n->val);
+  for (n = si->list; n; n = n->next) order_item(n->val);
 
   si->order = order_counter; // Set our painting order
   order_counter++;
@@ -354,8 +355,8 @@ void isort_add(int id, int flags, int x, int y, int z, int x2, int y2, int z2) {
   SortItem *si = alloc_sort_item();
 
   si->order = -1;
-  si->depends.list = 0;
-  si->depends.tail = 0;
+  si->list = 0;
+  si->tail = 0;
 
   si->item_num = id;
   si->shape_num = id;
@@ -382,12 +383,9 @@ void isort_add(int id, int flags, int x, int y, int z, int x2, int y2, int z2) {
   // Screenspace bounding box bottom extent  (RNB y coord)
   si->sybot = si->x/8 + si->y/8 - si->z;
 
-  si->flat = !(z2-z);
+  si->flags = flags;
+  if (!(z2-z)) si->flags |= F_FLAT;
 
-  si->draw = (flags&FLAG_DRAW_FIRST) ? 1 : 0;
-  si->solid = (flags&FLAG_SOLID) ? 1 : 0;
-  si->anim = (flags&FLAG_ANIMATED) ? 1 : 0;
-  si->trans = (flags&FLAG_TRANSLUCENT) ? 1 : 0;
   si->order = -1;
 
   add_deps(display_list,si);
