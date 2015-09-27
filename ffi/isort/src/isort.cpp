@@ -18,11 +18,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 
-#include <cassert>
-#include <fstream>
 #include <cstdio>
-#include <list>
-#include <vector>
 
 static int calln;
 static int calln2;
@@ -39,42 +35,30 @@ static int calln2;
 
 struct SortItem;
 
-struct Node {
-  Node    *next;
-  Node    *prev;
+struct DepNode {
+  DepNode    *next;
+  DepNode    *prev;
   SortItem  *val;
-  Node() : next(0), prev(0), val(0) { }
+  DepNode() : next(0), prev(0), val(0) { }
 };
 
 #define MAX_NODES (1<<17)
-static Node nodes[MAX_NODES];
-static Node *unused_nodes;
+static DepNode nodes[MAX_NODES];
+static DepNode *unused_nodes;
 
 static void init_nodes() {
   int i;
   for (i=0; i<MAX_NODES; i++) {
-    Node *n = &nodes[i];
+    DepNode *n = &nodes[i];
     n->next = unused_nodes;
     unused_nodes = n;
   }
 }
 
-struct DependsList
-{
-  Node *list, *tail;
+struct DependsList {
+  DepNode *list, *tail;
 
   DependsList() : list(0), tail(0) { }
-
-  struct iterator {
-    Node *n;
-    SortItem *&operator *() { return n->val; }
-    iterator(Node *node) : n(node) { }
-    iterator &operator++() { n = n->next; return *this; }
-    bool operator != (const iterator &o) { return n != o.n; }
-  };
-
-  iterator begin() { return iterator(list); }
-  iterator end() { return iterator(0); }
 
   void clear() {
     if (tail) {
@@ -137,7 +121,7 @@ struct SortItem {
 
 inline void DependsList::push_back(SortItem *other)
 {
-  Node *nn = unused_nodes;
+  DepNode *nn = unused_nodes;
   unused_nodes = unused_nodes->next;
   nn->val = other;
 
@@ -151,15 +135,13 @@ inline void DependsList::push_back(SortItem *other)
 
 inline void DependsList::insert_sorted(SortItem *other)
 {
-  Node *nn = unused_nodes;
+  DepNode *nn = unused_nodes;
   unused_nodes = unused_nodes->next;
   nn->val = other;
 
-  for (Node *n = list; n != 0; n = n->next)
-  {
-    // Get the insert point... which is before the first item that has higher z than us
-    if (other->ListLessThan(n->val)) 
-    {
+  for (DepNode *n = list; n != 0; n = n->next) {
+    // insert point is before the first item that has higher z than us
+    if (other->ListLessThan(n->val)) {
       nn->next = n;
       nn->prev = n->prev;
       n->prev = nn;
@@ -342,19 +324,14 @@ static void add_deps(avl_node *t, SortItem *a) {
 }
 
 static void order_item(void *aa) {
+  DepNode *n;
   SortItem *si = (SortItem*)aa;
   if (si->order != -1) return;
   si->order = -2; // Resursion, detection
 
-  DependsList::iterator it = si->depends.begin();
-  DependsList::iterator end = si->depends.end();
-  while (it != end) {
-    order_item((*it));
-    ++it;
-  }
+  for (n = si->depends.list; n; n = n->next) order_item(n->val);
 
-  // Set our painting order
-  si->order = order_counter;
+  si->order = order_counter; // Set our painting order
   order_counter++;
 }
 
