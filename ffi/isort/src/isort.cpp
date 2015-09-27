@@ -310,16 +310,6 @@ static SortItem *alloc_sort_item() {
   return sort_items+sort_items_used++;
 }
 
-// 
-// ItemSorter
-//
-class ItemSorter {
-public:
-  void AddItem(int id, int flags, int x, int y, int z, int x2, int y2, int z2);
-  void OrderDisplayList();
-};
-
-static ItemSorter *isorter;
 static avl_node *display_list = 0;
 static int *display_list_result;
 static int display_list_result_size;
@@ -373,19 +363,29 @@ static void generate_result(void *aa) {
   if (it->order>=0) display_list_result[it->order] = it->item_num;
 }
 
-void ItemSorter::OrderDisplayList()
+extern "C" {
+
+static int ready;
+
+#define MAX_AVL_NODES (1<<18)
+#define MAX_SORT_ITEMS (1024*6)
+
+void isort_begin()
 {
-  order_counter = 0;  // Reset the order_counter
-  avl_apply(display_list, order_item);
-  display_list_result = (int*)malloc(order_counter*sizeof(int));
-  avl_apply(display_list, generate_result);
-  display_list_result_size = order_counter;
+  if (!ready) {
+    init_nodes();
+    avl_init(MAX_AVL_NODES);
+    sort_items_init(MAX_SORT_ITEMS);
+    ready = 1;
+  }
+
+  display_list = 0;
+
+  calln = 0;
+  calln2 = 0;
 }
 
-void ItemSorter::AddItem(int id, int flags,
-                         int x, int y, int z,
-                         int x2, int y2, int z2)
-{
+void isort_add(int id, int flags, int x, int y, int z, int x2, int y2, int z2) {
   SortItem *si = alloc_sort_item();
 
   si->order = -1;
@@ -429,40 +429,12 @@ void ItemSorter::AddItem(int id, int flags,
   display_list = avl_insert(display_list, si, si_ListLessThan);
 }
 
-extern "C" {
-
-static int ready;
-
-#define MAX_AVL_NODES (1<<18)
-#define MAX_SORT_ITEMS (1024*6)
-
-void isort_begin()
-{
-  if (!ready) {
-    init_nodes();
-    avl_init(MAX_AVL_NODES);
-    sort_items_init(MAX_SORT_ITEMS);
-    ready = 1;
-  }
-
-  display_list = 0;
-
-  calln = 0;
-  calln2 = 0;
-
-  isorter = new ItemSorter;
-}
-
-void isort_add(int id, int flags, int x, int y, int z, int x2, int y2, int z2)
-{
-  isorter->AddItem(id,flags,x,y,z,x2,y2,z2);
-}
-
 int isort_end() {
-  isorter->OrderDisplayList();
-
-  delete isorter;
-  isorter = 0;
+  order_counter = 0;  // Reset the order_counter
+  avl_apply(display_list, order_item);
+  display_list_result = (int*)malloc(order_counter*sizeof(int));
+  avl_apply(display_list, generate_result);
+  display_list_result_size = order_counter;
 
   avl_clear();
   sort_items_clear();
