@@ -304,8 +304,7 @@ inline bool SortItem::operator<(const SortItem& si2) const {
 // 
 // ItemSorter
 //
-class ItemSorter
-{
+class ItemSorter {
   SortItem  *items;
   SortItem  *items_tail;
   SortItem  *items_unused;
@@ -316,23 +315,10 @@ public:
   ItemSorter();
   ~ItemSorter();
 
-  enum HitFace {
-    X_FACE, Y_FACE, Z_FACE
-  };
-
-  // Begin creating the display list
   void BeginDisplayList();
-
   void AddItem(int id, int flags, int x, int y, int z, int x2, int y2, int z2);
-
-  int *OrderDisplayList();    // Finishes the display list
-
+  int *OrderDisplayList();
   int DisplayListSize() {return order_counter;}
-
-  // Trace and find an object. Returns objid.
-  // If face is non-NULL, also return the face of the 3d bbox (x,y) is on
-  //int Trace(int x, int y, HitFace* face = 0, bool item_highlight=false);
-
   void OrderSortItem(SortItem *);
 };
 
@@ -380,12 +366,6 @@ static int si_ListLessThan(void *aa, void*bb) {
   return a->ListLessThan(b);
 }
 
-static int si_overlap(void *aa, void*bb) {
-  SortItem *a = (SortItem*)aa;
-  SortItem *b = (SortItem*)bb;
-  return a->overlap(*b);
-}
-
 
 #define FLAG_TRANSLUCENT     0x01
 #define FLAG_ANIMATED        0x02
@@ -394,33 +374,24 @@ static int si_overlap(void *aa, void*bb) {
 #define FLAG_DITHER          0x40
 
 static avl_node *display_list = 0;
-static avl_node *overlap_list = 0;
 
-void avl_for_all_above(avl_node *t, void *item,
-                      int (*cmp)(void*,void*),
-                      void (*f)(void*,void*)) {
+static void add_deps(avl_node *t, SortItem *a) {
+  SortItem *b;
+
   if(!t) return;
-  if (cmp(item,t->data)) {
-    f(item,t->data);
-  }
-  avl_for_all_above(t->left,item,cmp,f);
-  avl_for_all_above(t->right,item,cmp,f);
-}
 
-static void add_deps(void *aa, void*bb) {
-  SortItem *a = (SortItem*)aa;
-  SortItem *b = (SortItem*)bb;
+  add_deps(t->left,a);
 
-  // Attempt to find which is infront
-  if (*a < *b)
-  {
-    // si1 is behind si2, so add it to si2's dependency list
-    b->depends.insert_sorted(a);
+  b = (SortItem*)t->data;
+
+  if (a->overlap(*b)) {
+    if (*a < *b) { // which is infront?
+      b->depends.insert_sorted(a); // a is behind b
+    } else {
+      a->depends.push_back(b);
+    }
   }
-  else
-  {
-    a->depends.push_back(b);
-  }
+  add_deps(t->right,a);
 }
 
 static void *order_item(void *aa) {
@@ -512,49 +483,14 @@ void ItemSorter::AddItem(int id, int flags,
   si->trans = (flags&FLAG_TRANSLUCENT) ? 1 : 0;
   si->order = -1;
 
-  /*SortItem *addpoint = 0;
-  for (SortItem * si2 = items; si2 != 0; si2 = si2->next)
-  {
-    // we insert before the first item that has higher z than us
-    if (!addpoint && si->ListLessThan(si2)) addpoint = si2;
-
-    if (!si->overlap(*si2)) continue;
-
-    // Attempt to find which is infront
-    if (*si < *si2)
-    {
-      // si1 is behind si2, so add it to si2's dependency list
-      si2->depends.insert_sorted(si);
-    }
-    else
-    {
-      si->depends.push_back(si2);
-    }
-  }*/
-  avl_for_all_above(display_list, si, si_overlap, add_deps);
+  add_deps(display_list,si);
   display_list = avl_insert(display_list, si, si_ListLessThan);
-  //overlap_list = avl_insert(overlap_list, si, si_overlap);
 
-  // have a position
-  //addpoint = 0;
-  /*if (addpoint)
-  {
-    si->next = addpoint;
-    si->prev = addpoint->prev;
-    addpoint->prev = si;
-    if (si->prev) si->prev->next = si;
-    else items = si;
-  }
-  // Add it to the end of the list
-  else*/
-  {
-    if (items_tail) items_tail->next = si;
-    if (!items) items = si;
-    si->next = 0;
-    si->prev = items_tail;
-    items_tail = si;
-  }
-
+  if (items_tail) items_tail->next = si;
+  if (!items) items = si;
+  si->next = 0;
+  si->prev = items_tail;
+  items_tail = si;
 }
 
 extern "C" {
@@ -574,7 +510,6 @@ void isort_begin()
   }
 
   display_list = 0;
-  overlap_list = 0;
 
   calln = 0;
   calln2 = 0;
