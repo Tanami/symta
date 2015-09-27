@@ -43,7 +43,7 @@ static int calln2;
 struct SortItem;
 
 struct DepNode {
-  DepNode *next, *prev;
+  DepNode *next;
   SortItem *val;
 };
 
@@ -57,11 +57,7 @@ static void dep_nodes_init(int max_nodes) {
 }
 
 static DepNode *alloc_dep_node() {
-  DepNode *n = dep_nodes+dep_nodes_used++;
-  n->next = 0;
-  n->prev = 0;
-  n->val = 0;
-  return n;
+  return dep_nodes+dep_nodes_used++;
 }
 
 static void dep_nodes_clear() {
@@ -105,7 +101,7 @@ struct SortItem {
   int order;    // Rendering order. -1 is not yet drawn
 
   // dependencies of this item
-  DepNode *list, *tail;
+  DepNode *deps_list;
   void push_back(SortItem *other);
   void insert_sorted(SortItem *other);
 
@@ -114,41 +110,41 @@ struct SortItem {
   inline bool ListLessThan(const SortItem* other) const;
 };
 
-inline void SortItem::push_back(SortItem *other)
-{
+inline void SortItem::push_back(SortItem *other) {
+  DepNode *n;
   DepNode *nn = alloc_dep_node();
   nn->val = other;
-
-  // Put it at the end
-  if (tail) tail->next = nn;
-  if (!list) list = nn;
   nn->next = 0;
-  nn->prev = tail;
-  tail = nn;
+
+  if (!deps_list) {
+    deps_list = nn;
+    return;
+  }
+
+  for (n = deps_list; n->next; n = n->next);
+  n->next = nn;
 }
 
-inline void SortItem::insert_sorted(SortItem *other) {
+inline void SortItem::insert_sorted(SortItem *item) {
+  DepNode *n, *prev;
   DepNode *nn = alloc_dep_node();
-  nn->val = other;
+  nn->val = item;
 
-  for (DepNode *n = list; n != 0; n = n->next) {
-    // insert point is before the first item that has higher z than us
-    if (other->ListLessThan(n->val)) {
+  prev = 0;
+
+  for (n = deps_list; n; prev=n, n = n->next) {
+    if (item->ListLessThan(n->val)) {
       nn->next = n;
-      nn->prev = n->prev;
-      n->prev = nn;
-      if (nn->prev) nn->prev->next = nn;
-      else list = nn;
+      if (prev) prev->next = nn;
+      else deps_list = nn;
       return;
     }
   }
 
-  // No suitable, so put at end
-  if (tail) tail->next = nn;
-  if (!list) list = nn;
   nn->next = 0;
-  nn->prev = tail;
-  tail = nn;
+
+  if (prev) prev->next = nn;
+  else deps_list = nn;
 }
 
 
@@ -317,7 +313,7 @@ static void order_item(void *aa) {
   if (si->order != -1) return;
   si->order = -2; // Resursion, detection
 
-  for (n = si->list; n; n = n->next) order_item(n->val);
+  for (n = si->deps_list; n; n = n->next) order_item(n->val);
 
   si->order = order_counter; // Set our painting order
   order_counter++;
@@ -355,8 +351,7 @@ void isort_add(int id, int flags, int x, int y, int z, int x2, int y2, int z2) {
   SortItem *si = alloc_sort_item();
 
   si->order = -1;
-  si->list = 0;
-  si->tail = 0;
+  si->deps_list = 0;
 
   si->item_num = id;
   si->shape_num = id;
