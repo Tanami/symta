@@ -36,39 +36,33 @@ static int calln2;
 struct SortItem;
 
 struct DepNode {
-  DepNode    *next;
-  DepNode    *prev;
-  SortItem  *val;
-  DepNode() : next(0), prev(0), val(0) { }
+  DepNode *next, *prev;
+  SortItem *val;
 };
 
-#define MAX_NODES (1<<17)
-static DepNode nodes[MAX_NODES];
-static DepNode *unused_nodes;
+static int max_dep_nodes;
+static DepNode *dep_nodes;
+static int dep_nodes_used;
 
-static void init_nodes() {
-  int i;
-  for (i=0; i<MAX_NODES; i++) {
-    DepNode *n = &nodes[i];
-    n->next = unused_nodes;
-    unused_nodes = n;
-  }
+static void dep_nodes_init(int max_nodes) {
+  max_dep_nodes = max_nodes;
+  dep_nodes = (DepNode*)malloc(max_nodes*sizeof(DepNode));
+}
+
+static DepNode *alloc_dep_node() {
+  DepNode *n = dep_nodes+dep_nodes_used++;
+  n->next = 0;
+  n->prev = 0;
+  n->val = 0;
+  return n;
+}
+
+static void dep_nodes_clear() {
+  dep_nodes_used = 0;
 }
 
 struct DependsList {
   DepNode *list, *tail;
-
-  DependsList() : list(0), tail(0) { }
-
-  void clear() {
-    if (tail) {
-      tail->next = unused_nodes; 
-      unused_nodes = list;
-      tail = 0;
-      list = 0;
-    }
-  }
-
   void push_back(SortItem *other);
   void insert_sorted(SortItem *other);
 };
@@ -91,26 +85,26 @@ struct SortItem {
        \ | /    
          7   */
 
-  int  x, xleft; // Worldspace bounding box x (xright = x)
-  int  y, yfar;  // Worldspace bounding box y (ynear = y)
-  int  z, ztop;  // Worldspace bounding box z (ztop = z)
+  int x, xleft; // Worldspace bounding box x (xright = x)
+  int y, yfar;  // Worldspace bounding box y (ynear = y)
+  int z, ztop;  // Worldspace bounding box z (ztop = z)
 
-  int  sxleft;   // Screenspace bounding box left extent    (LNT x coord)
-  int  sxright;  // Screenspace bounding box right extent   (RFT x coord)
+  int sxleft;   // Screenspace bounding box left extent    (LNT x coord)
+  int sxright;  // Screenspace bounding box right extent   (RFT x coord)
 
-  int  sxtop;    // Screenspace bounding box top x coord    (LFT x coord)
-  int  sytop;    // Screenspace bounding box top extent     (LFT y coord)
+  int sxtop;    // Screenspace bounding box top x coord    (LFT x coord)
+  int sytop;    // Screenspace bounding box top extent     (LFT y coord)
 
-  int  sxbot;    // Screenspace bounding box bottom x coord (RNB x coord) ss origin
-  int  sybot;    // Screenspace bounding box bottom extent  (RNB y coord) ss origin
+  int sxbot;    // Screenspace bounding box bottom x coord (RNB x coord) ss origin
+  int sybot;    // Screenspace bounding box bottom extent  (RNB y coord) ss origin
 
-  bool  flat   : 1;     // Needs 1 bit  1
-  bool  solid  : 1;     // Needs 1 bit  3
-  bool  draw   : 1;     // Needs 1 bit  4
-  bool  anim   : 1;     // Needs 1 bit  7
-  bool  trans  : 1;     // Needs 1 bit  8
+  bool flat   : 1;     // Needs 1 bit  1
+  bool solid  : 1;     // Needs 1 bit  3
+  bool draw   : 1;     // Needs 1 bit  4
+  bool anim   : 1;     // Needs 1 bit  7
+  bool trans  : 1;     // Needs 1 bit  8
 
-  int  order;    // Rendering order. -1 is not yet drawn
+  int order;    // Rendering order. -1 is not yet drawn
 
   DependsList depends;
 
@@ -121,8 +115,7 @@ struct SortItem {
 
 inline void DependsList::push_back(SortItem *other)
 {
-  DepNode *nn = unused_nodes;
-  unused_nodes = unused_nodes->next;
+  DepNode *nn = alloc_dep_node();
   nn->val = other;
 
   // Put it at the end
@@ -133,10 +126,8 @@ inline void DependsList::push_back(SortItem *other)
   tail = nn;
 }
 
-inline void DependsList::insert_sorted(SortItem *other)
-{
-  DepNode *nn = unused_nodes;
-  unused_nodes = unused_nodes->next;
+inline void DependsList::insert_sorted(SortItem *other) {
+  DepNode *nn = alloc_dep_node();
   nn->val = other;
 
   for (DepNode *n = list; n != 0; n = n->next) {
@@ -161,16 +152,14 @@ inline void DependsList::insert_sorted(SortItem *other)
 
 
 // Comparison for the sorted lists
-inline bool SortItem::ListLessThan(const SortItem* other) const
-{
+inline bool SortItem::ListLessThan(const SortItem* other) const {
   if (z < other->z) return 1;
   if (z > other->z) return 0;
   return x < other->x || (x == other->x && y < other->y);
 }
 
 // Check to see if we overlap si2
-inline bool SortItem::overlap(const SortItem &si2) const
-{
+inline bool SortItem::overlap(const SortItem &si2) const {
   int dt0,dt1,db0,db1;
 
   if(sxright <= si2.sxleft) return 0; //right_clear
@@ -283,8 +272,6 @@ static void sort_items_init(int max_items) {
 }
 
 static void sort_items_clear() {
-  int i;
-  for (i=0; i<sort_items_used; i++) sort_items[i].depends.clear();
   sort_items_used = 0;
 }
 
@@ -345,13 +332,14 @@ extern "C" {
 static int ready;
 
 #define MAX_AVL_NODES (1<<18)
+#define MAX_DEP_NODES (1<<17)
 #define MAX_SORT_ITEMS (1024*6)
 
 void isort_begin()
 {
   if (!ready) {
-    init_nodes();
     avl_init(MAX_AVL_NODES);
+    dep_nodes_init(MAX_DEP_NODES);
     sort_items_init(MAX_SORT_ITEMS);
     ready = 1;
   }
@@ -414,6 +402,7 @@ int isort_end() {
   display_list_result_size = order_counter;
 
   avl_clear();
+  dep_nodes_clear();
   sort_items_clear();
 
   printf("%d, %d\n", calln, calln2);
