@@ -274,26 +274,6 @@ static int *display_list_result;
 static int display_list_result_size;
 static int order_counter;
 
-
-static void add_deps(avl_node *t, SortItem *a) {
-  SortItem *b;
-
-  if(!t) return;
-
-  add_deps(t->left,a);
-
-  b = (SortItem*)t->data;
-
-  if (overlap(a,b)) {
-    if (item_compareB(a,b)) { // which is infront?
-      dep_insert_sorted(b, a); // a is behind b
-    } else {
-      dep_push_back(a, b);
-    }
-  }
-  add_deps(t->right,a);
-}
-
 static void order_item(void *aa) {
   DepNode *n;
   SortItem *si = (SortItem*)aa;
@@ -369,16 +349,38 @@ void isort_add(int id, int flags, int x, int y, int z, int x2, int y2, int z2) {
 
   si->order = -1;
 
-  add_deps(display_list,si);
   display_list = avl_insert(display_list, si, si_item_compareA);
 }
 
-int isort_end() {
+static void add_deps() {
+  int i, j;
+  SortItem *a, *b;
+  for (i=0; i<sort_items_used; i++) {
+    a = sort_items+i;
+    for (j=i; j<sort_items_used; j++) {
+      b = sort_items+j;
+      if (overlap(a,b)) {
+        if (item_compareB(a,b)) { // which is infront?
+          dep_insert_sorted(b, a); // a is behind b
+        } else {
+          dep_push_back(a, b);
+        }
+      }
+    }
+  }
+}
+
+void produce_display_list_result() {
   order_counter = 0;  // Reset the order_counter
   avl_apply(display_list, order_item);
   display_list_result = (int*)malloc(order_counter*sizeof(int));
   avl_apply(display_list, generate_result);
   display_list_result_size = order_counter;
+}
+
+int isort_end() {
+  add_deps();
+  produce_display_list_result();
 
   avl_clear();
   dep_nodes_clear();
