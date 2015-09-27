@@ -335,15 +335,13 @@ void isort_add(int id, int flags, int x, int y, int z, int x2, int y2, int z2) {
   display_list = avl_insert(display_list, si, si_item_compareA);
 }
 
-// following can be optimized using the fact that most
+// following is the most CPU taxing part of this code
+// it can be greatly optimized using the fact that most
 // items remain static and don't move
 static void add_deps() {
-  int i, j;
-  SortItem *a, *b;
-  for (i=0; i<sort_items_used; i++) {
-    a = sort_items+i;
-    for (j=i; j<sort_items_used; j++) {
-      b = sort_items+j;
+  SortItem *a, *b, *end=sort_items+sort_items_used;
+  for (a=sort_items; a<end; a++) {
+    for (b=a; b<end; b++) {
       if (overlap(a,b)) {
         if (item_compareB(a,b)) { // which is infront?
           dep_insert_sorted(b, a); // a is behind b
