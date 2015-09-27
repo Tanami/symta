@@ -24,6 +24,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <list>
 #include <vector>
 
+static int calln;
+static int calln2;
+
+#include "avl.cpp"
+
+
 #define CANT_HAPPEN() do { assert(false); } while(0)
 #define CANT_HAPPEN_MSG(msg) do { assert(msg && false); } while(0)
 
@@ -133,9 +139,6 @@ struct SortItem
   inline bool operator<(const SortItem& si2) const;
   inline bool ListLessThan(const SortItem* other) const;
 };
-
-
-static int calln;
 
 inline void DependsList::push_back(SortItem *other)
 {
@@ -330,10 +333,10 @@ public:
   // If face is non-NULL, also return the face of the 3d bbox (x,y) is on
   //int Trace(int x, int y, HitFace* face = 0, bool item_highlight=false);
 
-private:
   void OrderSortItem(SortItem *);
 };
 
+static ItemSorter *isorter;
 
 ItemSorter::ItemSorter() : items(0), items_tail(0), items_unused(0)
 {
@@ -363,48 +366,85 @@ ItemSorter::~ItemSorter()
 
 void ItemSorter::BeginDisplayList()
 {
-  // Get the shapes, if required
-  //if (!shapes) shapes = GameData::get_instance()->getMainShapes();
-
-  // 
   if (items_tail) {
     items_tail->next = items_unused;
     items_unused = items;
   }
   items = 0;
   items_tail = 0;
-
-  // Set the RenderSurface, and reset the item list
-  //surf = rs;
-  order_counter = 0;
 }
 
-SortItem *prev = 0;
+static int si_ListLessThan(void *aa, void*bb) {
+  SortItem *a = (SortItem*)aa;
+  SortItem *b = (SortItem*)bb;
+  return a->ListLessThan(b);
+}
+
+static int si_overlap(void *aa, void*bb) {
+  SortItem *a = (SortItem*)aa;
+  SortItem *b = (SortItem*)bb;
+  return a->overlap(*b);
+}
+
+
+#define FLAG_TRANSLUCENT     0x01
+#define FLAG_ANIMATED        0x02
+#define FLAG_SOLID           0x04
+#define FLAG_DRAW_FIRST      0x10
+#define FLAG_DITHER          0x40
+
+static avl_node *display_list = 0;
+static avl_node *overlap_list = 0;
+
+void avl_for_all_above(avl_node *t, void *item,
+                      int (*cmp)(void*,void*),
+                      void (*f)(void*,void*)) {
+  if(!t) return;
+  if (cmp(item,t->data)) {
+    f(item,t->data);
+  }
+  avl_for_all_above(t->left,item,cmp,f);
+  avl_for_all_above(t->right,item,cmp,f);
+}
+
+static void add_deps(void *aa, void*bb) {
+  SortItem *a = (SortItem*)aa;
+  SortItem *b = (SortItem*)bb;
+
+  // Attempt to find which is infront
+  if (*a < *b)
+  {
+    // si1 is behind si2, so add it to si2's dependency list
+    b->depends.insert_sorted(a);
+  }
+  else
+  {
+    a->depends.push_back(b);
+  }
+}
+
+static void *order_item(void *aa) {
+  SortItem *it = (SortItem*)aa;
+  if (it->order == -1) isorter->OrderSortItem(it);
+  return 0;
+}
+
+static int *result;
+static void *generate_result(void *aa) {
+  SortItem *it = (SortItem*)aa;
+  if (it->order>=0) result[it->order] = it->item_num;
+  return 0;
+}
 
 int *ItemSorter::OrderDisplayList()
 {
- int i = 0;
- int *result;
-  prev = 0;
-  SortItem *it = items;
-  SortItem *end = 0;
   order_counter = 0;  // Reset the order_counter
-  while (it != end)
-  {
-    if (it->order == -1) OrderSortItem(it);
-    it = it->next;
-  }
 
- result = (int*)malloc(order_counter*sizeof(int));
+  avl_apply(display_list, order_item);
+  result = (int*)malloc(order_counter*sizeof(int));
+  avl_apply(display_list, generate_result);
 
- it = items;
-  end = 0;
- while (it != end)
-  {
-   if (it->order>=0) result[it->order] = it->item_num;
-     it = it->next;
- }
- return result;
+  return result;
 }
 
 void ItemSorter::OrderSortItem(SortItem *si)
@@ -430,18 +470,13 @@ void ItemSorter::OrderSortItem(SortItem *si)
   order_counter++;
 }
 
-#define FLAG_TRANSLUCENT     0x01
-#define FLAG_ANIMATED        0x02
-#define FLAG_SOLID           0x04
-#define FLAG_DRAW_FIRST      0x10
-#define FLAG_DITHER          0x40
-
 void ItemSorter::AddItem(int id, int flags,
                          int x, int y, int z,
                          int x2, int y2, int z2)
 {
   if (!items_unused) items_unused = new SortItem(0);
   SortItem *si = items_unused;
+  items_unused = items_unused->next;
 
   si->item_num = id;
   si->shape_num = id;
@@ -477,7 +512,7 @@ void ItemSorter::AddItem(int id, int flags,
   si->trans = (flags&FLAG_TRANSLUCENT) ? 1 : 0;
   si->order = -1;
 
-  SortItem *addpoint = 0;
+  /*SortItem *addpoint = 0;
   for (SortItem * si2 = items; si2 != 0; si2 = si2->next)
   {
     // we insert before the first item that has higher z than us
@@ -495,14 +530,14 @@ void ItemSorter::AddItem(int id, int flags,
     {
       si->depends.push_back(si2);
     }
-  }
-
-  // Add it to the list
-  items_unused = items_unused->next;
+  }*/
+  avl_for_all_above(display_list, si, si_overlap, add_deps);
+  display_list = avl_insert(display_list, si, si_ListLessThan);
+  //overlap_list = avl_insert(overlap_list, si, si_overlap);
 
   // have a position
   //addpoint = 0;
-  if (addpoint)
+  /*if (addpoint)
   {
     si->next = addpoint;
     si->prev = addpoint->prev;
@@ -511,7 +546,7 @@ void ItemSorter::AddItem(int id, int flags,
     else items = si;
   }
   // Add it to the end of the list
-  else 
+  else*/
   {
     if (items_tail) items_tail->next = si;
     if (!items) items = si;
@@ -524,18 +559,26 @@ void ItemSorter::AddItem(int id, int flags,
 
 extern "C" {
 
-static ItemSorter *isorter;
-
 static int *draw_list;
 static int draw_list_size;
+static int ready;
+
+#define MAX_AVL_NODES (1<<18)
 
 void isort_begin()
 {
-  if (!unused_nodes) {
+  if (!ready) {
     init_nodes();
+    avl_init(MAX_AVL_NODES);
+    ready = 1;
   }
 
+  display_list = 0;
+  overlap_list = 0;
+
   calln = 0;
+  calln2 = 0;
+
   isorter = new ItemSorter;
   isorter->BeginDisplayList();
 }
@@ -552,7 +595,9 @@ int isort_end() {
   delete isorter;
   isorter = 0;
 
-  printf("%d\n", calln);
+  avl_clear();
+
+  printf("%d, %d\n", calln, calln2);
 
   return draw_list_size;
 }
