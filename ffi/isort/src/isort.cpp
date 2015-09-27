@@ -30,6 +30,13 @@ static int calln2;
 #include "avl.cpp"
 
 
+#define FLAG_TRANSLUCENT     0x01
+#define FLAG_ANIMATED        0x02
+#define FLAG_SOLID           0x04
+#define FLAG_DRAW_FIRST      0x10
+#define FLAG_DITHER          0x40
+
+
 #define CANT_HAPPEN() do { assert(false); } while(0)
 #define CANT_HAPPEN_MSG(msg) do { assert(msg && false); } while(0)
 
@@ -317,12 +324,14 @@ public:
 
   void BeginDisplayList();
   void AddItem(int id, int flags, int x, int y, int z, int x2, int y2, int z2);
-  int *OrderDisplayList();
-  int DisplayListSize() {return order_counter;}
+  void OrderDisplayList();
   void OrderSortItem(SortItem *);
 };
 
 static ItemSorter *isorter;
+static avl_node *display_list = 0;
+static int *display_list_result;
+static int display_list_result_size;
 
 ItemSorter::ItemSorter() : items(0), items_tail(0), items_unused(0)
 {
@@ -367,14 +376,6 @@ static int si_ListLessThan(void *aa, void*bb) {
 }
 
 
-#define FLAG_TRANSLUCENT     0x01
-#define FLAG_ANIMATED        0x02
-#define FLAG_SOLID           0x04
-#define FLAG_DRAW_FIRST      0x10
-#define FLAG_DITHER          0x40
-
-static avl_node *display_list = 0;
-
 static void add_deps(avl_node *t, SortItem *a) {
   SortItem *b;
 
@@ -394,28 +395,23 @@ static void add_deps(avl_node *t, SortItem *a) {
   add_deps(t->right,a);
 }
 
-static void *order_item(void *aa) {
+static void order_item(void *aa) {
   SortItem *it = (SortItem*)aa;
   if (it->order == -1) isorter->OrderSortItem(it);
-  return 0;
 }
 
-static int *result;
-static void *generate_result(void *aa) {
+static void generate_result(void *aa) {
   SortItem *it = (SortItem*)aa;
-  if (it->order>=0) result[it->order] = it->item_num;
-  return 0;
+  if (it->order>=0) display_list_result[it->order] = it->item_num;
 }
 
-int *ItemSorter::OrderDisplayList()
+void ItemSorter::OrderDisplayList()
 {
   order_counter = 0;  // Reset the order_counter
-
   avl_apply(display_list, order_item);
-  result = (int*)malloc(order_counter*sizeof(int));
+  display_list_result = (int*)malloc(order_counter*sizeof(int));
   avl_apply(display_list, generate_result);
-
-  return result;
+  display_list_result_size = order_counter;
 }
 
 void ItemSorter::OrderSortItem(SortItem *si)
@@ -495,8 +491,6 @@ void ItemSorter::AddItem(int id, int flags,
 
 extern "C" {
 
-static int *draw_list;
-static int draw_list_size;
 static int ready;
 
 #define MAX_AVL_NODES (1<<18)
@@ -524,8 +518,7 @@ void isort_add(int id, int flags, int x, int y, int z, int x2, int y2, int z2)
 }
 
 int isort_end() {
-  draw_list = isorter->OrderDisplayList();
-  draw_list_size = isorter->DisplayListSize();
+  isorter->OrderDisplayList();
 
   delete isorter;
   isorter = 0;
@@ -534,15 +527,15 @@ int isort_end() {
 
   printf("%d, %d\n", calln, calln2);
 
-  return draw_list_size;
+  return display_list_result_size;
 }
 
 int *isort_result() {
-  return draw_list;
+  return display_list_result;
 }
 
 void isort_free_result() {
-  free(draw_list);
+  free(display_list_result);
 }
 
 } //extern "C" 
@@ -559,7 +552,7 @@ int main(int, char **) {
 
   isort_free_result();
 
-  printf("goodbye! (%d)\n", draw_list_size);
+  printf("goodbye! (%d)\n", display_list_result_size);
   return 0;
 }
 #endif

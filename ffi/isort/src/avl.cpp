@@ -15,7 +15,7 @@ static avl_node* avl_find(avl_node* t, void *item, int*(*cmp)(void*,void*));
 static avl_node* avl_find_first(avl_node *t);
 static avl_node* avl_find_last(avl_node *t);
 static avl_node* avl_insert(avl_node *t, void *item, int (*cmp)(void*,void*));
-static void avl_apply(avl_node* t, void*(*f)(void*));
+static void avl_apply(avl_node* t, void(*f)(void*));
 static void *avl_apply_breakable(avl_node* t, void*(*f)(void*));
 
 static int avl_max_nodes;
@@ -127,7 +127,7 @@ static avl_node* avl_insert(avl_node *t, void *item, int (*cmp)(void*,void*)) {
   return avl_insert_r(t);
 }
 
-static void avl_apply(avl_node* t, void*(*f)(void*)) {
+static void avl_apply(avl_node* t, void(*f)(void*)) {
   if (!t) return;
   avl_apply(t->left,f);
   f(t->data);
