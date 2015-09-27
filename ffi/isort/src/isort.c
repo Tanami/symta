@@ -24,6 +24,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 static int calln;
 static int calln2;
 
+#define INLINE __attribute__((always_inline)) inline
+
 #define F_TRANSLUCENT     0x01
 #define F_ANIMATED        0x02
 #define F_SOLID           0x04
@@ -55,7 +57,7 @@ static void dep_nodes_init(int max_nodes) {
   dep_nodes = (DepNode*)malloc(max_nodes*sizeof(DepNode));
 }
 
-static DepNode *alloc_dep_node() {
+INLINE static DepNode *alloc_dep_node() {
   return dep_nodes+dep_nodes_used++;
 }
 
@@ -173,63 +175,26 @@ static int item_compareB(SortItem *a, SortItem *b) {
   return a->shape_num < b->shape_num;
 }
 
-static int overlap(SortItem *a, SortItem *b) {
+INLINE static int overlap(SortItem *a, SortItem *b) {
   int dt0,dt1,db0,db1;
 
-  if(a->sxright <= b->sxleft) return 0; //right_clear
-  if(a->sxleft >= b->sxright) return 0; //left_clear
-
-  // This function is a bit of a hack. It uses dot products between
-  // points and the lines. Nothing is normalized since that isn't 
-  // important
+  if(a->sxright <= b->sxleft) return 0;
+  if(a->sxleft >= b->sxright) return 0;
 
   dt0 = a->sxtop - b->sxbot;
-  dt1 = a->sytop - b->sybot;
+  dt1 = (a->sytop - b->sybot)*2;
 
-  // 'normal' of top left line ( 2,-1) of the bounding box
-  if(dt0 + dt1*2 >= 0) return 0;
-
-  // 'normal' of top right line ( 2, 1) of the bounding box
-  if(-dt0 + dt1*2 >= 0) return 0;
+  if(dt0 + dt1 >= 0) return 0;
+  if(-dt0 + dt1 >= 0) return 0;
 
   db0 = a->sxbot - b->sxtop;
-  db1 = a->sybot - b->sytop;
+  db1 = (a->sybot - b->sytop)*2;
 
-  // 'normal' of bot left line (-2,-1) of the bounding box
-  if(db0 - db1*2 >= 0) return 0;
-
-  // 'normal' of bot right line (-2, 1) of the bounding box
-  if(-db0 - db1*2 >= 0) return 0;
+  if(db0 - db1 >= 0) return 0;
+  if(-db0 - db1 >= 0) return 0;
 
   return 1;
 }
-
-static void dep_push_back(SortItem *a, SortItem *b) {
-  DepNode *n;
-  DepNode *nn = alloc_dep_node();
-  nn->val = b;
-  nn->next = a->deps_list;
-  a->deps_list = nn;
-}
-
-static void dep_insert_sorted(SortItem *a, SortItem *b) {
-  DepNode *n;
-  DepNode *nn = alloc_dep_node();
-  nn->val = b;
-
-  for (n = a->deps_list; n; n = n->next) {
-    if (item_compareA(n->val,b)) {
-      calln++;
-      nn->next = n->next;
-      n->next = nn;
-      return;
-    }
-  }
-
-  nn->next = a->deps_list;
-  a->deps_list = nn;
-}
-
 
 static int sort_items_max;
 static SortItem *sort_items;
@@ -326,21 +291,79 @@ void isort_add(int id, int flags, int x, int y, int z, int x2, int y2, int z2) {
   if (!(z2-z)) si->flags |= F_FLAT;
 }
 
-// following is the most CPU taxing part of this code
-// it can be greatly optimized using the fact that most
-// items remain static and don't move
+
+/*
+static void dep_push_back(SortItem *a, SortItem *b) {
+  DepNode *nn = alloc_dep_node();
+  nn->val = b;
+  nn->next = a->deps_list;
+  a->deps_list = nn;
+}
+
+static void dep_insert_sorted(SortItem *a, SortItem *b) {
+  DepNode *n, *nn = alloc_dep_node();
+  nn->val = b;
+
+  for (n = a->deps_list; n; n = n->next) {
+    if (item_compareA(n->val,b)) {
+      nn->next = n->next;
+      n->next = nn;
+      return;
+    }
+  }
+
+  nn->next = a->deps_list;
+  a->deps_list = nn;
+}
+
 static void add_deps() {
   SortItem *a, *b, *end=sort_items+sort_items_used;
   for (a=sort_items; a<end; a++) {
     for (b=a; b<end; b++) {
       if (overlap(a,b)) {
         if (item_compareB(a,b)) { // which is infront?
+          // can probably use dep_push_back here
           dep_insert_sorted(b, a); // a is behind b
         } else {
           dep_push_back(a, b);
         }
       }
     }
+  }
+}
+*/
+
+// following is the most CPU taxing part of this code
+// it can be greatly optimized using the fact that most
+// items remain static and don't move
+static void add_deps() {
+  DepNode *n, *nn, *dl;
+  SortItem *a, *b, *end=sort_items+sort_items_used;
+  for (a=sort_items; a<end; a++) {
+    dl = a->deps_list;
+    for (b=a; b<end; b++) {
+      if (overlap(a,b)) {
+        nn = alloc_dep_node();
+        if (item_compareB(a,b)) {
+          nn->val = a; //add a to b's deps
+          for (n = b->deps_list; n; n = n->next) {
+            if (item_compareA(n->val,a)) {
+              nn->next = n->next;
+              n->next = nn;
+              goto next_b;
+            }
+          }
+          nn->next = b->deps_list;
+          b->deps_list = nn;
+        } else {
+          nn->val = b; //add b to a's deps
+          nn->next = dl;
+          dl = nn;
+        }
+      }
+      next_b:;
+    }
+    a->deps_list = dl;
   }
 }
 
@@ -351,7 +374,7 @@ int isort_end() {
   dep_nodes_clear();
   sort_items_clear();
 
-  printf("%d, %d\n", calln, calln2);
+  //printf("%d, %d\n", calln, calln2);
 
   return order_counter;
 }
