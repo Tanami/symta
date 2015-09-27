@@ -19,12 +19,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 
 #include <stdio.h>
+#include <stdlib.h>
 
 static int calln;
 static int calln2;
-
-#include "avl.c"
-
 
 #define F_TRANSLUCENT     0x01
 #define F_ANIMATED        0x02
@@ -33,7 +31,6 @@ static int calln2;
 #define F_FLAT            0x20
 #define F_DITHER          0x40
 #define F_PROCESSED       0x80000
-
 
 #define f_draw(x) ((x)->flags&F_DRAW_FIRST)
 #define f_anim(x) ((x)->flags&F_ANIMATED)
@@ -255,13 +252,11 @@ static SortItem *alloc_sort_item() {
   return sort_items+sort_items_used++;
 }
 
-static avl_node *display_list = 0;
 static int *display_list_result;
 static int order_counter;
 
-static void order_item(void *aa) {
+static void order_item(SortItem *si) {
   DepNode *n, *prev, *next;
-  SortItem *si = (SortItem*)aa;
   if (si->flags&F_PROCESSED) return;
   si->flags |= F_PROCESSED; // avoid infinite recursion
 
@@ -277,23 +272,25 @@ static void order_item(void *aa) {
   display_list_result[order_counter++] = si->item_num;
 }
 
+static void produce_display_list_result() {
+  order_counter = 0;  // Reset the order_counter
+  SortItem *a, *end=sort_items+sort_items_used;
+  for (a=sort_items; a<end; a++) order_item(a);
+}
+
 static int ready;
 
-#define MAX_AVL_NODES (1<<18)
-#define MAX_DEP_NODES (1<<17)
-#define MAX_SORT_ITEMS (1024*6)
+#define MAX_DEP_NODES 100000
+#define MAX_SORT_ITEMS 7000
 
 void isort_begin()
 {
   if (!ready) {
-    avl_init(MAX_AVL_NODES);
     dep_nodes_init(MAX_DEP_NODES);
     sort_items_init(MAX_SORT_ITEMS);
     display_list_result = (int*)malloc(MAX_SORT_ITEMS*sizeof(int));
     ready = 1;
   }
-
-  display_list = 0;
 
   calln = 0;
   calln2 = 0;
@@ -331,8 +328,6 @@ void isort_add(int id, int flags, int x, int y, int z, int x2, int y2, int z2) {
 
   si->flags = flags;
   if (!(z2-z)) si->flags |= F_FLAT;
-
-  display_list = avl_insert(display_list, si, si_item_compareA);
 }
 
 // following is the most CPU taxing part of this code
@@ -353,16 +348,10 @@ static void add_deps() {
   }
 }
 
-void produce_display_list_result() {
-  order_counter = 0;  // Reset the order_counter
-  avl_apply(display_list, order_item);
-}
-
 int isort_end() {
   add_deps();
   produce_display_list_result();
 
-  avl_clear();
   dep_nodes_clear();
   sort_items_clear();
 
@@ -376,7 +365,6 @@ int *isort_result() {
 }
 
 void isort_free_result() {
-  //free(display_list_result);
 }
 
 #if 0
