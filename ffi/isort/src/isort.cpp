@@ -34,11 +34,11 @@ static int calln2;
 #define F_DITHER          0x40
 
 
-#define f_draw(x) ((x).flags&F_DRAW_FIRST)
-#define f_anim(x) ((x).flags&F_ANIMATED)
-#define f_solid(x) ((x).flags&F_SOLID)
-#define f_flat(x) ((x).flags&F_FLAT)
-#define f_trans(x) ((x).flags&F_TRANSLUCENT)
+#define f_draw(x) ((x)->flags&F_DRAW_FIRST)
+#define f_anim(x) ((x)->flags&F_ANIMATED)
+#define f_solid(x) ((x)->flags&F_SOLID)
+#define f_flat(x) ((x)->flags&F_FLAT)
+#define f_trans(x) ((x)->flags&F_TRANSLUCENT)
 
 struct SortItem;
 
@@ -104,11 +104,117 @@ struct SortItem {
   DepNode *deps_list;
   void push_back(SortItem *other);
   void insert_sorted(SortItem *other);
-
-  inline bool overlap(const SortItem &si2) const; //we overlap si2
-  inline bool operator<(const SortItem& si2) const;
-  inline bool ListLessThan(const SortItem* other) const;
 };
+
+static int item_compareA(SortItem *a, SortItem *b) {
+  if (a->z < b->z) return 1;
+  if (a->z > b->z) return 0;
+  return a->x < b->x || (a->x == b->x && a->y < b->y);
+}
+
+static int si_item_compareA(void *aa, void*bb) {
+  SortItem *a = (SortItem*)aa;
+  SortItem *b = (SortItem*)bb;
+  return item_compareA(a,b);
+}
+
+
+static int item_compareB(SortItem *a, SortItem *b) {
+  // Specialist z flat handling
+  if (f_flat(a) && f_flat(b)) {
+    // Differing z is easy for flats
+    if (a->ztop != b->ztop) return a->ztop < b->ztop;
+
+    // Equal z
+
+    // Animated always gets drawn after
+    if (f_anim(a) != f_anim(b)) return f_anim(a) < f_anim(b);
+
+    // Trans always gets drawn after
+    if (f_trans(a) != f_trans(b)) return f_trans(a) < f_trans(b);
+
+    // Draw always gets drawn first
+    if (f_draw(a) != f_draw(b)) return f_draw(a) > f_draw(b);
+
+    // Solid always gets drawn first
+    if (f_solid(a) != f_solid(b)) return f_solid(a) > f_solid(b);
+  } else { // Mixed, or non flat
+    // Clearly in z
+    if (a->ztop <= b->z) return 1;
+    if (a->z >= b->ztop) return 0;
+  }
+
+  // Clearly in x?
+  if (a->x <= b->xleft) return 1;
+  if (a->xleft >= b->x) return 0;
+
+  // Clearly in y?
+  if (a->y <= b->yfar) return 1;
+  if (a->yfar >= b->y) return 0;
+
+  // Are overlapping in all 3 dimentions if we come here
+
+  // Overlapping z-bottom check
+  // If an object's base (z-bottom) is higher another's, it should be rendered after.
+  // This check must be on the z-bottom and not the z-top because two objects with the
+  // same z-position may have different heights (think of a mouse sorting vs the Avatar).
+  if (a->z < b->z) return 1;
+  if (a->z > b->z) return 0;
+
+  // Biased Clearly in z
+  if ((a->ztop+a->z)/2 <= b->z) return 1;
+  if (a->z >= (b->ztop+b->z)/2) return 0;
+
+  // Biased Clearly X
+  if ((a->x+a->xleft)/2 <= b->xleft) return 1;
+  if (a->xleft >= (b->x+b->xleft)/2) return 0;
+
+  // Biased Clearly Y
+  if ((a->y+a->yfar)/2 <= b->yfar) return 1;
+  if (a->yfar >= (b->y+b->yfar)/2) return 0;
+
+  if (a->x + a->y != b->x + b->y) // Partial in X + Y front
+    return (a->x + a->y < b->x + b->y);
+
+  if (a->xleft + a->yfar != b->xleft + b->yfar) // Partial in X + Y back
+    return (a->xleft + a->yfar < b->xleft + b->yfar);
+ 
+  if (a->x != b->x) return a->x < b->x;  // Partial in x?
+  if (a->y != b->y) return a->y < b->y; // Partial in y?
+
+  return a->shape_num < b->shape_num;
+}
+
+static int overlap(SortItem *a, SortItem *b) {
+  int dt0,dt1,db0,db1;
+
+  if(a->sxright <= b->sxleft) return 0; //right_clear
+  if(a->sxleft >= b->sxright) return 0; //left_clear
+
+  // This function is a bit of a hack. It uses dot products between
+  // points and the lines. Nothing is normalized since that isn't 
+  // important
+
+  dt0 = a->sxtop - b->sxbot;
+  dt1 = a->sytop - b->sybot;
+
+  // 'normal' of top  left line ( 2,-1) of the bounding box
+  if(dt0 + dt1*2 >= 0) return 0;
+
+  // 'normal' of top right line ( 2, 1) of the bounding box
+  if(-dt0 + dt1*2 >= 0) return 0;
+
+  db0 = a->sxbot - b->sxtop;
+  db1 = a->sybot - b->sytop;
+
+  // 'normal' of bot  left line (-2,-1) of the bounding box
+  if(db0 - db1*2 >= 0) return 0;
+
+  // 'normal' of bot right line (-2, 1) of the bounding box
+  if(-db0 - db1*2 >= 0) return 0;
+
+  return 1;
+}
 
 inline void SortItem::push_back(SortItem *other) {
   DepNode *n;
@@ -133,7 +239,7 @@ inline void SortItem::insert_sorted(SortItem *item) {
   prev = 0;
 
   for (n = deps_list; n; prev=n, n = n->next) {
-    if (item->ListLessThan(n->val)) {
+    if (item_compareA(item, n->val)) {
       nn->next = n;
       if (prev) prev->next = nn;
       else deps_list = nn;
@@ -147,117 +253,6 @@ inline void SortItem::insert_sorted(SortItem *item) {
   else deps_list = nn;
 }
 
-
-// Comparison for the sorted lists
-inline bool SortItem::ListLessThan(const SortItem* other) const {
-  if (z < other->z) return 1;
-  if (z > other->z) return 0;
-  return x < other->x || (x == other->x && y < other->y);
-}
-
-// Check to see if we overlap si2
-inline bool SortItem::overlap(const SortItem &si2) const {
-  int dt0,dt1,db0,db1;
-
-  if(sxright <= si2.sxleft) return 0; //right_clear
-  if(sxleft >= si2.sxright) return 0; //left_clear
-
-  // This function is a bit of a hack. It uses dot products between
-  // points and the lines. Nothing is normalized since that isn't 
-  // important
-
-  dt0 = sxtop - si2.sxbot;
-  dt1 = sytop - si2.sybot;
-
-  // 'normal' of top  left line ( 2,-1) of the bounding box
-  if(dt0 + dt1*2 >= 0) return 0;
-
-  // 'normal' of top right line ( 2, 1) of the bounding box
-  if(-dt0 + dt1*2 >= 0) return 0;
-
-  db0 = sxbot - si2.sxtop;
-  db1 = sybot - si2.sytop;
-
-  // 'normal' of bot  left line (-2,-1) of the bounding box
-  if(db0 - db1*2 >= 0) return 0;
-
-  // 'normal' of bot right line (-2, 1) of the bounding box
-  if(-db0 - db1*2 >= 0) return 0;
-
-  return 1;
-}
-
-inline bool SortItem::operator<(const SortItem& si2) const {
-  const SortItem& si1 = *this;
-
-  // Specialist z flat handling
-  if (f_flat(si1) && f_flat(si2)) {
-    // Differing z is easy for flats
-    if (si1.ztop != si2.ztop) return si1.ztop < si2.ztop;
-
-    // Equal z
-
-    // Animated always gets drawn after
-    if (f_anim(si1) != f_anim(si2)) return f_anim(si1) < f_anim(si2);
-
-    // Trans always gets drawn after
-    if (f_trans(si1) != f_trans(si2)) return f_trans(si1) < f_trans(si2);
-
-    // Draw always gets drawn first
-    if (f_draw(si1) != f_draw(si2)) return f_draw(si1) > f_draw(si2);
-
-    // Solid always gets drawn first
-    if (f_solid(si1) != f_solid(si2)) return f_solid(si1) > f_solid(si2);
-  } else { // Mixed, or non flat
-    // Clearly in z
-    if (si1.ztop <= si2.z) return true;
-    if (si1.z >= si2.ztop) return false;
-  }
-
-  // Clearly in x?
-  if (si1.x <= si2.xleft) return true;
-  if (si1.xleft >= si2.x) return false;
-
-  // Clearly in y?
-  if (si1.y <= si2.yfar) return true;
-  if (si1.yfar >= si2.y) return false;
-
-  // Are overlapping in all 3 dimentions if we come here
-
-  // Overlapping z-bottom check
-  // If an object's base (z-bottom) is higher another's, it should be rendered after.
-  // This check must be on the z-bottom and not the z-top because two objects with the
-  // same z-position may have different heights (think of a mouse sorting vs the Avatar).
-  if (si1.z < si2.z) return true;
-  if (si1.z > si2.z) return false;
-
-  // Biased Clearly in z
-  if ((si1.ztop+si1.z)/2 <= si2.z) return true;
-  if (si1.z >= (si2.ztop+si2.z)/2) return false;
-
-  // Biased Clearly X
-  if ((si1.x+si1.xleft)/2 <= si2.xleft) return true;
-  if (si1.xleft >= (si2.x+si2.xleft)/2) return false;
-
-  // Biased Clearly Y
-  if ((si1.y+si1.yfar)/2 <= si2.yfar) return true;
-  if (si1.yfar >= (si2.y+si2.yfar)/2) return false;
-
-  // Partial in X + Y front
-  if (si1.x + si1.y != si2.x + si2.y) return (si1.x + si1.y < si2.x + si2.y);
-
-  // Partial in X + Y back
-  if (si1.xleft + si1.yfar != si2.xleft + si2.yfar)
-    return (si1.xleft + si1.yfar < si2.xleft + si2.yfar);
-
-  // Partial in x?
-  if (si1.x != si2.x) return si1.x < si2.x;
-
-  // Partial in y?
-  if (si1.y != si2.y) return si1.y < si2.y;
-
-  return si1.shape_num < si2.shape_num;
-}
 
 static int sort_items_max;
 static SortItem *sort_items;
@@ -281,12 +276,6 @@ static int *display_list_result;
 static int display_list_result_size;
 static int order_counter;
 
-static int si_ListLessThan(void *aa, void*bb) {
-  SortItem *a = (SortItem*)aa;
-  SortItem *b = (SortItem*)bb;
-  return a->ListLessThan(b);
-}
-
 
 static void add_deps(avl_node *t, SortItem *a) {
   SortItem *b;
@@ -297,8 +286,8 @@ static void add_deps(avl_node *t, SortItem *a) {
 
   b = (SortItem*)t->data;
 
-  if (a->overlap(*b)) {
-    if (*a < *b) { // which is infront?
+  if (overlap(a,b)) {
+    if (item_compareB(a,b)) { // which is infront?
       b->insert_sorted(a); // a is behind b
     } else {
       a->push_back(b);
@@ -384,7 +373,7 @@ void isort_add(int id, int flags, int x, int y, int z, int x2, int y2, int z2) {
   si->order = -1;
 
   add_deps(display_list,si);
-  display_list = avl_insert(display_list, si, si_ListLessThan);
+  display_list = avl_insert(display_list, si, si_item_compareA);
 }
 
 int isort_end() {
