@@ -5,7 +5,7 @@ TARGET = lib/main
 
 
 PREFIX =
-CC = $(PREFIX)g++
+CC = $(PREFIX)gcc
 CFLAGS = $(LOC) -O3 -I./src
 EXTRA_CFLAGS = -DNO_VIZ
 
@@ -22,9 +22,9 @@ STRIP = $(PREFIX)strip
 CP = cp -fp
 RM = rm -f
 
-SRCS = isort.cpp
+SRCS = isort.c
 
-OBJS = $(addprefix lib/,$(SRCS:.cpp=.o))
+OBJS = $(addprefix lib/,$(SRCS:.c=.o))
 OBJA =
 
 #$(info $$OBJS is [${OBJS}])
@@ -35,7 +35,7 @@ all: $(TARGET)
 lib/:
 	mkdir lib
 
-lib/%.o: src/%.cpp
+lib/%.o: src/%.c
 	$(CC) $(CFLAGS) $(EXTRA_CFLAGS) -c -o $@ $<
 
 $(TARGET): lib/ $(OBJS) $(OBJA)
