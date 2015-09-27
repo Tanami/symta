@@ -37,9 +37,6 @@ static int calln2;
 #define FLAG_DITHER          0x40
 
 
-#define CANT_HAPPEN() do { assert(false); } while(0)
-#define CANT_HAPPEN_MSG(msg) do { assert(msg && false); } while(0)
-
 struct SortItem;
 
 struct Node {
@@ -68,8 +65,6 @@ struct DependsList
 
   DependsList() : list(0), tail(0) { }
 
-  ~DependsList() { clear(); }
-
   struct iterator {
     Node *n;
     SortItem *&operator *() { return n->val; }
@@ -94,15 +89,9 @@ struct DependsList
   void insert_sorted(SortItem *other);
 };
 
-struct SortItem
-{
-  SortItem(SortItem *n) : next(n), prev(0), item_num(0), order(-1), depends() { }
-
-  SortItem *next, *prev;
-
+struct SortItem {
   int item_num; // Owner item number
   int shape_num;
-
 
    /* Bounding Box layout
          1    
@@ -131,7 +120,6 @@ struct SortItem
   int  sxbot;    // Screenspace bounding box bottom x coord (RNB x coord) ss origin
   int  sybot;    // Screenspace bounding box bottom extent  (RNB y coord) ss origin
 
-  bool  f32x32 : 1;     // Needs 1 bit  0
   bool  flat   : 1;     // Needs 1 bit  1
   bool  solid  : 1;     // Needs 1 bit  3
   bool  draw   : 1;     // Needs 1 bit  4
@@ -252,9 +240,6 @@ inline bool SortItem::operator<(const SortItem& si2) const {
 
     // Solid always gets drawn first
     if (si1.solid != si2.solid) return si1.solid > si2.solid;
-
-    // 32x32 flats get drawn first
-    if (si1.f32x32 != si2.f32x32) return si1.f32x32 > si2.f32x32;
   } else { // Mixed, or non flat
     // Clearly in z
     if (si1.ztop <= si2.z) return true;
@@ -306,68 +291,39 @@ inline bool SortItem::operator<(const SortItem& si2) const {
   return si1.shape_num < si2.shape_num;
 }
 
+static int sort_items_max;
+static SortItem *sort_items;
+static int sort_items_used;
 
+static void sort_items_init(int max_items) {
+  sort_items_max = max_items;
+  sort_items = (SortItem*)malloc(max_items*sizeof(SortItem));
+}
+
+static void sort_items_clear() {
+  int i;
+  for (i=0; i<sort_items_used; i++) sort_items[i].depends.clear();
+  sort_items_used = 0;
+}
+
+static SortItem *alloc_sort_item() {
+  return sort_items+sort_items_used++;
+}
 
 // 
 // ItemSorter
 //
 class ItemSorter {
-  SortItem  *items;
-  SortItem  *items_tail;
-  SortItem  *items_unused;
-
-  int order_counter;
-
 public:
-  ItemSorter();
-  ~ItemSorter();
-
-  void BeginDisplayList();
   void AddItem(int id, int flags, int x, int y, int z, int x2, int y2, int z2);
   void OrderDisplayList();
-  void OrderSortItem(SortItem *);
 };
 
 static ItemSorter *isorter;
 static avl_node *display_list = 0;
 static int *display_list_result;
 static int display_list_result_size;
-
-ItemSorter::ItemSorter() : items(0), items_tail(0), items_unused(0)
-{
-  int i = 2048;
-  while (i--) items_unused = new SortItem(items_unused);
-}
-
-ItemSorter::~ItemSorter()
-{
-  // 
-  if (items_tail) {
-    items_tail->next = items_unused;
-    items_unused = items;
-  }
-  items = 0;
-  items_tail = 0;
-
-  while (items_unused)
-  {
-    SortItem *next = items_unused->next;
-    delete items_unused;
-    items_unused = next;
-  }
-
-  if (items) delete items;
-}
-
-void ItemSorter::BeginDisplayList()
-{
-  if (items_tail) {
-    items_tail->next = items_unused;
-    items_unused = items;
-  }
-  items = 0;
-  items_tail = 0;
-}
+static int order_counter;
 
 static int si_ListLessThan(void *aa, void*bb) {
   SortItem *a = (SortItem*)aa;
@@ -396,8 +352,20 @@ static void add_deps(avl_node *t, SortItem *a) {
 }
 
 static void order_item(void *aa) {
-  SortItem *it = (SortItem*)aa;
-  if (it->order == -1) isorter->OrderSortItem(it);
+  SortItem *si = (SortItem*)aa;
+  if (si->order != -1) return;
+  si->order = -2; // Resursion, detection
+
+  DependsList::iterator it = si->depends.begin();
+  DependsList::iterator end = si->depends.end();
+  while (it != end) {
+    order_item((*it));
+    ++it;
+  }
+
+  // Set our painting order
+  si->order = order_counter;
+  order_counter++;
 }
 
 static void generate_result(void *aa) {
@@ -414,36 +382,15 @@ void ItemSorter::OrderDisplayList()
   display_list_result_size = order_counter;
 }
 
-void ItemSorter::OrderSortItem(SortItem *si)
-{
-  // Resursion, detection
-  si->order = -2;
-  
-  // Iterate through our dependancies, and paint them, if possible
-  DependsList::iterator it = si->depends.begin();
-  DependsList::iterator end = si->depends.end();
-  while (it != end)
-  {
-    // Well, it can't. Implies infinite recursive sorting.
-    //if ((*it)->order == -2) CANT_HAPPEN_MSG("Detected cycle in the dependency graph");
-
-    if ((*it)->order == -1) OrderSortItem((*it));
-
-    ++it;
-  }
-
-  // Set our painting order
-  si->order = order_counter;
-  order_counter++;
-}
-
 void ItemSorter::AddItem(int id, int flags,
                          int x, int y, int z,
                          int x2, int y2, int z2)
 {
-  if (!items_unused) items_unused = new SortItem(0);
-  SortItem *si = items_unused;
-  items_unused = items_unused->next;
+  SortItem *si = alloc_sort_item();
+
+  si->order = -1;
+  si->depends.list = 0;
+  si->depends.tail = 0;
 
   si->item_num = id;
   si->shape_num = id;
@@ -470,7 +417,6 @@ void ItemSorter::AddItem(int id, int flags,
   // Screenspace bounding box bottom extent  (RNB y coord)
   si->sybot = si->x/8 + si->y/8 - si->z;
 
-  si->f32x32 = 0;
   si->flat = !(z2-z);
 
   si->draw = (flags&FLAG_DRAW_FIRST) ? 1 : 0;
@@ -481,12 +427,6 @@ void ItemSorter::AddItem(int id, int flags,
 
   add_deps(display_list,si);
   display_list = avl_insert(display_list, si, si_ListLessThan);
-
-  if (items_tail) items_tail->next = si;
-  if (!items) items = si;
-  si->next = 0;
-  si->prev = items_tail;
-  items_tail = si;
 }
 
 extern "C" {
@@ -494,12 +434,14 @@ extern "C" {
 static int ready;
 
 #define MAX_AVL_NODES (1<<18)
+#define MAX_SORT_ITEMS (1024*6)
 
 void isort_begin()
 {
   if (!ready) {
     init_nodes();
     avl_init(MAX_AVL_NODES);
+    sort_items_init(MAX_SORT_ITEMS);
     ready = 1;
   }
 
@@ -509,7 +451,6 @@ void isort_begin()
   calln2 = 0;
 
   isorter = new ItemSorter;
-  isorter->BeginDisplayList();
 }
 
 void isort_add(int id, int flags, int x, int y, int z, int x2, int y2, int z2)
@@ -524,6 +465,7 @@ int isort_end() {
   isorter = 0;
 
   avl_clear();
+  sort_items_clear();
 
   printf("%d, %d\n", calln, calln2);
 
