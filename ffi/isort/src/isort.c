@@ -30,7 +30,7 @@ static int calln2;
 #define F_DRAW_FIRST      0x10
 #define F_FLAT            0x20
 #define F_DITHER          0x40
-#define F_PROCESSED       0x80000
+#define F_PROCESSED       0x4000
 
 #define f_draw(x) ((x)->flags&F_DRAW_FIRST)
 #define f_anim(x) ((x)->flags&F_ANIMATED)
@@ -64,7 +64,10 @@ static void dep_nodes_clear() {
 }
 
 
+#define XYTYPE int16_t
+
 struct SortItem {
+  DepNode *deps_list; // dependencies of this item
    /* Bounding Box layout
          1    
        /   \      
@@ -79,38 +82,30 @@ struct SortItem {
        \ | /    
          7   */
 
-  int x, xleft; // Worldspace bounding box x (xright = x)
-  int y, yfar;  // Worldspace bounding box y (ynear = y)
-  int z, ztop;  // Worldspace bounding box z (ztop = z)
+  XYTYPE x, xleft; // Worldspace bounding box x (xright = x)
+  XYTYPE y, yfar;  // Worldspace bounding box y (ynear = y)
+  XYTYPE z, ztop;  // Worldspace bounding box z (ztop = z)
 
-  int sxleft;   // Screenspace bounding box left extent    (LNT x coord)
-  int sxright;  // Screenspace bounding box right extent   (RFT x coord)
+  XYTYPE sxleft;   // Screenspace bounding box left extent    (LNT x coord)
+  XYTYPE sxright;  // Screenspace bounding box right extent   (RFT x coord)
 
-  int sxtop;    // Screenspace bounding box top x coord    (LFT x coord)
-  int sytop;    // Screenspace bounding box top extent     (LFT y coord)
+  XYTYPE sxtop;    // Screenspace bounding box top x coord    (LFT x coord)
+  XYTYPE sytop;    // Screenspace bounding box top extent     (LFT y coord)
 
-  int sxbot;    // Screenspace bounding box bottom x coord (RNB x coord) ss origin
-  int sybot;    // Screenspace bounding box bottom extent  (RNB y coord) ss origin
+  XYTYPE sxbot;    // Screenspace bounding box bottom x coord (RNB x coord) ss origin
+  XYTYPE sybot;    // Screenspace bounding box bottom extent  (RNB y coord) ss origin
 
-  DepNode *deps_list; // dependencies of this item
+  XYTYPE flags;
 
-  int flags;
-  int item_num; // Owner item number
-  int shape_num;
-};
+  XYTYPE item_num; // Owner item number
+  XYTYPE shape_num;
+}; //__attribute__((packed));
 
 static int item_compareA(SortItem *a, SortItem *b) {
   if (a->z < b->z) return 1;
   if (a->z > b->z) return 0;
   return a->x < b->x || (a->x == b->x && a->y < b->y);
 }
-
-static int si_item_compareA(void *aa, void*bb) {
-  SortItem *a = (SortItem*)aa;
-  SortItem *b = (SortItem*)bb;
-  return item_compareA(a,b);
-}
-
 
 static int item_compareB(SortItem *a, SortItem *b) {
   // Specialist z flat handling
@@ -224,6 +219,7 @@ static void dep_insert_sorted(SortItem *a, SortItem *b) {
 
   for (n = a->deps_list; n; n = n->next) {
     if (item_compareA(n->val,b)) {
+      calln++;
       nn->next = n->next;
       n->next = nn;
       return;
