@@ -371,7 +371,15 @@ static void add_deps() {
   }
 }
 
+int sort_comp(const void * elem1, const void * elem2)  {
+    SortItem *a = (SortItem*)elem1;
+    SortItem *b = (SortItem*)elem2;
+    if (item_compareA(a, b)) return -1;
+    return  1;
+}
+
 int isort_end() {
+  qsort(sort_items, sort_items_used, sizeof(SortItem), sort_comp);
   add_deps();
   produce_display_list_result();
 
