@@ -820,7 +820,4 @@ list.hash =
 
 list.clear Value = times I $size: Me.I <= Value
 
-int.get N = (Me/>N)^^1
-int.set N Bit = Me--(Bit</N)--(Me^^(1</N))
-
 export non say bad no got table_ new_macro meta main_root methods

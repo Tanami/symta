@@ -175,27 +175,6 @@ static int item_compareB(SortItem *a, SortItem *b) {
   return a->shape_num < b->shape_num;
 }
 
-INLINE static int overlap(SortItem *a, SortItem *b) {
-  int dt0,dt1,db0,db1;
-
-  if(a->sxright <= b->sxleft) return 0;
-  if(a->sxleft >= b->sxright) return 0;
-
-  dt0 = a->sxtop - b->sxbot;
-  dt1 = (a->sytop - b->sybot)*2;
-
-  if(dt0 + dt1 >= 0) return 0;
-  if(-dt0 + dt1 >= 0) return 0;
-
-  db0 = a->sxbot - b->sxtop;
-  db1 = (a->sybot - b->sytop)*2;
-
-  if(db0 - db1 >= 0) return 0;
-  if(-db0 - db1 >= 0) return 0;
-
-  return 1;
-}
-
 static int sort_items_max;
 static SortItem *sort_items;
 static int sort_items_used;
@@ -281,11 +260,13 @@ void isort_add(int id, int flags, int x, int y, int z, int x2, int y2, int z2) {
   si->sxtop = si->xleft/4 - si->yfar/4;
   // Screenspace bounding box top extent     (LFT y coord)
   si->sytop = si->xleft/8 + si->yfar/8 - si->ztop;
+  si->sytop *= 2;
 
   // Screenspace bounding box bottom x coord (RNB x coord)
   si->sxbot = si->x/4 - si->y/4;
   // Screenspace bounding box bottom extent  (RNB y coord)
   si->sybot = si->x/8 + si->y/8 - si->z;
+  si->sybot *= 2;
 
   si->flags = flags;
   if (!(z2-z)) si->flags |= F_FLAT;
@@ -333,9 +314,32 @@ static void add_deps() {
 }
 */
 
+INLINE static int overlap(SortItem *a, SortItem *b) {
+  int dt0,dt1,db0,db1;
+
+  if(a->sxright <= b->sxleft) return 0;
+  if(a->sxleft >= b->sxright) return 0;
+
+  dt0 = a->sxtop - b->sxbot;
+  dt1 = a->sytop - b->sybot;
+
+  if(dt0 + dt1 >= 0) return 0;
+  if(-dt0 + dt1 >= 0) return 0;
+
+  db0 = a->sxbot - b->sxtop;
+  db1 = a->sybot - b->sytop;
+
+  if(db0 - db1 >= 0) return 0;
+  if(-db0 - db1 >= 0) return 0;
+
+  return 1;
+}
+
 // following is the most CPU taxing part of this code
 // it can be greatly optimized using the fact that most
 // items remain static and don't move
+// most boxes are small enough, so using a divide-and-conquer method would
+// speed up it orders of magnitude
 static void add_deps() {
   DepNode *n, *nn, *dl;
   SortItem *a, *b, *end=sort_items+sort_items_used;
