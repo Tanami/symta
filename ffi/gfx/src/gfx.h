@@ -33,6 +33,7 @@ typedef struct {
   uint32_t blit_z;
   uint32_t alpha;
   int lx, ly; //light vector
+  int type;
 } gfx_t;
 
 gfx_t *new_gfx(uint32_t w, uint32_t h);

@@ -13,6 +13,11 @@ void ffi_memset_(void *ptr, int value, uint32_t size) {
   memset(ptr, value, size);
 }
 
+#define T_UNKNOWN      0
+#define T_OPAQUE       1
+#define T_TRANS        2
+#define T_ALPHA        3
+
 gfx_t *new_gfx(uint32_t w, uint32_t h) {
   gfx_t *gfx = (gfx_t*)malloc(sizeof(gfx_t));
   if (!gfx) return 0;
@@ -29,8 +34,8 @@ gfx_t *new_gfx(uint32_t w, uint32_t h) {
   gfx->bflags = 0;
   gfx->recolor_map = 0;
   gfx->blit_bright = 0;
-  gfx->zdata = 0;
   gfx->bumpmap = 0;
+  gfx->type = T_UNKNOWN;
   return gfx;
 }
 
@@ -50,7 +55,6 @@ void gfx_resize(gfx_t *gfx, uint32_t w, uint32_t h) {
   gfx->data = (uint32_t*)malloc(w*h*sizeof(uint32_t));
   gfx->w = w;
   gfx->h = h;
-  if (gfx->zdata) gfx->zdata = 0;
 }
 
 uint32_t gfx_w(gfx_t *gfx) {
@@ -109,6 +113,23 @@ void gfx_clear(gfx_t *gfx, uint32_t color) {
   for (y = 0; y < gfx->h; y++) {
     for (x = 0; x < gfx->w; x++) {
       gfx->data[gfx->w*y+x] = color;
+    }
+  }
+}
+
+static void determine_type(gfx_t *gfx) {
+  int x, y;
+  gfx->type = T_OPAQUE;
+  for (y = 0; y < gfx->h; y++) {
+    for (x = 0; x < gfx->w; x++) {
+      uint32_t alpha = gfx->data[gfx->w*y+x]&0xFF000000;
+      if (alpha) {
+        if (alpha != 0xFF000000) {
+          gfx->type = T_ALPHA;
+          return;
+        }
+        gfx->type = T_TRANS;
+      }
     }
   }
 }
@@ -423,12 +444,10 @@ void gfx_set_recolor_map(gfx_t *gfx, uint32_t *map) {
 }
 
 void *gfx_get_zdata(gfx_t *gfx) {
-  return gfx->zdata;
+
 }
 
-
 void gfx_set_zdata(gfx_t *gfx, uint32_t *zdata) {
-  gfx->zdata = zdata;
 }
 
 void gfx_set_light(gfx_t *gfx, int lx, int ly) {
@@ -442,11 +461,12 @@ void gfx_set_light(gfx_t *gfx, int lx, int ly) {
 #define RESTRICT __restrict__
 #define INLINE __attribute__((always_inline))
 
-INLINE uint8_t clamp_byte(int n) {
+INLINE uint8_t clip_byte(int n) {
     n &= -(n >= 0);
     return n | ((255 - n) >> 31);
 }
 
+#define DITHER (dither && ((y&1) ^ (pd&1)))
 
 #define begin_blit() \
   while (y < ey) { \
@@ -455,14 +475,11 @@ INLINE uint8_t clamp_byte(int n) {
     ex = pd + w; \
     ps = sy*sw + sx; \
     while (pd < ex) { \
-      do { \
-        if (zdata) { \
-          if(zdata[pd]>z) break; \
-        }
+      if (!DITHER) {do { \
 
 #define end_blit(output) \
         DC = (output); \
-      } while (0); \
+      } while (0);} \
       pd += 1; \
       ps += xi; \
     } \
@@ -532,15 +549,11 @@ static void gfx_gen_bumpmap(gfx_t *gfx) {
   free(dst);
 }
 
-
-
-#define DITHER dither && ((y&1) ^ (pd&1))
-
 #define BRIGHTEN(R,G,B) \
   do { \
-    R = clamp_byte(R+bright); \
-    G = clamp_byte(G+bright); \
-    B = clamp_byte(B+bright); \
+    R = clip_byte(R+bright); \
+    G = clip_byte(G+bright); \
+    B = clip_byte(B+bright); \
   } while(0)
 
 #define LM_SIZE 256
@@ -554,7 +567,7 @@ void init_lightmap() {
       double dy = (double)y-128.0;
       int v = 255-(int)(sqrt(dx*dx + dy*dy)*255.0/128.0);
       v=v*2/3;
-      v = clamp_byte(v);
+      v = clip_byte(v);
       lightmap[y*LM_SIZE+x] = (uint8_t)v;
     }
   }
@@ -587,9 +600,9 @@ void init_lightmap() {
     sr = sr*intensity/128; \
     sg = sg*intensity/128; \
     sb = sb*intensity/128; \
-    sr = clamp_byte(sr); \
-    sg = clamp_byte(sg); \
-    sb = clamp_byte(sb); \
+    sr = clip_byte(sr); \
+    sg = clip_byte(sg); \
+    sb = clip_byte(sb); \
     /*sr = bmv; sg = bmv; sb = bmv;*/ \
     if (sa != 0xFF) { \
       prev_bmv_line[bmvx] = bmv; \
@@ -601,8 +614,83 @@ void init_lightmap() {
     ++bmvx; \
   }
 
+/*
+typedef struct LookupLevel LookupLevel;
+struct LookupLevel {
+  uint8_t Values[256];
+};
+
+
+typedef struct LookupTable LookupTable;
+
+struct LookupTable {
+  LookupLevel Levels[256];
+};
+
+static LookupTable AlphaTable;*/
+
+
+static uint8_t AlphaTable[256][256];
+
+static void ab_init() {
+  float fValue, fAlpha;
+  int iValue, iAlpha;
+  for (iAlpha = 0; iAlpha < 256; iAlpha++) {
+    fAlpha = ((float)iAlpha) / 255;
+    for (iValue = 0; iValue < 256; iValue++) {
+      fValue = ((float)iValue) / 255;
+      AlphaTable[iAlpha][iValue] = clip_byte((int)((fValue * fAlpha) * 255));
+    }
+  }
+}
+
+static int ready;
+
+#define ALPHA_BLEND1(dr,dg,db,sr,sg,sb,Alpha) do { \
+  uint8_t *st = AlphaTable[255-Alpha]; \
+  uint8_t *dt = AlphaTable[Alpha]; \
+  sr = st[sr]+dt[dr]; \
+  sg = st[sg]+dt[dg]; \
+  sb = st[sb]+dt[db]; \
+} while(0)
+
+#define ALPHA_BLEND2(result, dst, src) do { \
+  uint32_t alpha = 0xff-(src>>24); \
+  alpha += (alpha > 0); \
+  uint32_t srb = src & 0xff00ff; \
+  uint32_t sg  = src & 0x00ff00; \
+  uint32_t drb = dst & 0xff00ff; \
+  uint32_t dg  = dst & 0x00ff00; \
+  uint32_t orb = (drb + (((srb - drb) * alpha + 0x800080) >> 8)) & 0xff00ff; \
+  uint32_t og  = (dg  + (((sg  - dg ) * alpha + 0x008000) >> 8)) & 0x00ff00; \
+  result = orb+og + (src&0xFF000000); \
+} while(0)
+
+
+    //NOTE: X>>8 is a division by 256, while max alpha is 0xFF
+    //      this leads to some loss of precision
+    /*sm = 0xFF - sa;
+    sr = (sr*sm + dr*sa)>>8;
+    sg = (sg*sm + dg*sa)>>8;
+    sb = (sb*sm + db*sa)>>8;
+    c = R8G8B8(sr,sg,sb);*/
+
+#define ALPHA_BLEND \
+  if (DC&0xFF000000) { \
+    /* incorrect, but should be okay for now*/ \
+    if (bright|light) { c = R8G8B8(sr,sg,sb); }  \
+  } else {\
+    int dr, dg, db, da;\
+    fromR8G8B8(dr,dg,db,DC);\
+    ALPHA_BLEND1(dr,dg,db,sr,sg,sb,sa); \
+    c = R8G8B8(sr,sg,sb); \
+  }
+
+
 void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
   int i, r, g, b, a;
+  int sr, sg, sb, sa;
+  uint32_t c;
   gfx_t *dst = gfx;
   int cx = 0;
   int cy = 0;
@@ -628,14 +716,23 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
   int bright = 0;
   uint32_t alpha = 0;
   int sx, sy, w, h; //source rect
-  uint32_t *zdata = dst->zdata;
   uint32_t z = src->blit_z+1;
   int light = 0;
   int lx,ly;
   int bmvx;
   int prev_bmv; //previous bumpmap value
   int prev_bmv_line[2048];
+  int special;
   uint8_t *bm = src->bumpmap;
+
+  if (!src->type) {
+    determine_type(src);
+  }
+
+  if (!ready) {
+    ab_init();
+    ready = 1;
+  }
 
   if (src->bflags & GFX_BFLAGS_RECT) {
     sx = src->bx;
@@ -730,35 +827,66 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
 
   //fprintf(stderr, "%dx%d: %d,%d:%dx%d %d\n", sw,sh, sx, sy, w,h, ey-y);
 
+  special = bright|light|alpha;
   if (dst->cmap) {
     if (!src->cmap) {
       fprintf(stderr, "gfx.c: can't blit truecolor into indexed\n");
       abort();
     }
     begin_blit()
-    uint32_t c;
-    if (DITHER) {
-      c = DC;
-    } else {
-      c = SC;
-      if (zdata) zdata[pd] = z;
-    }
+    c = SC;
     end_blit(c)
-  } else {
+  } else if(!special && m) {
 
-    int dr, dg, db, da;
+    begin_blit()
+    c = m[SC];
+    if (c&0xFF000000) c = DC;
+    end_blit(c)
+
+  } else if (special && m) {
+    begin_blit()
+    c = m[SC];
+
+    if ((c&0xFF000000)==0xFF000000) {
+      c = DC;
+      goto blit_end3;
+    }
+
+    fromR8G8B8A8(sr,sg,sb,sa,c);
+
+    if (special) {
+      if (alpha) {
+        sa += alpha;
+        if (sa >= 0xff) {
+          c = DC;
+          goto blit_end3;
+        }
+      }
+      if (bright) { BRIGHTEN(sr,sg,sb); }
+      //BLIT_LIGHT
+      if (sa == 0) {
+
+        if (bright|light) { c = R8G8B8(sr,sg,sb); }
+        goto blit_end3;
+      }
+    }
+
+    ALPHA_BLEND
+
+blit_end3:;
+    end_blit(c)
+  } else if(!special && src->type != T_ALPHA) {
+
+    begin_blit()
+    c = SC;
+    sa = c>>31;
+    c = c + (DC - c)*sa;
+    end_blit(c)
+  } else if(!special) {
 
     begin_blit()
     int sm; // source multiplier
-    uint32_t c; // result color
-    int sr, sg, sb, sa;
-
-    if (DITHER) {
-      c = DC;
-      goto blit_end;
-    }
-
-    c = m ? m[SC] : SC;
+    c = SC;
 
     if ((c&0xFF000000)==0xFF000000) {
       c = DC;
@@ -767,40 +895,41 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
 
     fromR8G8B8A8(sr,sg,sb,sa,c);
 
-    if (alpha) {
-      sa += alpha;
-      if (sa >= 0xff) {
-        c = DC;
-        goto blit_end;
+    ALPHA_BLEND
+blit_end:;
+    end_blit(c)
+  } else {
+
+    begin_blit()
+    int sm; // source multiplier
+
+    c = SC;
+
+    if ((c&0xFF000000)==0xFF000000) {
+      c = DC;
+      goto blit_end2;
+    }
+
+    fromR8G8B8A8(sr,sg,sb,sa,c);
+
+    if (special) {
+      if (alpha) {
+        sa += alpha;
+        if (sa >= 0xff) {
+          c = DC;
+          goto blit_end2;
+        }
+      }
+      if (bright) { BRIGHTEN(sr,sg,sb); }
+      //BLIT_LIGHT
+      if (sa == 0) {
+
+        if (bright|light) { c = R8G8B8(sr,sg,sb); }
+        goto blit_end2;
       }
     }
-    if (zdata) zdata[pd] = z;
-    if (bright) { BRIGHTEN(sr,sg,sb); }
-    //BLIT_LIGHT
-    if (sa == 0) {
-
-      if (bright || light) { c = R8G8B8(sr,sg,sb); }
-      goto blit_end;
-    }
-
-/*    fromR8G8B8A8(dr,dg,db,da,DC);
-
-    if (da == 0) {
-      //NOTE: X>>8 is a division by 256, while max alpha is 0xFF
-      //      this leads to some loss of precision
-      sm = 0xFF - sa;
-      r = (sr*sm + dr*sa)>>8;
-      g = (sg*sm + dg*sa)>>8;
-      b = (sb*sm + db*sa)>>8;
-      c = R8G8B8(r,g,b);
-
-    } else {
-
-      // incorrect, but should be okay for now
-
-      if (bright || light) { c = R8G8B8(sr,sg,sb); } 
-    }*/
-blit_end:;
+    ALPHA_BLEND
+blit_end2:;
     end_blit(c);
   }
 }
