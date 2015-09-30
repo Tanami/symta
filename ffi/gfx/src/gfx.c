@@ -437,48 +437,15 @@ void gfx_set_light(gfx_t *gfx, int lx, int ly) {
   gfx->bflags|=GFX_BFLAGS_LIGHT;
 }
 
-#define LM_SIZE 256
 
-static uint8_t lightmap[LM_SIZE*LM_SIZE];
-static int lightmap_ready;
 
-#define CLIP(low,high,v) do {\
-  if (v<low) v = low; \
-  if (v>high) v = high; \
-  } while(0)
+#define RESTRICT __restrict__
+#define INLINE __attribute__((always_inline))
 
-void init_lightmap() {
-  int x, y;
-  for (y = 0; y < LM_SIZE; y++) {
-    for (x = 0; x < LM_SIZE; x++) {
-      double dx = (double)x-128.0;
-      double dy = (double)y-128.0;
-      int v = 255-(int)(sqrt(dx*dx + dy*dy)*255.0/128.0);
-      v=v*2/3;
-      CLIP(0,255,v);
-      lightmap[y*LM_SIZE+x] = (uint8_t)v;
-    }
-  }
-  lightmap_ready = 1;
+INLINE uint8_t clamp_byte(int n) {
+    n &= -(n >= 0);
+    return n | ((255 - n) >> 31);
 }
-
-#define DITHER dither && ((y&1) ^ (pd&1))
-
-#define BRIGHTEN(R,G,B) \
-  do { \
-    R += bright; \
-    G += bright; \
-    B += bright; \
-    if (bright > 0) { \
-      if (R > 255) R = 255; \
-      if (G > 255) G = 255; \
-      if (B > 255) B = 255; \
-    } else { \
-      if (R < 0) R = 0; \
-      if (G < 0) G = 0; \
-      if (B < 0) B = 0; \
-    } \
-  } while(0)
 
 
 #define begin_blit() \
@@ -564,6 +531,75 @@ static void gfx_gen_bumpmap(gfx_t *gfx) {
   free(src);
   free(dst);
 }
+
+
+
+#define DITHER dither && ((y&1) ^ (pd&1))
+
+#define BRIGHTEN(R,G,B) \
+  do { \
+    R = clamp_byte(R+bright); \
+    G = clamp_byte(G+bright); \
+    B = clamp_byte(B+bright); \
+  } while(0)
+
+#define LM_SIZE 256
+static uint8_t lightmap[LM_SIZE*LM_SIZE];
+static int lightmap_ready;
+void init_lightmap() {
+  int x, y;
+  for (y = 0; y < LM_SIZE; y++) {
+    for (x = 0; x < LM_SIZE; x++) {
+      double dx = (double)x-128.0;
+      double dy = (double)y-128.0;
+      int v = 255-(int)(sqrt(dx*dx + dy*dy)*255.0/128.0);
+      v=v*2/3;
+      v = clamp_byte(v);
+      lightmap[y*LM_SIZE+x] = (uint8_t)v;
+    }
+  }
+  lightmap_ready = 1;
+}
+
+#define BLIT_LIGHT \
+  if (light) { \
+    int dx, dy, bmv, BMV, px, py, intensity; \
+    bmv = bm[ps]; /*bumpmap value*/ \
+    BMV = bmv + 128; \
+    px = prev_bmv; \
+    py = prev_bmv_line[bmvx]; \
+    if (px < 0) px = bmv; \
+    if (py < 0) py = bmv; \
+    dx = BMV - px; \
+    dy = BMV - py; \
+    /*follow two lines are useful for dungeon lighting*/ \
+    /*dx = dx + (bmvx%256)-lx;*/ \
+    /*dy = dy + (y%256)-ly;*/ \
+    dx = dx - lx; \
+    dy = dy - ly; \
+    /*dx = bmvx%256;*/ \
+    /*dy = y%256;*/ \
+    if (0 <= dx && dx < LM_SIZE && 0 <= dy && dy < LM_SIZE) { \
+      intensity = lightmap[LM_SIZE*dy+dx]; \
+    } else { \
+      intensity = 0; \
+    } \
+    sr = sr*intensity/128; \
+    sg = sg*intensity/128; \
+    sb = sb*intensity/128; \
+    sr = clamp_byte(sr); \
+    sg = clamp_byte(sg); \
+    sb = clamp_byte(sb); \
+    /*sr = bmv; sg = bmv; sb = bmv;*/ \
+    if (sa != 0xFF) { \
+      prev_bmv_line[bmvx] = bmv; \
+      prev_bmv = bmv; \
+    } else { \
+      prev_bmv_line[bmvx] = -1; \
+      prev_bmv = -1; \
+    } \
+    ++bmvx; \
+  }
 
 void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
   int i, r, g, b, a;
@@ -708,197 +744,63 @@ void gfx_blit(gfx_t *gfx, int x, int y, gfx_t *src) {
       if (zdata) zdata[pd] = z;
     }
     end_blit(c)
-  } else if (src->cmap && !alpha) {
-    begin_blit()
-    int sm; // source multiplier
-    uint32_t c; // result color
-    int sr, sg, sb, sa;
-    if (SC >= GFX_CMAP_SIZE) {
-      if (show_error) {
-        fprintf(stderr, "gfx.c: color map index is too big = 0x%X\n", SC);
-        show_error = 0;
-      }
-      SC = 0;
-      //abort();
-    }
-    c = m[SC];
-    fromR8G8B8A8(sr,sg,sb,sa,c);
-    if (sa) {
-      c = DC;
-    } else if (DITHER) {
-      c = DC;
-    } else {
-      if (bright) {
-        BRIGHTEN(sr,sg,sb);
-        c = R8G8B8(sr,sg,sb);
-      }
-      if (zdata) zdata[pd] = z;
-    }
-    end_blit(c)
-  } else if (src->cmap) {
-    begin_blit()
-    int sm; // source multiplier
-    uint32_t c; // result color
-    int sr, sg, sb, sa;
-    if (SC >= GFX_CMAP_SIZE) {
-      if (show_error) {
-        fprintf(stderr, "gfx.c: color map index is too big = 0x%X\n", SC);
-        show_error = 0;
-      }
-      SC = 0;
-      //abort();
-    }
-    c = m[SC];
-    fromR8G8B8A8(sr,sg,sb,sa,c);
-    if (alpha) {
-      sa += alpha;
-      if (sa > 0xff) sa = 0xff;
-    }
-    if (sa == 0) {
-
-      if (bright) {
-        BRIGHTEN(sr,sg,sb);
-        c = R8G8B8(sr,sg,sb);
-      } else {
-        c = m[SC];
-
-      }
-      if (zdata) zdata[pd] = z;
-    } else if (sa == 0xFF) {
-      c = DC;
-    } else {
-      int dr, dg, db, da;
-
-      fromR8G8B8A8(dr,dg,db,da,DC);
-
-      if (da == 0) {
-        //NOTE: X>>8 is a division by 256, while max alpha is 0xFF
-        //      this leads to some loss of precision
-        if (bright) {
-          BRIGHTEN(sr,sg,sb);
-        }
-        sm = 0xFF - sa;
-        r = (sr*sm + dr*sa)>>8;
-        g = (sg*sm + dg*sa)>>8;
-        b = (sb*sm + db*sa)>>8;
-        c = R8G8B8(r,g,b);
-
-      } else {
-
-        // incorrect, but should be okay for now
-
-        if (bright) {
-          BRIGHTEN(sr,sg,sb);
-          c = R8G8B8(sr,sg,sb);
-        } else {
-          c = m[SC];
-
-        }
-        if (zdata) zdata[pd] = z;
-      }
-    }
-    if (DITHER) {
-      c = DC;
-    }
-    end_blit(c);
   } else {
 
+    int dr, dg, db, da;
+
     begin_blit()
     int sm; // source multiplier
     uint32_t c; // result color
     int sr, sg, sb, sa;
-    fromR8G8B8A8(sr,sg,sb,sa,SC);
+
+    if (DITHER) {
+      c = DC;
+      goto blit_end;
+    }
+
+    c = m ? m[SC] : SC;
+
+    if ((c&0xFF000000)==0xFF000000) {
+      c = DC;
+      goto blit_end;
+    }
+
+    fromR8G8B8A8(sr,sg,sb,sa,c);
 
     if (alpha) {
       sa += alpha;
-      if (sa > 0xff) sa = 0xff;
-    }
-    if (light) {
-      int dx, dy, bmv, BMV, px, py, intensity;
-      bmv = bm[ps]; //bumpmap value
-      BMV = bmv + 128;
-      px = prev_bmv;
-      py = prev_bmv_line[bmvx];
-      if (px < 0) px = bmv;
-      if (py < 0) py = bmv;
-      dx = BMV - px;
-      dy = BMV - py;
-      //follow two lines are useful for dungeon lighting
-      //dx = dx + (bmvx%256)-lx;
-      //dy = dy + (y%256)-ly;
-      dx = dx - lx;
-      dy = dy - ly;
-      //dx = bmvx%256;
-      //dy = y%256;
-      if (0 <= dx && dx < LM_SIZE && 0 <= dy && dy < LM_SIZE) {
-        intensity = lightmap[LM_SIZE*dy+dx];
-      } else {
-        intensity = 0;
+      if (sa >= 0xff) {
+        c = DC;
+        goto blit_end;
       }
-      sr = sr*intensity/128;
-      sg = sg*intensity/128;
-      sb = sb*intensity/128;
-      CLIP(0,255,sr);
-      CLIP(0,255,sg);
-      CLIP(0,255,sb);
-      //sr = bmv; sg = bmv; sb = bmv;
-      if (sa != 0xFF) {
-        prev_bmv_line[bmvx] = bmv;
-        prev_bmv = bmv;
-      } else {
-        prev_bmv_line[bmvx] = -1;
-        prev_bmv = -1;
-      }
-      ++bmvx;
     }
+    if (zdata) zdata[pd] = z;
+    if (bright) { BRIGHTEN(sr,sg,sb); }
+    //BLIT_LIGHT
     if (sa == 0) {
 
-      if (bright) {
-        BRIGHTEN(sr,sg,sb);
-        c = R8G8B8(sr,sg,sb);
-      } else {
-        if (light) c = R8G8B8(sr,sg,sb);
-        else c = SC;
+      if (bright || light) { c = R8G8B8(sr,sg,sb); }
+      goto blit_end;
+    }
 
-      }
-      if (zdata) zdata[pd] = z;
-    } else if (sa == 0xFF) {
-      c = DC;
+/*    fromR8G8B8A8(dr,dg,db,da,DC);
+
+    if (da == 0) {
+      //NOTE: X>>8 is a division by 256, while max alpha is 0xFF
+      //      this leads to some loss of precision
+      sm = 0xFF - sa;
+      r = (sr*sm + dr*sa)>>8;
+      g = (sg*sm + dg*sa)>>8;
+      b = (sb*sm + db*sa)>>8;
+      c = R8G8B8(r,g,b);
+
     } else {
-      int dr, dg, db, da;
 
-      fromR8G8B8A8(dr,dg,db,da,DC);
+      // incorrect, but should be okay for now
 
-      if (da == 0) {
-        //NOTE: X>>8 is a division by 256, while max alpha is 0xFF
-        //      this leads to some loss of precision
-        if (bright) {
-          BRIGHTEN(sr,sg,sb);
-        }
-        sm = 0xFF - sa;
-        r = (sr*sm + dr*sa)>>8;
-        g = (sg*sm + dg*sa)>>8;
-        b = (sb*sm + db*sa)>>8;
-        c = R8G8B8(r,g,b);
-
-      } else {
-
-        // incorrect, but should be okay for now
-
-        if (bright) {
-          BRIGHTEN(sr,sg,sb);
-          c = R8G8B8(sr,sg,sb);
-        } else {
-          if (light) c = R8G8B8(sr,sg,sb);
-          else c = SC;
-
-        }
-        if (zdata) zdata[pd] = z;
-      }
-    }
-    if (DITHER) {
-      c = DC;
-    }
+      if (bright || light) { c = R8G8B8(sr,sg,sb); } 
+    }*/
+blit_end:;
     end_blit(c);
   }
 }
