@@ -667,13 +667,14 @@ static int ready;
 } while(0)
 
 
-    //NOTE: X>>8 is a division by 256, while max alpha is 0xFF
-    //      this leads to some loss of precision
-    /*sm = 0xFF - sa;
-    sr = (sr*sm + dr*sa)>>8;
-    sg = (sg*sm + dg*sa)>>8;
-    sb = (sb*sm + db*sa)>>8;
-    c = R8G8B8(sr,sg,sb);*/
+//NOTE: X>>8 is a division by 256, while max alpha is 0xFF
+//      this leads to some loss of precision
+#define ALPHA_BLEND3 \
+    sm = 0xFF - sa; \
+    sr = (sr*sm + dr*sa)>>8; \
+    sg = (sg*sm + dg*sa)>>8; \
+    sb = (sb*sm + db*sa)>>8; \
+    c = R8G8B8(sr,sg,sb);
 
 #define ALPHA_BLEND \
   if (DC&0xFF000000) { \
