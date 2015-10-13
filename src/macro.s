@@ -144,6 +144,7 @@ expand_hole Key Hole Hit Miss =
   [[X@Xs]] | expand_hole Key [X@Xs] Hit Miss
   Else | mex_error "bad match case: [Hole]"
 
+// FIXME: use `coma_list_normalize`
 expand_match Keyform Cases Default Key =
 | when no Key: Key <= @rand 'Key'
 | E = @rand end
@@ -653,14 +654,23 @@ make_multimethod Xs =
       | [['[]' @Args] Expr]
 | ['=>' [@Name ['@' All]] (expand_match All Xs Default No)]
 
+coma_list_normalize E = 
+| less case E [`,` A B]: leave E
+| R = E^| @r [`,` A B] => [@A^r B]; X => [X]
+| R
+| [`[]` @R]
+
 expand_block_helper R A B =
 | if no A then [B @R]
   else if A.is_keyword then [[_set A B] @R]
   else | R = if R.size then [_progn @R] else No
        | if A^is_var_sym then [[let_ [[A B]] R]]
-         else if case A [`[]` @Bs] Bs.all{?^is_var_sym} then
-            [(expand_destructuring B A.tail R)]
-         else [(expand_match B [[A R]] [_fatal "couldnt match [B] to [A]"] No)]
+         else
+           | A = coma_list_normalize A
+           | if case A [`[]` @Bs] Bs.all{?^is_var_sym} then
+               [(expand_destructuring B A.tail R)]
+             else [(expand_match B [[A R]]
+                                 [_fatal "couldnt match [B] to [A]"] No)]
 
 expand_block Xs =
 | when Xs.size >< 1 and not case Xs.0 [`=` @Zs] 1: leave Xs.0

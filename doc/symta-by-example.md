@@ -769,6 +769,10 @@ This section provides a quick reference of the content of cors_.s and rt_.s file
 
 `uncons Next Item` - uncons C-style list into Symta list
 
+`time` - time of day in seconds (floating point)
+
+`clock` - realtime clock in seconds (floating point)
+
 
 Thanks
 ------------------------------
