@@ -551,6 +551,7 @@ my_while @Head Body = form: _progn (_label ~L)
 
 The example uses the three lowest level Symta's constuct, rarely used normally; they are: `_progn`, `_label` and `_goto`. The `_progn` is a low-level version of `|`, which doesn't allow variable declarations, lambdas, local functions and other fance stuff. The only special thing `_progn` allows inside is the `(_label LabelName)` construct, which declares a label, that can be referenced by a local `_goto` around it. In case of `my_while`, the `LabelName` is `~L`, where the `~` prefix specifies that label name must be unique to avoid conflicts with other variable names; such functionality is called "auto-gensym" in other Lisps.
 
+Note that `_goto` cannot jump over a variable declaration, so all variables must be declared before `_goto`.
 
 Symta's Approach to Memory Management
 ------------------------------
@@ -711,7 +712,7 @@ This section provides a quick reference of the content of cors_.s and rt_.s file
 
 `list.transpose` - matrix transpose
 
-`list.bytes` - coerce list of integers to an efficient internal representation, using only 8 bites for each value
+`list.bytes` - coerce list of integers to an efficient internal representation, using only 8-bit byte per value.
 
 `_.as_text` - convert object to textual represenation
 

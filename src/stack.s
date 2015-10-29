@@ -1,7 +1,11 @@
 type stack{Init} xs used
 | if Init.is_int then $xs <= dup{Init}
   else | $xs <= dup{Init.size}
-       | for X Init: $push{X}
+       | $init{Init}
+
+stack.init Xs =
+| $clear
+| for X Xs: $push{X}
 
 stack.push X =
 | $xs.$used <= X

@@ -89,7 +89,8 @@ gfx.cut X Y W H =
 | G.clear{#FF000000} // transparent
 | CMap = $cmap
 | when CMap: G.cmap <= CMap
-| G.blit{0 0 Me.rect{X Y W H}}
+| SX,SY = $xy
+| G.blit{-SX -SY Me.rect{X Y W H}}
 | G
 gfx.copy = $cut{0 0 $w $h}
 gfx.deep_copy = $cut{0 0 $w $h}
