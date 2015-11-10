@@ -79,10 +79,14 @@ static void *sink;
 
 static int max_lifted;
 
-// FIXME: use heap instead
-static char print_buffer[1024*1024*2];
+static char *print_object_buf_end;
+static int print_object_error;
+#define PRINT_OBJECT_MARGIN 2048
 static int print_depth = 0;
 #define MAX_PRINT_DEPTH 32
+// FIXME: use heap instead
+#define PRINT_BUFFER_SIZE (1024*1024*2)
+static char print_buffer[PRINT_BUFFER_SIZE];
 
 static void print_stack_trace(api_t *api) {
   intptr_t s = Level-1;
@@ -555,6 +559,8 @@ static void bad_call(REGS, void *method) {
 static char *print_object_r(api_t *api, char *out, void *o);
 char* print_object_f(api_t *api, void *object) {
   print_depth = 0;
+  print_object_buf_end = print_buffer+PRINT_BUFFER_SIZE;\
+  print_object_error = 0;
   print_object_r(api, print_buffer, object);
   return print_buffer;
 }
@@ -1651,7 +1657,6 @@ static struct {
   {0, 0}
 };
 
-
 static char *print_object_r(api_t *api, char *out, void *o) {
   int i;
   int type = (int)O_TYPE(o);
@@ -1660,12 +1665,28 @@ static char *print_object_r(api_t *api, char *out, void *o) {
   //fprintf(stderr, "%p = %d\n", o, type);
   //if (print_depth > 4) abort();
 
+  if (print_depth >= MAX_PRINT_DEPTH) {
+    if (!print_object_error) {
+      fprintf(stderr, "MAX_PRINT_DEPTH reached: likely a recursive object\n");
+      print_object_error = 1;
+    }
+    *out = 0;
+    sprintf(print_buffer, "<MAX_PRINT_DEPTH reached>");
+    return out;
+  }
+
+  if (print_object_buf_end-out<PRINT_OBJECT_MARGIN) {
+    if (!print_object_error) {
+      fprintf(stderr, "print_object buffer overflow: likely very large object\n");
+      print_object_error = 1;
+    }
+    *out = 0;
+    sprintf(print_buffer, "<print object buffer overflow>");
+    return out;
+  }
+
   print_depth++;
 
-  if (print_depth > MAX_PRINT_DEPTH) {
-    fprintf(stderr, "MAX_PRINT_DEPTH reached: likely a recursive object\n");
-    abort();
-  }
 print_tail:
   if (o == No) {
     out += sprintf(out, "No");
